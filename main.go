@@ -12,10 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gaia-adm/pumba/container"
-
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/gaia-adm/pumba/container"
 )
 
 var (
