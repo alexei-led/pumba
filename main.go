@@ -1,4 +1,4 @@
-package main
+package main // import "github.com/gaia-adm/pumba"
 
 import (
 	"crypto/tls"
@@ -12,9 +12,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gaia-adm/pumba/action"
+	"github.com/gaia-adm/pumba/container"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/gaia-adm/pumba/container"
 )
 
 var (
@@ -47,11 +49,6 @@ func main() {
 			Value:  "unix:///var/run/docker.sock",
 			EnvVar: "DOCKER_HOST",
 		},
-		cli.IntFlag{
-			Name:  "interval, i",
-			Usage: "wake up interval (in seconds)",
-			Value: 300,
-		},
 		cli.BoolFlag{
 			Name:  "tls",
 			Usage: "use TLS; implied by --tlsverify",
@@ -79,6 +76,10 @@ func main() {
 		cli.BoolFlag{
 			Name:  "debug",
 			Usage: "enable debug mode with verbose logging",
+		},
+		cli.StringSliceFlag{
+			Name:  "interval, i",
+			Usage: "wake up interval (in seconds)",
 		},
 	}
 

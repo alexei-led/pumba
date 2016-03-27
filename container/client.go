@@ -17,8 +17,7 @@ const (
 // results from a call to the ListContainers() method on the Client.
 type Filter func(Container) bool
 
-// A Client is the interface through which watchtower interacts with the
-// Docker API.
+// A Client is the interface through which Pumba interacts with the Docker API.
 type Client interface {
 	ListContainers(Filter) ([]Container, error)
 	StopContainer(Container, time.Duration) error

@@ -112,7 +112,7 @@ func TestStopSignal_Present(t *testing.T) {
 		containerInfo: &dockerclient.ContainerInfo{
 			Config: &dockerclient.ContainerConfig{
 				Labels: map[string]string{
-					"com.centurylinklabs.watchtower.stop-signal": "SIGQUIT",
+					"com.gaiaadm.pubma.stop-signal": "SIGQUIT",
 				},
 			},
 		},

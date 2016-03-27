@@ -123,7 +123,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 			Name: "foo",
 			Id:   "abc123",
 			Config: &dockerclient.ContainerConfig{
-				Labels: map[string]string{"com.centurylinklabs.watchtower.stop-signal": "SIGUSR1"}},
+				Labels: map[string]string{"com.gaiaadm.pubma.stop-signal": "SIGUSR1"}},
 		},
 	}
 

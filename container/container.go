@@ -9,7 +9,7 @@ import (
 
 const (
 	pumbaLabel  = "com.gaiaadm.pubma"
-	signalLabel = "com.centurylinklabs.watchtower.stop-signal"
+	signalLabel = "com.gaiaadm.pubma.stop-signal"
 )
 
 // NewContainer returns a new Container instance instantiated with the
