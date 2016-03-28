@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestPattern_Filter(t *testing.T) {
+func TestPattern_StarFilter(t *testing.T) {
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
 			Name:   "c1",
@@ -37,6 +37,37 @@ func TestPattern_Filter(t *testing.T) {
 		nil,
 	)
 	cf := regexContainerFilter("*")
+	assert.True(t, cf(c1))
+	assert.True(t, cf(c2))
+	assert.False(t, cf(c3))
+}
+
+func TestPattern_NameFilter(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "AbcEFG",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "AbcHKL",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	cc := &dockerclient.ContainerConfig{
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
+	}
+	c3 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "AbcPumba",
+			Config: cc,
+		},
+		nil,
+	)
+	cf := regexContainerFilter("^Abc")
 	assert.True(t, cf(c1))
 	assert.True(t, cf(c2))
 	assert.False(t, cf(c3))
