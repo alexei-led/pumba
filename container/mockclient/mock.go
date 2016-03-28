@@ -36,14 +36,18 @@ func (m *MockClient) RenameContainer(c container.Container, name string) error {
 	return args.Error(0)
 }
 
-// IsContainerStale mock
-func (m *MockClient) IsContainerStale(c container.Container) (bool, error) {
-	args := m.Called(c)
-	return args.Bool(0), args.Error(1)
-}
-
 // RemoveImage mock
 func (m *MockClient) RemoveImage(c container.Container, b bool) error {
 	args := m.Called(c, b)
+	return args.Error(0)
+}
+
+func (m *MockClient) KillContainer(c container.Container, s string) error {
+	args := m.Called(c, s)
+	return args.Error(0)
+}
+
+func (m *MockClient) RemoveContainer(c container.Container, f bool) error {
+	args := m.Called(c, f)
 	return args.Error(0)
 }

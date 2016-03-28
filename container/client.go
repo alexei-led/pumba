@@ -21,10 +21,11 @@ type Filter func(Container) bool
 type Client interface {
 	ListContainers(Filter) ([]Container, error)
 	StopContainer(Container, time.Duration) error
+	KillContainer(Container, string) error
 	StartContainer(Container) error
 	RenameContainer(Container, string) error
-	IsContainerStale(Container) (bool, error)
 	RemoveImage(Container, bool) error
+	RemoveContainer(Container, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -72,6 +73,14 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 	}
 
 	return cs, nil
+}
+
+func (client dockerClient) KillContainer(c Container, signal string) error {
+	log.Infof("Killing %s (%s) with signal $s", c.Name(), c.ID(), signal)
+	if err := client.api.KillContainer(c.ID(), signal); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (client dockerClient) StopContainer(c Container, timeout time.Duration) error {
@@ -125,35 +134,16 @@ func (client dockerClient) RenameContainer(c Container, newName string) error {
 	return client.api.RenameContainer(c.ID(), newName)
 }
 
-func (client dockerClient) IsContainerStale(c Container) (bool, error) {
-	oldImageInfo := c.imageInfo
-	imageName := c.ImageName()
-
-	if client.pullImages {
-		log.Debugf("Pulling %s for %s", imageName, c.Name())
-		if err := client.api.PullImage(imageName, nil); err != nil {
-			return false, err
-		}
-	}
-
-	newImageInfo, err := client.api.InspectImage(imageName)
-	if err != nil {
-		return false, err
-	}
-
-	if newImageInfo.Id != oldImageInfo.Id {
-		log.Infof("Found new %s image (%s)", imageName, newImageInfo.Id)
-		return true, nil
-	}
-
-	return false, nil
-}
-
 func (client dockerClient) RemoveImage(c Container, force bool) error {
 	imageID := c.ImageID()
 	log.Infof("Removing image %s", imageID)
 	_, err := client.api.RemoveImage(imageID, force)
 	return err
+}
+
+func (client dockerClient) RemoveContainer(c Container, force bool) error {
+	log.Infof("Removing container %s", c.ID())
+	return client.api.RemoveContainer(c.ID(), force, true)
 }
 
 func (client dockerClient) waitForStop(c Container, waitTime time.Duration) error {

@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	pumbaLabel  = "com.gaiaadm.pubma"
-	signalLabel = "com.gaiaadm.pubma.stop-signal"
+	pumbaLabel  = "com.gaiaadm.pumba"
+	signalLabel = "com.gaiaadm.pumba.stop-signal"
 )
 
 // NewContainer returns a new Container instance instantiated with the
@@ -23,8 +23,6 @@ func NewContainer(containerInfo *dockerclient.ContainerInfo, imageInfo *dockercl
 
 // Container represents a running Docker container.
 type Container struct {
-	Stale bool
-
 	containerInfo *dockerclient.ContainerInfo
 	imageInfo     *dockerclient.ImageInfo
 }

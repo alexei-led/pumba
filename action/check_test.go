@@ -14,7 +14,7 @@ import (
 
 func TestCheckPrereqs_Success(t *testing.T) {
 	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaia-adm.pumba": "true"},
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
 	}
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
@@ -46,7 +46,7 @@ func TestCheckPrereqs_Success(t *testing.T) {
 
 func TestCheckPrereqs_WithCleanup(t *testing.T) {
 	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaia-adm.pumba": "true"},
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
 	}
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
@@ -79,7 +79,7 @@ func TestCheckPrereqs_WithCleanup(t *testing.T) {
 
 func TestCheckPrereqs_OnlyOneContainer(t *testing.T) {
 	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaia-adm.pumba": "true"},
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
 	}
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{

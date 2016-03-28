@@ -75,7 +75,7 @@ func TestIsPumba_True(t *testing.T) {
 	c := Container{
 		containerInfo: &dockerclient.ContainerInfo{
 			Config: &dockerclient.ContainerConfig{
-				Labels: map[string]string{"com.gaiaadm.pubma": "true"},
+				Labels: map[string]string{"com.gaiaadm.pumba": "true"},
 			},
 		},
 	}
@@ -87,7 +87,7 @@ func TestIsPumba_WrongLabelValue(t *testing.T) {
 	c := Container{
 		containerInfo: &dockerclient.ContainerInfo{
 			Config: &dockerclient.ContainerConfig{
-				Labels: map[string]string{"com.gaiaadm.pubma": "false"},
+				Labels: map[string]string{"com.gaiaadm.pumba": "false"},
 			},
 		},
 	}
@@ -112,7 +112,7 @@ func TestStopSignal_Present(t *testing.T) {
 		containerInfo: &dockerclient.ContainerInfo{
 			Config: &dockerclient.ContainerConfig{
 				Labels: map[string]string{
-					"com.gaiaadm.pubma.stop-signal": "SIGQUIT",
+					"com.gaiaadm.pumba.stop-signal": "SIGQUIT",
 				},
 			},
 		},

@@ -3,6 +3,7 @@ package main // import "github.com/gaia-adm/pumba"
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -20,11 +21,20 @@ import (
 )
 
 var (
-	wg             sync.WaitGroup
-	client         container.Client
-	wakeupInterval time.Duration
-	cleanup        bool
+	wg      sync.WaitGroup
+	client  container.Client
+	cleanup bool
 )
+
+const (
+	defaultKillSignal = "SIGKILL"
+)
+
+type commandT struct {
+	pattern string
+	command string
+	signal  string
+}
 
 func init() {
 	log.SetLevel(log.InfoLevel)
@@ -78,8 +88,8 @@ func main() {
 			Usage: "enable debug mode with verbose logging",
 		},
 		cli.StringSliceFlag{
-			Name:  "interval, i",
-			Usage: "wake up interval (in seconds)",
+			Name:  "stop_cmd",
+			Usage: "stop command: `container/regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
 		},
 	}
 
@@ -93,7 +103,6 @@ func before(c *cli.Context) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	wakeupInterval = time.Duration(c.Int("interval")) * time.Second
 	cleanup = c.GlobalBool("cleanup")
 
 	// Set-up container client
@@ -109,20 +118,56 @@ func before(c *cli.Context) error {
 }
 
 func start(c *cli.Context) {
-	names := c.Args()
-
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
 
-	for {
-		wg.Add(1)
-		if err := actions.Update(client, names, cleanup); err != nil {
-			fmt.Println(err)
-		}
-		wg.Done()
+	// docker channel to pass all "stop" commands to
+	dc := make(chan commandT)
 
-		time.Sleep(wakeupInterval)
+	stopArgs := c.GlobalStringSlice("stop_cmd")
+	for _, stopArg := range stopArgs {
+		s := strings.Split(stopArg, "|")
+		if len(s) != 3 {
+			log.Fatal(errors.New("Unexpected format for stop_arg: use | separated triple"))
+		}
+		// get container name pattern
+		pattern := s[0]
+		// get interval duration
+		interval, err := time.ParseDuration(s[1])
+		if err != nil {
+			log.Fatal(err)
+		}
+		// get command and signal (if specified); convert everything to upper case
+		cs := strings.Split(strings.ToUpper(s[3]), ":")
+		command := cs[0]
+		signal := defaultKillSignal
+		if len(cs) == 2 {
+			signal = cs[1]
+		}
+
+		ticker := time.NewTicker(interval)
+		go func(cmd commandT) {
+			for range ticker.C {
+				dc <- cmd
+			}
+		}(commandT{pattern, command, signal})
+
+		for {
+			cmd := <-dc
+			wg.Add(1)
+			go func(cmd commandT) {
+				defer wg.Done()
+				switch cmd.command {
+				case "STOP":
+					actions.StopByPattern(client, cmd.pattern)
+				case "KILL":
+					actions.KillByPattern(client, cmd.pattern, cmd.signal)
+				case "RM":
+					actions.RemoveByPattern(client, cmd.pattern, true)
+				}
+			}(cmd)
+		}
 	}
 }
 
