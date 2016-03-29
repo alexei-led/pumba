@@ -26,6 +26,9 @@ func containerFilter(names []string) container.Filter {
 	}
 
 	return func(c container.Container) bool {
+		if c.IsPumba() {
+			return false
+		}
 		for _, name := range names {
 			if (name == c.Name()) || (name == c.Name()[1:]) {
 				return true
@@ -36,10 +39,6 @@ func containerFilter(names []string) container.Filter {
 }
 
 func regexContainerFilter(pattern string) container.Filter {
-	if pattern == "*" {
-		return allContainersFilter
-	}
-
 	return func(c container.Container) bool {
 		if c.IsPumba() {
 			return false
@@ -73,7 +72,7 @@ func StopByName(client container.Client, names []string) error {
 
 // StopByPattern stop containers matching pattern
 func StopByPattern(client container.Client, pattern string) error {
-	log.Info("Stop containers by pattern: ", pattern)
+	log.Infof("Stop containers by RE2 regex: '%s'", pattern)
 
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
 	if err != nil {
@@ -117,7 +116,7 @@ func KillByName(client container.Client, names []string, signal string) error {
 // KillByPattern kill containers matching pattern. You can pass custom
 // signal, if empty SIGKILL will be used
 func KillByPattern(client container.Client, pattern string, signal string) error {
-	log.Info("Kill containers matching pattern: ", pattern)
+	log.Infof("Kill containers matching RE2 regex: '%s'", pattern)
 
 	if signal == "" {
 		signal = defaultKillSignal
@@ -161,7 +160,7 @@ func RemoveByName(client container.Client, names []string, force bool) error {
 // RemoveByPattern remove container, if its name within `names`. Kill container if its running
 // and `force` flag is `true`
 func RemoveByPattern(client container.Client, pattern string, force bool) error {
-	log.Info("Remove containers by pattern: ", pattern)
+	log.Infof("Remove containers by RE2 pattern: '%s'", pattern)
 
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
 	if err != nil {

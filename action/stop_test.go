@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestPattern_StarFilter(t *testing.T) {
+func TestPattern_DotRe2Filter(t *testing.T) {
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
 			Name:   "c1",
@@ -26,23 +26,20 @@ func TestPattern_StarFilter(t *testing.T) {
 		},
 		nil,
 	)
-	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
-	}
 	c3 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
-			Name:   "c1",
-			Config: cc,
+			Name:   "c3",
+			Config: &dockerclient.ContainerConfig{},
 		},
 		nil,
 	)
-	cf := regexContainerFilter("*")
+	cf := regexContainerFilter(".")
 	assert.True(t, cf(c1))
 	assert.True(t, cf(c2))
-	assert.False(t, cf(c3))
+	assert.True(t, cf(c3))
 }
 
-func TestPattern_NameFilter(t *testing.T) {
+func TestPattern_Re2Filter(t *testing.T) {
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
 			Name:   "AbcEFG",
@@ -73,7 +70,68 @@ func TestPattern_NameFilter(t *testing.T) {
 	assert.False(t, cf(c3))
 }
 
-func TestStopByPattern_All(t *testing.T) {
+func TestNamesFilter(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "ccc",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "ddd",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	cc := &dockerclient.ContainerConfig{
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
+	}
+	c3 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "xxx",
+			Config: cc,
+		},
+		nil,
+	)
+	cf := containerFilter([]string{"ccc", "bbb", "xxx"})
+	assert.True(t, cf(c1))
+	assert.False(t, cf(c2))
+	assert.False(t, cf(c3))
+}
+
+func TestAllFilter(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "ccc",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "ddd",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	cc := &dockerclient.ContainerConfig{
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
+	}
+	c3 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "xxx",
+			Config: cc,
+		},
+		nil,
+	)
+	assert.True(t, allContainersFilter(c1))
+	assert.True(t, allContainersFilter(c2))
+	assert.False(t, allContainersFilter(c3))
+}
+
+func TestStopByName(t *testing.T) {
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
 			Name: "c1",
@@ -93,7 +151,137 @@ func TestStopByPattern_All(t *testing.T) {
 	client.On("StopContainer", c1, time.Duration(10)).Return(nil)
 	client.On("StopContainer", c2, time.Duration(10)).Return(nil)
 
-	err := StopByPattern(client, "*")
+	err := StopByName(client, []string{})
+
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestStopByPattern(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c1",
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c2",
+		},
+		nil,
+	)
+	cs := []container.Container{c1, c2}
+
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("StopContainer", c1, time.Duration(10)).Return(nil)
+	client.On("StopContainer", c2, time.Duration(10)).Return(nil)
+
+	err := StopByPattern(client, "^c")
+
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestKillByName(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c1",
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c2",
+		},
+		nil,
+	)
+	cs := []container.Container{c1, c2}
+
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("KillContainer", c1, "SIGTEST").Return(nil)
+	client.On("KillContainer", c2, "SIGTEST").Return(nil)
+
+	err := KillByName(client, []string{"c1", "c2"}, "SIGTEST")
+
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestKillByPattern(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c1",
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c2",
+		},
+		nil,
+	)
+	cs := []container.Container{c1, c2}
+
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("KillContainer", c1, "SIGTEST").Return(nil)
+	client.On("KillContainer", c2, "SIGTEST").Return(nil)
+
+	err := KillByPattern(client, "^c", "SIGTEST")
+
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestRemoveByName(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c1",
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c2",
+		},
+		nil,
+	)
+	cs := []container.Container{c1, c2}
+
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("RemoveContainer", c1, false).Return(nil)
+	client.On("RemoveContainer", c2, false).Return(nil)
+
+	err := RemoveByName(client, []string{"c1", "c2"}, false)
+
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestRemoveByPattern(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c1",
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name: "c2",
+		},
+		nil,
+	)
+	cs := []container.Container{c1, c2}
+
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("RemoveContainer", c1, false).Return(nil)
+	client.On("RemoveContainer", c2, false).Return(nil)
+
+	err := RemoveByPattern(client, "^c", false)
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)

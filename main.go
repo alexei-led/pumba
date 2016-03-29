@@ -28,10 +28,12 @@ var (
 
 const (
 	defaultKillSignal = "SIGKILL"
+	re2prefix         = "re2"
 )
 
 type commandT struct {
 	pattern string
+	names   []string
 	command string
 	signal  string
 }
@@ -89,7 +91,7 @@ func main() {
 		},
 		cli.StringSliceFlag{
 			Name:  "stop_cmd",
-			Usage: "stop command: `container/regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
+			Usage: "stop command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
 		},
 	}
 
@@ -132,7 +134,13 @@ func start(c *cli.Context) {
 			log.Fatal(errors.New("Unexpected format for stop_arg: use | separated triple"))
 		}
 		// get container name pattern
-		pattern := s[0]
+		var pattern string
+		var names []string
+		if strings.HasPrefix(s[0], re2prefix) {
+			pattern = strings.Trim(s[0], re2prefix)
+		} else {
+			names = strings.Split(s[0], ",")
+		}
 		// get interval duration
 		interval, err := time.ParseDuration(s[1])
 		if err != nil {
@@ -151,7 +159,7 @@ func start(c *cli.Context) {
 			for range ticker.C {
 				dc <- cmd
 			}
-		}(commandT{pattern, command, signal})
+		}(commandT{pattern, names, command, signal})
 
 		for {
 			cmd := <-dc
@@ -160,11 +168,23 @@ func start(c *cli.Context) {
 				defer wg.Done()
 				switch cmd.command {
 				case "STOP":
-					actions.StopByPattern(client, cmd.pattern)
+					if pattern == "" {
+						actions.StopByName(client, cmd.names)
+					} else {
+						actions.StopByPattern(client, cmd.pattern)
+					}
 				case "KILL":
-					actions.KillByPattern(client, cmd.pattern, cmd.signal)
+					if pattern == "" {
+						actions.KillByName(client, cmd.names, cmd.signal)
+					} else {
+						actions.KillByPattern(client, cmd.pattern, cmd.signal)
+					}
 				case "RM":
-					actions.RemoveByPattern(client, cmd.pattern, true)
+					if pattern == "" {
+						actions.RemoveByName(client, cmd.names, true)
+					} else {
+						actions.RemoveByPattern(client, cmd.pattern, true)
+					}
 				}
 			}(cmd)
 		}

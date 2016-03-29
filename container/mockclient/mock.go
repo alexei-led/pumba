@@ -42,11 +42,13 @@ func (m *MockClient) RemoveImage(c container.Container, b bool) error {
 	return args.Error(0)
 }
 
+// KillContainer mock
 func (m *MockClient) KillContainer(c container.Container, s string) error {
 	args := m.Called(c, s)
 	return args.Error(0)
 }
 
+// RemoveContainer mock
 func (m *MockClient) RemoveContainer(c container.Container, f bool) error {
 	args := m.Called(c, f)
 	return args.Error(0)
