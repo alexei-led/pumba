@@ -12,6 +12,19 @@ const (
 	defaultKillSignal = "SIGKILL"
 )
 
+// A Chaos is the interface with different methods to stop runnig containers.
+type Chaos interface {
+	StopByName(container.Client, []string) error
+	StopByPattern(container.Client, string) error
+	KillByName(container.Client, []string, string) error
+	KillByPattern(container.Client, string, string) error
+	RemoveByName(container.Client, []string, bool) error
+	RemoveByPattern(container.Client, string, bool) error
+}
+
+// Pumba makes chaos
+type Pumba struct{}
+
 // all containers beside Pumba
 func allContainersFilter(c container.Container) bool {
 	if c.IsPumba() {
@@ -52,7 +65,7 @@ func regexContainerFilter(pattern string) container.Filter {
 }
 
 // StopByName stop container, if its name within `names`
-func StopByName(client container.Client, names []string) error {
+func (p Pumba) StopByName(client container.Client, names []string) error {
 	log.Info("Stop containers by name")
 
 	containers, err := client.ListContainers(containerFilter(names))
@@ -71,7 +84,7 @@ func StopByName(client container.Client, names []string) error {
 }
 
 // StopByPattern stop containers matching pattern
-func StopByPattern(client container.Client, pattern string) error {
+func (p Pumba) StopByPattern(client container.Client, pattern string) error {
 	log.Infof("Stop containers by RE2 regex: '%s'", pattern)
 
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
@@ -91,7 +104,7 @@ func StopByPattern(client container.Client, pattern string) error {
 
 // KillByName kill container, if its name within `names`. You can pass custom
 // signal, if empty SIGKILL will be used
-func KillByName(client container.Client, names []string, signal string) error {
+func (p Pumba) KillByName(client container.Client, names []string, signal string) error {
 	log.Info("Kill containers by names")
 
 	if signal == "" {
@@ -115,7 +128,7 @@ func KillByName(client container.Client, names []string, signal string) error {
 
 // KillByPattern kill containers matching pattern. You can pass custom
 // signal, if empty SIGKILL will be used
-func KillByPattern(client container.Client, pattern string, signal string) error {
+func (p Pumba) KillByPattern(client container.Client, pattern string, signal string) error {
 	log.Infof("Kill containers matching RE2 regex: '%s'", pattern)
 
 	if signal == "" {
@@ -139,7 +152,7 @@ func KillByPattern(client container.Client, pattern string, signal string) error
 
 // RemoveByName remove container, if its name within `names`. Kill container if its running
 // and `force` flag is `true`
-func RemoveByName(client container.Client, names []string, force bool) error {
+func (p Pumba) RemoveByName(client container.Client, names []string, force bool) error {
 	log.Info("Remove containers by name")
 
 	containers, err := client.ListContainers(containerFilter(names))
@@ -159,7 +172,7 @@ func RemoveByName(client container.Client, names []string, force bool) error {
 
 // RemoveByPattern remove container, if its name within `names`. Kill container if its running
 // and `force` flag is `true`
-func RemoveByPattern(client container.Client, pattern string, force bool) error {
+func (p Pumba) RemoveByPattern(client container.Client, pattern string, force bool) error {
 	log.Infof("Remove containers by RE2 pattern: '%s'", pattern)
 
 	containers, err := client.ListContainers(regexContainerFilter(pattern))

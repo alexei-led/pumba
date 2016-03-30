@@ -151,7 +151,7 @@ func TestStopByName(t *testing.T) {
 	client.On("StopContainer", c1, time.Duration(10)).Return(nil)
 	client.On("StopContainer", c2, time.Duration(10)).Return(nil)
 
-	err := StopByName(client, []string{})
+	err := Pumba{}.StopByName(client, []string{})
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -177,7 +177,7 @@ func TestStopByPattern(t *testing.T) {
 	client.On("StopContainer", c1, time.Duration(10)).Return(nil)
 	client.On("StopContainer", c2, time.Duration(10)).Return(nil)
 
-	err := StopByPattern(client, "^c")
+	err := Pumba{}.StopByPattern(client, "^c")
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -203,7 +203,7 @@ func TestKillByName(t *testing.T) {
 	client.On("KillContainer", c1, "SIGTEST").Return(nil)
 	client.On("KillContainer", c2, "SIGTEST").Return(nil)
 
-	err := KillByName(client, []string{"c1", "c2"}, "SIGTEST")
+	err := Pumba{}.KillByName(client, []string{"c1", "c2"}, "SIGTEST")
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -229,7 +229,7 @@ func TestKillByPattern(t *testing.T) {
 	client.On("KillContainer", c1, "SIGTEST").Return(nil)
 	client.On("KillContainer", c2, "SIGTEST").Return(nil)
 
-	err := KillByPattern(client, "^c", "SIGTEST")
+	err := Pumba{}.KillByPattern(client, "^c", "SIGTEST")
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -255,7 +255,7 @@ func TestRemoveByName(t *testing.T) {
 	client.On("RemoveContainer", c1, false).Return(nil)
 	client.On("RemoveContainer", c2, false).Return(nil)
 
-	err := RemoveByName(client, []string{"c1", "c2"}, false)
+	err := Pumba{}.RemoveByName(client, []string{"c1", "c2"}, false)
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -281,7 +281,7 @@ func TestRemoveByPattern(t *testing.T) {
 	client.On("RemoveContainer", c1, false).Return(nil)
 	client.On("RemoveContainer", c2, false).Return(nil)
 
-	err := RemoveByPattern(client, "^c", false)
+	err := Pumba{}.RemoveByPattern(client, "^c", false)
 
 	assert.NoError(t, err)
 	client.AssertExpectations(t)

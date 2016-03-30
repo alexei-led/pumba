@@ -123,15 +123,20 @@ func start(c *cli.Context) {
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
+	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("stop_cmd")); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func createChaos(chaos actions.Chaos, args []string) error {
 	// docker channel to pass all "stop" commands to
 	dc := make(chan commandT)
 
-	stopArgs := c.GlobalStringSlice("stop_cmd")
-	for _, stopArg := range stopArgs {
-		s := strings.Split(stopArg, "|")
+	// range over all chaos arguments
+	for _, chaosArg := range args {
+		s := strings.Split(chaosArg, "|")
 		if len(s) != 3 {
-			log.Fatal(errors.New("Unexpected format for stop_arg: use | separated triple"))
+			return errors.New("Unexpected format for stop_arg: use | separated triple")
 		}
 		// get container name pattern
 		var pattern string
@@ -144,7 +149,7 @@ func start(c *cli.Context) {
 		// get interval duration
 		interval, err := time.ParseDuration(s[1])
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		// get command and signal (if specified); convert everything to upper case
 		cs := strings.Split(strings.ToUpper(s[3]), ":")
@@ -169,26 +174,27 @@ func start(c *cli.Context) {
 				switch cmd.command {
 				case "STOP":
 					if pattern == "" {
-						actions.StopByName(client, cmd.names)
+						chaos.StopByName(client, cmd.names)
 					} else {
-						actions.StopByPattern(client, cmd.pattern)
+						chaos.StopByPattern(client, cmd.pattern)
 					}
 				case "KILL":
 					if pattern == "" {
-						actions.KillByName(client, cmd.names, cmd.signal)
+						chaos.KillByName(client, cmd.names, cmd.signal)
 					} else {
-						actions.KillByPattern(client, cmd.pattern, cmd.signal)
+						chaos.KillByPattern(client, cmd.pattern, cmd.signal)
 					}
 				case "RM":
 					if pattern == "" {
-						actions.RemoveByName(client, cmd.names, true)
+						chaos.RemoveByName(client, cmd.names, true)
 					} else {
-						actions.RemoveByPattern(client, cmd.pattern, true)
+						chaos.RemoveByPattern(client, cmd.pattern, true)
 					}
 				}
 			}(cmd)
 		}
 	}
+	return nil
 }
 
 func handleSignals() {
