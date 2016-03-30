@@ -28,7 +28,7 @@ var (
 
 const (
 	defaultKillSignal = "SIGKILL"
-	re2prefix         = "re2"
+	re2prefix         = "re2:"
 )
 
 type commandT struct {
@@ -40,6 +40,15 @@ type commandT struct {
 
 func init() {
 	log.SetLevel(log.InfoLevel)
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {
@@ -90,8 +99,8 @@ func main() {
 			Usage: "enable debug mode with verbose logging",
 		},
 		cli.StringSliceFlag{
-			Name:  "stop_cmd",
-			Usage: "stop command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
+			Name:  "chaos_cmd",
+			Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
 		},
 	}
 
@@ -123,12 +132,12 @@ func start(c *cli.Context) {
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
-	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("stop_cmd")); err != nil {
+	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("chaos_cmd"), 0); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func createChaos(chaos actions.Chaos, args []string) error {
+func createChaos(chaos actions.Chaos, args []string, limit int) error {
 	// docker channel to pass all "stop" commands to
 	dc := make(chan commandT)
 
@@ -136,13 +145,14 @@ func createChaos(chaos actions.Chaos, args []string) error {
 	for _, chaosArg := range args {
 		s := strings.Split(chaosArg, "|")
 		if len(s) != 3 {
-			return errors.New("Unexpected format for stop_arg: use | separated triple")
+			return errors.New("Unexpected format for chaos_arg: use | separated triple")
 		}
 		// get container name pattern
 		var pattern string
 		var names []string
 		if strings.HasPrefix(s[0], re2prefix) {
 			pattern = strings.Trim(s[0], re2prefix)
+			fmt.Println("Pattern: ", pattern)
 		} else {
 			names = strings.Split(s[0], ",")
 		}
@@ -152,8 +162,11 @@ func createChaos(chaos actions.Chaos, args []string) error {
 			return err
 		}
 		// get command and signal (if specified); convert everything to upper case
-		cs := strings.Split(strings.ToUpper(s[3]), ":")
+		cs := strings.Split(strings.ToUpper(s[2]), ":")
 		command := cs[0]
+		if !stringInSlice(command, []string{"STOP", "KILL", "RM"}) {
+			return errors.New("Unexpected command in chaos_arg: can be STOP, KILL or RM")
+		}
 		signal := defaultKillSignal
 		if len(cs) == 2 {
 			signal = cs[1]
@@ -166,8 +179,13 @@ func createChaos(chaos actions.Chaos, args []string) error {
 			}
 		}(commandT{pattern, names, command, signal})
 
-		for {
+		for range dc {
 			cmd := <-dc
+			limit--
+			if limit == 0 {
+				ticker.Stop()
+				close(dc)
+			}
 			wg.Add(1)
 			go func(cmd commandT) {
 				defer wg.Done()
