@@ -55,8 +55,9 @@ func TestCreateChaos_StopByName(t *testing.T) {
 		chaos.On("StopByName", nil, []string{"c1", "c2"}).Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -69,8 +70,9 @@ func TestCreateChaos_StopByPattern(t *testing.T) {
 		chaos.On("StopByPattern", nil, "^c").Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -83,8 +85,9 @@ func TestCreateChaos_KillByName(t *testing.T) {
 		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGKILL").Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -97,8 +100,9 @@ func TestCreateChaos_KillByNameSignal(t *testing.T) {
 		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGTEST").Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -111,8 +115,9 @@ func TestCreateChaos_KillByPatternSignal(t *testing.T) {
 		chaos.On("KillByPattern", nil, ".", "SIGTEST").Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -125,8 +130,9 @@ func TestCreateChaos_RemoveByName(t *testing.T) {
 		chaos.On("RemoveByName", nil, []string{"cc1", "cc2"}, true).Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -139,8 +145,9 @@ func TestCreateChaos_RemoveByPattern(t *testing.T) {
 		chaos.On("RemoveByPattern", nil, "(abc)", true).Return(nil)
 	}
 
-	createChaos(chaos, []string{cmd}, limit)
+	err := createChaos(chaos, []string{cmd}, limit)
 
+	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
 
@@ -172,4 +179,10 @@ func TestCreateChaos_ErrorCommand(t *testing.T) {
 
 	assert.Error(t, err)
 	chaos.AssertExpectations(t)
+}
+
+func Test_HandleSignals(t *testing.T) {
+	wg.Add(1)
+	handleSignals()
+	wg.Done()
 }

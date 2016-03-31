@@ -189,25 +189,29 @@ func createChaos(chaos actions.Chaos, args []string, limit int) error {
 			wg.Add(1)
 			go func(cmd commandT) {
 				defer wg.Done()
+				var err error
 				switch cmd.command {
 				case "STOP":
 					if pattern == "" {
-						chaos.StopByName(client, cmd.names)
+						err = chaos.StopByName(client, cmd.names)
 					} else {
-						chaos.StopByPattern(client, cmd.pattern)
+						err = chaos.StopByPattern(client, cmd.pattern)
 					}
 				case "KILL":
 					if pattern == "" {
-						chaos.KillByName(client, cmd.names, cmd.signal)
+						err = chaos.KillByName(client, cmd.names, cmd.signal)
 					} else {
-						chaos.KillByPattern(client, cmd.pattern, cmd.signal)
+						err = chaos.KillByPattern(client, cmd.pattern, cmd.signal)
 					}
 				case "RM":
 					if pattern == "" {
-						chaos.RemoveByName(client, cmd.names, true)
+						err = chaos.RemoveByName(client, cmd.names, true)
 					} else {
-						chaos.RemoveByPattern(client, cmd.pattern, true)
+						err = chaos.RemoveByPattern(client, cmd.pattern, true)
 					}
+				}
+				if err != nil {
+					log.Error(err)
 				}
 			}(cmd)
 		}
