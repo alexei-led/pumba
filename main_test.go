@@ -106,6 +106,23 @@ func TestCreateChaos_KillByNameSignal(t *testing.T) {
 	chaos.AssertExpectations(t)
 }
 
+func TestCreateChaos_MultiKillByNameSignal(t *testing.T) {
+	cmd1 := "c1,c2|10ms|KILL:SIGTEST"
+	cmd2 := "c3,c4|10ms|STOP"
+	limit := 3
+
+	chaos := &ChaosMock{}
+	for i := 0; i < limit; i++ {
+		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGTEST").Return(nil)
+		chaos.On("StopByName", nil, []string{"c3", "c4"}).Return(nil)
+	}
+
+	err := createChaos(chaos, []string{cmd1, cmd2}, limit*2)
+
+	assert.NoError(t, err)
+	chaos.AssertExpectations(t)
+}
+
 func TestCreateChaos_KillByPatternSignal(t *testing.T) {
 	cmd := "re2:.|10ms|KILL:SIGTEST"
 	limit := 3

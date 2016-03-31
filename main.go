@@ -132,7 +132,7 @@ func start(c *cli.Context) {
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
-	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("chaos_cmd"), 0); err != nil {
+	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("chaos_cmd"), -1); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -178,43 +178,42 @@ func createChaos(chaos actions.Chaos, args []string, limit int) error {
 				dc <- cmd
 			}
 		}(commandT{pattern, names, command, signal})
-
-		for range dc {
-			cmd := <-dc
-			limit--
-			if limit == 0 {
-				ticker.Stop()
-				close(dc)
-			}
-			wg.Add(1)
-			go func(cmd commandT) {
-				defer wg.Done()
-				var err error
-				switch cmd.command {
-				case "STOP":
-					if pattern == "" {
-						err = chaos.StopByName(client, cmd.names)
-					} else {
-						err = chaos.StopByPattern(client, cmd.pattern)
-					}
-				case "KILL":
-					if pattern == "" {
-						err = chaos.KillByName(client, cmd.names, cmd.signal)
-					} else {
-						err = chaos.KillByPattern(client, cmd.pattern, cmd.signal)
-					}
-				case "RM":
-					if pattern == "" {
-						err = chaos.RemoveByName(client, cmd.names, true)
-					} else {
-						err = chaos.RemoveByPattern(client, cmd.pattern, true)
-					}
-				}
-				if err != nil {
-					log.Error(err)
-				}
-			}(cmd)
+	}
+	for range dc {
+		cmd := <-dc
+		limit--
+		if limit == 0 {
+			break
 		}
+		wg.Add(1)
+		go func(cmd commandT) {
+			defer wg.Done()
+			var err error
+			switch cmd.command {
+			case "STOP":
+				if cmd.pattern == "" {
+					err = chaos.StopByName(client, cmd.names)
+				} else {
+					err = chaos.StopByPattern(client, cmd.pattern)
+				}
+			case "KILL":
+				if cmd.pattern == "" {
+					err = chaos.KillByName(client, cmd.names, cmd.signal)
+				} else {
+					err = chaos.KillByPattern(client, cmd.pattern, cmd.signal)
+				}
+			case "RM":
+				if cmd.pattern == "" {
+					err = chaos.RemoveByName(client, cmd.names, true)
+				} else {
+					err = chaos.RemoveByPattern(client, cmd.pattern, true)
+				}
+			}
+			if err != nil {
+				log.Error(err)
+			}
+		}(cmd)
+
 	}
 	return nil
 }
