@@ -1,0 +1,21 @@
+machine:
+  environment:
+    BUILD_DATE: $(date -u '+%Y/%m/%d %H:%M:%S')
+    BUILD_VERSION: $(git describe --tags)
+test:
+  pre:
+    - go get github.com/axw/gocov/gocov
+    - go get github.com/mattn/goveralls
+    - if ! go get github.com/golang/tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
+  override:
+    - go test -v -race -cover -coverprofile=/home/ubuntu/coverage.out ./...
+  post:
+    - goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+deployment:
+  release:
+    branch: master
+    commands:
+      — go get github.com/mitchellh/gox
+      — go get github.com/tcnksm/ghr
+      — gox -ldflags "-X main.Version $BUILD_VERSION -X main.BuildDate $BUILD_DATE" -output "dist/ncd_{{.OS}}_{{.Arch}}"
+      — ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` dist/

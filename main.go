@@ -152,9 +152,10 @@ func createChaos(chaos actions.Chaos, args []string, limit int) error {
 		var names []string
 		if strings.HasPrefix(s[0], re2prefix) {
 			pattern = strings.Trim(s[0], re2prefix)
-			fmt.Println("Pattern: ", pattern)
+			log.Debugf("Pattern: '%s'", pattern)
 		} else {
 			names = strings.Split(s[0], ",")
+			log.Debugf("Names: '%s'", s[0])
 		}
 		// get interval duration
 		interval, err := time.ParseDuration(s[1])
