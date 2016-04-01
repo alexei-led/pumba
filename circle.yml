@@ -7,8 +7,6 @@ test:
     - go get github.com/axw/gocov/gocov
     - go get github.com/mattn/goveralls
     - if ! go get github.com/golang/tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
-  override:
-    - go test -v -race -cover -coverprofile=/home/ubuntu/coverage.out ./...
   post:
     - script/coverage.sh --coveralls
 deployment:
