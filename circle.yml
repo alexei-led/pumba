@@ -10,7 +10,7 @@ test:
   override:
     - go test -v -race -cover -coverprofile=/home/ubuntu/coverage.out ./...
   post:
-    - goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+    - script/coverage.sh --coveralls
 deployment:
   release:
     branch: master
