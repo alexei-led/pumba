@@ -1,19 +1,34 @@
 machine:
-  environment:
-    BUILD_DATE: $(date -u '+%Y/%m/%d %H:%M:%S')
-    BUILD_VERSION: $(git describe --tags)
+  services:
+    - docker
+dependencies:
+  override:
+    # create builder image
+    - docker build -t pumba/builder -f Build.Dockerfile .
+    # cross compile Pumba for multiple platforms
+    - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/gox_build.sh
+    # create Pumba Docker image too
+    - docker build -t gaiaadm/pumba .
+    - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BUILD_NUM-$CIRCLE_BRANCH
+    - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
 test:
-  pre:
-    - go get github.com/axw/gocov/gocov
-    - go get github.com/mattn/goveralls
-    - if ! go get github.com/golang/tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
+  override:
+    - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --coveralls
   post:
-    - script/coverage.sh --coveralls
+    # copy test results
+    - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
 deployment:
-  release:
-    branch: master
+  continuous:
+    branch: [master, develop, /feature_.*/]
     commands:
-      - go get github.com/mitchellh/gox
-      - go get github.com/tcnksm/ghr
-      - gox -ldflags "-X main.Version $BUILD_VERSION -X main.BuildDate $BUILD_DATE" -output "dist/ncd_{{.OS}}_{{.Arch}}"
-      - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` dist/
+#      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+#      - docker push gaiaadm/mgs
+#      - go get github.com/tcnksm/ghr
+#      - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` dist/
+
+# notify:
+#  webhooks:
+#    - url: http://beta.gaiahub.io:88/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
+general:
+  artifacts:
+    - .dist

@@ -1,1 +1,4 @@
 .git
+.cover
+.dist
+vendor

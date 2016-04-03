@@ -1,0 +1,31 @@
+hash: 10476613b6cdd5e3383cf2acdcee0f2d390aabe79afa5da232595557dc39aa7a
+updated: 2016-04-02T19:33:00.249656966+03:00
+imports:
+- name: github.com/codegangsta/cli
+  version: bc465becccd1d527002fda095fc3c19d9c115029
+- name: github.com/davecgh/go-spew
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  subpackages:
+  - spew
+- name: github.com/docker/go-units
+  version: 5d2041e26a699eaca682e2ea41c8f891e1060444
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
+- name: github.com/samalba/dockerclient
+  version: 52fe1c9d696f36d894d2319f1717a383ebc46f19
+- name: github.com/Sirupsen/logrus
+  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+- name: github.com/stretchr/objx
+  version: cbeaeb16a013161a98496fad62933b1d21786672
+- name: github.com/stretchr/testify
+  version: 6fe211e493929a8aac0469b93f28b1d0688a9a3a
+  subpackages:
+  - mock
+  - assert
+- name: golang.org/x/sys
+  version: a60af9cbbc6ab800af4f2be864a31f423a0ae1f2
+  subpackages:
+  - unix
+devImports: []
