@@ -20,19 +20,25 @@ dependencies:
     - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
 test:
   override:
+    # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
     - docker run --rm -e "COVERALLS_TOKEN=${COVERALLS_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --coveralls
   post:
     # copy test results
     - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
 deployment:
   continuous:
-    branch: [master, develop, /feature_.*/]
+    branch: [develop, /feature_.*/]
     commands:
+      # deply image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push gaiaadm/pumba
   github:
     branch: master
     commands:
+      # deploy image to DockerHub
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      - docker push gaiaadm/pumba
+      # publish new release to GitHub
       - docker run --rm -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
