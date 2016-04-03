@@ -4,6 +4,10 @@ machine:
     - sudo chmod 0755 /usr/bin/docker
   services:
     - docker
+checkout:
+  post:
+    - git fetch --unshallow || true
+    - git fetch --tags
 dependencies:
   override:
     # create builder image
@@ -16,7 +20,7 @@ dependencies:
     - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
 test:
   override:
-    - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --coveralls
+    - docker run --rm -e "COVERALLS_TOKEN=${COVERALLS_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --coveralls
   post:
     # copy test results
     - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
@@ -29,7 +33,7 @@ deployment:
   github:
     branch: master
     commands:
-      - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - docker run --rm -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
     - url: http://beta.gaiahub.io:88/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
