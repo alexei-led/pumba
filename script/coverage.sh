@@ -30,7 +30,7 @@ generate_cover_data() {
 }
 
 show_cover_report() {
-  go tool cover -${1}="$profile"
+  go tool cover -${1}="$profile" -o "$workdir/coverage.html"
 }
 
 push_to_coveralls() {
