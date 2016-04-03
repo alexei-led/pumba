@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gaia-adm/pumba/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -106,8 +107,8 @@ func TestCreateChaos_KillByNameSignal(t *testing.T) {
 	chaos.AssertExpectations(t)
 }
 
-/*
 func TestCreateChaos_MultiKillByNameSignal(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
 	cmd1 := "c1,c2|10ms|KILL:SIGTEST"
 	cmd2 := "c3,c4|10ms|STOP"
 	limit := 3
@@ -123,7 +124,6 @@ func TestCreateChaos_MultiKillByNameSignal(t *testing.T) {
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
 }
-*/
 
 func TestCreateChaos_KillByPatternSignal(t *testing.T) {
 	cmd := "re2:.|10ms|KILL:SIGTEST"

@@ -141,6 +141,7 @@ func start(c *cli.Context) {
 func createChaos(chaos actions.Chaos, args []string, limit int) error {
 	// docker channel to pass all "stop" commands to
 	dc := make(chan commandT)
+	glimit := limit * len(args)
 
 	// range over all chaos arguments
 	for _, chaosArg := range args {
@@ -175,16 +176,18 @@ func createChaos(chaos actions.Chaos, args []string, limit int) error {
 		}
 
 		ticker := time.NewTicker(interval)
-		go func(cmd commandT) {
+		go func(cmd commandT, limit int) {
 			for range ticker.C {
-				dc <- cmd
+				if limit > 0 {
+					dc <- cmd
+					limit--
+				}
 			}
-		}(commandT{pattern, names, command, signal})
+		}(commandT{pattern, names, command, signal}, limit)
 	}
-	for range dc {
-		cmd := <-dc
-		limit--
-		if limit == 0 {
+	for cmd := range dc {
+		glimit--
+		if glimit == 0 {
 			break
 		}
 		wg.Add(1)
