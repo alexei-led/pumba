@@ -23,7 +23,7 @@ GLOBAL OPTIONS:
    --tlscert "/etc/ssl/docker/cert.pem"      client certificate for TLS authentication
    --tlskey "/etc/ssl/docker/key.pem"        client key for TLS authentication
    --debug                                   enable debug mode with verbose logging
-   --chaos_cmd [--chaos_cmd option]	         chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`
+   --chaos [--chaos option]	                 chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`
    --help, -h                                show help
    --version, -v                             print the version
 ```

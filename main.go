@@ -100,7 +100,7 @@ func main() {
 			Usage: "enable debug mode with verbose logging",
 		},
 		cli.StringSliceFlag{
-			Name:  "chaos_cmd",
+			Name:  "chaos",
 			Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
 		},
 	}
@@ -133,12 +133,12 @@ func start(c *cli.Context) {
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
-	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("chaos_cmd"), -1); err != nil {
+	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("chaos"), 1, false); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func createChaos(chaos actions.Chaos, args []string, limit int) error {
+func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error {
 	// docker channel to pass all "stop" commands to
 	dc := make(chan commandT)
 	glimit := limit * len(args)
@@ -164,29 +164,37 @@ func createChaos(chaos actions.Chaos, args []string, limit int) error {
 		if err != nil {
 			return err
 		}
+		log.Debugf("Interval: '%s'", interval.String())
 		// get command and signal (if specified); convert everything to upper case
 		cs := strings.Split(strings.ToUpper(s[2]), ":")
 		command := cs[0]
 		if !stringInSlice(command, []string{"STOP", "KILL", "RM"}) {
 			return errors.New("Unexpected command in chaos_arg: can be STOP, KILL or RM")
 		}
+		log.Debugf("Command: '%s'", command)
 		signal := defaultKillSignal
 		if len(cs) == 2 {
 			signal = cs[1]
+			log.Debugf("Signal: '%s'", signal)
 		}
 
 		ticker := time.NewTicker(interval)
-		go func(cmd commandT, limit int) {
+		go func(cmd commandT, limit int, test bool) {
 			for range ticker.C {
 				if limit > 0 {
+					log.Debugf("Tick: '%s'", cmd)
 					dc <- cmd
-					limit--
+					if test {
+						limit--
+					}
 				}
 			}
-		}(commandT{pattern, names, command, signal}, limit)
+		}(commandT{pattern, names, command, signal}, limit, test)
 	}
 	for cmd := range dc {
-		glimit--
+		if test {
+			glimit--
+		}
 		if glimit == 0 {
 			break
 		}

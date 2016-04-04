@@ -60,13 +60,20 @@ func regexContainerFilter(pattern string) container.Filter {
 		if err != nil {
 			return false
 		}
+		// container name may start with forward slash, when using inspect fucntion
+		if !matched {
+			matched, err = regexp.MatchString(pattern, c.Name()[1:])
+			if err != nil {
+				return false
+			}
+		}
 		return matched
 	}
 }
 
 // StopByName stop container, if its name within `names`
 func (p Pumba) StopByName(client container.Client, names []string) error {
-	log.Info("Stop containers by name")
+	log.Info("Stop containers by names: ", names)
 
 	containers, err := client.ListContainers(containerFilter(names))
 	if err != nil {
@@ -74,6 +81,7 @@ func (p Pumba) StopByName(client container.Client, names []string) error {
 	}
 
 	for _, container := range containers {
+		log.Infof("Sopping container: '%s'", container.Name())
 		err := client.StopContainer(container, deafultWaitTime)
 		if err != nil {
 			return err
@@ -93,6 +101,7 @@ func (p Pumba) StopByPattern(client container.Client, pattern string) error {
 	}
 
 	for _, container := range containers {
+		log.Infof("Sopping container: '%s'", container.Name())
 		err := client.StopContainer(container, deafultWaitTime)
 		if err != nil {
 			return err
@@ -105,7 +114,7 @@ func (p Pumba) StopByPattern(client container.Client, pattern string) error {
 // KillByName kill container, if its name within `names`. You can pass custom
 // signal, if empty SIGKILL will be used
 func (p Pumba) KillByName(client container.Client, names []string, signal string) error {
-	log.Info("Kill containers by names")
+	log.Info("Kill containers by names: ", names)
 
 	if signal == "" {
 		signal = defaultKillSignal
@@ -117,6 +126,7 @@ func (p Pumba) KillByName(client container.Client, names []string, signal string
 	}
 
 	for _, container := range containers {
+		log.Infof("Killing container: '%s' with '%s' signal", container.Name(), signal)
 		err := client.KillContainer(container, signal)
 		if err != nil {
 			return err
@@ -141,6 +151,7 @@ func (p Pumba) KillByPattern(client container.Client, pattern string, signal str
 	}
 
 	for _, container := range containers {
+		log.Infof("Killing container: '%s' with '%s' signal", container.Name(), signal)
 		err := client.KillContainer(container, signal)
 		if err != nil {
 			return err
@@ -153,7 +164,7 @@ func (p Pumba) KillByPattern(client container.Client, pattern string, signal str
 // RemoveByName remove container, if its name within `names`. Kill container if its running
 // and `force` flag is `true`
 func (p Pumba) RemoveByName(client container.Client, names []string, force bool) error {
-	log.Info("Remove containers by name")
+	log.Info("Remove containers by names: ", names)
 
 	containers, err := client.ListContainers(containerFilter(names))
 	if err != nil {
@@ -161,6 +172,7 @@ func (p Pumba) RemoveByName(client container.Client, names []string, force bool)
 	}
 
 	for _, container := range containers {
+		log.Infof("Removing container: '%s'", container.Name())
 		err := client.RemoveContainer(container, force)
 		if err != nil {
 			return err
@@ -181,6 +193,7 @@ func (p Pumba) RemoveByPattern(client container.Client, pattern string, force bo
 	}
 
 	for _, container := range containers {
+		log.Infof("Removing container: '%s'", container.Name())
 		err := client.RemoveContainer(container, force)
 		if err != nil {
 			return err
