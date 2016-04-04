@@ -8,7 +8,7 @@ checkout:
   post:
     - git fetch --unshallow || true
     - git fetch --tags
-    - export RELEASE_TAG=`git describe --tags`
+    - export RELEASE_TAG=$(git describe --tags)
 dependencies:
   override:
     # create builder image
