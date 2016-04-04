@@ -60,7 +60,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "pumba"
-	app.Version = "0.1.2"
+	app.Version = "0.1.3"
 	app.Usage = "Pumba is a resiliency tool that helps applications tolerate random Docker container failures."
 	app.Before = before
 	app.Action = start
