@@ -8,12 +8,13 @@ checkout:
   post:
     - git fetch --unshallow || true
     - git fetch --tags
+    - export RELEASE_TAG=`git describe --tags`
 dependencies:
   override:
     # create builder image
     - docker build -t pumba/builder -f Build.Dockerfile .
-    # cross compile Pumba for multiple platforms
-    - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/gox_build.sh
+    # compile Pumba binary (linux/amd64)
+    - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/go_build.sh
     # create Pumba Docker image too
     - docker build -t gaiaadm/pumba .
     - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BUILD_NUM-$CIRCLE_BRANCH
@@ -38,8 +39,10 @@ deployment:
       # deploy image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push gaiaadm/pumba
+      # cross compile Pumba for multiple platforms
+      - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/gox_build.sh
       # publish new release to GitHub
-      - docker run --rm -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - docker run --rm -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -e "RELEASE_TAG=${RELEASE_TAG}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
     - url: http://beta.gaiahub.io:88/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
