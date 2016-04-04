@@ -4,6 +4,8 @@
 
 ## Usage
 
+You can download Pumba binary for your OS from [release](https://github.com/gaia-adm/pumba/releases) page.
+
 ```
 NAME:
    pumba - Pumba is a resiliency tool that helps applications tolerate random Docker container failures.
@@ -27,6 +29,15 @@ GLOBAL OPTIONS:
    --help, -h                                show help
    --version, -v                             print the version
 ```
+
+If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
+
+```
+docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --chaos "re2:^hp|10s|KILL:SIGTERM"
+```
+The above command, once in a 10 seconds, tries to kill (with `SIGTERM` signal) all containers named **hp(something)** on same Docker host, where Pumba container is running.
+
+**Note:** For Windows and OS X you will need to use `--host` argument, since there is no unix socket `/var/run/docker.sock` to mount.
 
 ## Build instructions
 
