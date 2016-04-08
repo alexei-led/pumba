@@ -7,27 +7,43 @@
 You can download Pumba binary for your OS from [release](https://github.com/gaia-adm/pumba/releases) page.
 
 ```
+$ pumba help
+
 NAME:
-   pumba - Pumba is a resiliency tool that helps applications tolerate random Docker container failures.
+   Pumba - Pumba is a resiliency tool that helps applications tolerate random Docker container failures.
 
 USAGE:
    pumba [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.1
+   0.1.4
 
 COMMANDS:
+    run	Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers
+
 GLOBAL OPTIONS:
-   --host, -H "unix:///var/run/docker.sock"  daemon socket to connect to [$DOCKER_HOST]
-   --tls                                     use TLS; implied by --tlsverify
-   --tlsverify                               TLS and verify the remote [$DOCKER_TLS_VERIFY]
-   --tlscacert "/etc/ssl/docker/ca.pem"      trust certs signed only by this CA
-   --tlscert "/etc/ssl/docker/cert.pem"      client certificate for TLS authentication
-   --tlskey "/etc/ssl/docker/key.pem"        client key for TLS authentication
-   --debug                                   enable debug mode with verbose logging
-   --chaos [--chaos option]	                 chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`
-   --help, -h                                show help
-   --version, -v                             print the version
+   --host, -H "unix:///var/run/docker.sock"	daemon socket to connect to [$DOCKER_HOST]
+   --tls					use TLS; implied by --tlsverify
+   --tlsverify					use TLS and verify the remote [$DOCKER_TLS_VERIFY]
+   --tlscacert "/etc/ssl/docker/ca.pem"		trust certs signed only by this CA
+   --tlscert "/etc/ssl/docker/cert.pem"		client certificate for TLS authentication
+   --tlskey "/etc/ssl/docker/key.pem"		client key for TLS authentication
+   --debug					enable debug mode with verbose logging
+   --help, -h					show help
+   --version, -v				print the version
+```
+```
+$ pumba run --help
+
+NAME:
+   pumba run - Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers
+
+USAGE:
+   pumba run [command options] [arguments...]
+
+OPTIONS:
+   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`
+   --random, -r					Random mode: randomly select single matching container to 'kill'
 ```
 
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:

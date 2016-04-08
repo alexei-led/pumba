@@ -56,7 +56,7 @@ func TestCreateChaos_StopByName(t *testing.T) {
 		chaos.On("StopByName", nil, []string{"c1", "c2"}).Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -71,7 +71,7 @@ func TestCreateChaos_StopByPattern(t *testing.T) {
 		chaos.On("StopByPattern", nil, "^c").Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -86,7 +86,7 @@ func TestCreateChaos_KillByName(t *testing.T) {
 		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGKILL").Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -101,7 +101,7 @@ func TestCreateChaos_KillByNameSignal(t *testing.T) {
 		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGTEST").Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -119,7 +119,7 @@ func TestCreateChaos_MultiKillByNameSignal(t *testing.T) {
 		chaos.On("StopByName", nil, []string{"c3", "c4"}).Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd1, cmd2}, limit*2, true)
+	err := createChaos(chaos, []string{cmd1, cmd2}, false, limit*2, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -134,7 +134,7 @@ func TestCreateChaos_KillByPatternSignal(t *testing.T) {
 		chaos.On("KillByPattern", nil, ".", "SIGTEST").Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -149,7 +149,7 @@ func TestCreateChaos_RemoveByName(t *testing.T) {
 		chaos.On("RemoveByName", nil, []string{"cc1", "cc2"}, true).Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -164,7 +164,7 @@ func TestCreateChaos_RemoveByPattern(t *testing.T) {
 		chaos.On("RemoveByPattern", nil, "(abc)", true).Return(nil)
 	}
 
-	err := createChaos(chaos, []string{cmd}, limit, true)
+	err := createChaos(chaos, []string{cmd}, false, limit, true)
 
 	assert.NoError(t, err)
 	chaos.AssertExpectations(t)
@@ -174,7 +174,7 @@ func TestCreateChaos_ErrorCommandFormat(t *testing.T) {
 	cmd := "10ms|RM"
 	chaos := &ChaosMock{}
 
-	err := createChaos(chaos, []string{cmd}, 0, true)
+	err := createChaos(chaos, []string{cmd}, false, 0, true)
 
 	assert.Error(t, err)
 	chaos.AssertExpectations(t)
@@ -184,7 +184,7 @@ func TestCreateChaos_ErrorDurationFormat(t *testing.T) {
 	cmd := "abc|hello|RM"
 	chaos := &ChaosMock{}
 
-	err := createChaos(chaos, []string{cmd}, 0, true)
+	err := createChaos(chaos, []string{cmd}, false, 0, true)
 
 	assert.Error(t, err)
 	chaos.AssertExpectations(t)
@@ -194,7 +194,7 @@ func TestCreateChaos_ErrorCommand(t *testing.T) {
 	cmd := "c1|10s|TEST"
 	chaos := &ChaosMock{}
 
-	err := createChaos(chaos, []string{cmd}, 0, true)
+	err := createChaos(chaos, []string{cmd}, false, 0, true)
 
 	assert.Error(t, err)
 	chaos.AssertExpectations(t)

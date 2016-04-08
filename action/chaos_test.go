@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -10,6 +11,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+func makeContainersN(n int) ([]string, []container.Container) {
+	names := make([]string, n)
+	cs := make([]container.Container, n)
+	for i := range cs {
+		cs[i] = *container.NewContainer(
+			&dockerclient.ContainerInfo{
+				Name: "c" + strconv.Itoa(i),
+			},
+			nil,
+		)
+		names[i] = "c" + strconv.Itoa(i)
+	}
+	return names, cs
+}
 
 func TestPattern_DotRe2Filter(t *testing.T) {
 	c1 := *container.NewContainer(
@@ -132,157 +148,145 @@ func TestAllFilter(t *testing.T) {
 }
 
 func TestStopByName(t *testing.T) {
-	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c1",
-		},
-		nil,
-	)
-	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c2",
-		},
-		nil,
-	)
-	cs := []container.Container{c1, c2}
-
+	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("StopContainer", c1, time.Duration(10)).Return(nil)
-	client.On("StopContainer", c2, time.Duration(10)).Return(nil)
+	for _, c := range cs {
+		client.On("StopContainer", c, time.Duration(10)).Return(nil)
+	}
+	err := Pumba{}.StopByName(client, names)
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
-	err := Pumba{}.StopByName(client, []string{})
-
+func TestStopByNameRandom(t *testing.T) {
+	names, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("StopContainer", mock.AnythingOfType("container.Container"), time.Duration(10)).Return(nil)
+	RandomMode = true
+	err := Pumba{}.StopByName(client, names)
+	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestStopByPattern(t *testing.T) {
-	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c1",
-		},
-		nil,
-	)
-	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c2",
-		},
-		nil,
-	)
-	cs := []container.Container{c1, c2}
-
+	_, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("StopContainer", c1, time.Duration(10)).Return(nil)
-	client.On("StopContainer", c2, time.Duration(10)).Return(nil)
-
+	for _, c := range cs {
+		client.On("StopContainer", c, time.Duration(10)).Return(nil)
+	}
 	err := Pumba{}.StopByPattern(client, "^c")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
+func TestStopByPatternRandom(t *testing.T) {
+	_, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("StopContainer", mock.AnythingOfType("container.Container"), time.Duration(10)).Return(nil)
+	RandomMode = true
+	err := Pumba{}.StopByPattern(client, "^c")
+	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestKillByName(t *testing.T) {
-	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c1",
-		},
-		nil,
-	)
-	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c2",
-		},
-		nil,
-	)
-	cs := []container.Container{c1, c2}
-
+	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("KillContainer", c1, "SIGTEST").Return(nil)
-	client.On("KillContainer", c2, "SIGTEST").Return(nil)
+	for _, c := range cs {
+		client.On("KillContainer", c, "SIGTEST").Return(nil)
+	}
+	err := Pumba{}.KillByName(client, names, "SIGTEST")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
-	err := Pumba{}.KillByName(client, []string{"c1", "c2"}, "SIGTEST")
-
+func TestKillByNameRandom(t *testing.T) {
+	names, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	RandomMode = true
+	err := Pumba{}.KillByName(client, names, "SIGTEST")
+	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestKillByPattern(t *testing.T) {
-	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c1",
-		},
-		nil,
-	)
-	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c2",
-		},
-		nil,
-	)
-	cs := []container.Container{c1, c2}
-
+	_, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("KillContainer", c1, "SIGTEST").Return(nil)
-	client.On("KillContainer", c2, "SIGTEST").Return(nil)
-
+	for i := range cs {
+		client.On("KillContainer", cs[i], "SIGTEST").Return(nil)
+	}
 	err := Pumba{}.KillByPattern(client, "^c", "SIGTEST")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
+func TestKillByPatternRandom(t *testing.T) {
+	_, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	RandomMode = true
+	err := Pumba{}.KillByPattern(client, "^c", "SIGTEST")
+	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestRemoveByName(t *testing.T) {
-	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c1",
-		},
-		nil,
-	)
-	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c2",
-		},
-		nil,
-	)
-	cs := []container.Container{c1, c2}
-
+	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("RemoveContainer", c1, false).Return(nil)
-	client.On("RemoveContainer", c2, false).Return(nil)
+	for _, c := range cs {
+		client.On("RemoveContainer", c, false).Return(nil)
+	}
+	err := Pumba{}.RemoveByName(client, names, false)
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
-	err := Pumba{}.RemoveByName(client, []string{"c1", "c2"}, false)
-
+func TestRemoveByNameRandom(t *testing.T) {
+	names, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false).Return(nil)
+	RandomMode = true
+	err := Pumba{}.RemoveByName(client, names, false)
+	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestRemoveByPattern(t *testing.T) {
-	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c1",
-		},
-		nil,
-	)
-	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name: "c2",
-		},
-		nil,
-	)
-	cs := []container.Container{c1, c2}
-
+	_, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("RemoveContainer", c1, false).Return(nil)
-	client.On("RemoveContainer", c2, false).Return(nil)
-
+	for _, c := range cs {
+		client.On("RemoveContainer", c, false).Return(nil)
+	}
 	err := Pumba{}.RemoveByPattern(client, "^c", false)
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
+func TestRemoveByPatternRandom(t *testing.T) {
+	_, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false).Return(nil)
+	RandomMode = true
+	err := Pumba{}.RemoveByPattern(client, "^c", false)
+	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }

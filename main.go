@@ -24,6 +24,7 @@ var (
 	wg      sync.WaitGroup
 	client  container.Client
 	cleanup bool
+	random  bool
 )
 
 const (
@@ -59,11 +60,27 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "pumba"
-	app.Version = "0.1.3"
+	app.Name = "Pumba"
+	app.Version = "0.1.4"
 	app.Usage = "Pumba is a resiliency tool that helps applications tolerate random Docker container failures."
 	app.Before = before
-	app.Action = start
+	app.Commands = []cli.Command{
+		{
+			Name: "run",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "chaos, c",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
+				},
+				cli.BoolFlag{
+					Name:  "random, r",
+					Usage: "Random mode: randomly select single matching container to 'kill'",
+				},
+			},
+			Usage:  "Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers",
+			Action: run,
+		},
+	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:   "host, H",
@@ -99,10 +116,6 @@ func main() {
 			Name:  "debug",
 			Usage: "enable debug mode with verbose logging",
 		},
-		cli.StringSliceFlag{
-			Name:  "chaos",
-			Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
-		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -129,19 +142,22 @@ func before(c *cli.Context) error {
 	return nil
 }
 
-func start(c *cli.Context) {
+func run(c *cli.Context) {
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
-	if err := createChaos(actions.Pumba{}, c.GlobalStringSlice("chaos"), 1, false); err != nil {
+	if err := createChaos(actions.Pumba{}, c.StringSlice("chaos"), c.Bool("random"), 1, false); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error {
+func createChaos(chaos actions.Chaos, args []string, random bool, limit int, test bool) error {
 	// docker channel to pass all "stop" commands to
 	dc := make(chan commandT)
 	glimit := limit * len(args)
+
+	// set random mode
+	actions.RandomMode = random
 
 	// range over all chaos arguments
 	for _, chaosArg := range args {
@@ -169,7 +185,7 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 		cs := strings.Split(strings.ToUpper(s[2]), ":")
 		command := cs[0]
 		if !stringInSlice(command, []string{"STOP", "KILL", "RM"}) {
-			return errors.New("Unexpected command in chaos_arg: can be STOP, KILL or RM")
+			return errors.New("Unexpected command in chaos option: can be STOP, KILL or RM")
 		}
 		log.Debugf("Command: '%s'", command)
 		signal := defaultKillSignal
