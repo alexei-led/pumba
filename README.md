@@ -105,3 +105,7 @@ To run all Pumba tests and generate coverage report run the following command:
 ```
 docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --html
 ```
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/gaia-adm/pumba/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
