@@ -1,5 +1,5 @@
-hash: 10476613b6cdd5e3383cf2acdcee0f2d390aabe79afa5da232595557dc39aa7a
-updated: 2016-04-02T19:33:00.249656966+03:00
+hash: a1a11027ffcc75ea445765f0a434fa09f073eb8481246ca2bca6f706be2519a9
+updated: 2016-04-13T13:02:42.048139949+03:00
 imports:
 - name: github.com/codegangsta/cli
   version: bc465becccd1d527002fda095fc3c19d9c115029
@@ -9,6 +9,10 @@ imports:
   - spew
 - name: github.com/docker/go-units
   version: 5d2041e26a699eaca682e2ea41c8f891e1060444
+- name: github.com/johntdyer/slack-go
+  version: 88736fd63eed11c942b478c3182bdd2f152971e5
+- name: github.com/johntdyer/slackrus
+  version: c0ae47c54192c8c7c33c766cdfa61c2d24a4ccbf
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:

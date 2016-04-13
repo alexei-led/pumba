@@ -11,6 +11,7 @@ import (
 
 const (
 	defaultStopSignal = "SIGTERM"
+	dryRunPrefix      = "DRY: "
 )
 
 // A Filter is a prototype for a function that can be used to filter the
@@ -20,12 +21,12 @@ type Filter func(Container) bool
 // A Client is the interface through which Pumba interacts with the Docker API.
 type Client interface {
 	ListContainers(Filter) ([]Container, error)
-	StopContainer(Container, time.Duration) error
-	KillContainer(Container, string) error
+	StopContainer(Container, time.Duration, bool) error
+	KillContainer(Container, string, bool) error
 	StartContainer(Container) error
 	RenameContainer(Container, string) error
-	RemoveImage(Container, bool) error
-	RemoveContainer(Container, bool) error
+	RemoveImage(Container, bool, bool) error
+	RemoveContainer(Container, bool, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -54,12 +55,12 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	for _, runningContainer := range runningContainers {
 		containerInfo, err := client.api.InspectContainer(runningContainer.Id)
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("Running container: %s - (%s)", containerInfo.Name, containerInfo.Id)
 
 		imageInfo, err := client.api.InspectImage(containerInfo.Image)
 		if err != nil {
@@ -75,38 +76,49 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 	return cs, nil
 }
 
-func (client dockerClient) KillContainer(c Container, signal string) error {
-	log.Infof("Killing %s (%s) with signal $s", c.Name(), c.ID(), signal)
-	if err := client.api.KillContainer(c.ID(), signal); err != nil {
-		return err
+func (client dockerClient) KillContainer(c Container, signal string, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sKilling %s (%s) with signal $s", prefix, c.Name(), c.ID(), signal)
+	if !dryrun {
+		if err := client.api.KillContainer(c.ID(), signal); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (client dockerClient) StopContainer(c Container, timeout time.Duration) error {
+func (client dockerClient) StopContainer(c Container, timeout time.Duration, dryrun bool) error {
 	signal := c.StopSignal()
 	if signal == "" {
 		signal = defaultStopSignal
 	}
-
-	log.Infof("Stopping %s (%s) with %s", c.Name(), c.ID(), signal)
-
-	if err := client.api.KillContainer(c.ID(), signal); err != nil {
-		return err
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
 	}
+	log.Infof("%sStopping %s (%s) with %s", prefix, c.Name(), c.ID(), signal)
 
-	// Wait for container to exit, but proceed anyway after the timeout elapses
-	client.waitForStop(c, timeout)
+	if !dryrun {
+		if err := client.api.KillContainer(c.ID(), signal); err != nil {
+			return err
+		}
 
-	log.Debugf("Removing container %s", c.ID())
+		// Wait for container to exit, but proceed anyway after the timeout elapses
+		client.waitForStop(c, timeout)
 
-	if err := client.api.RemoveContainer(c.ID(), true, false); err != nil {
-		return err
-	}
+		log.Debugf("Removing container %s", c.ID())
 
-	// Wait for container to be removed. In this case an error is a good thing
-	if err := client.waitForStop(c, timeout); err == nil {
-		return fmt.Errorf("Container %s (%s) could not be removed", c.Name(), c.ID())
+		if err := client.api.RemoveContainer(c.ID(), true, false); err != nil {
+			return err
+		}
+
+		// Wait for container to be removed. In this case an error is a good thing
+		if err := client.waitForStop(c, timeout); err == nil {
+			return fmt.Errorf("Container %s (%s) could not be removed", c.Name(), c.ID())
+		}
 	}
 
 	return nil
@@ -134,16 +146,30 @@ func (client dockerClient) RenameContainer(c Container, newName string) error {
 	return client.api.RenameContainer(c.ID(), newName)
 }
 
-func (client dockerClient) RemoveImage(c Container, force bool) error {
+func (client dockerClient) RemoveImage(c Container, force bool, dryrun bool) error {
 	imageID := c.ImageID()
-	log.Infof("Removing image %s", imageID)
-	_, err := client.api.RemoveImage(imageID, force)
-	return err
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sRemoving image %s", prefix, imageID)
+	if !dryrun {
+		_, err := client.api.RemoveImage(imageID, force)
+		return err
+	}
+	return nil
 }
 
-func (client dockerClient) RemoveContainer(c Container, force bool) error {
-	log.Infof("Removing container %s", c.ID())
-	return client.api.RemoveContainer(c.ID(), force, true)
+func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sRemoving container %s", prefix, c.ID())
+	if !dryrun {
+		return client.api.RemoveContainer(c.ID(), force, true)
+	}
+	return nil
 }
 
 func (client dockerClient) waitForStop(c Container, waitTime time.Duration) error {

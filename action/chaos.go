@@ -12,6 +12,8 @@ import (
 var (
 	// RandomMode - select random container from matching list
 	RandomMode = false
+	// DryMode - do not 'kill' the container only log event
+	DryMode = false
 )
 
 const (
@@ -78,27 +80,28 @@ func regexContainerFilter(pattern string) container.Filter {
 	}
 }
 
-func randomContainer(containers []container.Container) container.Container {
+func randomContainer(containers []container.Container) *container.Container {
 	if containers != nil && len(containers) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		i := r.Intn(len(containers))
-		return containers[i]
+		log.Debug(i, "  ", containers[i])
+		return &containers[i]
 	}
-	return container.Container{}
+	return nil
 }
 
 func stopContainers(client container.Client, containers []container.Container) error {
 	if RandomMode {
 		container := randomContainer(containers)
-		log.Infof("Sopping container: '%s'", container.Name())
-		err := client.StopContainer(container, deafultWaitTime)
-		if err != nil {
-			return err
+		if container != nil {
+			err := client.StopContainer(*container, deafultWaitTime, DryMode)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		for _, container := range containers {
-			log.Infof("Sopping container: '%s'", container.Name())
-			err := client.StopContainer(container, deafultWaitTime)
+			err := client.StopContainer(container, deafultWaitTime, DryMode)
 			if err != nil {
 				return err
 			}
@@ -113,15 +116,16 @@ func killContainers(client container.Client, containers []container.Container, s
 	}
 	if RandomMode {
 		container := randomContainer(containers)
-		log.Infof("Killing container: '%s' with '%s' signal", container.Name(), signal)
-		err := client.KillContainer(container, signal)
-		if err != nil {
-			return err
+		if container != nil {
+			log.Debug("Container", container)
+			err := client.KillContainer(*container, signal, DryMode)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		for _, container := range containers {
-			log.Infof("Killing container: '%s' with '%s' signal", container.Name(), signal)
-			err := client.KillContainer(container, signal)
+			err := client.KillContainer(container, signal, DryMode)
 			if err != nil {
 				return err
 			}
@@ -133,15 +137,15 @@ func killContainers(client container.Client, containers []container.Container, s
 func removeContainers(client container.Client, containers []container.Container, force bool) error {
 	if RandomMode {
 		container := randomContainer(containers)
-		log.Infof("Removing container: '%s'", container.Name())
-		err := client.RemoveContainer(container, force)
-		if err != nil {
-			return err
+		if container != nil {
+			err := client.RemoveContainer(*container, force, DryMode)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		for _, container := range containers {
-			log.Infof("Removing container: '%s'", container.Name())
-			err := client.RemoveContainer(container, force)
+			err := client.RemoveContainer(container, force, DryMode)
 			if err != nil {
 				return err
 			}

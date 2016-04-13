@@ -1,0 +1,36 @@
+# If you are running Kubernetes >= 1.1.0. You can take advantage of DaemonSets to automatically deploy the Pumba on all your nodes.
+# On 1.1.x you'll need to explicitly enable the DaemonSets extension, see http://kubernetes.io/v1.1/docs/admin/daemons.html#caveats.
+
+# You'll then be able to deploy the DaemonSet with the command
+# `kubectl create -f pumba_kube.yaml`
+
+# If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos.
+# `docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --chaos "re2:^hp|10s|KILL:SIGTERM"`
+
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: pumba
+spec:
+  template:
+    metadata:
+      labels:
+        app: pumba
+      name: pumba
+    spec:
+      containers:
+      - image: gaiaadm/pumba:master
+        imagePullPolicy: Always
+        name: pumba
+# Pumba command: modify it to suite your needs
+# Currently: randomly try to kill some container every 5 minutes
+        command:
+          - --random
+          - --chaos "|5m|KILL:SIGTERM"
+        volumeMounts:
+          - name: dockersocket
+            mountPath: /var/run/docker.sock
+      volumes:
+        - hostPath:
+            path: /var/run/docker.sock
+          name: dockersocket

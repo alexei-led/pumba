@@ -117,6 +117,37 @@ func TestNamesFilter(t *testing.T) {
 	assert.False(t, cf(c3))
 }
 
+func TestAllNamesFilter(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "ccc",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "ddd",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	cc := &dockerclient.ContainerConfig{
+		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
+	}
+	c3 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "xxx",
+			Config: cc,
+		},
+		nil,
+	)
+	cf := containerFilter([]string{})
+	assert.True(t, cf(c1))
+	assert.True(t, cf(c2))
+	assert.False(t, cf(c3))
+}
+
 func TestAllFilter(t *testing.T) {
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{
@@ -289,4 +320,13 @@ func TestRemoveByPatternRandom(t *testing.T) {
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
+}
+
+func TestSelectRandomContainer(t *testing.T) {
+	_, cs := makeContainersN(10)
+	c1 := randomContainer(cs)
+	c2 := randomContainer(cs)
+	assert.NotNil(t, c1)
+	assert.NotNil(t, c2)
+	assert.NotEqual(t, c1.Name(), c2.Name())
 }

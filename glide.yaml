@@ -6,3 +6,5 @@ import:
 - package: github.com/stretchr/testify
   subpackages:
   - mock
+- package: github.com/johntdyer/slackrus
+- package: github.com/johntdyer/slack-go

@@ -111,10 +111,41 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
 
 	client := dockerClient{api: api}
-	err := client.StopContainer(c, time.Second)
+	err := client.StopContainer(c, time.Second, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
+}
+
+func TestStopContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Name:   "foo",
+			Id:     "abc123",
+			Config: &dockerclient.ContainerConfig{},
+		},
+	}
+
+	ci := &dockerclient.ContainerInfo{
+		State: &dockerclient.State{
+			Running: false,
+		},
+	}
+
+	api := mockclient.NewMockClient()
+	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
+	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
+	api.On("RemoveContainer", "abc123", true, false).Return(nil)
+	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
+
+	client := dockerClient{api: api}
+	err := client.StopContainer(c, time.Second, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGTERM")
+	api.AssertNotCalled(t, "InspectContainer", "abc123")
+	api.AssertNotCalled(t, "RemoveContainer", "abc123", true, false)
+	api.AssertNotCalled(t, "InspectContainer", "abc123")
 }
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
@@ -130,10 +161,29 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
 
 	client := dockerClient{api: api}
-	err := client.KillContainer(c, "SIGTERM")
+	err := client.KillContainer(c, "SIGTERM", false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
+}
+
+func TestKillContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Name:   "foo",
+			Id:     "abc123",
+			Config: &dockerclient.ContainerConfig{},
+		},
+	}
+
+	api := mockclient.NewMockClient()
+	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
+
+	client := dockerClient{api: api}
+	err := client.KillContainer(c, "SIGTERM", true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGTERM")
 }
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
@@ -159,7 +209,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
 
 	client := dockerClient{api: api}
-	err := client.StopContainer(c, time.Second)
+	err := client.StopContainer(c, time.Second, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
@@ -178,7 +228,7 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 	api.On("KillContainer", "abc123", "SIGTERM").Return(errors.New("oops"))
 
 	client := dockerClient{api: api}
-	err := client.StopContainer(c, time.Second)
+	err := client.StopContainer(c, time.Second, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "oops")
@@ -200,7 +250,7 @@ func TestStopContainer_RemoveContainerError(t *testing.T) {
 	api.On("RemoveContainer", "abc123", true, false).Return(errors.New("whoops"))
 
 	client := dockerClient{api: api}
-	err := client.StopContainer(c, time.Second)
+	err := client.StopContainer(c, time.Second, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "whoops")
@@ -326,10 +376,27 @@ func TestRemoveImage_Success(t *testing.T) {
 	api.On("RemoveImage", "abc123", false).Return([]*dockerclient.ImageDelete{}, nil)
 
 	client := dockerClient{api: api}
-	err := client.RemoveImage(c, false)
+	err := client.RemoveImage(c, false, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
+}
+
+func TestRemoveImage_DryRun(t *testing.T) {
+	c := Container{
+		imageInfo: &dockerclient.ImageInfo{
+			Id: "abc123",
+		},
+	}
+
+	api := mockclient.NewMockClient()
+	api.On("RemoveImage", "abc123", false).Return([]*dockerclient.ImageDelete{}, nil)
+
+	client := dockerClient{api: api}
+	err := client.RemoveImage(c, false, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "RemoveImage", "abc123", false)
 }
 
 func TestRemoveContainer_Success(t *testing.T) {
@@ -343,10 +410,27 @@ func TestRemoveContainer_Success(t *testing.T) {
 	api.On("RemoveContainer", "abc123", true, true).Return(nil)
 
 	client := dockerClient{api: api}
-	err := client.RemoveContainer(c, true)
+	err := client.RemoveContainer(c, true, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
+}
+
+func TestRemoveContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	api := mockclient.NewMockClient()
+	api.On("RemoveContainer", "abc123", true, true).Return(nil)
+
+	client := dockerClient{api: api}
+	err := client.RemoveContainer(c, true, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "RemoveContainer", "abc123", true, true)
 }
 
 func TestRemoveImage_Error(t *testing.T) {
@@ -360,7 +444,7 @@ func TestRemoveImage_Error(t *testing.T) {
 	api.On("RemoveImage", "abc123", false).Return([]*dockerclient.ImageDelete{}, errors.New("oops"))
 
 	client := dockerClient{api: api}
-	err := client.RemoveImage(c, false)
+	err := client.RemoveImage(c, false, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "oops")

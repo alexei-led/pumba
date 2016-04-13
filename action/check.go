@@ -23,12 +23,12 @@ func CheckPrereqs(client container.Client, cleanup bool) error {
 
 		// Iterate over all containers execept the last one
 		for _, c := range containers[0 : len(containers)-1] {
-			if err := client.StopContainer(c, 60); err != nil {
+			if err := client.StopContainer(c, 60, false); err != nil {
 				return err
 			}
 
 			if cleanup {
-				if err := client.RemoveImage(c, true); err != nil {
+				if err := client.RemoveImage(c, true, false); err != nil {
 					return err
 				}
 			}

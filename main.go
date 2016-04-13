@@ -1,4 +1,4 @@
-package main // import "github.com/gaia-adm/pumba"
+package main
 
 import (
 	"crypto/tls"
@@ -18,13 +18,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/johntdyer/slackrus"
 )
 
 var (
 	wg      sync.WaitGroup
 	client  container.Client
 	cleanup bool
-	random  bool
 )
 
 const (
@@ -41,6 +41,7 @@ type commandT struct {
 
 func init() {
 	log.SetLevel(log.InfoLevel)
+	log.SetFormatter(&log.TextFormatter{})
 }
 
 func stringInSlice(a string, list []string) bool {
@@ -61,7 +62,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "Pumba"
-	app.Version = "0.1.4"
+	app.Version = "0.1.5"
 	app.Usage = "Pumba is a resiliency tool that helps applications tolerate random Docker container failures."
 	app.Before = before
 	app.Commands = []cli.Command{
@@ -73,8 +74,14 @@ func main() {
 					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
 				},
 				cli.BoolFlag{
-					Name:  "random, r",
-					Usage: "Random mode: randomly select single matching container to 'kill'",
+					Name:        "random, r",
+					Usage:       "Random mode: randomly select single matching container to 'kill'",
+					Destination: &actions.RandomMode,
+				},
+				cli.BoolFlag{
+					Name:        "dry",
+					Usage:       "enable 'dry run' mode: do not 'kill' containers, just log intention",
+					Destination: &actions.DryMode,
 				},
 			},
 			Usage:  "Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers",
@@ -116,6 +123,18 @@ func main() {
 			Name:  "debug",
 			Usage: "enable debug mode with verbose logging",
 		},
+		cli.BoolFlag{
+			Name:  "json",
+			Usage: "produce log in JSON format: Logstash and Splunk friendly"},
+		cli.StringFlag{
+			Name:  "slackhook",
+			Usage: "Slack web hook url. Send Pumba log events to Slack",
+		},
+		cli.StringFlag{
+			Name:  "slackchannel",
+			Usage: "Slack channel for Pumba log events",
+			Value: "#pumba",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -124,8 +143,23 @@ func main() {
 }
 
 func before(c *cli.Context) error {
+	// set debug log level
 	if c.GlobalBool("debug") {
 		log.SetLevel(log.DebugLevel)
+	}
+	// set log formatter to JSON
+	if c.GlobalBool("json") {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+	// set Slack log channel
+	if c.GlobalString("slackhook") != "" {
+		log.AddHook(&slackrus.SlackrusHook{
+			HookURL:        c.GlobalString("slackhook"),
+			AcceptedLevels: slackrus.LevelThreshold(log.GetLevel()),
+			Channel:        "#slack-testing",
+			IconEmoji:      ":boar:",
+			Username:       c.GlobalString("slackchannel"),
+		})
 	}
 
 	cleanup = c.GlobalBool("cleanup")
@@ -146,18 +180,15 @@ func run(c *cli.Context) {
 	if err := actions.CheckPrereqs(client, cleanup); err != nil {
 		log.Fatal(err)
 	}
-	if err := createChaos(actions.Pumba{}, c.StringSlice("chaos"), c.Bool("random"), 1, false); err != nil {
+	if err := createChaos(actions.Pumba{}, c.StringSlice("chaos"), 1, false); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func createChaos(chaos actions.Chaos, args []string, random bool, limit int, test bool) error {
+func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error {
 	// docker channel to pass all "stop" commands to
 	dc := make(chan commandT)
 	glimit := limit * len(args)
-
-	// set random mode
-	actions.RandomMode = random
 
 	// range over all chaos arguments
 	for _, chaosArg := range args {
@@ -172,8 +203,10 @@ func createChaos(chaos actions.Chaos, args []string, random bool, limit int, tes
 			pattern = strings.Trim(s[0], re2prefix)
 			log.Debugf("Pattern: '%s'", pattern)
 		} else {
-			names = strings.Split(s[0], ",")
-			log.Debugf("Names: '%s'", s[0])
+			if s[0] != "" {
+				names = strings.Split(s[0], ",")
+			}
+			log.Debugf("Names: '%s'", names)
 		}
 		// get interval duration
 		interval, err := time.ParseDuration(s[1])
