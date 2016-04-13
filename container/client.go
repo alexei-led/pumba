@@ -81,7 +81,7 @@ func (client dockerClient) KillContainer(c Container, signal string, dryrun bool
 	if dryrun {
 		prefix = dryRunPrefix
 	}
-	log.Infof("%sKilling %s (%s) with signal $s", prefix, c.Name(), c.ID(), signal)
+	log.Infof("%sKilling %s (%s) with signal %s", prefix, c.Name(), c.ID(), signal)
 	if !dryrun {
 		if err := client.api.KillContainer(c.ID(), signal); err != nil {
 			return err
