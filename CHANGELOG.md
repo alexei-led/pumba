@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.6] - 2016-04-25
+### Added
+- added `gosu` to Pumba Docker image
+### Fixed
+- Pumba runs as `pumba:pumba` user, instead of `root`
+
+
 ## [0.1.5] - 2016-04-13
 ### Added
 - File: `pumba_kube.yml` Kubernetes (1.1.x) deployment manifest
