@@ -83,6 +83,18 @@ func TestIsPumba_True(t *testing.T) {
 	assert.True(t, c.IsPumba())
 }
 
+func TestIsPumbaSkip_True(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Config: &dockerclient.ContainerConfig{
+				Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
+			},
+		},
+	}
+
+	assert.True(t, c.IsPumbaSkip())
+}
+
 func TestIsPumba_WrongLabelValue(t *testing.T) {
 	c := Container{
 		containerInfo: &dockerclient.ContainerInfo{

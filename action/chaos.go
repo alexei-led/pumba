@@ -34,9 +34,9 @@ type Chaos interface {
 // Pumba makes chaos
 type Pumba struct{}
 
-// all containers beside Pumba
+// all containers beside Pumba and PumbaSkip
 func allContainersFilter(c container.Container) bool {
-	if c.IsPumba() {
+	if c.IsPumba() || c.IsPumbaSkip() {
 		return false
 	}
 	return true
@@ -48,7 +48,7 @@ func containerFilter(names []string) container.Filter {
 	}
 
 	return func(c container.Container) bool {
-		if c.IsPumba() {
+		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
 		for _, name := range names {
@@ -62,7 +62,7 @@ func containerFilter(names []string) container.Filter {
 
 func regexContainerFilter(pattern string) container.Filter {
 	return func(c container.Container) bool {
-		if c.IsPumba() {
+		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
 		matched, err := regexp.MatchString(pattern, c.Name())

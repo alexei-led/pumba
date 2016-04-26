@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	pumbaLabel  = "com.gaiaadm.pumba"
-	signalLabel = "com.gaiaadm.pumba.stop-signal"
+	pumbaLabel     = "com.gaiaadm.pumba"
+	pumbaSkipLabel = "com.gaiaadm.pumba.skip"
+	signalLabel    = "com.gaiaadm.pumba.stop-signal"
 )
 
 // NewContainer returns a new Container instance instantiated with the
@@ -70,11 +71,20 @@ func (c Container) Links() []string {
 }
 
 // IsPumba returns a boolean flag indicating whether or not the current
-// container is the timon container itself. The timon container is
-// identified by the presence of the "com.gaiaadm.timon" label in
+// container is the Pumba container itself. The Pumba container is
+// identified by the presence of the "com.gaiaadm.pumba" label in
 // the container metadata.
 func (c Container) IsPumba() bool {
 	val, ok := c.containerInfo.Config.Labels[pumbaLabel]
+	return ok && val == "true"
+}
+
+// IsPumbaSkip returns a boolean flag indicating whether or not the current
+// container should be ingored by Pumba. This container is
+// identified by the presence of the "com.gaiaadm.pumba.skip" label in
+// the container metadata. Use it to skip monitoring and helper containers.
+func (c Container) IsPumbaSkip() bool {
+	val, ok := c.containerInfo.Config.Labels[pumbaSkipLabel]
 	return ok && val == "true"
 }
 
