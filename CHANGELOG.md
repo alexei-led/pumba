@@ -4,13 +4,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### Added
-- Use Docker Label `com.gaiaadm.pumba.skip=true` to make Pumba ignoring the container. Avoid abusing it.
+### Fixed
 
 ## [0.1.6] - 2016-04-25
 ### Added
 - added `gosu` to Pumba Docker image
+- Use Docker Label `com.gaiaadm.pumba.skip` to make Pumba ignoring the container. Avoid abusing it though.
 ### Fixed
 - Pumba runs as `pumba:pumba` user, instead of `root`
+- Report Pumba events to Slack
 
 ## [0.1.5] - 2016-04-13
 ### Added
