@@ -1,11 +1,11 @@
 #!/bin/bash
 
 distdir=.dist
-exarch="!arm"
+exarch="amd64 386"
 oslist="linux windows darwin"
 BUILD_DATE=$(date -u '+%Y/%m/%d')
 BUILD_VERSION=$(git describe --tags)
-CGO_ENABLED=0
+CGO_ENABLE=0
 
 gox_build() {
   rm -rf "${distdir}"
