@@ -25,7 +25,7 @@ github-release release \
   --user ${user} \
   --repo ${repo} \
   --tag ${RELEASE_TAG} \
-  --description $tag_message
+  --description "$tag_message"
 
 # upload files
 ( cd ${distdir} || exit
