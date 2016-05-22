@@ -8,10 +8,7 @@ RUN addgroup pumba && adduser -s /bin/bash -D -G pumba pumba
 
 ENV GOSU_VERSION 1.7
 RUN set -x \
-    && apk add --no-cache --virtual .gosu-deps \
-        dpkg \
-        gnupg \
-        openssl \
+    && apk add --no-cache --virtual .gosu-deps dpkg gnupg openssl ca-certificates \
     && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" \
     && wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" \
     && export GNUPGHOME="$(mktemp -d)" \

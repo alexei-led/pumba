@@ -2,7 +2,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.1.7]
+## [0.1.8] - 2016-05-22
+### Fixed
+- Added CA ca-certificates to Docker image: required for HTTPS
+- speed up build
+
+## [0.1.7] - 2016-05-21
 ### Added
 ### Fixed
 - Report Pumba events to Slack
