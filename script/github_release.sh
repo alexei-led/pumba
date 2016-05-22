@@ -17,12 +17,11 @@ fi
 
 # see https://github.com/aktau/github-release for the tool commands
 # edit release details (release is automatically created for annotated tag by GitHub)
-github-release edit \
+github-release release \
   --security-token ${GITHUB_TOKEN} \
   --user aktau \
   --repo gofinance \
-  --tag ${RELEASE_TAG} \
-  --name ${RELEASE_TAG}
+  --tag ${RELEASE_TAG}
 
 # upload files
 ( cd ${distdir} || exit
