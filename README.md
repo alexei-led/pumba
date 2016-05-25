@@ -4,10 +4,7 @@
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt.png)](https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt)
-
-<script type="text/javascript" src="https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt.js" id="pumba-demo-asciinema" async></script>
-
+[![asciicast](https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt.png)](https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt?autoplay=1&speed=2)
 
 ## Usage
 
