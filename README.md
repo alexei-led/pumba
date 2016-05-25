@@ -6,6 +6,9 @@
 
 You can download Pumba binary for your OS from [release](https://github.com/gaia-adm/pumba/releases) page.
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt.png)](https://asciinema.org/a/63l5ahg7fwkcq5y92gpq8b4tt)
 ```
 $ pumba help
 
