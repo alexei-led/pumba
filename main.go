@@ -30,6 +30,7 @@ var (
 const (
 	defaultKillSignal = "SIGKILL"
 	re2prefix         = "re2:"
+	release           = "v0.1.10"
 )
 
 type commandT struct {
@@ -62,7 +63,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "Pumba"
-	app.Version = "0.1.7"
+	app.Version = release
 	app.Usage = "Pumba is a resiliency tool that helps applications tolerate random Docker container failures."
 	app.Before = before
 	app.Commands = []cli.Command{

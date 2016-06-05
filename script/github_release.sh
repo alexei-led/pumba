@@ -16,7 +16,7 @@ if [ -z "$RELEASE_TAG" ]; then
 fi
 
 # get tag message (max 20 lines)
-tag_message=$(git tag -l $RELEASE_TAG -n20 | sed s/'0.1.5       '/''/g)
+tag_message=$(git tag -l ${RELEASE_TAG} -n20 | sed s/'${RELEASE_TAG}[ ]*'/''/g)
 
 # see https://github.com/aktau/github-release for the tool commands
 # edit release details (release is automatically created for annotated tag by GitHub)
@@ -24,7 +24,8 @@ github-release release \
   --security-token ${GITHUB_TOKEN} \
   --user ${user} \
   --repo ${repo} \
-  --tag ${RELEASE_TAG} \
+  --name "v${RELEASE_TAG}" \
+  --tag "${RELEASE_TAG}" \
   --description "$tag_message"
 
 # upload files
