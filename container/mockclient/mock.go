@@ -53,3 +53,9 @@ func (m *MockClient) RemoveContainer(c container.Container, f bool, dryrun bool)
 	args := m.Called(c, f)
 	return args.Error(0)
 }
+
+// PauseContainer mock
+func (m *MockClient) PauseContainer(c container.Container, d time.Duration, dryrun bool) error {
+	args := m.Called(c, d)
+	return args.Error(0)
+}

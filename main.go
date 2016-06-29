@@ -37,7 +37,7 @@ type commandT struct {
 	pattern string
 	names   []string
 	command string
-	signal  string
+	option  string
 }
 
 func init() {
@@ -72,7 +72,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/PAUSE:INTERVAL(s/m/h postfix)`",
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
@@ -215,17 +215,23 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 			return err
 		}
 		log.Debugf("Interval: '%s'", interval.String())
-		// get command and signal (if specified); convert everything to upper case
-		cs := strings.Split(strings.ToUpper(s[2]), ":")
-		command := cs[0]
-		if !stringInSlice(command, []string{"STOP", "KILL", "RM"}) {
-			return errors.New("Unexpected command in chaos option: can be STOP, KILL or RM")
+		// get command and its option (if specified)
+		cs := strings.Split(s[2], ":")
+		command := strings.ToUpper(cs[0])
+		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "PAUSE"}) {
+			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM or PAUSE")
 		}
 		log.Debugf("Command: '%s'", command)
-		signal := defaultKillSignal
+		option := defaultKillSignal
 		if len(cs) == 2 {
-			signal = cs[1]
-			log.Debugf("Signal: '%s'", signal)
+			option = cs[1]
+			if command == "PAUSE" {
+				log.Debugf("Pause interval: '%s'", option)
+			} else {
+				// convert signal to UPPER
+				option := strings.ToUpper(option)
+				log.Debugf("Signal: '%s'", option)
+			}
 		}
 
 		ticker := time.NewTicker(interval)
@@ -239,7 +245,7 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					}
 				}
 			}
-		}(commandT{pattern, names, command, signal}, limit, test)
+		}(commandT{pattern, names, command, option}, limit, test)
 	}
 	for cmd := range dc {
 		if test {
@@ -261,15 +267,21 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 				}
 			case "KILL":
 				if cmd.pattern == "" {
-					err = chaos.KillByName(client, cmd.names, cmd.signal)
+					err = chaos.KillByName(client, cmd.names, cmd.option)
 				} else {
-					err = chaos.KillByPattern(client, cmd.pattern, cmd.signal)
+					err = chaos.KillByPattern(client, cmd.pattern, cmd.option)
 				}
 			case "RM":
 				if cmd.pattern == "" {
 					err = chaos.RemoveByName(client, cmd.names, true)
 				} else {
 					err = chaos.RemoveByPattern(client, cmd.pattern, true)
+				}
+			case "PAUSE":
+				if cmd.pattern == "" {
+					err = chaos.PauseByName(client, cmd.names, cmd.option)
+				} else {
+					err = chaos.PauseByPattern(client, cmd.pattern, cmd.option)
 				}
 			}
 			if err != nil {

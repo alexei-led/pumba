@@ -450,3 +450,86 @@ func TestRemoveImage_Error(t *testing.T) {
 	assert.EqualError(t, err, "oops")
 	api.AssertExpectations(t)
 }
+
+func TestPauseContainer_Success(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	d, _ := time.ParseDuration("10ms")
+
+	api := mockclient.NewMockClient()
+	api.On("PauseContainer", "abc123").Return(nil)
+	api.On("UnpauseContainer", "abc123").Return(nil)
+
+	client := dockerClient{api: api}
+	start := time.Now()
+	err := client.PauseContainer(c, d, false)
+	duration := time.Since(start)
+
+	assert.True(t, duration >= d)
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestPauseContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	d, _ := time.ParseDuration("2ms")
+
+	api := mockclient.NewMockClient()
+
+	client := dockerClient{api: api}
+	err := client.PauseContainer(c, d, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "PauseContainer", "abc123")
+	api.AssertNotCalled(t, "UnpauseContainer", "abc123")
+}
+
+func TestPauseContainer_PauseError(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	d, _ := time.ParseDuration("2ms")
+
+	api := mockclient.NewMockClient()
+	api.On("PauseContainer", "abc123").Return(errors.New("pause"))
+
+	client := dockerClient{api: api}
+	err := client.PauseContainer(c, d, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "pause")
+	api.AssertExpectations(t)
+}
+
+func TestPauseContainer_UnpauseError(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	d, _ := time.ParseDuration("2ms")
+
+	api := mockclient.NewMockClient()
+	api.On("PauseContainer", "abc123").Return(nil)
+	api.On("UnpauseContainer", "abc123").Return(errors.New("unpause"))
+
+	client := dockerClient{api: api}
+	err := client.PauseContainer(c, d, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "unpause")
+	api.AssertExpectations(t)
+}

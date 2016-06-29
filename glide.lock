@@ -1,5 +1,5 @@
 hash: a1a11027ffcc75ea445765f0a434fa09f073eb8481246ca2bca6f706be2519a9
-updated: 2016-04-13T13:02:42.048139949+03:00
+updated: 2016-06-27T15:45:54.85493358+03:00
 imports:
 - name: github.com/codegangsta/cli
   version: bc465becccd1d527002fda095fc3c19d9c115029

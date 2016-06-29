@@ -27,6 +27,7 @@ type Client interface {
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool) error
+	PauseContainer(Container, time.Duration, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -170,6 +171,25 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
 		return client.api.RemoveContainer(c.ID(), force, true)
+	}
+	return nil
+}
+
+func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sPausing container '%s' for '%s'", prefix, c.ID(), duration)
+	if !dryrun {
+		if err := client.api.PauseContainer(c.ID()); err != nil {
+			return err
+		}
+		// pause the current goroutine for specified duration
+		time.Sleep(duration)
+		if err := client.api.UnpauseContainer(c.ID()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
