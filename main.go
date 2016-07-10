@@ -72,7 +72,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT`",
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
@@ -85,7 +85,7 @@ func main() {
 					Destination: &actions.DryMode,
 				},
 			},
-			Usage:  "Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers",
+			Usage:  "Pumba starts making chaos: periodically (and randomly) kills/stops/removes/disrupts specified containers",
 			Action: run,
 		},
 	}
@@ -218,8 +218,8 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 		// get command and signal (if specified); convert everything to upper case
 		cs := strings.Split(strings.ToUpper(s[2]), ":")
 		command := cs[0]
-		if !stringInSlice(command, []string{"STOP", "KILL", "RM"}) {
-			return errors.New("Unexpected command in chaos option: can be STOP, KILL or RM")
+		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "DISRUPT"}) {
+			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM or DISRUPT")
 		}
 		log.Debugf("Command: '%s'", command)
 		signal := defaultKillSignal
@@ -270,6 +270,12 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					err = chaos.RemoveByName(client, cmd.names, true)
 				} else {
 					err = chaos.RemoveByPattern(client, cmd.pattern, true)
+				}
+			case "DISRUPT":
+				if cmd.pattern == "" {
+					err = chaos.DisruptByName(client, cmd.names, true)
+				} else {
+					err = chaos.DisruptByPattern(client, cmd.pattern, true)
 				}
 			}
 			if err != nil {

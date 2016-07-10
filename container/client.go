@@ -27,6 +27,7 @@ type Client interface {
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool) error
+	DisruptContainer(Container, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -170,6 +171,31 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
 		return client.api.RemoveContainer(c.ID(), force, true)
+	}
+	return nil
+}
+
+func (client dockerClient) DisruptContainer(c Container, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sDisrupting container %s", prefix, c.ID())
+	if !dryrun {
+		// use dockerclient ExecStart to run Traffic Control:
+		// 'tc qdisc add dev eth0 root netem delay 100ms'
+		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+		execConfig := dockerclient.ExecConfig{
+			Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"},
+			Container: c.ID()
+		}
+		_id, err := client.api.ExecCreate(&execConfig)
+		if err != nil {
+				return err
+			}
+
+		log.Debugf("Starting Exec %s (%s)", name, _id)
+		return client.api.ExecStart(_id, &execConfig)
 	}
 	return nil
 }
