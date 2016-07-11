@@ -194,7 +194,7 @@ func (client dockerClient) DisruptContainer(c Container, dryrun bool) error {
 				return err
 			}
 
-		log.Debugf("Starting Exec %s (%s)", name, _id)
+		log.Debugf("Starting Exec %s (%s)", "netem", _id)
 		return client.api.ExecStart(_id, execConfig)
 	}
 	return nil
