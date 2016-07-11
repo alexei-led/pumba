@@ -273,9 +273,9 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 				}
 			case "DISRUPT":
 				if cmd.pattern == "" {
-					err = chaos.DisruptByName(client, cmd.names, true)
+					err = chaos.DisruptByName(client, cmd.names)
 				} else {
-					err = chaos.DisruptByPattern(client, cmd.pattern, true)
+					err = chaos.DisruptByPattern(client, cmd.pattern)
 				}
 			}
 			if err != nil {
