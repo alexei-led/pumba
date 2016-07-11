@@ -156,18 +156,18 @@ func removeContainers(client container.Client, containers []container.Container,
 	return nil
 }
 
-func disruptContainers(client container.Client, containers []container.Container) error {
+func disruptContainers(client container.Client, containers []container.Container, netemCmd string) error {
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.DisruptContainer(*container, DryMode)
+			err := client.DisruptContainer(*container, DryMode, netemCmd)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.DisruptContainer(container, DryMode)
+			err := client.DisruptContainer(container, DryMode, netemCmd)
 			if err != nil {
 				return err
 			}
