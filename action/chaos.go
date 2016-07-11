@@ -29,8 +29,8 @@ type Chaos interface {
 	KillByPattern(container.Client, string, string) error
 	RemoveByName(container.Client, []string, bool) error
 	RemoveByPattern(container.Client, string, bool) error
-	DisruptByName(container.Client, []string) error
-	DisruptByPattern(container.Client, string) error
+	DisruptByName(container.Client, []string, string) error
+	DisruptByPattern(container.Client, string, string) error
 }
 
 // Pumba makes chaos
@@ -244,22 +244,22 @@ func (p Pumba) RemoveByPattern(client container.Client, pattern string, force bo
 
 // DisruptByName disrupts container egress network, if its name within `names`. 
 // Disruption is currently limited to delayed response
-func (p Pumba) DisruptByName(client container.Client, names []string) error {
+func (p Pumba) DisruptByName(client container.Client, names []string, netemCmd string) error {
 	log.Info("Disrupt containers by names: ", names)
 	containers, err := client.ListContainers(containerFilter(names))
 	if err != nil {
 		return err
 	}
-	return disruptContainers(client, containers)
+	return disruptContainers(client, containers, netemCmd)
 }
 
 // DisruptByPattern disrupts container egress network, if its name matches 'pattern'. 
 // Disruption is currently limited to delayed response
-func (p Pumba) DisruptByPattern(client container.Client, pattern string) error {
+func (p Pumba) DisruptByPattern(client container.Client, pattern string, netemCmd string) error {
 	log.Infof("Disrupt containers by RE2 pattern: '%s'", pattern)
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
 	if err != nil {
 		return err
 	}
-	return disruptContainers(client, containers)
+	return disruptContainers(client, containers, netemCmd)
 }

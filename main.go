@@ -31,13 +31,15 @@ const (
 	defaultKillSignal = "SIGKILL"
 	re2prefix         = "re2:"
 	release           = "v0.1.10"
+	defaultNetemCmd   = "delay 100ms"
 )
 
 type commandT struct {
 	pattern string
 	names   []string
 	command string
-	signal  string
+	signal string
+	netemCmd string
 }
 
 func init() {
@@ -72,20 +74,20 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT`",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)`",
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
-					Usage:       "Random mode: randomly select single matching container to 'kill'",
+					Usage:       "Random mode: randomly select single matching container as a target for the specified chaos action",
 					Destination: &actions.RandomMode,
 				},
 				cli.BoolFlag{
 					Name:        "dry",
-					Usage:       "enable 'dry run' mode: do not 'kill' containers, just log intention",
+					Usage:       "enable 'dry run' mode: does not execute chaos action, just logs actions",
 					Destination: &actions.DryMode,
 				},
 			},
-			Usage:  "Pumba starts making chaos: periodically (and randomly) kills/stops/removes/disrupts specified containers",
+			Usage:  "Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers",
 			Action: run,
 		},
 	}
@@ -222,10 +224,26 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM or DISRUPT")
 		}
 		log.Debugf("Command: '%s'", command)
+		// 2 actions upport a second argument: KILL/STOP:signal and DISRUPT:netem command
+		// accordingly assign 2nd cmd line argument if exists
 		signal := defaultKillSignal
+		netemCmd := defaultNetemCmd
 		if len(cs) == 2 {
-			signal = cs[1]
-			log.Debugf("Signal: '%s'", signal)
+			if (cs[0] == "STOP" || cs[0] == "KILL")
+			{
+				signal = cs[1]
+				log.Debugf("Signal: '%s'", signal)
+			}
+			else if (cs[0] == "DISRUPT")
+			{
+				netemCmd = cs[1]
+				log.Debugf("Netem Command: '%s'", netemCmd)
+			}
+			else
+			{
+				log.Debugf("2nd argument doesn't correspond with command: '%s'", cs[1])	
+				return errors.New("Surplus 2nd argument to chaos action command")
+			}
 		}
 
 		ticker := time.NewTicker(interval)
@@ -239,7 +257,7 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					}
 				}
 			}
-		}(commandT{pattern, names, command, signal}, limit, test)
+		}(commandT{pattern, names, command, signal, netemCmd}, limit, test)
 	}
 	for cmd := range dc {
 		if test {
@@ -273,9 +291,9 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 				}
 			case "DISRUPT":
 				if cmd.pattern == "" {
-					err = chaos.DisruptByName(client, cmd.names)
+					err = chaos.DisruptByName(client, cmd.names, cmd.netemCmd)
 				} else {
-					err = chaos.DisruptByPattern(client, cmd.pattern)
+					err = chaos.DisruptByPattern(client, cmd.pattern,cmd.netemCmd)
 				}
 			}
 			if err != nil {

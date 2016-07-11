@@ -175,18 +175,20 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 	return nil
 }
 
-func (client dockerClient) DisruptContainer(c Container, dryrun bool) error {
+func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
 	}
-	log.Infof("%sDisrupting container %s", prefix, c.ID())
+	log.Infof("%sDisrupting container %s with netem cmd %s", prefix, c.ID(), netemCmd)
 	if !dryrun {
 		// use dockerclient ExecStart to run Traffic Control:
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+		netemSplit := strings.Split(strings.ToLower(netemCmd), " ")
+		netemMerge := append(netemSplit, []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem"})
 		execConfig := &dockerclient.ExecConfig{
-			Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"},
+			Cmd: netemMerge,
 			Container: c.ID(),
 		}
 		_id, err := client.api.ExecCreate(execConfig)
@@ -194,7 +196,7 @@ func (client dockerClient) DisruptContainer(c Container, dryrun bool) error {
 				return err
 			}
 
-		log.Debugf("Starting Exec %s (%s)", "netem", _id)
+		log.Debugf("Starting Exec %s (%s)", netemMerge, _id)
 		return client.api.ExecStart(_id, execConfig)
 	}
 	return nil
