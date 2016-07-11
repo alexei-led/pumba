@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"time"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/samalba/dockerclient"
