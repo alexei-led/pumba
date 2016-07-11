@@ -185,17 +185,17 @@ func (client dockerClient) DisruptContainer(c Container, dryrun bool) error {
 		// use dockerclient ExecStart to run Traffic Control:
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-		execConfig := dockerclient.ExecConfig{
+		execConfig := &dockerclient.ExecConfig{
 			Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"},
-			Container: c.ID()
+			Container: c.ID(),
 		}
-		_id, err := client.api.ExecCreate(&execConfig)
+		_id, err := client.api.ExecCreate(execConfig)
 		if err != nil {
 				return err
 			}
 
 		log.Debugf("Starting Exec %s (%s)", name, _id)
-		return client.api.ExecStart(_id, &execConfig)
+		return client.api.ExecStart(_id, execConfig)
 	}
 	return nil
 }
