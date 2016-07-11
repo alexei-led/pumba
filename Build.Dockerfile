@@ -3,7 +3,7 @@ FROM golang:1.6.2-alpine
 MAINTAINER Alexei Ledenev <alexei.led@gmail.com>
 
 # install Git apk
-RUN apt-get update && apt-get install curl && apk --update add git bash \
+RUN apk --update add git bash curl \
     && rm -rf /var/lib/apt/lists/* \
     && rm /var/cache/apk/*
 
