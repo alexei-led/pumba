@@ -29,8 +29,8 @@ type Chaos interface {
 	KillByPattern(container.Client, string, string) error
 	RemoveByName(container.Client, []string, bool) error
 	RemoveByPattern(container.Client, string, bool) error
-	DisruptByName(container.Client, []string, bool) error
-	DisruptByPattern(container.Client, string, bool) error
+	DisruptByName(container.Client, []string) error
+	DisruptByPattern(container.Client, string) error
 }
 
 // Pumba makes chaos
@@ -253,7 +253,7 @@ func (p Pumba) DisruptByName(client container.Client, names []string) error {
 	return disruptContainers(client, containers)
 }
 
-// DisruptByName disrupts container egress network, if its name matches 'pattern'. 
+// DisruptByPattern disrupts container egress network, if its name matches 'pattern'. 
 // Disruption is currently limited to delayed response
 func (p Pumba) DisruptByPattern(client container.Client, pattern string) error {
 	log.Infof("Disrupt containers by RE2 pattern: '%s'", pattern)
