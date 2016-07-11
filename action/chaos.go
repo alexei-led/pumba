@@ -160,14 +160,14 @@ func disruptContainers(client container.Client, containers []container.Container
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.DisruptContainer(*container, DryMode, netemCmd)
+			err := client.DisruptContainer(*container, netemCmd, DryMode)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.DisruptContainer(container, DryMode, netemCmd)
+			err := client.DisruptContainer(container, netemCmd, DryMode)
 			if err != nil {
 				return err
 			}

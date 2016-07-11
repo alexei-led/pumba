@@ -28,7 +28,7 @@ type Client interface {
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool) error
-	DisruptContainer(Container, bool) error
+	DisruptContainer(Container, string, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
