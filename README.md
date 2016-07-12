@@ -57,14 +57,22 @@ OPTIONS:
 ### Using Pumba to disrupt containers network
 
 For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications.
-Netem commands are executed on containers using 'docker exec'.
 
+A few implementaion points are important to understand:
+* Netem commands are executed on containers using 'docker exec'. In order to change network driver settings, the container must have NET_ADMIN capability - this can be granted via the ['docker run' command](https://docs.docker.com/engine/reference/run/#/runtime-privilege-and-linux-capabilities), via [docker-compose.yml](https://docs.docker.com/compose/compose-file/#/cap-add-cap-drop) or otherwise.
+* Pumba doesn't (currently) store 'chaos state' and therefore is not aware if the container has been already disrupted. As a result, subsequent calls will disrupt it again using the syntax 'tc qdisc add' instead of 'tc qdisc change'. Another result is that even when Pumba is stopped, the disrupted container is still disrtuped. To manually fix the container, use:
 ```
+   docker exec container_name tc qdisc del dev eth0 root netem
+```
+* Generally, repeating the same disruption to the network of the same container has no effect. In a way, it will be best to use DISRUPT in random mode, combined with KILL so that disrupted containers will be removed from time to time.
+
 USAGE:
+```
    pumba run container-name|10m|DISRUPT:delay 100ms
    
-   Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
 ```
+   Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
+
 ### Runing inside Docker container
 
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
