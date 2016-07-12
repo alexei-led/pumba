@@ -188,7 +188,7 @@ func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		netemBase := strings.Split("tc qdisc add dev eth0 root netem", " ")
 		netemCommand := strings.Split(strings.ToLower(netemCmd), " ")
-		netemMerge := append(netemBase, netemSplit)
+		netemMerge := append(netemBase, netemCommand)
 		execConfig := &dockerclient.ExecConfig{
 			Cmd: netemMerge,
 			Container: c.ID(),
