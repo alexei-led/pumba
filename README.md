@@ -66,12 +66,12 @@ A few implementaion points are important to understand:
 ```
 * Generally, repeating the same disruption to the network of the same container has no effect. In a way, it will be best to use DISRUPT in random mode, combined with KILL so that disrupted containers will be removed from time to time.
 
-USAGE:
+Example:
 ```
    pumba run container-name|10m|DISRUPT:delay 100ms
    
 ```
-   Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
+Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
 
 ### Runing inside Docker container
 
