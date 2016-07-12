@@ -186,11 +186,9 @@ func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun
 		// use dockerclient ExecStart to run Traffic Control:
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-		netemBase := strings.Split("tc qdisc add dev eth0 root netem", " ")
-		netemCommand := strings.Split(strings.ToLower(netemCmd), " ")
-		netemMerge := append(netemBase, netemCommand)
+		netemCommand := "tc qdisc add dev eth0 root netem " + netemCmd
 		execConfig := &dockerclient.ExecConfig{
-			Cmd: netemMerge,
+			Cmd: strings.Split(netemCommand, " "),
 			Container: c.ID(),
 		}
 		_id, err := client.api.ExecCreate(execConfig)
