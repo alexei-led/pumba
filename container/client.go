@@ -196,7 +196,7 @@ func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun
 				return err
 			}
 
-		log.Debugf("Starting Exec %s (%s)", netemMerge, _id)
+		log.Debugf("Starting Exec %s (%s)", netemCommand, _id)
 		return client.api.ExecStart(_id, execConfig)
 	}
 	return nil
