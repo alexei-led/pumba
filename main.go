@@ -229,18 +229,13 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 		signal := defaultKillSignal
 		netemCmd := defaultNetemCmd
 		if len(cs) == 2 {
-			if (cs[0] == "STOP" || cs[0] == "KILL")
-			{
+			if cs[0] == "STOP" || cs[0] == "KILL" {
 				signal = cs[1]
 				log.Debugf("Signal: '%s'", signal)
-			}
-			else if (cs[0] == "DISRUPT")
-			{
+			} else if cs[0] == "DISRUPT" {
 				netemCmd = cs[1]
 				log.Debugf("Netem Command: '%s'", netemCmd)
-			}
-			else
-			{
+			} else {
 				log.Debugf("2nd argument doesn't correspond with command: '%s'", cs[1])	
 				return errors.New("Surplus 2nd argument to chaos action command")
 			}
