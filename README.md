@@ -24,7 +24,7 @@ VERSION:
    0.1.10
 
 COMMANDS:
-    run  Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers
+    run  Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers
 
 GLOBAL OPTIONS:
    --host, -H "unix:///var/run/docker.sock"  daemon socket to connect to [$DOCKER_HOST]
@@ -44,15 +44,25 @@ GLOBAL OPTIONS:
 $ pumba run --help
 
 NAME:
-   pumba run - Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers
+   pumba run - Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers
 
 USAGE:
    pumba run [command options] [arguments...]
 
 OPTIONS:
-   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`
-   --random, -r					Random mode: randomly select single matching container to 'kill'
+   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)`
+   --random, -r					Random mode: randomly select single matching container as a target for the specified chaos action
 ```
+
+### Using Pumba to disrupt containers network
+
+For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications.
+Netem commands are executed on containers using 'docker exec'.
+
+USAGE:
+   pumba run container-name|10m|DISRUPT:delay 100ms
+   
+   Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
 
 ### Runing inside Docker container
 
