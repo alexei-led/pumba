@@ -59,11 +59,12 @@ OPTIONS:
 For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications.
 Netem commands are executed on containers using 'docker exec'.
 
+```
 USAGE:
    pumba run container-name|10m|DISRUPT:delay 100ms
    
    Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
-
+```
 ### Runing inside Docker container
 
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
