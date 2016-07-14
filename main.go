@@ -246,7 +246,9 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					//  otherwise, just replace the netem command
 					if net.ParseIP(cs[1]) {
 						netemCmd = netemCmd + ":" + cs[1]
-					} else netemCmd = cs[1]
+					} else {
+						netemCmd = cs[1]
+					}
 				}
 				log.Debugf("Netem Command: '%s'", netemCmd)
 			} else {
