@@ -50,13 +50,13 @@ USAGE:
    pumba run [command options] [arguments...]
 
 OPTIONS:
-   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)`
+   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)(:target ip)`
    --random, -r					Random mode: randomly select single matching container as a target for the specified chaos action
 ```
 
 ### Using Pumba to disrupt containers network
 
-For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications.
+For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described in the above link, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications. In order to disrupt communication between specific containers, use the DISRUPT option to specifiy target container IP - Pumba will then filter the outgoing traffic and apply the netem effect only to the traffic going to the specific IP.
 
 A few implementaion points are important to understand:
 * Netem commands are executed on containers using 'docker exec'. In order to change network driver settings, the container must have NET_ADMIN capability - this can be granted via the ['docker run' command](https://docs.docker.com/engine/reference/run/#/runtime-privilege-and-linux-capabilities), via [docker-compose.yml](https://docs.docker.com/compose/compose-file/#/cap-add-cap-drop) or otherwise.

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"net"
 
 	"github.com/gaia-adm/pumba/action"
 	"github.com/gaia-adm/pumba/container"
@@ -74,7 +75,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)`",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)(:target ip)`",
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
@@ -224,16 +225,32 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM or DISRUPT")
 		}
 		log.Debugf("Command: '%s'", command)
-		// 2 actions upport a second argument: KILL/STOP:signal and DISRUPT:netem command
+		// 2 actions upport a second argument: KILL/STOP:signal 
+		//	and DISRUPT:netem command:target ip
 		// accordingly assign 2nd cmd line argument if exists
 		signal := defaultKillSignal
 		netemCmd := defaultNetemCmd
-		if len(cs) == 2 {
+		if len(cs) >= 2 {
 			if cs[0] == "STOP" || cs[0] == "KILL" {
 				signal = cs[1]
 				log.Debugf("Signal: '%s'", signal)
 			} else if cs[0] == "DISRUPT" {
-				netemCmd = cs[1]
+				// the string may be netem command or target IP - as the user
+				//  can omit the command part and use the default
+				if len(cs) == 3 {
+					// then we have both command and target IP, just need to put them 
+					//   together for the internal implementaion
+					netemCmd = cs[1] + ":" cs[2]
+				}
+				else {
+					// If it's IP, re-concat it with the default command
+					//  otherwise, just replace the netem command
+					if net.ParseIP(cs[1]) {
+						netemCmd = netemCmd + ":" + cs[1]
+					}
+					else
+						netemCmd = cs[1]
+				}
 				log.Debugf("Netem Command: '%s'", netemCmd)
 			} else {
 				log.Debugf("2nd argument doesn't correspond with command: '%s'", cs[1])	
