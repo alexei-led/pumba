@@ -181,8 +181,7 @@ func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun
 	cmd = strings.Split(netemCmd, ":")
 	if len(cmd) == 2 {
 		return disruptContainerFilterNetwork(c, cmd[0], cmd[1], dryrun)
-	}
-	else {// all network
+	} else {// all network
 		return disruptContainerAllNetwork(c, cmd[0], dryrun)
 	}
 }
