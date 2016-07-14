@@ -178,11 +178,11 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 
 func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun bool) error {
 	// find out if we have command, ip or command:ip
-	cmd = strings.Split(netemCmd, ":")
+	cmd := strings.Split(netemCmd, ":")
 	if len(cmd) == 2 {
-		return disruptContainerFilterNetwork(c, cmd[0], cmd[1], dryrun)
+		return client.disruptContainerFilterNetwork(c, cmd[0], cmd[1], dryrun)
 	} else {
-		return disruptContainerAllNetwork(c, cmd[0], dryrun)
+		return client.disruptContainerAllNetwork(c, cmd[0], dryrun)
 	}
 }
 
@@ -197,7 +197,7 @@ func (client dockerClient) disruptContainerAllNetwork(c Container, netemCmd stri
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		netemCommand := "tc qdisc add dev eth0 root netem " + strings.ToLower(netemCmd)
-		return execOnContainer(c, netemCommand)
+		return client.execOnContainer(c, netemCommand)
 	}
 	return nil
 }
@@ -221,20 +221,20 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd s
 		//  u32 match ip dst 172.19.0.3 flowid 1:3'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		handleCommand := "tc qdisc add dev eth0 root handle 1: prio"
-		err_handle := execOnContainer(c, handleCommand)
+		err_handle := client.execOnContainer(c, handleCommand)
 		if err_handle != nil {
 				return err_handle
 			}
 
 		netemCommand := "tc qdisc add dev eth0 parent 1:3 netem " + strings.ToLower(netemCmd)
-		err_netem := execOnContainer(c, netemCommand)
+		err_netem := client.execOnContainer(c, netemCommand)
 		if err_netem != nil {
 				return err_netem
 			}
 
 		filterCommand := "tc filter add dev eth0 protocol ip parent 1:0 prio 3 "+
 			"u32 match ip dst " + strings.ToLower(targetIP) + " flowid 1:3"
-		return execOnContainer(c, filterCommand)
+		return client.execOnContainer(c, filterCommand)
 	}
 	return nil
 }
