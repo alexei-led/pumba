@@ -221,12 +221,14 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd s
 		//  u32 match ip dst 172.19.0.3 flowid 1:3'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		handleCommand := "tc qdisc add dev eth0 root handle 1: prio"
+		log.Debugf("Disrupt with handleCommand %s", handleCommand)
 		err := client.execOnContainer(c, handleCommand)
 		if err != nil {
 				return err
 			}
 
 		netemCommand := "tc qdisc add dev eth0 parent 1:3 netem " + strings.ToLower(netemCmd)
+		log.Debugf("Disrupt with netemCommand %s", netemCommand)
 		err = client.execOnContainer(c, netemCommand)
 		if err != nil {
 				return err
@@ -234,6 +236,7 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd s
 
 		filterCommand := "tc filter add dev eth0 protocol ip parent 1:0 prio 3 "+
 			"u32 match ip dst " + strings.ToLower(targetIP) + " flowid 1:3"
+		log.Debugf("Disrupt with filterCommand %s", filterCommand)
 		return client.execOnContainer(c, filterCommand)
 	}
 	return nil

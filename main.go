@@ -32,7 +32,7 @@ const (
 	defaultKillSignal = "SIGKILL"
 	re2prefix         = "re2:"
 	release           = "v0.1.10"
-	defaultNetemCmd   = "delay 100ms"
+	defaultNetemCmd   = "delay 1000ms"
 )
 
 type commandT struct {
