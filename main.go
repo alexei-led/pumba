@@ -72,7 +72,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/PAUSE:INTERVAL(s/m/h postfix)`",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`",
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
@@ -85,7 +85,13 @@ func main() {
 					Destination: &actions.DryMode,
 				},
 			},
-			Usage:  "Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers",
+			Usage: "Pumba starts making chaos: periodically (and randomly) affecting specified containers.",
+			Description: "Ask Pumba to run periodically (and randomly) specified chaos_command on selected container(s).\n\n" +
+				"   List of supported chaos_command(s):\n" +
+				"    * STOP - stop running container(s)\n" +
+				"    * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)\n" +
+				"    * RM - force remove running container(s)\n" +
+				"    * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval",
 			Action: run,
 		},
 	}

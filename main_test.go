@@ -45,6 +45,16 @@ func (m *ChaosMock) RemoveByPattern(c container.Client, p string, f bool) error 
 	return args.Error(0)
 }
 
+func (m *ChaosMock) PauseByName(c container.Client, n []string, i string) error {
+	args := m.Called(c, n, i)
+	return args.Error(0)
+}
+
+func (m *ChaosMock) PauseByPattern(c container.Client, p string, i string) error {
+	args := m.Called(c, p, i)
+	return args.Error(0)
+}
+
 //---- TESTS
 
 func TestCreateChaos_StopByName(t *testing.T) {

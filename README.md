@@ -21,7 +21,7 @@ USAGE:
    pumba [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.10
+   0.1.11
 
 COMMANDS:
     run  Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers
@@ -44,15 +44,43 @@ GLOBAL OPTIONS:
 $ pumba run --help
 
 NAME:
-   pumba run - Pumba starts making chaos: periodically (and randomly) kills/stops/remove specified containers
+   pumba run - Pumba starts making chaos: periodically (and randomly) affecting specified containers.
 
 USAGE:
    pumba run [command options] [arguments...]
 
+DESCRIPTION:
+   Ask Pumba to run periodically (and randomly) specified chaos_command on selected container(s).
+
+   List of supported chaos_command(s):
+     * STOP - stop running container(s)
+     * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)
+     * RM - force remove running container(s)
+     * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval
+
 OPTIONS:
-   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM`
+   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`
    --random, -r					Random mode: randomly select single matching container to 'kill'
 ```
+
+### Pumba Chaos Commands
+
+#### STOP command
+
+`STOP` command will stop specified running container/s.
+
+#### KILL command
+
+`KILL` command will kill specified running container, sending `SIGKILL` Linux termination signal by default. It's possible to use other Linux termination signal with `KILL` command.
+Pass `KILL:{SIGNALNAME}` (without braces) to Pumba though `chaos` option, and Pumba will send passed signal to main process running within your Docker container.
+
+#### RM command
+
+`RM` command will stop and force remove specified running container/s.
+
+#### PAUSE
+
+`PAUSE` command will pause all processes running inside Docker container for specified interval. The command syntax: `PAUSE:INTERVAL`. Pause interval is just a number with optional postfix: `s, m or h`.
 
 ### Runing inside Docker container
 
