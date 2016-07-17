@@ -82,7 +82,6 @@ Pass `KILL:{SIGNALNAME}` (without braces) to Pumba though `chaos` option, and Pu
 #### PAUSE
 
 `PAUSE` command will pause all processes running inside Docker container for specified interval. The command syntax: `PAUSE:INTERVAL`. Pause interval is just a number with optional postfix: `s, m or h`.
->>>>>>> upstream/master
 
 #### DISRUPT command - using Pumba to disrupt containers network
 
