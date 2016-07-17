@@ -235,15 +235,18 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 		//	and DISRUPT:netem command:target ip
 		// accordingly assign 2nd cmd line argument if exists
 		option := defaultKillSignal
+		if command == "DISRUPT" {
+			option := defaultNetemCmd
+		}
 		if len(cs) >= 2 {
 			option = cs[1]
 			if command == "PAUSE" {
 				log.Debugf("Pause interval: '%s'", option)
-			} else if cs[0] == "STOP" || cs[0] == "KILL" {
+			} else if command == "STOP" || command == "KILL" {
 				// convert signal to UPPER
 				option := strings.ToUpper(option)
 				log.Debugf("Signal: '%s'", option)
-			} else if cs[0] == "DISRUPT" {
+			} else if command == "DISRUPT" {
 				option = defaultNetemCmd
 				// the string may be netem command or target IP - as the user
 				//  can omit the command part and use the default
