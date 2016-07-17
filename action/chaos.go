@@ -29,13 +29,10 @@ type Chaos interface {
 	KillByPattern(container.Client, string, string) error
 	RemoveByName(container.Client, []string, bool) error
 	RemoveByPattern(container.Client, string, bool) error
-<<<<<<< HEAD
 	DisruptByName(container.Client, []string, string) error
 	DisruptByPattern(container.Client, string, string) error
-=======
 	PauseByName(container.Client, []string, string) error
 	PauseByPattern(container.Client, string, string) error
->>>>>>> upstream/master
 }
 
 // Pumba makes chaos
