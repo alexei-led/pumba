@@ -21,7 +21,7 @@ USAGE:
    pumba [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.10
+   0.1.11
 
 COMMANDS:
     run  Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers
@@ -44,17 +44,49 @@ GLOBAL OPTIONS:
 $ pumba run --help
 
 NAME:
-   pumba run - Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers
+   pumba run - Pumba starts making chaos: periodically (and/or randomly) affecting specified containers.
 
 USAGE:
    pumba run [command options] [arguments...]
 
+DESCRIPTION:
+   Ask Pumba to run periodically (and randomly) specified chaos_command on selected container(s).
+
+   List of supported chaos_command(s):
+     * STOP - stop running container(s)
+     * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)
+     * RM - force remove running container(s)
+     * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval
+     * DISRUPT(:netem command)(:target ip) - disrupt the outgoing network of a running container with a specific Network Emulation command and/or limiting to traffic outgoing to specific target IP
+
 OPTIONS:
-   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)(:target ip)`
-   --random, -r					Random mode: randomly select single matching container as a target for the specified chaos action
+   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`
+   --random, -r					Random mode: randomly select single matching container to 'kill'
 ```
 
-### Using Pumba to disrupt containers network
+### Pumba Chaos Commands
+
+#### STOP command
+
+`STOP` command will stop specified running container/s.
+
+#### KILL command
+
+`KILL` command will kill specified running container, sending `SIGKILL` Linux termination signal by default. It's possible to use other Linux termination signal with `KILL` command.
+Pass `KILL:{SIGNALNAME}` (without braces) to Pumba though `chaos` option, and Pumba will send passed signal to main process running within your Docker container.
+
+#### RM command
+
+`RM` command will stop and force remove specified running container/s.
+
+#### PAUSE
+
+`PAUSE` command will pause all processes running inside Docker container for specified interval. The command syntax: `PAUSE:INTERVAL`. Pause interval is just a number with optional postfix: `s, m or h`.
+>>>>>>> upstream/master
+
+#### DISRUPT command - using Pumba to disrupt containers network
+
+`DISRUPT` command will introduce network disruptions to a container's outgoing traffic (egress) using netem driver, and optionally limiting to traffic outgoing to specific target ip.
 
 For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described in the above link, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications. In order to disrupt communication between specific containers, use the DISRUPT option to specifiy target container IP - Pumba will then filter the outgoing traffic and apply the netem effect only to the traffic going to the specific IP.
 
@@ -65,13 +97,14 @@ A few implementaion points are important to understand:
    docker exec container_name tc qdisc del dev eth0 root netem
 ```
 * Generally, repeating the same disruption to the network of the same container has no effect. In a way, it will be best to use DISRUPT in random mode, combined with KILL so that disrupted containers will be removed from time to time.
+* Using target IP means Pumba will add a priority queue and a filter on eth0, sending outgoing traffic with the specified IP destination to a secondary queue. The netem command is then applied to the secondary queue.
 
 Example:
 ```
-   pumba run container-name|10m|DISRUPT:delay 100ms
+   pumba run container-name|10m|DISRUPT:delay 100ms:172.0.0.4
    
 ```
-Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic
+Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic to 172.0.0.4
 
 ### Runing inside Docker container
 

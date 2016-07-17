@@ -29,8 +29,13 @@ type Chaos interface {
 	KillByPattern(container.Client, string, string) error
 	RemoveByName(container.Client, []string, bool) error
 	RemoveByPattern(container.Client, string, bool) error
+<<<<<<< HEAD
 	DisruptByName(container.Client, []string, string) error
 	DisruptByPattern(container.Client, string, string) error
+=======
+	PauseByName(container.Client, []string, string) error
+	PauseByPattern(container.Client, string, string) error
+>>>>>>> upstream/master
 }
 
 // Pumba makes chaos
@@ -156,6 +161,31 @@ func removeContainers(client container.Client, containers []container.Container,
 	return nil
 }
 
+func pauseContainers(client container.Client, containers []container.Container, interval string) error {
+	// get pause pause duration
+	duration, err := time.ParseDuration(interval)
+	if err != nil {
+		return err
+	}
+	if RandomMode {
+		container := randomContainer(containers)
+		if container != nil {
+			err := client.PauseContainer(*container, duration, DryMode)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, container := range containers {
+			err := client.PauseContainer(container, duration, DryMode)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func disruptContainers(client container.Client, containers []container.Container, netemCmd string) error {
 	if RandomMode {
 		container := randomContainer(containers)
@@ -175,6 +205,7 @@ func disruptContainers(client container.Client, containers []container.Container
 	}
 	return nil
 }
+
 //---------------------------------------------------------------------------------------------------
 
 // StopByName stop container, if its name within `names`
@@ -231,7 +262,7 @@ func (p Pumba) RemoveByName(client container.Client, names []string, force bool)
 	return removeContainers(client, containers, force)
 }
 
-// RemoveByPattern remove container, if its name within `names`. Kill container if its running
+// RemoveByPattern remove container matching pattern. Kill container if its running
 // and `force` flag is `true`
 func (p Pumba) RemoveByPattern(client container.Client, pattern string, force bool) error {
 	log.Infof("Remove containers by RE2 pattern: '%s'", pattern)
@@ -262,4 +293,24 @@ func (p Pumba) DisruptByPattern(client container.Client, pattern string, netemCm
 		return err
 	}
 	return disruptContainers(client, containers, netemCmd)
+}
+
+// PauseByName pause container,if its name within `names`, for specified interval
+func (p Pumba) PauseByName(client container.Client, names []string, interval string) error {
+	log.Infof("Pause containers by names: '%s' for '%s'", names, interval)
+	containers, err := client.ListContainers(containerFilter(names))
+	if err != nil {
+		return err
+	}
+	return pauseContainers(client, containers, interval)
+}
+
+// PauseByPattern pause container, matching pattern, for specified interval
+func (p Pumba) PauseByPattern(client container.Client, pattern string, interval string) error {
+	log.Infof("Pause containers matching RE2 regex: '%s' for '%s'", pattern, interval)
+	containers, err := client.ListContainers(regexContainerFilter(pattern))
+	if err != nil {
+		return err
+	}
+	return pauseContainers(client, containers, interval)
 }

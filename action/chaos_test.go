@@ -322,6 +322,45 @@ func TestRemoveByPatternRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
+func TestPauseByName(t *testing.T) {
+	names, cs := makeContainersN(10)
+	d, _ := time.ParseDuration("2ms")
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("PauseContainer", c, d).Return(nil)
+	}
+	err := Pumba{}.PauseByName(client, names, "2ms")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestPauseByPattern(t *testing.T) {
+	_, cs := makeContainersN(10)
+	d, _ := time.ParseDuration("2ms")
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("PauseContainer", c, d).Return(nil)
+	}
+	err := Pumba{}.PauseByPattern(client, "^c", "2ms")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestPauseByNameRandom(t *testing.T) {
+	names, cs := makeContainersN(10)
+	d, _ := time.ParseDuration("2ms")
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("PauseContainer", mock.AnythingOfType("container.Container"), d).Return(nil)
+	RandomMode = true
+	err := Pumba{}.PauseByName(client, names, "2ms")
+	RandomMode = false
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
 func TestSelectRandomContainer(t *testing.T) {
 	_, cs := makeContainersN(10)
 	c1 := randomContainer(cs)

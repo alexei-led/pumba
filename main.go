@@ -39,8 +39,7 @@ type commandT struct {
 	pattern string
 	names   []string
 	command string
-	signal string
-	netemCmd string
+	option string
 }
 
 func init() {
@@ -75,7 +74,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|STOP/KILL(:SIGNAL)/RM/DISRUPT(:netem command)(:target ip)`",
+					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`",
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
@@ -88,7 +87,14 @@ func main() {
 					Destination: &actions.DryMode,
 				},
 			},
-			Usage:  "Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers",
+			Usage: "Pumba starts making chaos: periodically (and randomly) affecting specified containers.",
+			Description: "Ask Pumba to run periodically (and randomly) specified chaos_command on selected container(s).\n\n" +
+				"   List of supported chaos_command(s):\n" +
+				"    * STOP - stop running container(s)\n" +
+				"    * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)\n" +
+				"    * RM - force remove running container(s)\n" +
+				"    * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval" + 
+				"    * DISRUPT(:netem command)(:target ip)",
 			Action: run,
 		},
 	}
@@ -218,39 +224,43 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 			return err
 		}
 		log.Debugf("Interval: '%s'", interval.String())
-		// get command and signal (if specified); convert everything to upper case
-		cs := strings.Split(strings.ToUpper(s[2]), ":")
-		command := cs[0]
-		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "DISRUPT"}) {
-			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM or DISRUPT")
+		// get command and its option (if specified)
+		cs := strings.Split(s[2], ":")
+		command := strings.ToUpper(cs[0])
+		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "PAUSE", "DISRUPT"}) {
+			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM, PAUSE or DISRUPT")
 		}
 		log.Debugf("Command: '%s'", command)
 		// 2 actions upport a second argument: KILL/STOP:signal 
 		//	and DISRUPT:netem command:target ip
 		// accordingly assign 2nd cmd line argument if exists
-		signal := defaultKillSignal
-		netemCmd := defaultNetemCmd
+		option := defaultKillSignal
 		if len(cs) >= 2 {
-			if cs[0] == "STOP" || cs[0] == "KILL" {
-				signal = cs[1]
-				log.Debugf("Signal: '%s'", signal)
+			option = cs[1]
+			if command == "PAUSE" {
+				log.Debugf("Pause interval: '%s'", option)
+			} else if cs[0] == "STOP" || cs[0] == "KILL" {
+				// convert signal to UPPER
+				option := strings.ToUpper(option)
+				log.Debugf("Signal: '%s'", option)
 			} else if cs[0] == "DISRUPT" {
+				option := defaultNetemCmd
 				// the string may be netem command or target IP - as the user
 				//  can omit the command part and use the default
 				if len(cs) == 3 {
 					// then we have both command and target IP, just need to put them 
 					//   together for the internal implementaion
-					netemCmd = cs[1] + ":" + cs[2]
+					option = option + ":" + cs[2]
 				} else {
 					// If it's IP, re-concat it with the default command
 					//  otherwise, just replace the netem command
 					if net.ParseIP(cs[1]) != nil {
-						netemCmd = netemCmd + ":" + cs[1]
+						option = option + ":" + cs[1]
 					} else {
-						netemCmd = cs[1]
+						option = cs[1]
 					}
 				}
-				log.Debugf("Netem Command: '%s'", netemCmd)
+				log.Debugf("Netem Command: '%s'", option)
 			} else {
 				log.Debugf("2nd argument doesn't correspond with command: '%s'", cs[1])	
 				return errors.New("Surplus 2nd argument to chaos action command")
@@ -268,7 +278,7 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					}
 				}
 			}
-		}(commandT{pattern, names, command, signal, netemCmd}, limit, test)
+		}(commandT{pattern, names, command, option}, limit, test)
 	}
 	for cmd := range dc {
 		if test {
@@ -290,9 +300,9 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 				}
 			case "KILL":
 				if cmd.pattern == "" {
-					err = chaos.KillByName(client, cmd.names, cmd.signal)
+					err = chaos.KillByName(client, cmd.names, cmd.option)
 				} else {
-					err = chaos.KillByPattern(client, cmd.pattern, cmd.signal)
+					err = chaos.KillByPattern(client, cmd.pattern, cmd.option)
 				}
 			case "RM":
 				if cmd.pattern == "" {
@@ -302,9 +312,14 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 				}
 			case "DISRUPT":
 				if cmd.pattern == "" {
-					err = chaos.DisruptByName(client, cmd.names, cmd.netemCmd)
+					err = chaos.DisruptByName(client, cmd.names, cmd.option)
 				} else {
-					err = chaos.DisruptByPattern(client, cmd.pattern,cmd.netemCmd)
+					err = chaos.DisruptByPattern(client, cmd.pattern,cmd.option)
+			case "PAUSE":
+				if cmd.pattern == "" {
+					err = chaos.PauseByName(client, cmd.names, cmd.option)
+				} else {
+					err = chaos.PauseByPattern(client, cmd.pattern, cmd.option)
 				}
 			}
 			if err != nil {

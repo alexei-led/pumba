@@ -29,6 +29,7 @@ type Client interface {
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool) error
 	DisruptContainer(Container, string, bool) error
+	PauseContainer(Container, time.Duration, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -176,6 +177,7 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 	return nil
 }
 
+<<<<<<< HEAD
 func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun bool) error {
 	// find out if we have command, ip or command:ip
 	cmd := strings.Split(netemCmd, ":")
@@ -198,6 +200,21 @@ func (client dockerClient) disruptContainerAllNetwork(c Container, netemCmd stri
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		netemCommand := "tc qdisc add dev eth0 root netem " + strings.ToLower(netemCmd)
 		return client.execOnContainer(c, netemCommand)
+	}
+	return nil
+}
+
+func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
+	log.Infof("%sPausing container '%s' for '%s'", prefix, c.ID(), duration)
+	if !dryrun {
+		if err := client.api.PauseContainer(c.ID()); err != nil {
+			return err
+		}
+		// pause the current goroutine for specified duration
+		time.Sleep(duration)
+		if err := client.api.UnpauseContainer(c.ID()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

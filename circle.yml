@@ -12,8 +12,6 @@ dependencies:
     - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/go_build.sh
     # create Pumba Docker image too
     - docker build -t gaiaadm/pumba .
-    - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BUILD_NUM-$CIRCLE_BRANCH
-    - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
@@ -25,12 +23,18 @@ deployment:
   continuous:
     branch: [develop, /feature_.*/]
     commands:
+      # tag image with CircleCi branch and build
+      - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BUILD_NUM-$CIRCLE_BRANCH
+      - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
       # deply image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push gaiaadm/pumba
   github:
     branch: master
     commands:
+       # tag image with CircleCi branch and build
+      - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BUILD_NUM-$CIRCLE_BRANCH
+      - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
       # deploy image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push gaiaadm/pumba

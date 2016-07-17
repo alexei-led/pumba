@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.1.11] - 2016-06-27
+### Added
+- pause container processes for specified interval
+
 ## [v0.1.10] - 2016-06-05
 ### Fixed
 - set proper release tag in GitHub
