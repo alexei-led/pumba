@@ -315,6 +315,7 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					err = chaos.DisruptByName(client, cmd.names, cmd.option)
 				} else {
 					err = chaos.DisruptByPattern(client, cmd.pattern,cmd.option)
+				}
 			case "PAUSE":
 				if cmd.pattern == "" {
 					err = chaos.PauseByName(client, cmd.names, cmd.option)
