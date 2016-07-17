@@ -177,7 +177,6 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 	return nil
 }
 
-<<<<<<< HEAD
 func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun bool) error {
 	// find out if we have command, ip or command:ip
 	cmd := strings.Split(netemCmd, ":")
