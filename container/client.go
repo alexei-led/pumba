@@ -187,6 +187,25 @@ func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun
 	}
 }
 
+func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sPausing container '%s' for '%s'", prefix, c.ID(), duration)
+	if !dryrun {
+		if err := client.api.PauseContainer(c.ID()); err != nil {
+			return err
+		}
+		// pause the current goroutine for specified duration
+		time.Sleep(duration)
+		if err := client.api.UnpauseContainer(c.ID()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (client dockerClient) disruptContainerAllNetwork(c Container, netemCmd string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
@@ -199,21 +218,6 @@ func (client dockerClient) disruptContainerAllNetwork(c Container, netemCmd stri
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		netemCommand := "tc qdisc add dev eth0 root netem " + strings.ToLower(netemCmd)
 		return client.execOnContainer(c, netemCommand)
-	}
-	return nil
-}
-
-func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
-	log.Infof("%sPausing container '%s' for '%s'", prefix, c.ID(), duration)
-	if !dryrun {
-		if err := client.api.PauseContainer(c.ID()); err != nil {
-			return err
-		}
-		// pause the current goroutine for specified duration
-		time.Sleep(duration)
-		if err := client.api.UnpauseContainer(c.ID()); err != nil {
-			return err
-		}
 	}
 	return nil
 }
