@@ -543,6 +543,8 @@ func TestDisruptContainer_Success(t *testing.T) {
 
 	api := mockclient.NewMockClient()
 	api.On("DisruptContainer", "abc123", "delay 1000ms").Return(nil)
+	api.On("ExecCreate", mock.Anything).Return(nil)
+	api.On("ExecStart", mock.Anything, mock.Anything).Return(nil)
 
 	client := dockerClient{api: api}
 	err := client.DisruptContainer(c, "delay 1000ms", false)
@@ -559,11 +561,12 @@ func TestDisruptContainer_DryRun(t *testing.T) {
 	}
 
 	api := mockclient.NewMockClient()
-	api.On("DisruptContainer", "abc123", "delay 1000ms").Return(nil)
 
 	client := dockerClient{api: api}
 	err := client.DisruptContainer(c, "delay 1000ms", true)
 
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "DisruptContainer", "abc123","delay 1000ms")
+	api.AssertNotCalled(t, "ExecCreate", mock.Anything)
+	api.AssertNotCalled(t, "ExecStart", mock.Anything, mock.Anything)
 }
