@@ -250,14 +250,14 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 				if len(cs) == 3 {
 					// then we have both command and target IP, just need to put them 
 					//   together for the internal implementaion
-					option = option + ":" + cs[2]
+					option := cs[1] + ":" + cs[2]
 				} else {
 					// If it's IP, re-concat it with the default command
 					//  otherwise, just replace the netem command
 					if net.ParseIP(cs[1]) != nil {
-						option = option + ":" + cs[1]
+						option := option + ":" + cs[1]
 					} else {
-						option = cs[1]
+						option := cs[1]
 					}
 				}
 				log.Debugf("Netem Command: '%s'", option)
