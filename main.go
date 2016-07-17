@@ -236,7 +236,7 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 		// accordingly assign 2nd cmd line argument if exists
 		option := defaultKillSignal
 		if command == "DISRUPT" {
-			option := defaultNetemCmd
+			option = defaultNetemCmd
 		}
 		if len(cs) >= 2 {
 			option = cs[1]
