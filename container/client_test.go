@@ -533,3 +533,37 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 	assert.EqualError(t, err, "unpause")
 	api.AssertExpectations(t)
 }
+
+func TestDisruptContainer_Success(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	api := mockclient.NewMockClient()
+	api.On("DisruptContainer", "abc123", "delay 1000ms").Return(nil)
+
+	client := dockerClient{api: api}
+	err := client.DisruptContainer(c, "delay 1000ms", false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestDisruptContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	api := mockclient.NewMockClient()
+	api.On("DisruptContainer", "abc123", "delay 1000ms").Return(nil)
+
+	client := dockerClient{api: api}
+	err := client.DisruptContainer(c, "delay 1000ms", true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "DisruptContainer", "abc123","delay 1000ms")
+}

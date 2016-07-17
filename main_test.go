@@ -55,6 +55,16 @@ func (m *ChaosMock) PauseByPattern(c container.Client, p string, i string) error
 	return args.Error(0)
 }
 
+func (m *ChaosMock) DisruptByName(c container.Client, n []string, cmd string) error {
+	args := m.Called(c, n, cmd)
+	return args.Error(0)
+}
+
+func (m *ChaosMock) DisruptByPattern(c container.Client, p string, cmd string) error {
+	args := m.Called(c, p, cmd)
+	return args.Error(0)
+}
+
 //---- TESTS
 
 func TestCreateChaos_StopByName(t *testing.T) {
@@ -172,6 +182,81 @@ func TestCreateChaos_RemoveByPattern(t *testing.T) {
 	chaos := &ChaosMock{}
 	for i := 0; i < limit; i++ {
 		chaos.On("RemoveByPattern", nil, "(abc)", true).Return(nil)
+	}
+
+	err := createChaos(chaos, []string{cmd}, limit, true)
+
+	assert.NoError(t, err)
+	chaos.AssertExpectations(t)
+}
+
+func TestCreateChaos_DisruptByName(t *testing.T) {
+	cmd := "cc1,cc2|10ms|DISRUPT"
+	limit := 3
+
+	chaos := &ChaosMock{}
+	for i := 0; i < limit; i++ {
+		chaos.On("DisruptByName", nil, []string{"cc1", "cc2"}, "delay 1000ms").Return(nil)
+	}
+
+	err := createChaos(chaos, []string{cmd}, limit, true)
+
+	assert.NoError(t, err)
+	chaos.AssertExpectations(t)
+}
+
+func TestCreateChaos_DisruptByNameCmd(t *testing.T) {
+	cmd := "cc1,cc2|10ms|DISRUPT:delay 3000ms"
+	limit := 3
+
+	chaos := &ChaosMock{}
+	for i := 0; i < limit; i++ {
+		chaos.On("DisruptByName", nil, []string{"cc1", "cc2"}, "delay 3000ms").Return(nil)
+	}
+
+	err := createChaos(chaos, []string{cmd}, limit, true)
+
+	assert.NoError(t, err)
+	chaos.AssertExpectations(t)
+}
+
+func TestCreateChaos_DisruptByNameIP(t *testing.T) {
+	cmd := "cc1,cc2|10ms|DISRUPT:172.19.0.3"
+	limit := 3
+
+	chaos := &ChaosMock{}
+	for i := 0; i < limit; i++ {
+		chaos.On("DisruptByName", nil, []string{"cc1", "cc2"}, "172.19.0.3").Return(nil)
+	}
+
+	err := createChaos(chaos, []string{cmd}, limit, true)
+
+	assert.NoError(t, err)
+	chaos.AssertExpectations(t)
+}
+
+func TestCreateChaos_DisruptByNameCmdAndIP(t *testing.T) {
+	cmd := "cc1,cc2|10ms|DISRUPT:delay 500ms:172.19.0.3"
+	limit := 3
+
+	chaos := &ChaosMock{}
+	for i := 0; i < limit; i++ {
+		chaos.On("DisruptByName", nil, []string{"cc1", "cc2"}, "delay 500ms:172.19.0.3").Return(nil)
+	}
+
+	err := createChaos(chaos, []string{cmd}, limit, true)
+
+	assert.NoError(t, err)
+	chaos.AssertExpectations(t)
+}
+
+func TestCreateChaos_DisruptByPattern(t *testing.T) {
+	cmd := "re2:(abc)|10ms|DISRUPT"
+	limit := 3
+
+	chaos := &ChaosMock{}
+	for i := 0; i < limit; i++ {
+		chaos.On("DisruptByPattern", nil, "(abc)", "delay 1000ms").Return(nil)
 	}
 
 	err := createChaos(chaos, []string{cmd}, limit, true)

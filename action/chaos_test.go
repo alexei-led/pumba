@@ -361,6 +361,54 @@ func TestPauseByNameRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
+func TestDisruptByName(t *testing.T) {
+	names, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("DisruptContainer", c, "delay 1000ms").Return(nil)
+	}
+	err := Pumba{}.DisruptByName(client, names, "delay 1000ms")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestDisruptByNameRandom(t *testing.T) {
+	names, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
+	RandomMode = true
+	err := Pumba{}.DisruptByName(client, names, "delay 1000ms")
+	RandomMode = false
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestDisruptByPattern(t *testing.T) {
+	_, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for i := range cs {
+		client.On("DisruptContainer", cs[i], "delay 3000ms:172.19.0.3").Return(nil)
+	}
+	err := Pumba{}.DisruptByPattern(client, "^c", "delay 3000ms:172.19.0.3")
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestDisruptByPatternRandom(t *testing.T) {
+	_, cs := makeContainersN(10)
+	client := &mockclient.MockClient{}
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "172.19.0.3").Return(nil)
+	RandomMode = true
+	err := Pumba{}.DisruptByPattern(client, "^c", "172.19.0.3")
+	RandomMode = false
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
 func TestSelectRandomContainer(t *testing.T) {
 	_, cs := makeContainersN(10)
 	c1 := randomContainer(cs)
