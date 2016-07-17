@@ -221,12 +221,12 @@ func TestCreateChaos_DisruptByNameCmd(t *testing.T) {
 }
 
 func TestCreateChaos_DisruptByNameIP(t *testing.T) {
-	cmd := "cc1,cc2|10ms|DISRUPT:172.19.0.3"
+	cmd := "cc1,cc2|10ms|DISRUPT:172.19.0.3" // will use the default netem command
 	limit := 3
 
 	chaos := &ChaosMock{}
 	for i := 0; i < limit; i++ {
-		chaos.On("DisruptByName", nil, []string{"cc1", "cc2"}, "172.19.0.3").Return(nil)
+		chaos.On("DisruptByName", nil, []string{"cc1", "cc2"}, "delay 1000ms:172.19.0.3").Return(nil)
 	}
 
 	err := createChaos(chaos, []string{cmd}, limit, true)
