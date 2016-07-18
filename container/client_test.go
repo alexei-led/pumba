@@ -543,7 +543,7 @@ func TestDisruptContainer_Success(t *testing.T) {
 
 	api := mockclient.NewMockClient()
 	api.On("ExecCreate", mock.Anything).Return(nil)
-	api.On("ExecStart", "abc123", mock.Anything).Return(nil)
+	//api.On("ExecStart", "abc123", mock.Anything).Return(nil)
 	api.On("DisruptContainer", "abc123", "delay 1000ms").Return(nil)
 
 	client := dockerClient{api: api}
