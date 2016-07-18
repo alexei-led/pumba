@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"net"
 
 	"github.com/gaia-adm/pumba/action"
 	"github.com/gaia-adm/pumba/container"
@@ -31,13 +32,14 @@ const (
 	defaultKillSignal = "SIGKILL"
 	re2prefix         = "re2:"
 	release           = "v0.1.10"
+	defaultNetemCmd   = "delay 1000ms"
 )
 
 type commandT struct {
 	pattern string
 	names   []string
 	command string
-	option  string
+	option string
 }
 
 func init() {
@@ -76,12 +78,12 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:        "random, r",
-					Usage:       "Random mode: randomly select single matching container to 'kill'",
+					Usage:       "Random mode: randomly select single matching container as a target for the specified chaos action",
 					Destination: &actions.RandomMode,
 				},
 				cli.BoolFlag{
 					Name:        "dry",
-					Usage:       "enable 'dry run' mode: do not 'kill' containers, just log intention",
+					Usage:       "enable 'dry run' mode: does not execute chaos action, just logs actions",
 					Destination: &actions.DryMode,
 				},
 			},
@@ -91,7 +93,8 @@ func main() {
 				"    * STOP - stop running container(s)\n" +
 				"    * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)\n" +
 				"    * RM - force remove running container(s)\n" +
-				"    * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval",
+				"    * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval" + 
+				"    * DISRUPT(:netem command)(:target ip)",
 			Action: run,
 		},
 	}
@@ -224,19 +227,46 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 		// get command and its option (if specified)
 		cs := strings.Split(s[2], ":")
 		command := strings.ToUpper(cs[0])
-		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "PAUSE"}) {
-			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM or PAUSE")
+		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "PAUSE", "DISRUPT"}) {
+			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM, PAUSE or DISRUPT")
 		}
 		log.Debugf("Command: '%s'", command)
+		// 2 actions upport a second argument: KILL/STOP:signal 
+		//	and DISRUPT:netem command:target ip
+		// accordingly assign 2nd cmd line argument if exists
 		option := defaultKillSignal
-		if len(cs) == 2 {
+		if command == "DISRUPT" {
+			option = defaultNetemCmd
+		}
+		if len(cs) >= 2 {
 			option = cs[1]
 			if command == "PAUSE" {
 				log.Debugf("Pause interval: '%s'", option)
-			} else {
+			} else if command == "STOP" || command == "KILL" {
 				// convert signal to UPPER
 				option := strings.ToUpper(option)
 				log.Debugf("Signal: '%s'", option)
+			} else if command == "DISRUPT" {
+				option = defaultNetemCmd
+				// the string may be netem command or target IP - as the user
+				//  can omit the command part and use the default
+				if len(cs) == 3 {
+					// then we have both command and target IP, just need to put them 
+					//   together for the internal implementaion
+					option = cs[1] + ":" + cs[2]
+				} else {
+					// If it's IP, re-concat it with the default command
+					//  otherwise, just replace the netem command
+					if net.ParseIP(cs[1]) != nil {
+						option = option + ":" + cs[1]
+					} else {
+						option = cs[1]
+					}
+				}
+				log.Debugf("Netem Command: '%s'", option)
+			} else {
+				log.Debugf("2nd argument doesn't correspond with command: '%s'", cs[1])	
+				return errors.New("Surplus 2nd argument to chaos action command")
 			}
 		}
 
@@ -282,6 +312,12 @@ func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error
 					err = chaos.RemoveByName(client, cmd.names, true)
 				} else {
 					err = chaos.RemoveByPattern(client, cmd.pattern, true)
+				}
+			case "DISRUPT":
+				if cmd.pattern == "" {
+					err = chaos.DisruptByName(client, cmd.names, cmd.option)
+				} else {
+					err = chaos.DisruptByPattern(client, cmd.pattern,cmd.option)
 				}
 			case "PAUSE":
 				if cmd.pattern == "" {

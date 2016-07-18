@@ -29,6 +29,8 @@ type Chaos interface {
 	KillByPattern(container.Client, string, string) error
 	RemoveByName(container.Client, []string, bool) error
 	RemoveByPattern(container.Client, string, bool) error
+	DisruptByName(container.Client, []string, string) error
+	DisruptByPattern(container.Client, string, string) error
 	PauseByName(container.Client, []string, string) error
 	PauseByPattern(container.Client, string, string) error
 }
@@ -181,6 +183,26 @@ func pauseContainers(client container.Client, containers []container.Container, 
 	return nil
 }
 
+func disruptContainers(client container.Client, containers []container.Container, netemCmd string) error {
+	if RandomMode {
+		container := randomContainer(containers)
+		if container != nil {
+			err := client.DisruptContainer(*container, netemCmd, DryMode)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, container := range containers {
+			err := client.DisruptContainer(container, netemCmd, DryMode)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 //---------------------------------------------------------------------------------------------------
 
 // StopByName stop container, if its name within `names`
@@ -246,6 +268,28 @@ func (p Pumba) RemoveByPattern(client container.Client, pattern string, force bo
 		return err
 	}
 	return removeContainers(client, containers, force)
+}
+
+// DisruptByName disrupts container egress network, if its name within `names`. 
+// Disruption is currently limited to delayed response
+func (p Pumba) DisruptByName(client container.Client, names []string, netemCmd string) error {
+	log.Info("Disrupt containers by names: ", names)
+	containers, err := client.ListContainers(containerFilter(names))
+	if err != nil {
+		return err
+	}
+	return disruptContainers(client, containers, netemCmd)
+}
+
+// DisruptByPattern disrupts container egress network, if its name matches 'pattern'. 
+// Disruption is currently limited to delayed response
+func (p Pumba) DisruptByPattern(client container.Client, pattern string, netemCmd string) error {
+	log.Infof("Disrupt containers by RE2 pattern: '%s'", pattern)
+	containers, err := client.ListContainers(regexContainerFilter(pattern))
+	if err != nil {
+		return err
+	}
+	return disruptContainers(client, containers, netemCmd)
 }
 
 // PauseByName pause container,if its name within `names`, for specified interval

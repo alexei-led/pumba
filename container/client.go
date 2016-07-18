@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"time"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/samalba/dockerclient"
@@ -27,6 +28,7 @@ type Client interface {
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool) error
+	DisruptContainer(Container, string, bool) error
 	PauseContainer(Container, time.Duration, bool) error
 }
 
@@ -175,6 +177,16 @@ func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool)
 	return nil
 }
 
+func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun bool) error {
+	// find out if we have command, ip or command:ip
+	cmd := strings.Split(netemCmd, ":")
+	if len(cmd) == 2 {
+		return client.disruptContainerFilterNetwork(c, cmd[0], cmd[1], dryrun)
+	} else {
+		return client.disruptContainerAllNetwork(c, cmd[0], dryrun)
+	}
+}
+
 func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
 	prefix := ""
 	if dryrun {
@@ -192,6 +204,76 @@ func (client dockerClient) PauseContainer(c Container, duration time.Duration, d
 		}
 	}
 	return nil
+}
+
+func (client dockerClient) disruptContainerAllNetwork(c Container, netemCmd string, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sDisrupting container %s with netem cmd %s", prefix, c.ID(), netemCmd)
+	if !dryrun {
+		// use dockerclient ExecStart to run Traffic Control:
+		// 'tc qdisc add dev eth0 root netem delay 100ms'
+		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+		netemCommand := "tc qdisc add dev eth0 root netem " + strings.ToLower(netemCmd)
+		return client.execOnContainer(c, netemCommand)
+	}
+	return nil
+}
+
+func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd string, 
+	targetIP string, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sDisrupting container %s with netem cmd %s on traffic to %s", 
+		prefix, c.ID(), netemCmd, targetIP)
+	if !dryrun {
+		// use dockerclient ExecStart to run Traffic Control
+		// to filter network, needs to create a priority scheduling, add a low priority 
+		//  queue, apply netem command on that queue only, then route IP traffic
+		//  to the low priority queue
+		// 'tc qdisc add dev eth0 root handle 1: prio'
+		// 'tc qdisc add dev eth0 parent 1:3 netem delay 3000ms'
+		// 'tc filter add dev eth0 protocol ip parent 1:0 prio 3 /
+		//  u32 match ip dst 172.19.0.3 flowid 1:3'
+		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+		handleCommand := "tc qdisc add dev eth0 root handle 1: prio"
+		log.Debugf("Disrupt with handleCommand %s", handleCommand)
+		err := client.execOnContainer(c, handleCommand)
+		if err != nil {
+				return err
+			}
+
+		netemCommand := "tc qdisc add dev eth0 parent 1:3 netem " + strings.ToLower(netemCmd)
+		log.Debugf("Disrupt with netemCommand %s", netemCommand)
+		err = client.execOnContainer(c, netemCommand)
+		if err != nil {
+				return err
+			}
+
+		filterCommand := "tc filter add dev eth0 protocol ip parent 1:0 prio 3 "+
+			"u32 match ip dst " + strings.ToLower(targetIP) + " flowid 1:3"
+		log.Debugf("Disrupt with filterCommand %s", filterCommand)
+		return client.execOnContainer(c, filterCommand)
+	}
+	return nil
+}
+
+func (client dockerClient) execOnContainer(c Container, execCmd string) error {
+	execConfig := &dockerclient.ExecConfig{
+		Cmd: strings.Split(execCmd, " "),
+		Container: c.ID(),
+	}
+	_id, err := client.api.ExecCreate(execConfig)
+	if err != nil {
+			return err
+		}
+
+	log.Debugf("Starting Exec %s (%s)", execCmd, _id)
+	return client.api.ExecStart(_id, execConfig)
 }
 
 func (client dockerClient) waitForStop(c Container, waitTime time.Duration) error {
