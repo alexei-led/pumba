@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.2.0] - 2016-07-20
+### Added
+- Network emulation for egress container traffic, powered by [netem](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem)
+### Updated
+- **Breaking Change** command line simplification ...
+- `chaos` command had been replaced by multiple standalone commands: `kill`, `netem`, `pause`, `rm`, `stop`
+- now it's possible to run multiple Pumba Docker containers (do not prevent)
+- **Only ONE** command per single Pumba run is supported, but it's possible to run multiple Pumba processes and containers
+
 ## [v0.1.11] - 2016-06-27
 ### Added
 - pause container processes for specified interval

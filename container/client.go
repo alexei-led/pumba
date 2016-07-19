@@ -3,8 +3,8 @@ package container
 import (
 	"crypto/tls"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/samalba/dockerclient"
@@ -22,12 +22,12 @@ type Filter func(Container) bool
 // A Client is the interface through which Pumba interacts with the Docker API.
 type Client interface {
 	ListContainers(Filter) ([]Container, error)
-	StopContainer(Container, time.Duration, bool) error
+	StopContainer(Container, int, bool) error
 	KillContainer(Container, string, bool) error
 	StartContainer(Container) error
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
-	RemoveContainer(Container, bool, bool) error
+	RemoveContainer(Container, bool, string, string, bool) error
 	DisruptContainer(Container, string, bool) error
 	PauseContainer(Container, time.Duration, bool) error
 }
@@ -93,7 +93,7 @@ func (client dockerClient) KillContainer(c Container, signal string, dryrun bool
 	return nil
 }
 
-func (client dockerClient) StopContainer(c Container, timeout time.Duration, dryrun bool) error {
+func (client dockerClient) StopContainer(c Container, timeout int, dryrun bool) error {
 	signal := c.StopSignal()
 	if signal == "" {
 		signal = defaultStopSignal
@@ -165,14 +165,14 @@ func (client dockerClient) RemoveImage(c Container, force bool, dryrun bool) err
 	return nil
 }
 
-func (client dockerClient) RemoveContainer(c Container, force bool, dryrun bool) error {
+func (client dockerClient) RemoveContainer(c Container, force bool, link string, volumes string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
 	}
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
-		return client.api.RemoveContainer(c.ID(), force, true)
+		return client.api.RemoveContainer(c.ID(), force, len(volumes) > 0)
 	}
 	return nil
 }
@@ -182,9 +182,8 @@ func (client dockerClient) DisruptContainer(c Container, netemCmd string, dryrun
 	cmd := strings.Split(netemCmd, ":")
 	if len(cmd) == 2 {
 		return client.disruptContainerFilterNetwork(c, cmd[0], cmd[1], dryrun)
-	} else {
-		return client.disruptContainerAllNetwork(c, cmd[0], dryrun)
 	}
+	return client.disruptContainerAllNetwork(c, cmd[0], dryrun)
 }
 
 func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
@@ -222,17 +221,17 @@ func (client dockerClient) disruptContainerAllNetwork(c Container, netemCmd stri
 	return nil
 }
 
-func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd string, 
+func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd string,
 	targetIP string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
 	}
-	log.Infof("%sDisrupting container %s with netem cmd %s on traffic to %s", 
+	log.Infof("%sDisrupting container %s with netem cmd %s on traffic to %s",
 		prefix, c.ID(), netemCmd, targetIP)
 	if !dryrun {
 		// use dockerclient ExecStart to run Traffic Control
-		// to filter network, needs to create a priority scheduling, add a low priority 
+		// to filter network, needs to create a priority scheduling, add a low priority
 		//  queue, apply netem command on that queue only, then route IP traffic
 		//  to the low priority queue
 		// 'tc qdisc add dev eth0 root handle 1: prio'
@@ -244,17 +243,17 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd s
 		log.Debugf("Disrupt with handleCommand %s", handleCommand)
 		err := client.execOnContainer(c, handleCommand)
 		if err != nil {
-				return err
-			}
+			return err
+		}
 
 		netemCommand := "tc qdisc add dev eth0 parent 1:3 netem " + strings.ToLower(netemCmd)
 		log.Debugf("Disrupt with netemCommand %s", netemCommand)
 		err = client.execOnContainer(c, netemCommand)
 		if err != nil {
-				return err
-			}
+			return err
+		}
 
-		filterCommand := "tc filter add dev eth0 protocol ip parent 1:0 prio 3 "+
+		filterCommand := "tc filter add dev eth0 protocol ip parent 1:0 prio 3 " +
 			"u32 match ip dst " + strings.ToLower(targetIP) + " flowid 1:3"
 		log.Debugf("Disrupt with filterCommand %s", filterCommand)
 		return client.execOnContainer(c, filterCommand)
@@ -264,20 +263,20 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netemCmd s
 
 func (client dockerClient) execOnContainer(c Container, execCmd string) error {
 	execConfig := &dockerclient.ExecConfig{
-		Cmd: strings.Split(execCmd, " "),
+		Cmd:       strings.Split(execCmd, " "),
 		Container: c.ID(),
 	}
 	_id, err := client.api.ExecCreate(execConfig)
 	if err != nil {
-			return err
-		}
+		return err
+	}
 
 	log.Debugf("Starting Exec %s (%s)", execCmd, _id)
 	return client.api.ExecStart(_id, execConfig)
 }
 
-func (client dockerClient) waitForStop(c Container, waitTime time.Duration) error {
-	timeout := time.After(waitTime)
+func (client dockerClient) waitForStop(c Container, waitTime int) error {
+	timeout := time.After(time.Duration(waitTime) * time.Second)
 
 	for {
 		select {

@@ -12,48 +12,91 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"net"
 
 	"github.com/gaia-adm/pumba/action"
 	"github.com/gaia-adm/pumba/container"
 
+	"github.com/urfave/cli"
+
 	log "github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/johntdyer/slackrus"
 )
 
 var (
-	wg      sync.WaitGroup
-	client  container.Client
-	cleanup bool
+	wg               sync.WaitGroup
+	client           container.Client
+	interval         time.Duration
+	containerNames   []string
+	containerPattern string
 )
+
+// LinuxSignals valid Linux signal table
+// http://www.comptechdoc.org/os/linux/programming/linux_pgsignals.html
+var LinuxSignals = map[string]int{
+	"SIGHUP":    1,
+	"SIGINT":    2,
+	"SIGQUIT":   3,
+	"SIGILL":    4,
+	"SIGTRAP":   5,
+	"SIGIOT":    6,
+	"SIGBUS":    7,
+	"SIGFPE":    8,
+	"SIGKILL":   9,
+	"SIGUSR1":   10,
+	"SIGSEGV":   11,
+	"SIGUSR2":   12,
+	"SIGPIPE":   13,
+	"SIGALRM":   14,
+	"SIGTERM":   15,
+	"SIGSTKFLT": 16,
+	"SIGCHLD":   17,
+	"SIGCONT":   18,
+	"SIGSTOP":   19,
+	"SIGTSTP":   20,
+	"SIGTTIN":   21,
+	"SIGTTOU":   22,
+	"SIGURG":    23,
+	"SIGXCPU":   24,
+	"SIGXFSZ":   25,
+	"SIGVTALRM": 26,
+	"SIGPROF":   27,
+	"SIGWINCH":  28,
+	"SIGIO":     29,
+	"SIGPWR":    30,
+}
 
 const (
-	defaultKillSignal = "SIGKILL"
-	re2prefix         = "re2:"
-	release           = "v0.1.10"
-	defaultNetemCmd   = "delay 1000ms"
+	release         = "v0.2.0"
+	defaultNetemCmd = "delay 1000ms"
+	defaultSignal   = "SIGKILL"
+	re2prefix       = "re2:"
 )
 
-type commandT struct {
-	pattern string
-	names   []string
-	command string
-	option string
+type commandKill struct {
+	signal string
+}
+
+type commandPause struct {
+	duration time.Duration
+}
+
+type commandNetem struct {
+	duration time.Duration
+}
+
+type commandStop struct {
+	waitTime int
+}
+
+type commandRemove struct {
+	force   bool
+	link    string
+	volumes string
 }
 
 func init() {
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(&log.TextFormatter{})
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
 
 func main() {
@@ -66,36 +109,103 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Pumba"
 	app.Version = release
-	app.Usage = "Pumba is a resiliency tool that helps applications tolerate random Docker container failures."
+	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
+	app.ArgsUsage = "containers (name, list of names, RE2 regex)"
 	app.Before = before
 	app.Commands = []cli.Command{
 		{
-			Name: "run",
+			Name: "kill",
 			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  "chaos, c",
-					Usage: "chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`",
-				},
-				cli.BoolFlag{
-					Name:        "random, r",
-					Usage:       "Random mode: randomly select single matching container as a target for the specified chaos action",
-					Destination: &actions.RandomMode,
-				},
-				cli.BoolFlag{
-					Name:        "dry",
-					Usage:       "enable 'dry run' mode: does not execute chaos action, just logs actions",
-					Destination: &actions.DryMode,
+				cli.StringFlag{
+					Name:  "signal, s",
+					Usage: "Specify termination signal that will be sent by Pumba to process running within target container.",
+					Value: defaultSignal,
 				},
 			},
-			Usage: "Pumba starts making chaos: periodically (and randomly) affecting specified containers.",
-			Description: "Ask Pumba to run periodically (and randomly) specified chaos_command on selected container(s).\n\n" +
-				"   List of supported chaos_command(s):\n" +
-				"    * STOP - stop running container(s)\n" +
-				"    * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)\n" +
-				"    * RM - force remove running container(s)\n" +
-				"    * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval" + 
-				"    * DISRUPT(:netem command)(:target ip)",
-			Action: run,
+			Usage:       "kill specified containers",
+			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			Description: "Pumba will send SIGKILL signal (by default) to the main process inside target container(s), or any signal specified with option '--signal'.",
+			Action:      kill,
+			Before:      beforeCommand,
+		},
+		{
+			Name: "netem",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "duration, d",
+					Usage: "Specify network emulation duration. It should be smaller than recurrent interval. The network emulation duration is a decimal number with optional unit suffix, such as '500ms', '20s' or '30m'. Valid time units are: 'ms', 's', 'm', 'h'.",
+				},
+			},
+			Usage:       "Perform network emulation action on target containers",
+			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			Description: "Pumba will modify network interface settings (run 'netem'), to emulate different problems for target specified containers for specified '--duration'.",
+			Before:      beforeCommand,
+			Subcommands: []cli.Command{
+				{
+					Name:   "delay",
+					Action: netemDelay,
+				},
+				{
+					Name: "loss",
+				},
+				{
+					Name: "duplicate",
+				},
+				{
+					Name: "corrupt",
+				},
+			},
+		},
+		{
+			Name: "pause",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "duration, d",
+					Usage: "Specify pause duration. It should be smaller than recurrent interval. The pause duration is a decimal number with optional unit suffix, such as '500ms', '20s' or '30m'. Valid time units are: 'ms', 's', 'm', 'h'.",
+				},
+			},
+			Usage:       "pause all processes within specified containers",
+			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			Description: "Pumba will pause all running processes within specified containers for specified '--duration'.",
+			Action:      pause,
+			Before:      beforeCommand,
+		},
+		{
+			Name: "stop",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "time, t",
+					Usage: "Seconds to wait for stop before killing it (default 10)",
+					Value: 10,
+				},
+			},
+			Usage:       "stop specified containers",
+			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			Description: "Pumba will try to stop the main process inside the specfied container(s), sending  SIGTERM, and then SIGKILL after grace period.",
+			Action:      stop,
+			Before:      beforeCommand,
+		},
+		{
+			Name: "rm",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "force, f",
+					Usage: "Force the removal of a running container (uses SIGKILL).",
+				},
+				cli.StringFlag{
+					Name:  "link, l",
+					Usage: "Remove the specified link.",
+				},
+				cli.StringFlag{
+					Name:  "volumes, v",
+					Usage: "Remove the volumes associated with the container.",
+				},
+			},
+			Usage:       "remove specified containers",
+			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			Description: "Pumba will try remove specfied container(s)",
+			Action:      remove,
+			Before:      beforeCommand,
 		},
 	}
 	app.Flags = []cli.Flag{
@@ -145,6 +255,20 @@ func main() {
 			Usage: "Slack channel for Pumba log events",
 			Value: "#pumba",
 		},
+		cli.StringFlag{
+			Name:  "interval, i",
+			Usage: "Specify recurrent interval for kill command. The interval is a decimal number with optional unit suffix, such as '500ms', '20s' or '30m'. Valid time units are: 'ms', 's', 'm', 'h'.",
+		},
+		cli.BoolFlag{
+			Name:        "random, r",
+			Usage:       "randomly select single matching container from list of target containers",
+			Destination: &actions.RandomMode,
+		},
+		cli.BoolFlag{
+			Name:        "dry",
+			Usage:       "does not create chaos, only logs planned chaos actions",
+			Destination: &actions.DryMode,
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -157,10 +281,12 @@ func before(c *cli.Context) error {
 	if c.GlobalBool("debug") {
 		log.SetLevel(log.DebugLevel)
 	}
+
 	// set log formatter to JSON
 	if c.GlobalBool("json") {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
+
 	// set Slack log channel
 	if c.GlobalString("slackhook") != "" {
 		log.AddHook(&slackrus.SlackrusHook{
@@ -171,8 +297,6 @@ func before(c *cli.Context) error {
 			Username:       "pumba_bot",
 		})
 	}
-
-	cleanup = c.GlobalBool("cleanup")
 
 	// Set-up container client
 	tls, err := tlsConfig(c)
@@ -186,153 +310,201 @@ func before(c *cli.Context) error {
 	return nil
 }
 
-func run(c *cli.Context) {
-	if err := actions.CheckPrereqs(client, cleanup); err != nil {
-		log.Fatal(err)
+func beforeCommand(c *cli.Context) error {
+	// get recurrent time interval
+	if intervalString := c.GlobalString("interval"); intervalString == "" {
+		return errors.New("Undefined interval value.")
+	} else if i, err := time.ParseDuration(intervalString); err != nil {
+		return err
+	} else {
+		interval = i
 	}
-	if err := createChaos(actions.Pumba{}, c.StringSlice("chaos"), 1, false); err != nil {
-		log.Fatal(err)
+
+	// get container names or pattern: no Args means ALL containers
+	if c.Args().Present() {
+		// more than one argument, assume that this a list of names
+		if len(c.Args()) > 1 {
+			containerNames = c.Args()
+			log.Debugf("Names: '%s'", containerNames)
+		} else {
+			first := c.Args().First()
+			if strings.HasPrefix(first, re2prefix) {
+				containerPattern = strings.Trim(first, re2prefix)
+				log.Debugf("Pattern: '%s'", containerPattern)
+			}
+		}
+	}
+
+	return nil
+}
+
+// KILL Command
+func kill(c *cli.Context) {
+	// get signal
+	signal := c.String("signal")
+	if _, ok := LinuxSignals[signal]; !ok {
+		log.Fatal(errors.New("Unexpected signal: " + signal))
+	}
+	// channel for 'kill' command
+	dc := make(chan commandKill)
+	// start interval timer
+	ticker := time.NewTicker(interval)
+	go func(cmd commandKill) {
+		for range ticker.C {
+			dc <- cmd
+		}
+	}(commandKill{signal})
+	// handle 'kill' command
+	chaos := actions.Pumba{}
+	for cmd := range dc {
+		wg.Add(1)
+		go func(cmd commandKill) {
+			defer wg.Done()
+			if err := chaos.KillContainers(client, containerNames, containerPattern, cmd.signal); err != nil {
+				log.Error(err)
+			}
+		}(cmd)
 	}
 }
 
-func createChaos(chaos actions.Chaos, args []string, limit int, test bool) error {
-	// docker channel to pass all "stop" commands to
-	dc := make(chan commandT)
-	glimit := limit * len(args)
-
-	// range over all chaos arguments
-	for _, chaosArg := range args {
-		s := strings.Split(chaosArg, "|")
-		if len(s) != 3 {
-			return errors.New("Unexpected format for chaos_arg: use | separated triple")
-		}
-		// get container name pattern
-		var pattern string
-		var names []string
-		if strings.HasPrefix(s[0], re2prefix) {
-			pattern = strings.Trim(s[0], re2prefix)
-			log.Debugf("Pattern: '%s'", pattern)
-		} else {
-			if s[0] != "" {
-				names = strings.Split(s[0], ",")
-			}
-			log.Debugf("Names: '%s'", names)
-		}
-		// get interval duration
-		interval, err := time.ParseDuration(s[1])
-		if err != nil {
-			return err
-		}
-		log.Debugf("Interval: '%s'", interval.String())
-		// get command and its option (if specified)
-		cs := strings.Split(s[2], ":")
-		command := strings.ToUpper(cs[0])
-		if !stringInSlice(command, []string{"STOP", "KILL", "RM", "PAUSE", "DISRUPT"}) {
-			return errors.New("Unexpected command in chaos option: can be STOP, KILL, RM, PAUSE or DISRUPT")
-		}
-		log.Debugf("Command: '%s'", command)
-		// 2 actions upport a second argument: KILL/STOP:signal 
-		//	and DISRUPT:netem command:target ip
-		// accordingly assign 2nd cmd line argument if exists
-		option := defaultKillSignal
-		if command == "DISRUPT" {
-			option = defaultNetemCmd
-		}
-		if len(cs) >= 2 {
-			option = cs[1]
-			if command == "PAUSE" {
-				log.Debugf("Pause interval: '%s'", option)
-			} else if command == "STOP" || command == "KILL" {
-				// convert signal to UPPER
-				option := strings.ToUpper(option)
-				log.Debugf("Signal: '%s'", option)
-			} else if command == "DISRUPT" {
-				option = defaultNetemCmd
-				// the string may be netem command or target IP - as the user
-				//  can omit the command part and use the default
-				if len(cs) == 3 {
-					// then we have both command and target IP, just need to put them 
-					//   together for the internal implementaion
-					option = cs[1] + ":" + cs[2]
-				} else {
-					// If it's IP, re-concat it with the default command
-					//  otherwise, just replace the netem command
-					if net.ParseIP(cs[1]) != nil {
-						option = option + ":" + cs[1]
-					} else {
-						option = cs[1]
-					}
-				}
-				log.Debugf("Netem Command: '%s'", option)
-			} else {
-				log.Debugf("2nd argument doesn't correspond with command: '%s'", cs[1])	
-				return errors.New("Surplus 2nd argument to chaos action command")
-			}
-		}
-
-		ticker := time.NewTicker(interval)
-		go func(cmd commandT, limit int, test bool) {
-			for range ticker.C {
-				if limit > 0 {
-					log.Debugf("Tick: '%s'", cmd)
-					dc <- cmd
-					if test {
-						limit--
-					}
-				}
-			}
-		}(commandT{pattern, names, command, option}, limit, test)
+// NETEM DELAY command
+func netemDelay(c *cli.Context) {
+	// get duration
+	durationString := c.String("duration")
+	if durationString == "" {
+		log.Fatal(errors.New("Undefined duration interval value."))
 	}
+	duration, err := time.ParseDuration(durationString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// channel for 'netem' command
+	dc := make(chan commandNetem)
+	// start interval timer
+	ticker := time.NewTicker(interval)
+	go func(cmd commandNetem) {
+		for range ticker.C {
+			dc <- cmd
+		}
+	}(commandNetem{duration})
+	// handle 'netem' command
+	chaos := actions.Pumba{}
 	for cmd := range dc {
-		if test {
-			glimit--
-		}
-		if glimit == 0 {
-			break
-		}
 		wg.Add(1)
-		go func(cmd commandT) {
+		go func(cmd commandNetem) {
 			defer wg.Done()
 			var err error
-			switch cmd.command {
-			case "STOP":
-				if cmd.pattern == "" {
-					err = chaos.StopByName(client, cmd.names)
-				} else {
-					err = chaos.StopByPattern(client, cmd.pattern)
-				}
-			case "KILL":
-				if cmd.pattern == "" {
-					err = chaos.KillByName(client, cmd.names, cmd.option)
-				} else {
-					err = chaos.KillByPattern(client, cmd.pattern, cmd.option)
-				}
-			case "RM":
-				if cmd.pattern == "" {
-					err = chaos.RemoveByName(client, cmd.names, true)
-				} else {
-					err = chaos.RemoveByPattern(client, cmd.pattern, true)
-				}
-			case "DISRUPT":
-				if cmd.pattern == "" {
-					err = chaos.DisruptByName(client, cmd.names, cmd.option)
-				} else {
-					err = chaos.DisruptByPattern(client, cmd.pattern,cmd.option)
-				}
-			case "PAUSE":
-				if cmd.pattern == "" {
-					err = chaos.PauseByName(client, cmd.names, cmd.option)
-				} else {
-					err = chaos.PauseByPattern(client, cmd.pattern, cmd.option)
-				}
+			if containerPattern == "" {
+				err = chaos.NetemByName(client, containerNames, defaultNetemCmd)
+			} else {
+				err = chaos.NetemByPattern(client, containerPattern, defaultNetemCmd)
 			}
 			if err != nil {
 				log.Error(err)
 			}
 		}(cmd)
-
 	}
-	return nil
+}
+
+// PAUSE command
+func pause(c *cli.Context) {
+	// get duration
+	durationString := c.String("duration")
+	if durationString == "" {
+		log.Fatal(errors.New("Undefined duration interval value."))
+	}
+	duration, err := time.ParseDuration(durationString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// channel for 'pause' command
+	dc := make(chan commandPause)
+	// start interval timer
+	ticker := time.NewTicker(interval)
+	go func(cmd commandPause) {
+		for range ticker.C {
+			dc <- cmd
+		}
+	}(commandPause{duration})
+	// handle 'pause' command
+	chaos := actions.Pumba{}
+	for cmd := range dc {
+		wg.Add(1)
+		go func(cmd commandPause) {
+			defer wg.Done()
+			var err error
+			if containerPattern == "" {
+				err = chaos.PauseByName(client, containerNames, cmd.duration)
+			} else {
+				err = chaos.PauseByPattern(client, containerPattern, cmd.duration)
+			}
+			if err != nil {
+				log.Error(err)
+			}
+		}(cmd)
+	}
+}
+
+// REMOVE Command
+func remove(c *cli.Context) {
+	// get force flag
+	force := c.Bool("force")
+	// get link flag
+	link := c.String("link")
+	// get link flag
+	volumes := c.String("volumes")
+	// channel for 'stop' command
+	dc := make(chan commandRemove)
+	// start interval timer
+	ticker := time.NewTicker(interval)
+	go func(cmd commandRemove) {
+		for range ticker.C {
+			dc <- cmd
+		}
+	}(commandRemove{force, link, volumes})
+	// handle 'remove' command
+	chaos := actions.Pumba{}
+	for cmd := range dc {
+		wg.Add(1)
+		go func(cmd commandRemove) {
+			defer wg.Done()
+			if err := chaos.RemoveContainers(client, containerNames, containerPattern, cmd.force, cmd.link, cmd.volumes); err != nil {
+				log.Error(err)
+			}
+		}(cmd)
+	}
+}
+
+// STOP Command
+func stop(c *cli.Context) {
+	// get time to wait
+	waitTime := c.Int("time")
+	// channel for 'stop' command
+	dc := make(chan commandStop)
+	// start interval timer
+	ticker := time.NewTicker(interval)
+	go func(cmd commandStop) {
+		for range ticker.C {
+			dc <- cmd
+		}
+	}(commandStop{waitTime})
+	// handle 'stop' command
+	chaos := actions.Pumba{}
+	for cmd := range dc {
+		wg.Add(1)
+		go func(cmd commandStop) {
+			defer wg.Done()
+			var err error
+			if containerPattern == "" {
+				err = chaos.StopByName(client, containerNames, cmd.waitTime)
+			} else {
+				err = chaos.StopByPattern(client, containerPattern, cmd.waitTime)
+			}
+			if err != nil {
+				log.Error(err)
+			}
+		}(cmd)
+	}
 }
 
 func handleSignals() {

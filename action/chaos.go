@@ -23,16 +23,14 @@ const (
 
 // A Chaos is the interface with different methods to stop runnig containers.
 type Chaos interface {
-	StopByName(container.Client, []string) error
-	StopByPattern(container.Client, string) error
-	KillByName(container.Client, []string, string) error
-	KillByPattern(container.Client, string, string) error
-	RemoveByName(container.Client, []string, bool) error
-	RemoveByPattern(container.Client, string, bool) error
-	DisruptByName(container.Client, []string, string) error
-	DisruptByPattern(container.Client, string, string) error
-	PauseByName(container.Client, []string, string) error
-	PauseByPattern(container.Client, string, string) error
+	StopByName(container.Client, []string, int) error
+	StopByPattern(container.Client, string, int) error
+	KillContainers(container.Client, []string, string, string) error
+	RemoveContainers(container.Client, []string, string, bool, string, string) error
+	NetemByName(container.Client, []string, string) error
+	NetemByPattern(container.Client, string, string) error
+	PauseByName(container.Client, []string, time.Duration) error
+	PauseByPattern(container.Client, string, time.Duration) error
 }
 
 // Pumba makes chaos
@@ -84,6 +82,21 @@ func regexContainerFilter(pattern string) container.Filter {
 	}
 }
 
+func listContainers(client container.Client, names []string, pattern string) ([]container.Container, error) {
+	var err error
+	var containers []container.Container
+	if pattern != "" {
+		if containers, err = client.ListContainers(regexContainerFilter(pattern)); err != nil {
+			return nil, err
+		}
+	} else {
+		if containers, err = client.ListContainers(containerFilter(names)); err != nil {
+			return nil, err
+		}
+	}
+	return containers, nil
+}
+
 func randomContainer(containers []container.Container) *container.Container {
 	if containers != nil && len(containers) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -94,18 +107,21 @@ func randomContainer(containers []container.Container) *container.Container {
 	return nil
 }
 
-func stopContainers(client container.Client, containers []container.Container) error {
+func stopContainers(client container.Client, containers []container.Container, waitTime int) error {
+	if waitTime == 0 {
+		waitTime = deafultWaitTime
+	}
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.StopContainer(*container, deafultWaitTime, DryMode)
+			err := client.StopContainer(*container, waitTime, DryMode)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.StopContainer(container, deafultWaitTime, DryMode)
+			err := client.StopContainer(container, waitTime, DryMode)
 			if err != nil {
 				return err
 			}
@@ -138,18 +154,18 @@ func killContainers(client container.Client, containers []container.Container, s
 	return nil
 }
 
-func removeContainers(client container.Client, containers []container.Container, force bool) error {
+func removeContainers(client container.Client, containers []container.Container, force bool, link string, volumes string) error {
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.RemoveContainer(*container, force, DryMode)
+			err := client.RemoveContainer(*container, force, link, volumes, DryMode)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.RemoveContainer(container, force, DryMode)
+			err := client.RemoveContainer(container, force, link, volumes, DryMode)
 			if err != nil {
 				return err
 			}
@@ -158,12 +174,7 @@ func removeContainers(client container.Client, containers []container.Container,
 	return nil
 }
 
-func pauseContainers(client container.Client, containers []container.Container, interval string) error {
-	// get pause pause duration
-	duration, err := time.ParseDuration(interval)
-	if err != nil {
-		return err
-	}
+func pauseContainers(client container.Client, containers []container.Container, duration time.Duration) error {
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
@@ -206,73 +217,50 @@ func disruptContainers(client container.Client, containers []container.Container
 //---------------------------------------------------------------------------------------------------
 
 // StopByName stop container, if its name within `names`
-func (p Pumba) StopByName(client container.Client, names []string) error {
+func (p Pumba) StopByName(client container.Client, names []string, waitTime int) error {
 	log.Info("Stop containers by names: ", names)
 	containers, err := client.ListContainers(containerFilter(names))
 	if err != nil {
 		return err
 	}
-	return stopContainers(client, containers)
+	return stopContainers(client, containers, waitTime)
 }
 
 // StopByPattern stop containers matching pattern
-func (p Pumba) StopByPattern(client container.Client, pattern string) error {
+func (p Pumba) StopByPattern(client container.Client, pattern string, waitTime int) error {
 	log.Infof("Stop containers by RE2 regex: '%s'", pattern)
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
 	if err != nil {
 		return err
 	}
-	return stopContainers(client, containers)
+	return stopContainers(client, containers, waitTime)
 }
 
-// KillByName kill container, if its name within `names`. You can pass custom
-// signal, if empty SIGKILL will be used
-func (p Pumba) KillByName(client container.Client, names []string, signal string) error {
-	log.Info("Kill containers by names: ", names)
-
-	containers, err := client.ListContainers(containerFilter(names))
-	if err != nil {
+// KillContainers - kill containers either by RE2 pattern (if specified) or by names
+func (p Pumba) KillContainers(client container.Client, names []string, pattern string, signal string) error {
+	log.Info("Kill containers")
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
 	return killContainers(client, containers, signal)
 }
 
-// KillByPattern kill containers matching pattern. You can pass custom
-// signal, if empty SIGKILL will be used
-func (p Pumba) KillByPattern(client container.Client, pattern string, signal string) error {
-	log.Infof("Kill containers matching RE2 regex: '%s'", pattern)
-	containers, err := client.ListContainers(regexContainerFilter(pattern))
-	if err != nil {
+// RemoveContainers - remove container either by RE2 pattern (if specified) or by names
+func (p Pumba) RemoveContainers(client container.Client, names []string, pattern string, force bool, link string, volumes string) error {
+	log.Info("Remove containers")
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return killContainers(client, containers, signal)
+	return removeContainers(client, containers, force, link, volumes)
 }
 
-// RemoveByName remove container, if its name within `names`. Kill container if its running
-// and `force` flag is `true`
-func (p Pumba) RemoveByName(client container.Client, names []string, force bool) error {
-	log.Info("Remove containers by names: ", names)
-	containers, err := client.ListContainers(containerFilter(names))
-	if err != nil {
-		return err
-	}
-	return removeContainers(client, containers, force)
-}
-
-// RemoveByPattern remove container matching pattern. Kill container if its running
-// and `force` flag is `true`
-func (p Pumba) RemoveByPattern(client container.Client, pattern string, force bool) error {
-	log.Infof("Remove containers by RE2 pattern: '%s'", pattern)
-	containers, err := client.ListContainers(regexContainerFilter(pattern))
-	if err != nil {
-		return err
-	}
-	return removeContainers(client, containers, force)
-}
-
-// DisruptByName disrupts container egress network, if its name within `names`. 
+// NetemByName disrupts container egress network, if its name within `names`.
 // Disruption is currently limited to delayed response
-func (p Pumba) DisruptByName(client container.Client, names []string, netemCmd string) error {
+func (p Pumba) NetemByName(client container.Client, names []string, netemCmd string) error {
 	log.Info("Disrupt containers by names: ", names)
 	containers, err := client.ListContainers(containerFilter(names))
 	if err != nil {
@@ -281,9 +269,9 @@ func (p Pumba) DisruptByName(client container.Client, names []string, netemCmd s
 	return disruptContainers(client, containers, netemCmd)
 }
 
-// DisruptByPattern disrupts container egress network, if its name matches 'pattern'. 
+// NetemByPattern disrupts container egress network, if its name matches 'pattern'.
 // Disruption is currently limited to delayed response
-func (p Pumba) DisruptByPattern(client container.Client, pattern string, netemCmd string) error {
+func (p Pumba) NetemByPattern(client container.Client, pattern string, netemCmd string) error {
 	log.Infof("Disrupt containers by RE2 pattern: '%s'", pattern)
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
 	if err != nil {
@@ -293,21 +281,21 @@ func (p Pumba) DisruptByPattern(client container.Client, pattern string, netemCm
 }
 
 // PauseByName pause container,if its name within `names`, for specified interval
-func (p Pumba) PauseByName(client container.Client, names []string, interval string) error {
-	log.Infof("Pause containers by names: '%s' for '%s'", names, interval)
+func (p Pumba) PauseByName(client container.Client, names []string, duration time.Duration) error {
+	log.Infof("Pause containers by names: '%s' for '%s'", names, duration.String())
 	containers, err := client.ListContainers(containerFilter(names))
 	if err != nil {
 		return err
 	}
-	return pauseContainers(client, containers, interval)
+	return pauseContainers(client, containers, duration)
 }
 
 // PauseByPattern pause container, matching pattern, for specified interval
-func (p Pumba) PauseByPattern(client container.Client, pattern string, interval string) error {
-	log.Infof("Pause containers matching RE2 regex: '%s' for '%s'", pattern, interval)
+func (p Pumba) PauseByPattern(client container.Client, pattern string, duration time.Duration) error {
+	log.Infof("Pause containers matching RE2 regex: '%s' for '%s'", pattern, duration.String())
 	containers, err := client.ListContainers(regexContainerFilter(pattern))
 	if err != nil {
 		return err
 	}
-	return pauseContainers(client, containers, interval)
+	return pauseContainers(client, containers, duration)
 }

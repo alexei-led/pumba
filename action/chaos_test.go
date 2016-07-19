@@ -183,9 +183,9 @@ func TestStopByName(t *testing.T) {
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("StopContainer", c, time.Duration(10)).Return(nil)
+		client.On("StopContainer", c, 10).Return(nil)
 	}
-	err := Pumba{}.StopByName(client, names)
+	err := Pumba{}.StopByName(client, names, 10)
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -196,7 +196,7 @@ func TestStopByNameRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("StopContainer", mock.AnythingOfType("container.Container"), time.Duration(10)).Return(nil)
 	RandomMode = true
-	err := Pumba{}.StopByName(client, names)
+	err := Pumba{}.StopByName(client, names, 10)
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -209,7 +209,7 @@ func TestStopByPattern(t *testing.T) {
 	for _, c := range cs {
 		client.On("StopContainer", c, time.Duration(10)).Return(nil)
 	}
-	err := Pumba{}.StopByPattern(client, "^c")
+	err := Pumba{}.StopByPattern(client, "^c", 10)
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -220,7 +220,7 @@ func TestStopByPatternRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("StopContainer", mock.AnythingOfType("container.Container"), time.Duration(10)).Return(nil)
 	RandomMode = true
-	err := Pumba{}.StopByPattern(client, "^c")
+	err := Pumba{}.StopByPattern(client, "^c", 10)
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -233,7 +233,7 @@ func TestKillByName(t *testing.T) {
 	for _, c := range cs {
 		client.On("KillContainer", c, "SIGTEST").Return(nil)
 	}
-	err := Pumba{}.KillByName(client, names, "SIGTEST")
+	err := Pumba{}.KillContainers(client, names, "", "SIGTEST")
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -244,7 +244,7 @@ func TestKillByNameRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
 	RandomMode = true
-	err := Pumba{}.KillByName(client, names, "SIGTEST")
+	err := Pumba{}.KillContainers(client, names, "", "SIGTEST")
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -257,7 +257,7 @@ func TestKillByPattern(t *testing.T) {
 	for i := range cs {
 		client.On("KillContainer", cs[i], "SIGTEST").Return(nil)
 	}
-	err := Pumba{}.KillByPattern(client, "^c", "SIGTEST")
+	err := Pumba{}.KillContainers(client, []string{}, "^c", "SIGTEST")
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -268,7 +268,7 @@ func TestKillByPatternRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
 	RandomMode = true
-	err := Pumba{}.KillByPattern(client, "^c", "SIGTEST")
+	err := Pumba{}.KillContainers(client, []string{}, "^c", "SIGTEST")
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -279,9 +279,9 @@ func TestRemoveByName(t *testing.T) {
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("RemoveContainer", c, false).Return(nil)
+		client.On("RemoveContainer", c, false, "", "").Return(nil)
 	}
-	err := Pumba{}.RemoveByName(client, names, false)
+	err := Pumba{}.RemoveContainers(client, names, "", false, "", "")
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -292,7 +292,7 @@ func TestRemoveByNameRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false).Return(nil)
 	RandomMode = true
-	err := Pumba{}.RemoveByName(client, names, false)
+	err := Pumba{}.RemoveContainers(client, names, "", false, "", "")
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -305,7 +305,7 @@ func TestRemoveByPattern(t *testing.T) {
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false).Return(nil)
 	}
-	err := Pumba{}.RemoveByPattern(client, "^c", false)
+	err := Pumba{}.RemoveContainers(client, []string{}, "^c", false, "", "")
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -316,7 +316,7 @@ func TestRemoveByPatternRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false).Return(nil)
 	RandomMode = true
-	err := Pumba{}.RemoveByPattern(client, "^c", false)
+	err := Pumba{}.RemoveContainers(client, []string{}, "^c", false, "", "")
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
@@ -330,7 +330,7 @@ func TestPauseByName(t *testing.T) {
 	for _, c := range cs {
 		client.On("PauseContainer", c, d).Return(nil)
 	}
-	err := Pumba{}.PauseByName(client, names, "2ms")
+	err := Pumba{}.PauseByName(client, names, d)
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -343,7 +343,7 @@ func TestPauseByPattern(t *testing.T) {
 	for _, c := range cs {
 		client.On("PauseContainer", c, d).Return(nil)
 	}
-	err := Pumba{}.PauseByPattern(client, "^c", "2ms")
+	err := Pumba{}.PauseByPattern(client, "^c", d)
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -355,55 +355,55 @@ func TestPauseByNameRandom(t *testing.T) {
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("PauseContainer", mock.AnythingOfType("container.Container"), d).Return(nil)
 	RandomMode = true
-	err := Pumba{}.PauseByName(client, names, "2ms")
+	err := Pumba{}.PauseByName(client, names, d)
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
-func TestDisruptByName(t *testing.T) {
+func TestNetemByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("DisruptContainer", c, "delay 1000ms").Return(nil)
+		client.On("NetemContainer", c, "delay 1000ms").Return(nil)
 	}
-	err := Pumba{}.DisruptByName(client, names, "delay 1000ms")
+	err := Pumba{}.NetemByName(client, names, "delay 1000ms")
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
-func TestDisruptByNameRandom(t *testing.T) {
+func TestNetemByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
+	client.On("NetemeContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
 	RandomMode = true
-	err := Pumba{}.DisruptByName(client, names, "delay 1000ms")
+	err := Pumba{}.NetemByName(client, names, "delay 1000ms")
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
-func TestDisruptByPattern(t *testing.T) {
+func TestNetemByPattern(t *testing.T) {
 	_, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for i := range cs {
 		client.On("DisruptContainer", cs[i], "delay 3000ms:172.19.0.3").Return(nil)
 	}
-	err := Pumba{}.DisruptByPattern(client, "^c", "delay 3000ms:172.19.0.3")
+	err := Pumba{}.NetemByPattern(client, "^c", "delay 3000ms:172.19.0.3")
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
-func TestDisruptByPatternRandom(t *testing.T) {
+func TestNetemByPatternRandom(t *testing.T) {
 	_, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "172.19.0.3").Return(nil)
 	RandomMode = true
-	err := Pumba{}.DisruptByPattern(client, "^c", "172.19.0.3")
+	err := Pumba{}.NetemByPattern(client, "^c", "172.19.0.3")
 	RandomMode = false
 	assert.NoError(t, err)
 	client.AssertExpectations(t)

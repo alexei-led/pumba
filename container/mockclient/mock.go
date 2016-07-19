@@ -19,7 +19,7 @@ func (m *MockClient) ListContainers(cf container.Filter) ([]container.Container,
 }
 
 // StopContainer mock
-func (m *MockClient) StopContainer(c container.Container, timeout time.Duration, dryrun bool) error {
+func (m *MockClient) StopContainer(c container.Container, timeout int, dryrun bool) error {
 	args := m.Called(c, timeout)
 	return args.Error(0)
 }
@@ -49,8 +49,8 @@ func (m *MockClient) KillContainer(c container.Container, s string, dryrun bool)
 }
 
 // RemoveContainer mock
-func (m *MockClient) RemoveContainer(c container.Container, f bool, dryrun bool) error {
-	args := m.Called(c, f)
+func (m *MockClient) RemoveContainer(c container.Container, f bool, l string, v string, dryrun bool) error {
+	args := m.Called(c, f, l, v)
 	return args.Error(0)
 }
 
@@ -60,7 +60,7 @@ func (m *MockClient) PauseContainer(c container.Container, d time.Duration, dryr
 	return args.Error(0)
 }
 
-// PauseContainer mock
+// DisruptContainer mock
 func (m *MockClient) DisruptContainer(c container.Container, s string, dryrun bool) error {
 	args := m.Called(c, s)
 	return args.Error(0)

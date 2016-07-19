@@ -21,7 +21,7 @@ USAGE:
    pumba [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.11
+   0.2.0
 
 COMMANDS:
     run  Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers
@@ -57,11 +57,11 @@ DESCRIPTION:
      * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)
      * RM - force remove running container(s)
      * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval
-     * DISRUPT(:netem command)(:target ip) - disrupt the outgoing network of a running container with a specific Network Emulation command and/or limiting to traffic outgoing to specific target IP
+     * DISRUPT():netem command)(:target ip) - disrupt the outgoing network of a running container with a specific Network Emulation command and/or limiting to traffic outgoing to specific target IP
 
 OPTIONS:
-   --chaos, -c [--chaos option --chaos option]	chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`
-   --random, -r					Random mode: randomly select single matching container to 'kill'
+   --chaos, -c [-c option ...]   chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`
+   --random, -r                  random mode: randomly select single matching container to 'kill'
 ```
 
 ### Pumba Chaos Commands
@@ -79,33 +79,29 @@ Pass `KILL:{SIGNALNAME}` (without braces) to Pumba though `chaos` option, and Pu
 
 `RM` command will stop and force remove specified running container/s.
 
-#### PAUSE
-
-`PAUSE` command will pause all processes running inside Docker container for specified interval. The command syntax: `PAUSE:INTERVAL`. Pause interval is just a number with optional postfix: `s, m or h`.
-
 #### DISRUPT command - using Pumba to disrupt containers network
 
-`DISRUPT` command will introduce network disruptions to a container's outgoing traffic (egress) using netem driver, and optionally limiting to traffic outgoing to specific target ip.
+`DISRUPT` command will introduce network disruptions to a container's outgoing traffic (egress) using `netem` driver, and optionally limiting to traffic outgoing to specific target ip.
 
-For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described in the above link, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications. In order to disrupt communication between specific containers, use the DISRUPT option to specifiy target container IP - Pumba will then filter the outgoing traffic and apply the netem effect only to the traffic going to the specific IP.
+For testing your containers under specific network conditions, Pumba is using the linux [Network Emulation driver](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem). As described in the above link, these commands affect the outgoing network traffic (egress), so for example, one may disrupt the backend API service or data service and then test the frontend to see the implications. In order to disrupt communication between specific containers, use the DISRUPT option to specify target container IP - Pumba will then filter the outgoing traffic and apply the netem effect only to the traffic going to the specific IP.
 
-A few implementaion points are important to understand:
+A few implementation points are important to understand:
 * Netem commands are executed on containers using 'docker exec'. In order to change network driver settings, the container must have NET_ADMIN capability - this can be granted via the ['docker run' command](https://docs.docker.com/engine/reference/run/#/runtime-privilege-and-linux-capabilities), via [docker-compose.yml](https://docs.docker.com/compose/compose-file/#/cap-add-cap-drop) or otherwise.
-* Pumba doesn't (currently) store 'chaos state' and therefore is not aware if the container has been already disrupted. As a result, subsequent calls will disrupt it again using the syntax 'tc qdisc add' instead of 'tc qdisc change'. Another result is that even when Pumba is stopped, the disrupted container is still disrtuped. To manually fix the container, use:
+* Pumba doesn't (currently) store 'chaos state' and therefore is not aware if the container has been already disrupted. As a result, subsequent calls will disrupt it again using the syntax 'tc qdisc add' instead of 'tc qdisc change'. Another result is that even when Pumba is stopped, the disrupted container is still disrupted. To manually fix the container for `eth0` network interface, use:
 ```
    docker exec container_name tc qdisc del dev eth0 root netem
 ```
 * Generally, repeating the same disruption to the network of the same container has no effect. In a way, it will be best to use DISRUPT in random mode, combined with KILL so that disrupted containers will be removed from time to time.
-* Using target IP means Pumba will add a priority queue and a filter on eth0, sending outgoing traffic with the specified IP destination to a secondary queue. The netem command is then applied to the secondary queue.
+* Using target IP means Pumba will add a priority queue and a filter on network interface, sending outgoing traffic with the specified IP destination to a secondary queue. The netem command is then applied to the secondary queue.
 
 Example:
 ```
-   pumba run container-name|10m|DISRUPT:delay 100ms:172.0.0.4
-   
-```
-Pumba will run 'docker exec' every 10 minutes on container 'container-name' to add the netem driver to eth0 with a delay of 100ms on outgoing traffic to 172.0.0.4
+   pumba run --chaos mycontainer|10m|DISRUPT:eth2:delay 100ms:172.0.0.4
 
-### Runing inside Docker container
+```
+Once in 10 minutes, Pumba will create a delay in `eth2` network interface of `mycontainer` for egress traffic going to `172.0.0.4`.
+
+### Running inside Docker container
 
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
 
@@ -197,4 +193,4 @@ I've also borrowed a code from very nice [CenturyLinkLabs/watchtower](https://gi
 
 ## License
 
-Code is under the [Apache Licence v2](https://www.apache.org/licenses/LICENSE-2.0.txt).
+Code is under the [Apache License v2](https://www.apache.org/licenses/LICENSE-2.0.txt).
