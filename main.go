@@ -463,6 +463,9 @@ func remove(c *cli.Context) error {
 	go func(cmd commandRemove) {
 		for range commandTimeChan {
 			dc <- cmd
+			if testRun {
+				close(dc)
+			}
 		}
 	}(commandRemove{force, link, volumes})
 	// handle 'remove' command

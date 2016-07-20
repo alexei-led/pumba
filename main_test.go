@@ -228,6 +228,93 @@ func (s *mainTestSuite) Test_pauseSucess() {
 	chaosMock.AssertExpectations(s.T())
 }
 
+func (s *mainTestSuite) Test_pauseMissingDuraation() {
+	// prepare
+	set := flag.NewFlagSet("pause", 0)
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// invoke command
+	err := pause(c)
+	// asserts
+	assert.EqualError(s.T(), err, "Undefined duration interval")
+}
+
+func (s *mainTestSuite) Test_pauseBadDuraation() {
+	// prepare
+	set := flag.NewFlagSet("pause", 0)
+	set.String("duration", "BAD", "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// invoke command
+	err := pause(c)
+	// asserts
+	assert.EqualError(s.T(), err, "time: invalid duration BAD")
+}
+
+func (s *mainTestSuite) Test_stopSucess() {
+	// prepare
+	set := flag.NewFlagSet("stop", 0)
+	set.Int("time", 10, "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// setup mock
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("StopContainers", nil, []string{}, "", 10).Return(nil)
+	// invoke command
+	err := stop(c)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_stopError() {
+	// prepare
+	set := flag.NewFlagSet("stop", 0)
+	set.Int("time", 10, "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// setup mock
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("StopContainers", nil, []string{}, "", 10).Return(errors.New("ERROR"))
+	// invoke command
+	err := stop(c)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_removeSucess() {
+	// prepare
+	set := flag.NewFlagSet("stop", 0)
+	set.Bool("force", true, "doc")
+	set.String("link", "mylink", "doc")
+	set.String("volumes", "myvolume", "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// setup mock
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("RemoveContainers", nil, []string{}, "", true, "mylink", "myvolume").Return(nil)
+	// invoke command
+	err := remove(c)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
 func TestMainTestSuite(t *testing.T) {
 	suite.Run(t, new(mainTestSuite))
 }
