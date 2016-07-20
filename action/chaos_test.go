@@ -361,18 +361,19 @@ func TestPauseByNameRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemByName(t *testing.T) {
+func TestNetemDealyByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("DisruptContainer", c, "delay 1000ms").Return(nil)
+		client.On("DisruptContainer", c, "eth1", "delay 120ms 25ms 15%").Return(nil)
 	}
-	err := Pumba{}.NetemContainers(client, names, "", "delay 1000ms")
+	err := Pumba{}.NetemDelayContainers(client, names, "", "eth1", 1*time.Second, 120, 25, 15)
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
+/*
 func TestNetemByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := &mockclient.MockClient{}
@@ -408,6 +409,7 @@ func TestNetemByPatternRandom(t *testing.T) {
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
+*/
 
 func TestSelectRandomContainer(t *testing.T) {
 	_, cs := makeContainersN(10)

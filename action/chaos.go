@@ -3,6 +3,7 @@ package actions
 import (
 	"math/rand"
 	"regexp"
+	"strconv"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -26,7 +27,7 @@ type Chaos interface {
 	StopContainers(container.Client, []string, string, int) error
 	KillContainers(container.Client, []string, string, string) error
 	RemoveContainers(container.Client, []string, string, bool, string, string) error
-	NetemContainers(container.Client, []string, string, string) error
+	NetemDelayContainers(container.Client, []string, string, string, time.Duration, int, int, int) error
 	PauseContainers(container.Client, []string, string, time.Duration) error
 }
 
@@ -191,18 +192,18 @@ func pauseContainers(client container.Client, containers []container.Container, 
 	return nil
 }
 
-func disruptContainers(client container.Client, containers []container.Container, netemCmd string) error {
+func disruptContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string) error {
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.DisruptContainer(*container, netemCmd, DryMode)
+			err := client.DisruptContainer(*container, netInterface, netemCmd, DryMode)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.DisruptContainer(container, netemCmd, DryMode)
+			err := client.DisruptContainer(container, netInterface, netemCmd, DryMode)
 			if err != nil {
 				return err
 			}
@@ -246,16 +247,23 @@ func (p Pumba) RemoveContainers(client container.Client, names []string, pattern
 	return removeContainers(client, containers, force, link, volumes)
 }
 
-// NetemContainers disrupts container egress network, if its name within `names`.
-// Disruption is currently limited to delayed response
-func (p Pumba) NetemContainers(client container.Client, names []string, pattern string, netemCmd string) error {
-	log.Info("Disrupt containers")
+// NetemDelayContainers delay network traffic with optional variation and correlation
+func (p Pumba) NetemDelayContainers(client container.Client, names []string, pattern string, netInterface string, duration time.Duration, amount int, variation int, correlation int) error {
+	log.Info("netem dealy for containers")
 	var err error
 	var containers []container.Container
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return disruptContainers(client, containers, netemCmd)
+	netemCmd := "delay " + strconv.Itoa(amount) + "ms"
+	if variation > 0 {
+		netemCmd += " " + strconv.Itoa(variation) + "ms"
+	}
+	if correlation > 0 {
+		netemCmd += " " + strconv.Itoa(correlation) + "%"
+	}
+
+	return disruptContainers(client, containers, netInterface, netemCmd)
 }
 
 // PauseContainers pause container,if its name within `names`, for specified interval

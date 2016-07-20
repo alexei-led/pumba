@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,6 +31,7 @@ var (
 	chaos            actions.Chaos
 	commandTimeChan  <-chan time.Time
 	testRun          bool
+	reInterface      *regexp.Regexp
 )
 
 // LinuxSignals valid Linux signal table
@@ -68,10 +70,9 @@ var LinuxSignals = map[string]int{
 }
 
 const (
-	release         = "v0.2.0"
-	defaultNetemCmd = "delay 1000ms"
-	defaultSignal   = "SIGKILL"
-	re2prefix       = "re2:"
+	release       = "v0.2.0"
+	defaultSignal = "SIGKILL"
+	re2prefix     = "re2:"
 )
 
 type commandKill struct {
@@ -82,8 +83,12 @@ type commandPause struct {
 	duration time.Duration
 }
 
-type commandNetem struct {
-	duration time.Duration
+type commandNetemDelay struct {
+	netInterface string
+	duration     time.Duration
+	amount       int
+	variation    int
+	correlation  int
 }
 
 type commandStop struct {
@@ -144,8 +149,33 @@ func main() {
 			Before:      beforeCommand,
 			Subcommands: []cli.Command{
 				{
-					Name:   "delay",
-					Action: netemDelay,
+					Name: "delay",
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "interface, i",
+							Usage: "network interface to apply delay on",
+							Value: "eth0",
+						},
+						cli.IntFlag{
+							Name:  "amount, a",
+							Usage: "delay amount; in milliseconds",
+							Value: 100,
+						},
+						cli.IntFlag{
+							Name:  "variation, v",
+							Usage: "random delay variation; in milliseconds; example: 100ms ± 10ms",
+							Value: 10,
+						},
+						cli.IntFlag{
+							Name:  "correlation, c",
+							Usage: "delay correlation; in percents",
+							Value: 20,
+						},
+					},
+					Usage:       "dealy egress traffic",
+					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					Description: "dealy egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation",
+					Action:      netemDelay,
 				},
 				{
 					Name: "loss",
@@ -281,6 +311,8 @@ func main() {
 func before(c *cli.Context) error {
 	// set chaos to Pumba{}
 	chaos = actions.Pumba{}
+	// network interface name valid regexp
+	reInterface = regexp.MustCompile("[a-zA-Z]+[0-9]{0,2}")
 	// set debug log level
 	if c.GlobalBool("debug") {
 		log.SetLevel(log.DebugLevel)
@@ -376,7 +408,10 @@ func kill(c *cli.Context) error {
 // NETEM DELAY command
 func netemDelay(c *cli.Context) error {
 	// get duration
-	durationString := c.String("duration")
+	var durationString string
+	if c.Parent() != nil {
+		durationString = c.Parent().String("duration")
+	}
 	if durationString == "" {
 		err := errors.New("Undefined duration interval")
 		log.Error(err)
@@ -387,23 +422,51 @@ func netemDelay(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
+	// get network interface
+	netInterface := "eth0"
+	if c.Parent() != nil {
+		netInterface = c.Parent().String("interface")
+		// protect from Command Injection, using Regexp
+		netInterface = reInterface.FindString(netInterface)
+	}
+	// get delay amount
+	amount := c.Int("amount")
+	if amount <= 0 {
+		err = errors.New("Invalid delay amount")
+		log.Error(err)
+		return err
+	}
+	// get delay variation
+	variation := c.Int("variation")
+	if variation < 0 {
+		err = errors.New("Invalid delay variation")
+		log.Error(err)
+		return err
+	}
+	// get delay variation
+	correlation := c.Int("correlation")
+	if correlation < 0 || correlation > 100 {
+		err = errors.New("Invalid delay correlation: must be between 0 and 100")
+		log.Error(err)
+		return err
+	}
 	// channel for 'netem' command
-	dc := make(chan commandNetem)
+	dc := make(chan commandNetemDelay)
 	// handle interval timer event
-	go func(cmd commandNetem) {
+	go func(cmd commandNetemDelay) {
 		for range commandTimeChan {
 			dc <- cmd
 			if testRun {
 				close(dc)
 			}
 		}
-	}(commandNetem{duration})
+	}(commandNetemDelay{netInterface, duration, amount, variation, correlation})
 	// handle 'netem' command
 	for cmd := range dc {
 		wg.Add(1)
-		go func(cmd commandNetem) {
+		go func(cmd commandNetemDelay) {
 			defer wg.Done()
-			if err := chaos.NetemContainers(client, containerNames, containerPattern, defaultNetemCmd); err != nil {
+			if err := chaos.NetemDelayContainers(client, containerNames, containerPattern, cmd.netInterface, cmd.duration, cmd.amount, cmd.variation, cmd.correlation); err != nil {
 				log.Error(err)
 			}
 		}(cmd)

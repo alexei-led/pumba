@@ -40,8 +40,8 @@ func (m *ChaosMock) PauseContainers(c container.Client, n []string, p string, d 
 	return args.Error(0)
 }
 
-func (m *ChaosMock) NetemContainers(c container.Client, n []string, p string, cmd string) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) NetemDelayContainers(c container.Client, n []string, p string, ni string, t time.Duration, a int, v int, cr int) error {
+	args := m.Called(c, n, p, ni, t, a, v, cr)
 	return args.Error(0)
 }
 

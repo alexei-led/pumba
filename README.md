@@ -13,55 +13,6 @@ You can download Pumba binary for your OS from [release](https://github.com/gaia
 
 ```
 $ pumba help
-
-NAME:
-   Pumba - Pumba is a resiliency tool that helps applications tolerate random Docker container failures.
-
-USAGE:
-   pumba [global options] command [command options] [arguments...]
-
-VERSION:
-   0.2.0
-
-COMMANDS:
-    run  Pumba starts making chaos: periodically (and/or randomly) executes specified chaos actions on specified containers
-
-GLOBAL OPTIONS:
-   --host, -H "unix:///var/run/docker.sock"  daemon socket to connect to [$DOCKER_HOST]
-   --tls                                     use TLS; implied by --tlsverify
-   --tlsverify                               use TLS and verify the remote [$DOCKER_TLS_VERIFY]
-   --tlscacert "/etc/ssl/docker/ca.pem"      trust certs signed only by this CA
-   --tlscert "/etc/ssl/docker/cert.pem"      client certificate for TLS authentication
-   --tlskey "/etc/ssl/docker/key.pem"        client key for TLS authentication
-   --debug                                   enable debug mode with verbose logging
-   --json                                    produce log in JSON format: Logstash and Splunk friendly
-   --slackhook                               Slack web hook url. Send Pumba log events to Slack
-   --slackchannel "#pumba"                   Slack channel for Pumba log events
-   --help, -h                                show help
-   --version, -v                             print the version
-```
-```
-$ pumba run --help
-
-NAME:
-   pumba run - Pumba starts making chaos: periodically (and/or randomly) affecting specified containers.
-
-USAGE:
-   pumba run [command options] [arguments...]
-
-DESCRIPTION:
-   Ask Pumba to run periodically (and randomly) specified chaos_command on selected container(s).
-
-   List of supported chaos_command(s):
-     * STOP - stop running container(s)
-     * KILL(:SIGNAL) - kill running container(s), optionally sending specified Linux SIGNAL (SIGKILL by default)
-     * RM - force remove running container(s)
-     * PAUSE:interval(ms/s/m/h postfix) - pause all processes within running container(s) for specified interval
-     * DISRUPT():netem command)(:target ip) - disrupt the outgoing network of a running container with a specific Network Emulation command and/or limiting to traffic outgoing to specific target IP
-
-OPTIONS:
-   --chaos, -c [-c option ...]   chaos command: `container(s,)/re2:regex|interval(s/m/h postfix)|chaos_command(see above)`
-   --random, -r                  random mode: randomly select single matching container to 'kill'
 ```
 
 ### Pumba Chaos Commands
