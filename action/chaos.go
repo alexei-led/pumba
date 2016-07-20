@@ -23,14 +23,11 @@ const (
 
 // A Chaos is the interface with different methods to stop runnig containers.
 type Chaos interface {
-	StopByName(container.Client, []string, int) error
-	StopByPattern(container.Client, string, int) error
+	StopContainers(container.Client, []string, string, int) error
 	KillContainers(container.Client, []string, string, string) error
 	RemoveContainers(container.Client, []string, string, bool, string, string) error
-	NetemByName(container.Client, []string, string) error
-	NetemByPattern(container.Client, string, string) error
-	PauseByName(container.Client, []string, time.Duration) error
-	PauseByPattern(container.Client, string, time.Duration) error
+	NetemContainers(container.Client, []string, string, string) error
+	PauseContainers(container.Client, []string, string, time.Duration) error
 }
 
 // Pumba makes chaos
@@ -216,21 +213,12 @@ func disruptContainers(client container.Client, containers []container.Container
 
 //---------------------------------------------------------------------------------------------------
 
-// StopByName stop container, if its name within `names`
-func (p Pumba) StopByName(client container.Client, names []string, waitTime int) error {
-	log.Info("Stop containers by names: ", names)
-	containers, err := client.ListContainers(containerFilter(names))
-	if err != nil {
-		return err
-	}
-	return stopContainers(client, containers, waitTime)
-}
-
-// StopByPattern stop containers matching pattern
-func (p Pumba) StopByPattern(client container.Client, pattern string, waitTime int) error {
-	log.Infof("Stop containers by RE2 regex: '%s'", pattern)
-	containers, err := client.ListContainers(regexContainerFilter(pattern))
-	if err != nil {
+// StopContainers stop containers matching pattern
+func (p Pumba) StopContainers(client container.Client, names []string, pattern string, waitTime int) error {
+	log.Info("Stop containers")
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
 	return stopContainers(client, containers, waitTime)
@@ -258,43 +246,24 @@ func (p Pumba) RemoveContainers(client container.Client, names []string, pattern
 	return removeContainers(client, containers, force, link, volumes)
 }
 
-// NetemByName disrupts container egress network, if its name within `names`.
+// NetemContainers disrupts container egress network, if its name within `names`.
 // Disruption is currently limited to delayed response
-func (p Pumba) NetemByName(client container.Client, names []string, netemCmd string) error {
-	log.Info("Disrupt containers by names: ", names)
-	containers, err := client.ListContainers(containerFilter(names))
-	if err != nil {
+func (p Pumba) NetemContainers(client container.Client, names []string, pattern string, netemCmd string) error {
+	log.Info("Disrupt containers")
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
 	return disruptContainers(client, containers, netemCmd)
 }
 
-// NetemByPattern disrupts container egress network, if its name matches 'pattern'.
-// Disruption is currently limited to delayed response
-func (p Pumba) NetemByPattern(client container.Client, pattern string, netemCmd string) error {
-	log.Infof("Disrupt containers by RE2 pattern: '%s'", pattern)
-	containers, err := client.ListContainers(regexContainerFilter(pattern))
-	if err != nil {
-		return err
-	}
-	return disruptContainers(client, containers, netemCmd)
-}
-
-// PauseByName pause container,if its name within `names`, for specified interval
-func (p Pumba) PauseByName(client container.Client, names []string, duration time.Duration) error {
-	log.Infof("Pause containers by names: '%s' for '%s'", names, duration.String())
-	containers, err := client.ListContainers(containerFilter(names))
-	if err != nil {
-		return err
-	}
-	return pauseContainers(client, containers, duration)
-}
-
-// PauseByPattern pause container, matching pattern, for specified interval
-func (p Pumba) PauseByPattern(client container.Client, pattern string, duration time.Duration) error {
-	log.Infof("Pause containers matching RE2 regex: '%s' for '%s'", pattern, duration.String())
-	containers, err := client.ListContainers(regexContainerFilter(pattern))
-	if err != nil {
+// PauseContainers pause container,if its name within `names`, for specified interval
+func (p Pumba) PauseContainers(client container.Client, names []string, pattern string, duration time.Duration) error {
+	log.Infof("Pause containers")
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
 	return pauseContainers(client, containers, duration)

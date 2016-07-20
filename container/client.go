@@ -12,6 +12,7 @@ import (
 
 const (
 	defaultStopSignal = "SIGTERM"
+	defaultKillSignal = "SIGKILL"
 	dryRunPrefix      = "DRY: "
 )
 
@@ -34,19 +35,18 @@ type Client interface {
 
 // NewClient returns a new Client instance which can be used to interact with
 // the Docker API.
-func NewClient(dockerHost string, tlsConfig *tls.Config, pullImages bool) Client {
+func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
 	docker, err := dockerclient.NewDockerClient(dockerHost, tlsConfig)
 
 	if err != nil {
 		log.Fatalf("Error instantiating Docker client: %s", err)
 	}
 
-	return dockerClient{api: docker, pullImages: pullImages}
+	return dockerClient{api: docker}
 }
 
 type dockerClient struct {
-	api        dockerclient.Client
-	pullImages bool
+	api dockerclient.Client
 }
 
 func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
@@ -103,7 +103,6 @@ func (client dockerClient) StopContainer(c Container, timeout int, dryrun bool) 
 		prefix = dryRunPrefix
 	}
 	log.Infof("%sStopping %s (%s) with %s", prefix, c.Name(), c.ID(), signal)
-
 	if !dryrun {
 		if err := client.api.KillContainer(c.ID(), signal); err != nil {
 			return err
@@ -114,15 +113,14 @@ func (client dockerClient) StopContainer(c Container, timeout int, dryrun bool) 
 			log.Debugf("Error waiting for container %s (%s) to stop: ''%s'", c.Name(), c.ID(), err.Error())
 		}
 
-		log.Debugf("Removing container %s", c.ID())
-
-		if err := client.api.RemoveContainer(c.ID(), true, false); err != nil {
+		log.Debugf("Killing container %s with %s", c.ID(), defaultKillSignal)
+		if err := client.api.KillContainer(c.ID(), defaultKillSignal); err != nil {
 			return err
 		}
 
 		// Wait for container to be removed. In this case an error is a good thing
 		if err := client.waitForStop(c, timeout); err == nil {
-			return fmt.Errorf("Container %s (%s) could not be removed", c.Name(), c.ID())
+			return fmt.Errorf("Container %s (%s) could not be stopped", c.Name(), c.ID())
 		}
 	}
 

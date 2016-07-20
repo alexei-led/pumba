@@ -25,9 +25,11 @@ import (
 var (
 	wg               sync.WaitGroup
 	client           container.Client
-	interval         time.Duration
 	containerNames   []string
 	containerPattern string
+	chaos            actions.Chaos
+	commandTimeChan  <-chan time.Time
+	testRun          bool
 )
 
 // LinuxSignals valid Linux signal table
@@ -118,13 +120,13 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "signal, s",
-					Usage: "Specify termination signal that will be sent by Pumba to process running within target container.",
+					Usage: "termination signal, that will be sent by Pumba to the main process inside target container(s)",
 					Value: defaultSignal,
 				},
 			},
 			Usage:       "kill specified containers",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "Pumba will send SIGKILL signal (by default) to the main process inside target container(s), or any signal specified with option '--signal'.",
+			Description: "send termination signal to the main process inside target container(s)",
 			Action:      kill,
 			Before:      beforeCommand,
 		},
@@ -133,12 +135,12 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "duration, d",
-					Usage: "Specify network emulation duration. It should be smaller than recurrent interval. The network emulation duration is a decimal number with optional unit suffix, such as '500ms', '20s' or '30m'. Valid time units are: 'ms', 's', 'm', 'h'.",
+					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
 				},
 			},
-			Usage:       "Perform network emulation action on target containers",
+			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "Pumba will modify network interface settings (run 'netem'), to emulate different problems for target specified containers for specified '--duration'.",
+			Description: "delay, loss, duplicate and re-order (run 'netem') packets, to emulate different network problems",
 			Before:      beforeCommand,
 			Subcommands: []cli.Command{
 				{
@@ -161,12 +163,12 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "duration, d",
-					Usage: "Specify pause duration. It should be smaller than recurrent interval. The pause duration is a decimal number with optional unit suffix, such as '500ms', '20s' or '30m'. Valid time units are: 'ms', 's', 'm', 'h'.",
+					Usage: "pause duration: should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
 				},
 			},
-			Usage:       "pause all processes within specified containers",
+			Usage:       "pause all processes",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "Pumba will pause all running processes within specified containers for specified '--duration'.",
+			Description: "pause all running processes within target containers",
 			Action:      pause,
 			Before:      beforeCommand,
 		},
@@ -175,13 +177,13 @@ func main() {
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "time, t",
-					Usage: "Seconds to wait for stop before killing it (default 10)",
+					Usage: "seconds to wait for stop before killing container (default 10)",
 					Value: 10,
 				},
 			},
-			Usage:       "stop specified containers",
+			Usage:       "stop containers",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "Pumba will try to stop the main process inside the specfied container(s), sending  SIGTERM, and then SIGKILL after grace period.",
+			Description: "stop the main process inside target containers, sending  SIGTERM, and then SIGKILL after a grace period",
 			Action:      stop,
 			Before:      beforeCommand,
 		},
@@ -190,20 +192,20 @@ func main() {
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "force, f",
-					Usage: "Force the removal of a running container (uses SIGKILL).",
+					Usage: "force the removal of a running container (with SIGKILL)",
 				},
 				cli.StringFlag{
 					Name:  "link, l",
-					Usage: "Remove the specified link.",
+					Usage: "remove the specified link",
 				},
 				cli.StringFlag{
 					Name:  "volumes, v",
-					Usage: "Remove the volumes associated with the container.",
+					Usage: "remove the volumes associated with the container",
 				},
 			},
-			Usage:       "remove specified containers",
+			Usage:       "remove containers",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "Pumba will try remove specfied container(s)",
+			Description: "remove target containers, with links and voluems",
 			Action:      remove,
 			Before:      beforeCommand,
 		},
@@ -248,16 +250,16 @@ func main() {
 			Usage: "produce log in JSON format: Logstash and Splunk friendly"},
 		cli.StringFlag{
 			Name:  "slackhook",
-			Usage: "Slack web hook url. Send Pumba log events to Slack",
+			Usage: "web hook url; send Pumba log events to Slack",
 		},
 		cli.StringFlag{
 			Name:  "slackchannel",
-			Usage: "Slack channel for Pumba log events",
+			Usage: "Slack channel (default #pumba)",
 			Value: "#pumba",
 		},
 		cli.StringFlag{
 			Name:  "interval, i",
-			Usage: "Specify recurrent interval for kill command. The interval is a decimal number with optional unit suffix, such as '500ms', '20s' or '30m'. Valid time units are: 'ms', 's', 'm', 'h'.",
+			Usage: "recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'",
 		},
 		cli.BoolFlag{
 			Name:        "random, r",
@@ -266,7 +268,7 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name:        "dry",
-			Usage:       "does not create chaos, only logs planned chaos actions",
+			Usage:       "dry runl does not create chaos, only logs planned chaos commands",
 			Destination: &actions.DryMode,
 		},
 	}
@@ -277,16 +279,16 @@ func main() {
 }
 
 func before(c *cli.Context) error {
+	// set chaos to Pumba{}
+	chaos = actions.Pumba{}
 	// set debug log level
 	if c.GlobalBool("debug") {
 		log.SetLevel(log.DebugLevel)
 	}
-
 	// set log formatter to JSON
 	if c.GlobalBool("json") {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
-
 	// set Slack log channel
 	if c.GlobalString("slackhook") != "" {
 		log.AddHook(&slackrus.SlackrusHook{
@@ -297,29 +299,30 @@ func before(c *cli.Context) error {
 			Username:       "pumba_bot",
 		})
 	}
-
 	// Set-up container client
 	tls, err := tlsConfig(c)
 	if err != nil {
 		return err
 	}
-
-	client = container.NewClient(c.GlobalString("host"), tls, !c.GlobalBool("no-pull"))
-
+	// create new Docker client
+	client = container.NewClient(c.GlobalString("host"), tls)
+	// habdle termination signal
 	handleSignals()
 	return nil
 }
 
+// beforeCommand run before each chaos command
 func beforeCommand(c *cli.Context) error {
 	// get recurrent time interval
 	if intervalString := c.GlobalString("interval"); intervalString == "" {
 		return errors.New("Undefined interval value.")
-	} else if i, err := time.ParseDuration(intervalString); err != nil {
+	} else if interval, err := time.ParseDuration(intervalString); err != nil {
 		return err
 	} else {
-		interval = i
+		// create Ticker Time channel for specified intterval
+		ticker := time.NewTicker(interval)
+		commandTimeChan = ticker.C
 	}
-
 	// get container names or pattern: no Args means ALL containers
 	if c.Args().Present() {
 		// more than one argument, assume that this a list of names
@@ -334,28 +337,30 @@ func beforeCommand(c *cli.Context) error {
 			}
 		}
 	}
-
 	return nil
 }
 
 // KILL Command
-func kill(c *cli.Context) {
+func kill(c *cli.Context) error {
 	// get signal
 	signal := c.String("signal")
 	if _, ok := LinuxSignals[signal]; !ok {
-		log.Fatal(errors.New("Unexpected signal: " + signal))
+		err := errors.New("Unexpected signal: " + signal)
+		log.Error(err)
+		return err
 	}
 	// channel for 'kill' command
 	dc := make(chan commandKill)
-	// start interval timer
-	ticker := time.NewTicker(interval)
+	// handle interval timer event
 	go func(cmd commandKill) {
-		for range ticker.C {
+		for range commandTimeChan {
 			dc <- cmd
+			if testRun {
+				close(dc)
+			}
 		}
 	}(commandKill{signal})
 	// handle 'kill' command
-	chaos := actions.Pumba{}
 	for cmd := range dc {
 		wg.Add(1)
 		go func(cmd commandKill) {
@@ -365,88 +370,87 @@ func kill(c *cli.Context) {
 			}
 		}(cmd)
 	}
+	return nil
 }
 
 // NETEM DELAY command
-func netemDelay(c *cli.Context) {
+func netemDelay(c *cli.Context) error {
 	// get duration
 	durationString := c.String("duration")
 	if durationString == "" {
-		log.Fatal(errors.New("Undefined duration interval value."))
+		err := errors.New("Undefined duration interval")
+		log.Error(err)
+		return err
 	}
 	duration, err := time.ParseDuration(durationString)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return err
 	}
 	// channel for 'netem' command
 	dc := make(chan commandNetem)
-	// start interval timer
-	ticker := time.NewTicker(interval)
+	// handle interval timer event
 	go func(cmd commandNetem) {
-		for range ticker.C {
+		for range commandTimeChan {
 			dc <- cmd
+			if testRun {
+				close(dc)
+			}
 		}
 	}(commandNetem{duration})
 	// handle 'netem' command
-	chaos := actions.Pumba{}
 	for cmd := range dc {
 		wg.Add(1)
 		go func(cmd commandNetem) {
 			defer wg.Done()
-			var err error
-			if containerPattern == "" {
-				err = chaos.NetemByName(client, containerNames, defaultNetemCmd)
-			} else {
-				err = chaos.NetemByPattern(client, containerPattern, defaultNetemCmd)
-			}
-			if err != nil {
+			if err := chaos.NetemContainers(client, containerNames, containerPattern, defaultNetemCmd); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
 	}
+	return nil
 }
 
 // PAUSE command
-func pause(c *cli.Context) {
+func pause(c *cli.Context) error {
 	// get duration
 	durationString := c.String("duration")
 	if durationString == "" {
-		log.Fatal(errors.New("Undefined duration interval value."))
+		err := errors.New("Undefined duration interval")
+		log.Error(err)
+		return err
 	}
 	duration, err := time.ParseDuration(durationString)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return err
 	}
 	// channel for 'pause' command
 	dc := make(chan commandPause)
-	// start interval timer
-	ticker := time.NewTicker(interval)
+	// handle interval timer event
 	go func(cmd commandPause) {
-		for range ticker.C {
+		for range commandTimeChan {
 			dc <- cmd
+			if testRun {
+				close(dc)
+			}
 		}
 	}(commandPause{duration})
 	// handle 'pause' command
-	chaos := actions.Pumba{}
 	for cmd := range dc {
 		wg.Add(1)
 		go func(cmd commandPause) {
 			defer wg.Done()
-			var err error
-			if containerPattern == "" {
-				err = chaos.PauseByName(client, containerNames, cmd.duration)
-			} else {
-				err = chaos.PauseByPattern(client, containerPattern, cmd.duration)
-			}
-			if err != nil {
+			if err := chaos.PauseContainers(client, containerNames, containerPattern, cmd.duration); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
 	}
+	return nil
 }
 
 // REMOVE Command
-func remove(c *cli.Context) {
+func remove(c *cli.Context) error {
 	// get force flag
 	force := c.Bool("force")
 	// get link flag
@@ -455,15 +459,13 @@ func remove(c *cli.Context) {
 	volumes := c.String("volumes")
 	// channel for 'stop' command
 	dc := make(chan commandRemove)
-	// start interval timer
-	ticker := time.NewTicker(interval)
+	// handle interval timer event
 	go func(cmd commandRemove) {
-		for range ticker.C {
+		for range commandTimeChan {
 			dc <- cmd
 		}
 	}(commandRemove{force, link, volumes})
 	// handle 'remove' command
-	chaos := actions.Pumba{}
 	for cmd := range dc {
 		wg.Add(1)
 		go func(cmd commandRemove) {
@@ -473,38 +475,35 @@ func remove(c *cli.Context) {
 			}
 		}(cmd)
 	}
+	return nil
 }
 
 // STOP Command
-func stop(c *cli.Context) {
+func stop(c *cli.Context) error {
 	// get time to wait
 	waitTime := c.Int("time")
 	// channel for 'stop' command
 	dc := make(chan commandStop)
-	// start interval timer
-	ticker := time.NewTicker(interval)
+	// handle interval timer event
 	go func(cmd commandStop) {
-		for range ticker.C {
+		for range commandTimeChan {
 			dc <- cmd
+			if testRun {
+				close(dc)
+			}
 		}
 	}(commandStop{waitTime})
 	// handle 'stop' command
-	chaos := actions.Pumba{}
 	for cmd := range dc {
 		wg.Add(1)
 		go func(cmd commandStop) {
 			defer wg.Done()
-			var err error
-			if containerPattern == "" {
-				err = chaos.StopByName(client, containerNames, cmd.waitTime)
-			} else {
-				err = chaos.StopByPattern(client, containerPattern, cmd.waitTime)
-			}
-			if err != nil {
+			if err := chaos.StopContainers(client, containerNames, containerPattern, cmd.waitTime); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
 	}
+	return nil
 }
 
 func handleSignals() {
@@ -536,7 +535,6 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 		// Load CA cert
 		if caCertFlag != "" {
 			var caCert []byte
-
 			if strings.HasPrefix(caCertFlag, "/") {
 				caCert, err = ioutil.ReadFile(caCertFlag)
 				if err != nil {
@@ -545,17 +543,14 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			} else {
 				caCert = []byte(caCertFlag)
 			}
-
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
-
 			tlsConfig.RootCAs = caCertPool
 		}
 
 		// Load client certificate
 		if certFlag != "" && keyFlag != "" {
 			var cert tls.Certificate
-
 			if strings.HasPrefix(certFlag, "/") && strings.HasPrefix(keyFlag, "/") {
 				cert, err = tls.LoadX509KeyPair(certFlag, keyFlag)
 				if err != nil {
@@ -570,6 +565,5 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			tlsConfig.Certificates = []tls.Certificate{cert}
 		}
 	}
-
 	return tlsConfig, nil
 }

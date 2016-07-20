@@ -107,7 +107,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	api := mockclient.NewMockClient()
 	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
 	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
-	api.On("RemoveContainer", "abc123", true, false).Return(nil)
+	api.On("KillContainer", "abc123", "SIGKILL").Return(nil)
 	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
 
 	client := dockerClient{api: api}
@@ -135,7 +135,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 	api := mockclient.NewMockClient()
 	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
 	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
-	api.On("RemoveContainer", "abc123", true, false).Return(nil)
+	api.On("KillContainer", "abc123", "SIGKILL").Return(nil)
 	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
 
 	client := dockerClient{api: api}
@@ -144,7 +144,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGTERM")
 	api.AssertNotCalled(t, "InspectContainer", "abc123")
-	api.AssertNotCalled(t, "RemoveContainer", "abc123", true, false)
+	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGKILL")
 	api.AssertNotCalled(t, "InspectContainer", "abc123")
 }
 
@@ -205,7 +205,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	api := mockclient.NewMockClient()
 	api.On("KillContainer", "abc123", "SIGUSR1").Return(nil)
 	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
-	api.On("RemoveContainer", "abc123", true, false).Return(nil)
+	api.On("KillContainer", "abc123", "SIGKILL").Return(nil)
 	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
 
 	client := dockerClient{api: api}
@@ -235,7 +235,7 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 	api.AssertExpectations(t)
 }
 
-func TestStopContainer_RemoveContainerError(t *testing.T) {
+func TestStopContainer_2ndKillContainerError(t *testing.T) {
 	c := Container{
 		containerInfo: &dockerclient.ContainerInfo{
 			Name:   "foo",
@@ -247,7 +247,7 @@ func TestStopContainer_RemoveContainerError(t *testing.T) {
 	api := mockclient.NewMockClient()
 	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
 	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("dangit"))
-	api.On("RemoveContainer", "abc123", true, false).Return(errors.New("whoops"))
+	api.On("KillContainer", "abc123", "SIGKILL").Return(errors.New("whoops"))
 
 	client := dockerClient{api: api}
 	err := client.StopContainer(c, 1, false)
@@ -407,10 +407,10 @@ func TestRemoveContainer_Success(t *testing.T) {
 	}
 
 	api := mockclient.NewMockClient()
-	api.On("RemoveContainer", "abc123", true, "", "", true).Return(nil)
+	api.On("RemoveContainer", "abc123", true, true).Return(nil)
 
 	client := dockerClient{api: api}
-	err := client.RemoveContainer(c, true, "", "", false)
+	err := client.RemoveContainer(c, true, "mylink", "myvol", false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
@@ -424,10 +424,10 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 	}
 
 	api := mockclient.NewMockClient()
-	api.On("RemoveContainer", "abc123", true, "", "", true).Return(nil)
+	api.On("RemoveContainer", "abc123", true, "mylink", "myvol", true).Return(nil)
 
 	client := dockerClient{api: api}
-	err := client.RemoveContainer(c, true, "", "", true)
+	err := client.RemoveContainer(c, true, "mylink", "myvol", true)
 
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "RemoveContainer", "abc123", true, true)

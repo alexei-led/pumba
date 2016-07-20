@@ -1,11 +1,17 @@
 package main
 
 import (
+	"errors"
+	"flag"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/gaia-adm/pumba/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+	"github.com/urfave/cli"
 )
 
 //---- MOCK: Chaos Iterface
@@ -14,288 +20,214 @@ type ChaosMock struct {
 	mock.Mock
 }
 
-func (m *ChaosMock) StopByName(c container.Client, names []string) error {
-	args := m.Called(c, names)
+func (m *ChaosMock) StopContainers(c container.Client, n []string, p string, t int) error {
+	args := m.Called(c, n, p, t)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) StopByPattern(c container.Client, p string) error {
-	args := m.Called(c, p)
+func (m *ChaosMock) KillContainers(c container.Client, n []string, p string, s string) error {
+	args := m.Called(c, n, p, s)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) KillByName(c container.Client, names []string, signal string) error {
-	args := m.Called(c, names, signal)
+func (m *ChaosMock) RemoveContainers(c container.Client, n []string, p string, f bool, l string, v string) error {
+	args := m.Called(c, n, p, f, l, v)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) KillByPattern(c container.Client, p string, signal string) error {
-	args := m.Called(c, p, signal)
+func (m *ChaosMock) PauseContainers(c container.Client, n []string, p string, d time.Duration) error {
+	args := m.Called(c, n, p, d)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) RemoveByName(c container.Client, names []string, f bool) error {
-	args := m.Called(c, names, f)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) RemoveByPattern(c container.Client, p string, f bool) error {
-	args := m.Called(c, p, f)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) PauseByName(c container.Client, n []string, d time.Duration) error {
-	args := m.Called(c, n, d)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) PauseByPattern(c container.Client, p string, d time.Duration) error {
-	args := m.Called(c, p, d)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) NetemByName(c container.Client, n []string, cmd string) error {
-	args := m.Called(c, n, cmd)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) NetemByPattern(c container.Client, p string, cmd string) error {
-	args := m.Called(c, p, cmd)
+func (m *ChaosMock) NetemContainers(c container.Client, n []string, p string, cmd string) error {
+	args := m.Called(c, n, p, cmd)
 	return args.Error(0)
 }
 
 //---- TESTS
-/*
-func TestCreateChaos_StopByName(t *testing.T) {
-	cmd := "c1,c2|10ms|STOP"
-	limit := 3
 
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("StopByName", nil, []string{"c1", "c2"}).Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+type mainTestSuite struct {
+	suite.Suite
 }
 
-func TestCreateChaos_StopByPattern(t *testing.T) {
-	cmd := "re2:^c|10ms|STOP"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("StopByPattern", nil, "^c").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) SetupSuite() {
+	testRun = true
 }
 
-func TestCreateChaos_KillByName(t *testing.T) {
-	cmd := "c1,c2|10ms|KILL"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGKILL").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) TearDownSuite() {
 }
 
-func TestCreateChaos_KillByNameSignal(t *testing.T) {
-	cmd := "c1,c2|10ms|KILL:SIGTEST"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGTEST").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) SetupTest() {
+	containerNames = []string{}
+	containerPattern = ""
 }
 
-func TestCreateChaos_MultiKillByNameSignal(t *testing.T) {
-	log.SetLevel(log.DebugLevel)
-	cmd1 := "c1,c2|10ms|KILL:SIGTEST"
-	cmd2 := "c3,c4|10ms|STOP"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("KillByName", nil, []string{"c1", "c2"}, "SIGTEST").Return(nil)
-		chaos.On("StopByName", nil, []string{"c3", "c4"}).Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd1, cmd2}, limit*2, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) TearDownTest() {
 }
 
-func TestCreateChaos_KillByPatternSignal(t *testing.T) {
-	cmd := "re2:.|10ms|KILL:SIGTEST"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("KillByPattern", nil, ".", "SIGTEST").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) Test_main() {
+	os.Args = []string{"pumba", "-v"}
+	main()
 }
 
-func TestCreateChaos_RemoveByName(t *testing.T) {
-	cmd := "cc1,cc2|10ms|RM"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("RemoveByName", nil, []string{"cc1", "cc2"}, true).Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) Test_beforeCommand_NoInterval() {
+	// prepare
+	set := flag.NewFlagSet("test", 0)
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.String("test", "me", "doc")
+	parseErr := set.Parse([]string{})
+	globalCtx := cli.NewContext(nil, globalSet, nil)
+	c := cli.NewContext(nil, set, globalCtx)
+	// invoke command
+	err := beforeCommand(c)
+	// asserts
+	assert.NoError(s.T(), parseErr)
+	assert.Error(s.T(), err)
+	assert.EqualError(s.T(), err, "Undefined interval value.")
 }
 
-func TestCreateChaos_RemoveByPattern(t *testing.T) {
-	cmd := "re2:(abc)|10ms|RM"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("RemoveByPattern", nil, "(abc)", true).Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) Test_beforeCommand_BadInterval() {
+	// prepare
+	set := flag.NewFlagSet("test", 0)
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.String("interval", "BAD", "doc")
+	parseErr := set.Parse([]string{})
+	globalCtx := cli.NewContext(nil, globalSet, nil)
+	c := cli.NewContext(nil, set, globalCtx)
+	// invoke command
+	err := beforeCommand(c)
+	// asserts
+	assert.NoError(s.T(), parseErr)
+	assert.Error(s.T(), err)
+	assert.EqualError(s.T(), err, "time: invalid duration BAD")
 }
 
-func TestCreateChaos_NetemByName(t *testing.T) {
-	cmd := "cc1,cc2|10ms|DISRUPT"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("NetemByName", nil, []string{"cc1", "cc2"}, "delay 1000ms").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) Test_beforeCommand_EmptyArgs() {
+	// prepare
+	set := flag.NewFlagSet("test", 0)
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.String("interval", "10s", "doc")
+	parseErr := set.Parse([]string{})
+	globalCtx := cli.NewContext(nil, globalSet, nil)
+	c := cli.NewContext(nil, set, globalCtx)
+	// invoke command
+	err := beforeCommand(c)
+	// asserts
+	assert.NoError(s.T(), parseErr)
+	assert.NoError(s.T(), err)
+	assert.True(s.T(), len(containerNames) == 0)
 }
 
-func TestCreateChaos_NetemByNameCmd(t *testing.T) {
-	cmd := "cc1,cc2|10ms|DISRUPT:delay 3000ms"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("NetemByName", nil, []string{"cc1", "cc2"}, "delay 3000ms").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) Test_beforeCommand_Re2Args() {
+	// prepare
+	set := flag.NewFlagSet("test", 0)
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.String("interval", "10s", "doc")
+	parseErr := set.Parse([]string{"re2:^c"})
+	globalCtx := cli.NewContext(nil, globalSet, nil)
+	c := cli.NewContext(nil, set, globalCtx)
+	// invoke command
+	err := beforeCommand(c)
+	// asserts
+	assert.NoError(s.T(), parseErr)
+	assert.NoError(s.T(), err)
+	assert.True(s.T(), containerPattern == "^c")
 }
 
-func TestCreateChaos_NetemByNameIP(t *testing.T) {
-	cmd := "cc1,cc2|10ms|DISRUPT:172.19.0.3" // will use the default netem command
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("NetemByName", nil, []string{"cc1", "cc2"}, "delay 1000ms:172.19.0.3").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
+func (s *mainTestSuite) Test_beforeCommand_2Args() {
+	// prepare
+	set := flag.NewFlagSet("test", 0)
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.String("interval", "10s", "doc")
+	parseErr := set.Parse([]string{"c1", "c2"})
+	globalCtx := cli.NewContext(nil, globalSet, nil)
+	c := cli.NewContext(nil, set, globalCtx)
+	// invoke command
+	err := beforeCommand(c)
+	// asserts
+	assert.NoError(s.T(), parseErr)
+	assert.NoError(s.T(), err)
+	assert.True(s.T(), len(containerNames) == 2)
 }
 
-func TestCreateChaos_NetemByNameCmdAndIP(t *testing.T) {
-	cmd := "cc1,cc2|10ms|DISRUPT:delay 500ms:172.19.0.3"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("NetemByName", nil, []string{"cc1", "cc2"}, "delay 500ms:172.19.0.3").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
-}
-
-func TestCreateChaos_NetemByPattern(t *testing.T) {
-	cmd := "re2:(abc)|10ms|DISRUPT"
-	limit := 3
-
-	chaos := &ChaosMock{}
-	for i := 0; i < limit; i++ {
-		chaos.On("NetemByPattern", nil, "(abc)", "delay 1000ms").Return(nil)
-	}
-
-	err := createChaos(chaos, []string{cmd}, limit, true)
-
-	assert.NoError(t, err)
-	chaos.AssertExpectations(t)
-}
-
-func TestCreateChaos_ErrorCommandFormat(t *testing.T) {
-	cmd := "10ms|RM"
-	chaos := &ChaosMock{}
-
-	err := createChaos(chaos, []string{cmd}, 0, true)
-
-	assert.Error(t, err)
-	chaos.AssertExpectations(t)
-}
-
-func TestCreateChaos_ErrorDurationFormat(t *testing.T) {
-	cmd := "abc|hello|RM"
-	chaos := &ChaosMock{}
-
-	err := createChaos(chaos, []string{cmd}, 0, true)
-
-	assert.Error(t, err)
-	chaos.AssertExpectations(t)
-}
-
-func TestCreateChaos_ErrorCommand(t *testing.T) {
-	cmd := "c1|10s|TEST"
-	chaos := &ChaosMock{}
-
-	err := createChaos(chaos, []string{cmd}, 0, true)
-
-	assert.Error(t, err)
-	chaos.AssertExpectations(t)
-}
-*/
-func Test_HandleSignals(t *testing.T) {
+func (s *mainTestSuite) Test_handleSignals() {
 	wg.Add(1)
 	handleSignals()
 	wg.Done()
+}
+
+func (s *mainTestSuite) Test_killSucess() {
+	// prepare
+	set := flag.NewFlagSet("kill", 0)
+	set.String("signal", "SIGTERM", "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// setup mock
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("KillContainers", nil, []string{}, "", "SIGTERM").Return(nil)
+	// invoke command
+	err := kill(c)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_killBadSignal() {
+	// prepare
+	set := flag.NewFlagSet("kill", 0)
+	set.String("signal", "UNKNOWN", "doc")
+	c := cli.NewContext(nil, set, nil)
+	// invoke command
+	err := kill(c)
+	// asserts
+	assert.EqualError(s.T(), err, "Unexpected signal: UNKNOWN")
+}
+
+func (s *mainTestSuite) Test_killError() {
+	// prepare
+	set := flag.NewFlagSet("kill", 0)
+	set.String("signal", "SIGTERM", "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// setup mock
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("KillContainers", nil, []string{}, "", "SIGTERM").Return(errors.New("ERROR"))
+	// invoke command
+	err := kill(c)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_pauseSucess() {
+	// prepare
+	set := flag.NewFlagSet("pause", 0)
+	set.String("duration", "10s", "doc")
+	c := cli.NewContext(nil, set, nil)
+	timer := time.NewTimer(1 * time.Millisecond)
+	commandTimeChan = timer.C
+	// setup mock
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("PauseContainers", nil, []string{}, "", time.Duration(10*time.Second)).Return(nil)
+	// invoke command
+	err := pause(c)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func TestMainTestSuite(t *testing.T) {
+	suite.Run(t, new(mainTestSuite))
 }
