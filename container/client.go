@@ -6,8 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/samalba/dockerclient"
+
+	engineapi "github.com/docker/engine-api/client"
+	enginetypes "github.com/docker/engine-api/types"
 )
 
 const (
@@ -20,7 +25,7 @@ const (
 // results from a call to the ListContainers() method on the Client.
 type Filter func(Container) bool
 
-// A Client is the interface through which Pumba interacts with the Docker API.
+// Client interface
 type Client interface {
 	ListContainers(Filter) ([]Container, error)
 	StopContainer(Container, int, bool) error
@@ -37,16 +42,23 @@ type Client interface {
 // the Docker API.
 func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
 	docker, err := dockerclient.NewDockerClient(dockerHost, tlsConfig)
-
 	if err != nil {
 		log.Fatalf("Error instantiating Docker client: %s", err)
 	}
 
-	return dockerClient{api: docker}
+	// Use HTTP Client used by dockerclient to create engine-api client
+	apiClient, err := engineapi.NewClient(dockerHost, "", docker.HTTPClient, nil)
+	if err != nil {
+		log.Fatalf("Error instantiating Docker engine-api: %s", err)
+	}
+
+	return dockerClient{api: docker, apiClient: apiClient}
 }
 
 type dockerClient struct {
 	api dockerclient.Client
+	// NOTE: use official docker/engine-api instead of samalba/dockerclient; lazy refactoring
+	apiClient engineapi.ContainerAPIClient
 }
 
 func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
@@ -214,7 +226,7 @@ func (client dockerClient) disruptContainerAllNetwork(c Container, netInterface 
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		netemCommand := "tc qdisc add dev " + netInterface + " root netem " + strings.ToLower(netemCmd)
-		return client.execOnContainer(c, netemCommand)
+		return client.execOnContainer(c, netemCommand, true)
 	}
 	return nil
 }
@@ -239,14 +251,14 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netInterfa
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		handleCommand := "tc qdisc add dev " + netInterface + " root handle 1: prio"
 		log.Debugf("Disrupt with handleCommand %s", handleCommand)
-		err := client.execOnContainer(c, handleCommand)
+		err := client.execOnContainer(c, handleCommand, true)
 		if err != nil {
 			return err
 		}
 
 		netemCommand := "tc qdisc add dev " + netInterface + " parent 1:3 netem " + strings.ToLower(netemCmd)
 		log.Debugf("Disrupt with netemCommand %s", netemCommand)
-		err = client.execOnContainer(c, netemCommand)
+		err = client.execOnContainer(c, netemCommand, true)
 		if err != nil {
 			return err
 		}
@@ -254,23 +266,25 @@ func (client dockerClient) disruptContainerFilterNetwork(c Container, netInterfa
 		filterCommand := "tc filter add dev " + netInterface + " protocol ip parent 1:0 prio 3 " +
 			"u32 match ip dst " + strings.ToLower(targetIP) + " flowid 1:3"
 		log.Debugf("Disrupt with filterCommand %s", filterCommand)
-		return client.execOnContainer(c, filterCommand)
+		return client.execOnContainer(c, filterCommand, true)
 	}
 	return nil
 }
 
-func (client dockerClient) execOnContainer(c Container, execCmd string) error {
-	execConfig := &dockerclient.ExecConfig{
-		Cmd:       strings.Split(execCmd, " "),
-		Container: c.ID(),
+func (client dockerClient) execOnContainer(c Container, execCmd string, privileged bool) error {
+	//client.apiClient.ContainerExecCreate(ctx, config)
+	config := enginetypes.ExecConfig{
+		Privileged: privileged,
+		Cmd:        strings.Split(execCmd, " "),
 	}
-	_id, err := client.api.ExecCreate(execConfig)
+
+	exec, err := client.apiClient.ContainerExecCreate(context.Background(), c.ID(), config)
 	if err != nil {
 		return err
 	}
 
-	log.Debugf("Starting Exec %s (%s)", execCmd, _id)
-	return client.api.ExecStart(_id, execConfig)
+	log.Debugf("Starting Exec %s (%s)", execCmd, exec.ID)
+	return client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
 }
 
 func (client dockerClient) waitForStop(c Container, waitTime int) error {

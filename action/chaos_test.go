@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gaia-adm/pumba/container"
-	"github.com/gaia-adm/pumba/container/mockclient"
 	"github.com/samalba/dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -180,7 +179,7 @@ func TestAllFilter(t *testing.T) {
 
 func TestStopByName(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StopContainer", c, 10).Return(nil)
@@ -192,7 +191,7 @@ func TestStopByName(t *testing.T) {
 
 func TestStopByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("StopContainer", mock.AnythingOfType("container.Container"), 10).Return(nil)
 	RandomMode = true
@@ -204,7 +203,7 @@ func TestStopByNameRandom(t *testing.T) {
 
 func TestStopByPattern(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StopContainer", c, 10).Return(nil)
@@ -216,7 +215,7 @@ func TestStopByPattern(t *testing.T) {
 
 func TestStopByPatternRandom(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("StopContainer", mock.AnythingOfType("container.Container"), 10).Return(nil)
 	RandomMode = true
@@ -228,7 +227,7 @@ func TestStopByPatternRandom(t *testing.T) {
 
 func TestKillByName(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("KillContainer", c, "SIGTEST").Return(nil)
@@ -240,7 +239,7 @@ func TestKillByName(t *testing.T) {
 
 func TestKillByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
 	RandomMode = true
@@ -252,7 +251,7 @@ func TestKillByNameRandom(t *testing.T) {
 
 func TestKillByPattern(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for i := range cs {
 		client.On("KillContainer", cs[i], "SIGTEST").Return(nil)
@@ -264,7 +263,7 @@ func TestKillByPattern(t *testing.T) {
 
 func TestKillByPatternRandom(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
 	RandomMode = true
@@ -276,7 +275,7 @@ func TestKillByPatternRandom(t *testing.T) {
 
 func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false, "", "").Return(nil)
@@ -288,7 +287,7 @@ func TestRemoveByName(t *testing.T) {
 
 func TestRemoveByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, "mylink", "myvol").Return(nil)
 	RandomMode = true
@@ -300,7 +299,7 @@ func TestRemoveByNameRandom(t *testing.T) {
 
 func TestRemoveByPattern(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false, "mylink", "myvol").Return(nil)
@@ -312,7 +311,7 @@ func TestRemoveByPattern(t *testing.T) {
 
 func TestRemoveByPatternRandom(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, "mylink", "myvol").Return(nil)
 	RandomMode = true
@@ -325,7 +324,7 @@ func TestRemoveByPatternRandom(t *testing.T) {
 func TestPauseByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	d, _ := time.ParseDuration("2ms")
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("PauseContainer", c, d).Return(nil)
@@ -338,7 +337,7 @@ func TestPauseByName(t *testing.T) {
 func TestPauseByPattern(t *testing.T) {
 	_, cs := makeContainersN(10)
 	d, _ := time.ParseDuration("2ms")
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("PauseContainer", c, d).Return(nil)
@@ -351,7 +350,7 @@ func TestPauseByPattern(t *testing.T) {
 func TestPauseByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
 	d, _ := time.ParseDuration("2ms")
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("PauseContainer", mock.AnythingOfType("container.Container"), d).Return(nil)
 	RandomMode = true
@@ -363,7 +362,7 @@ func TestPauseByNameRandom(t *testing.T) {
 
 func TestNetemDealyByName(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("DisruptContainer", c, "eth1", "delay 120ms 25ms 15%").Return(nil)
@@ -376,7 +375,7 @@ func TestNetemDealyByName(t *testing.T) {
 /*
 func TestNetemByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
 	RandomMode = true
@@ -388,7 +387,7 @@ func TestNetemByNameRandom(t *testing.T) {
 
 func TestNetemByPattern(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for i := range cs {
 		client.On("DisruptContainer", cs[i], "delay 3000ms:172.19.0.3").Return(nil)
@@ -400,7 +399,7 @@ func TestNetemByPattern(t *testing.T) {
 
 func TestNetemByPatternRandom(t *testing.T) {
 	_, cs := makeContainersN(10)
-	client := &mockclient.MockClient{}
+	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "172.19.0.3").Return(nil)
 	RandomMode = true

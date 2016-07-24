@@ -5,8 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/samalba/dockerclient"
+	"github.com/docker/engine-api/types"
 	"github.com/samalba/dockerclient/mockclient"
+	"golang.org/x/net/context"
+
+	"github.com/samalba/dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -541,15 +544,17 @@ func TestDisruptContainer_Success(t *testing.T) {
 		},
 	}
 
-	api := mockclient.NewMockClient()
-	api.On("ExecCreate", mock.Anything).Return("abc123", nil)
-	api.On("ExecStart", "abc123", mock.Anything).Return(nil)
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "1000ms"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 
-	client := dockerClient{api: api}
+	client := dockerClient{apiClient: engineClient}
 	err := client.DisruptContainer(c, "eth0", "delay 1000ms", false)
 
 	assert.NoError(t, err)
-	api.AssertExpectations(t)
+	engineClient.AssertExpectations(t)
 }
 
 func TestDisruptContainer_DryRun(t *testing.T) {
@@ -559,12 +564,11 @@ func TestDisruptContainer_DryRun(t *testing.T) {
 		},
 	}
 
-	api := mockclient.NewMockClient()
-
-	client := dockerClient{api: api}
+	engineClient := NewMockEngine()
+	client := dockerClient{apiClient: engineClient}
 	err := client.DisruptContainer(c, "eth0", "delay 1000ms", true)
 
 	assert.NoError(t, err)
-	api.AssertNotCalled(t, "ExecCreate", mock.Anything)
-	api.AssertNotCalled(t, "ExecStart", "abc123", mock.Anything)
+	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
+	engineClient.AssertNotCalled(t, "ContainerExecStart", "abc123", mock.Anything)
 }
