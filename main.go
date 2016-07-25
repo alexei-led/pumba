@@ -24,14 +24,12 @@ import (
 )
 
 var (
-	wg               sync.WaitGroup
-	client           container.Client
-	containerNames   []string
-	containerPattern string
-	chaos            actions.Chaos
-	commandTimeChan  <-chan time.Time
-	testRun          bool
-	reInterface      *regexp.Regexp
+	wg              sync.WaitGroup
+	client          container.Client
+	chaos           actions.Chaos
+	commandTimeChan <-chan time.Time
+	testRun         bool
+	reInterface     *regexp.Regexp
 )
 
 // LinuxSignals valid Linux signal table
@@ -355,25 +353,33 @@ func beforeCommand(c *cli.Context) error {
 		ticker := time.NewTicker(interval)
 		commandTimeChan = ticker.C
 	}
+	return nil
+}
+
+func getNamesOrPattern(c *cli.Context) ([]string, string) {
+	names := []string{}
+	pattern := ""
 	// get container names or pattern: no Args means ALL containers
 	if c.Args().Present() {
 		// more than one argument, assume that this a list of names
 		if len(c.Args()) > 1 {
-			containerNames = c.Args()
-			log.Debugf("Names: '%s'", containerNames)
+			names = c.Args()
+			log.Debugf("Names: '%s'", names)
 		} else {
 			first := c.Args().First()
 			if strings.HasPrefix(first, re2prefix) {
-				containerPattern = strings.Trim(first, re2prefix)
-				log.Debugf("Pattern: '%s'", containerPattern)
+				pattern = strings.Trim(first, re2prefix)
+				log.Debugf("Pattern: '%s'", pattern)
 			}
 		}
 	}
-	return nil
+	return names, pattern
 }
 
 // KILL Command
 func kill(c *cli.Context) error {
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
 	// get signal
 	signal := c.String("signal")
 	if _, ok := LinuxSignals[signal]; !ok {
@@ -397,7 +403,7 @@ func kill(c *cli.Context) error {
 		wg.Add(1)
 		go func(cmd commandKill) {
 			defer wg.Done()
-			if err := chaos.KillContainers(client, containerNames, containerPattern, cmd.signal); err != nil {
+			if err := chaos.KillContainers(client, names, pattern, cmd.signal); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
@@ -407,6 +413,8 @@ func kill(c *cli.Context) error {
 
 // NETEM DELAY command
 func netemDelay(c *cli.Context) error {
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
 	// get duration
 	var durationString string
 	if c.Parent() != nil {
@@ -466,7 +474,7 @@ func netemDelay(c *cli.Context) error {
 		wg.Add(1)
 		go func(cmd commandNetemDelay) {
 			defer wg.Done()
-			if err := chaos.NetemDelayContainers(client, containerNames, containerPattern, cmd.netInterface, cmd.duration, cmd.amount, cmd.variation, cmd.correlation); err != nil {
+			if err := chaos.NetemDelayContainers(client, names, pattern, cmd.netInterface, cmd.duration, cmd.amount, cmd.variation, cmd.correlation); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
@@ -476,6 +484,8 @@ func netemDelay(c *cli.Context) error {
 
 // PAUSE command
 func pause(c *cli.Context) error {
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
 	// get duration
 	durationString := c.String("duration")
 	if durationString == "" {
@@ -504,7 +514,7 @@ func pause(c *cli.Context) error {
 		wg.Add(1)
 		go func(cmd commandPause) {
 			defer wg.Done()
-			if err := chaos.PauseContainers(client, containerNames, containerPattern, cmd.duration); err != nil {
+			if err := chaos.PauseContainers(client, names, pattern, cmd.duration); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
@@ -514,6 +524,8 @@ func pause(c *cli.Context) error {
 
 // REMOVE Command
 func remove(c *cli.Context) error {
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
 	// get force flag
 	force := c.Bool("force")
 	// get link flag
@@ -536,7 +548,7 @@ func remove(c *cli.Context) error {
 		wg.Add(1)
 		go func(cmd commandRemove) {
 			defer wg.Done()
-			if err := chaos.RemoveContainers(client, containerNames, containerPattern, cmd.force, cmd.link, cmd.volumes); err != nil {
+			if err := chaos.RemoveContainers(client, names, pattern, cmd.force, cmd.link, cmd.volumes); err != nil {
 				log.Error(err)
 			}
 		}(cmd)
@@ -546,6 +558,8 @@ func remove(c *cli.Context) error {
 
 // STOP Command
 func stop(c *cli.Context) error {
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
 	// get time to wait
 	waitTime := c.Int("time")
 	// channel for 'stop' command
@@ -564,7 +578,7 @@ func stop(c *cli.Context) error {
 		wg.Add(1)
 		go func(cmd commandStop) {
 			defer wg.Done()
-			if err := chaos.StopContainers(client, containerNames, containerPattern, cmd.waitTime); err != nil {
+			if err := chaos.StopContainers(client, names, pattern, cmd.waitTime); err != nil {
 				log.Error(err)
 			}
 		}(cmd)

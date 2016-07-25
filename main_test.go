@@ -59,8 +59,6 @@ func (s *mainTestSuite) TearDownSuite() {
 }
 
 func (s *mainTestSuite) SetupTest() {
-	containerNames = []string{}
-	containerPattern = ""
 }
 
 func (s *mainTestSuite) TearDownTest() {
@@ -70,6 +68,25 @@ func (s *mainTestSuite) Test_main() {
 	os.Args = []string{"pumba", "-v"}
 	main()
 }
+
+/*
+func (s *mainTestSuite) Test_parseCommandNetemDelay() {
+	// assert no Panic
+	assert.NotPanics(s.T(), func() {
+		timer := time.NewTimer(1 * time.Millisecond)
+		commandTimeChan = timer.C
+		// setup mock
+		chaosMock := &ChaosMock{}
+		chaos = chaosMock
+		chaosMock.On("NetemDelayContainers", nil, []string{}, "^hp", "eth0", 200, 10, 20).Return(nil)
+		// invoke command, using main()
+		os.Args = []string{"pumba", "--interval", "3ms", "netem", "--duration", "1ms", "delay", "--amount", "200", "re2:^hp"}
+		main()
+		// assert expectation
+		chaosMock.AssertExpectations(s.T())
+	}, "Calling main() with proper arguments should NOT panic")
+}
+*/
 
 func (s *mainTestSuite) Test_beforeCommand_NoInterval() {
 	// prepare
@@ -113,10 +130,12 @@ func (s *mainTestSuite) Test_beforeCommand_EmptyArgs() {
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
 	err := beforeCommand(c)
+	names, pattern := getNamesOrPattern(c)
 	// asserts
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
-	assert.True(s.T(), len(containerNames) == 0)
+	assert.True(s.T(), len(names) == 0)
+	assert.True(s.T(), pattern == "")
 }
 
 func (s *mainTestSuite) Test_beforeCommand_Re2Args() {
@@ -129,10 +148,12 @@ func (s *mainTestSuite) Test_beforeCommand_Re2Args() {
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
 	err := beforeCommand(c)
+	names, pattern := getNamesOrPattern(c)
 	// asserts
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
-	assert.True(s.T(), containerPattern == "^c")
+	assert.True(s.T(), len(names) == 0)
+	assert.True(s.T(), pattern == "^c")
 }
 
 func (s *mainTestSuite) Test_beforeCommand_2Args() {
@@ -145,10 +166,12 @@ func (s *mainTestSuite) Test_beforeCommand_2Args() {
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
 	err := beforeCommand(c)
+	names, pattern := getNamesOrPattern(c)
 	// asserts
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
-	assert.True(s.T(), len(containerNames) == 2)
+	assert.True(s.T(), len(names) == 2)
+	assert.True(s.T(), pattern == "")
 }
 
 func (s *mainTestSuite) Test_handleSignals() {
