@@ -1,6 +1,7 @@
 package container
 
 import (
+	"net"
 	"time"
 
 	"github.com/stretchr/testify/mock"
@@ -65,7 +66,7 @@ func (m *MockClient) PauseContainer(c Container, d time.Duration, dryrun bool) e
 }
 
 // DisruptContainer mock
-func (m *MockClient) DisruptContainer(c Container, n string, s string, dryrun bool) error {
-	args := m.Called(c, n, s)
+func (m *MockClient) DisruptContainer(c Container, n string, s string, ip net.IP, dryrun bool) error {
+	args := m.Called(c, n, s, ip)
 	return args.Error(0)
 }

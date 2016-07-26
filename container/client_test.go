@@ -551,7 +551,7 @@ func TestDisruptContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.DisruptContainer(c, "eth0", "delay 1000ms", false)
+	err := client.DisruptContainer(c, "eth0", "delay 1000ms", nil, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -566,7 +566,7 @@ func TestDisruptContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{apiClient: engineClient}
-	err := client.DisruptContainer(c, "eth0", "delay 1000ms", true)
+	err := client.DisruptContainer(c, "eth0", "delay 1000ms", nil, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)

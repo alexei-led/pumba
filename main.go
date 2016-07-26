@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/signal"
 	"regexp"
@@ -122,6 +123,10 @@ func main() {
 					Name:  "interface, i",
 					Usage: "network interface to apply delay on",
 					Value: "eth0",
+				},
+				cli.StringFlag{
+					Name:  "target, t",
+					Usage: "target IP filter; netem will impact only on traffic to target IP",
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",
@@ -413,8 +418,9 @@ func netemDelay(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	// get network interface
+	// get network interface and target ip
 	netInterface := "eth0"
+	var ip net.IP
 	if c.Parent() != nil {
 		netInterface = c.Parent().String("interface")
 		// protect from Command Injection, using Regexp
@@ -425,6 +431,8 @@ func netemDelay(c *cli.Context) error {
 			log.Error(err)
 			return err
 		}
+		// get target IP Filter
+		ip = net.ParseIP(c.Parent().String("target"))
 	}
 	// get delay amount
 	amount := c.Int("amount")
@@ -447,8 +455,10 @@ func netemDelay(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
+	// pepare netem delay command
 	delayCmd := action.CommandNetemDelay{
 		NetInterface: netInterface,
+		IP:           ip,
 		Duration:     duration,
 		Amount:       amount,
 		Variation:    variation,

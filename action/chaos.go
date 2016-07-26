@@ -3,6 +3,7 @@ package action
 import (
 	"errors"
 	"math/rand"
+	"net"
 	"regexp"
 	"strconv"
 	"time"
@@ -38,6 +39,7 @@ type CommandPause struct {
 // CommandNetemDelay arguments for 'netem delay' sub-command
 type CommandNetemDelay struct {
 	NetInterface string
+	IP           net.IP
 	Duration     time.Duration
 	Amount       int
 	Variation    int
@@ -226,18 +228,18 @@ func pauseContainers(client container.Client, containers []container.Container, 
 	return nil
 }
 
-func disruptContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string) error {
+func disruptContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string, ip net.IP) error {
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.DisruptContainer(*container, netInterface, netemCmd, DryMode)
+			err := client.DisruptContainer(*container, netInterface, netemCmd, ip, DryMode)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.DisruptContainer(container, netInterface, netemCmd, DryMode)
+			err := client.DisruptContainer(container, netInterface, netemCmd, ip, DryMode)
 			if err != nil {
 				return err
 			}
@@ -317,7 +319,7 @@ func (p Pumba) NetemDelayContainers(client container.Client, names []string, pat
 		netemCmd += " " + strconv.Itoa(command.Correlation) + "%"
 	}
 
-	return disruptContainers(client, containers, command.NetInterface, netemCmd)
+	return disruptContainers(client, containers, command.NetInterface, netemCmd, command.IP)
 }
 
 // PauseContainers pause container,if its name within `names`, for specified interval

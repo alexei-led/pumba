@@ -1,6 +1,7 @@
 package action
 
 import (
+	"net"
 	"strconv"
 	"testing"
 	"time"
@@ -419,6 +420,7 @@ func TestNetemDealyByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
+		IP:           nil,
 		Duration:     1 * time.Second,
 		Amount:       120,
 		Variation:    25,
@@ -427,7 +429,7 @@ func TestNetemDealyByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("DisruptContainer", c, "eth1", "delay 120ms 25ms 15%").Return(nil)
+		client.On("DisruptContainer", c, "eth1", "delay 120ms 25ms 15%", net.ParseIP("")).Return(nil)
 	}
 	// do action
 	err := Pumba{}.NetemDelayContainers(client, names, "", cmd)

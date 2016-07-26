@@ -15,22 +15,8 @@ You can download Pumba binary for your OS from [release](https://github.com/gaia
 $ pumba help
 ```
 
-### Pumba Chaos Commands
 
-#### STOP command
-
-`STOP` command will stop specified running container/s.
-
-#### KILL command
-
-`KILL` command will kill specified running container, sending `SIGKILL` Linux termination signal by default. It's possible to use other Linux termination signal with `KILL` command.
-Pass `KILL:{SIGNALNAME}` (without braces) to Pumba though `chaos` option, and Pumba will send passed signal to main process running within your Docker container.
-
-#### RM command
-
-`RM` command will stop and force remove specified running container/s.
-
-#### DISRUPT command - using Pumba to disrupt containers network
+### DISRUPT command - using Pumba to disrupt containers network
 
 `DISRUPT` command will introduce network disruptions to a container's outgoing traffic (egress) using `netem` driver, and optionally limiting to traffic outgoing to specific target ip.
 
