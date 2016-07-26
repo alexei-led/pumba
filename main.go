@@ -24,12 +24,11 @@ import (
 )
 
 var (
-	wg              sync.WaitGroup
-	client          container.Client
-	chaos           actions.Chaos
-	commandTimeChan <-chan time.Time
-	testRun         bool
-	reInterface     *regexp.Regexp
+	gWG       sync.WaitGroup
+	client    container.Client
+	chaos     action.Chaos
+	gInterval time.Duration
+	gTestRun  bool
 )
 
 // LinuxSignals valid Linux signal table
@@ -68,40 +67,19 @@ var LinuxSignals = map[string]int{
 }
 
 const (
-	release       = "v0.2.0"
-	defaultSignal = "SIGKILL"
-	re2prefix     = "re2:"
+	// Release version
+	Release = "v0.2.0"
+	// DefaultSignal default kill signal
+	DefaultSignal = "SIGKILL"
+	// Re2Prefix re2 regexp string prefix
+	Re2Prefix = "re2:"
 )
-
-type commandKill struct {
-	signal string
-}
-
-type commandPause struct {
-	duration time.Duration
-}
-
-type commandNetemDelay struct {
-	netInterface string
-	duration     time.Duration
-	amount       int
-	variation    int
-	correlation  int
-}
-
-type commandStop struct {
-	waitTime int
-}
-
-type commandRemove struct {
-	force   bool
-	link    string
-	volumes string
-}
 
 func init() {
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(&log.TextFormatter{})
+	// set chaos to Pumba{}
+	chaos = action.Pumba{}
 }
 
 func main() {
@@ -113,7 +91,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "Pumba"
-	app.Version = release
+	app.Version = Release
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
 	app.ArgsUsage = "containers (name, list of names, RE2 regex)"
 	app.Before = before
@@ -124,7 +102,7 @@ func main() {
 				cli.StringFlag{
 					Name:  "signal, s",
 					Usage: "termination signal, that will be sent by Pumba to the main process inside target container(s)",
-					Value: defaultSignal,
+					Value: DefaultSignal,
 				},
 			},
 			Usage:       "kill specified containers",
@@ -140,6 +118,11 @@ func main() {
 					Name:  "duration, d",
 					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
 				},
+				cli.StringFlag{
+					Name:  "interface, i",
+					Usage: "network interface to apply delay on",
+					Value: "eth0",
+				},
 			},
 			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
@@ -149,11 +132,6 @@ func main() {
 				{
 					Name: "delay",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "interface, i",
-							Usage: "network interface to apply delay on",
-							Value: "eth0",
-						},
 						cli.IntFlag{
 							Name:  "amount, a",
 							Usage: "delay amount; in milliseconds",
@@ -292,12 +270,12 @@ func main() {
 		cli.BoolFlag{
 			Name:        "random, r",
 			Usage:       "randomly select single matching container from list of target containers",
-			Destination: &actions.RandomMode,
+			Destination: &action.RandomMode,
 		},
 		cli.BoolFlag{
 			Name:        "dry",
 			Usage:       "dry runl does not create chaos, only logs planned chaos commands",
-			Destination: &actions.DryMode,
+			Destination: &action.DryMode,
 		},
 	}
 
@@ -307,10 +285,6 @@ func main() {
 }
 
 func before(c *cli.Context) error {
-	// set chaos to Pumba{}
-	chaos = actions.Pumba{}
-	// network interface name valid regexp
-	reInterface = regexp.MustCompile("[a-zA-Z]+[0-9]{0,2}")
 	// set debug log level
 	if c.GlobalBool("debug") {
 		log.SetLevel(log.DebugLevel)
@@ -349,9 +323,7 @@ func beforeCommand(c *cli.Context) error {
 	} else if interval, err := time.ParseDuration(intervalString); err != nil {
 		return err
 	} else {
-		// create Ticker Time channel for specified intterval
-		ticker := time.NewTicker(interval)
-		commandTimeChan = ticker.C
+		gInterval = interval
 	}
 	return nil
 }
@@ -367,13 +339,44 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 			log.Debugf("Names: '%s'", names)
 		} else {
 			first := c.Args().First()
-			if strings.HasPrefix(first, re2prefix) {
-				pattern = strings.Trim(first, re2prefix)
+			if strings.HasPrefix(first, Re2Prefix) {
+				pattern = strings.Trim(first, Re2Prefix)
 				log.Debugf("Pattern: '%s'", pattern)
 			}
 		}
 	}
 	return names, pattern
+}
+
+func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn func(container.Client, []string, string, interface{}) error) {
+	// channel for 'chaos' command
+	dc := make(chan interface{})
+	// create Time channel for specified intterval: for TestRun use Timer (one time call)
+	var cmdTimeChan <-chan time.Time
+	if gTestRun {
+		cmdTimeChan = time.NewTimer(gInterval).C
+	} else {
+		cmdTimeChan = time.NewTicker(gInterval).C
+	}
+	// handle interval timer event
+	go func(cmd interface{}) {
+		for range cmdTimeChan {
+			dc <- cmd
+			if gTestRun {
+				close(dc)
+			}
+		}
+	}(cmd)
+	// handle 'chaos' command
+	for cmd := range dc {
+		gWG.Add(1)
+		go func(cmd interface{}) {
+			defer gWG.Done()
+			if err := chaosFn(client, names, pattern, cmd); err != nil {
+				log.Error(err)
+			}
+		}(cmd)
+	}
 }
 
 // KILL Command
@@ -387,27 +390,7 @@ func kill(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	// channel for 'kill' command
-	dc := make(chan commandKill)
-	// handle interval timer event
-	go func(cmd commandKill) {
-		for range commandTimeChan {
-			dc <- cmd
-			if testRun {
-				close(dc)
-			}
-		}
-	}(commandKill{signal})
-	// handle 'kill' command
-	for cmd := range dc {
-		wg.Add(1)
-		go func(cmd commandKill) {
-			defer wg.Done()
-			if err := chaos.KillContainers(client, names, pattern, cmd.signal); err != nil {
-				log.Error(err)
-			}
-		}(cmd)
-	}
+	runChaosCommand(action.CommandKill{Signal: signal}, names, pattern, chaos.KillContainers)
 	return nil
 }
 
@@ -435,7 +418,13 @@ func netemDelay(c *cli.Context) error {
 	if c.Parent() != nil {
 		netInterface = c.Parent().String("interface")
 		// protect from Command Injection, using Regexp
-		netInterface = reInterface.FindString(netInterface)
+		reInterface := regexp.MustCompile("[a-zA-Z]+[0-9]{0,2}")
+		validInterface := reInterface.FindString(netInterface)
+		if netInterface != validInterface {
+			err := fmt.Errorf("Bad network interface name. Must match '%s'", reInterface.String())
+			log.Error(err)
+			return err
+		}
 	}
 	// get delay amount
 	amount := c.Int("amount")
@@ -446,7 +435,7 @@ func netemDelay(c *cli.Context) error {
 	}
 	// get delay variation
 	variation := c.Int("variation")
-	if variation < 0 {
+	if variation < 0 || variation > amount {
 		err = errors.New("Invalid delay variation")
 		log.Error(err)
 		return err
@@ -458,27 +447,14 @@ func netemDelay(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	// channel for 'netem' command
-	dc := make(chan commandNetemDelay)
-	// handle interval timer event
-	go func(cmd commandNetemDelay) {
-		for range commandTimeChan {
-			dc <- cmd
-			if testRun {
-				close(dc)
-			}
-		}
-	}(commandNetemDelay{netInterface, duration, amount, variation, correlation})
-	// handle 'netem' command
-	for cmd := range dc {
-		wg.Add(1)
-		go func(cmd commandNetemDelay) {
-			defer wg.Done()
-			if err := chaos.NetemDelayContainers(client, names, pattern, cmd.netInterface, cmd.duration, cmd.amount, cmd.variation, cmd.correlation); err != nil {
-				log.Error(err)
-			}
-		}(cmd)
+	delayCmd := action.CommandNetemDelay{
+		NetInterface: netInterface,
+		Duration:     duration,
+		Amount:       amount,
+		Variation:    variation,
+		Correlation:  correlation,
 	}
+	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)
 	return nil
 }
 
@@ -498,27 +474,8 @@ func pause(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	// channel for 'pause' command
-	dc := make(chan commandPause)
-	// handle interval timer event
-	go func(cmd commandPause) {
-		for range commandTimeChan {
-			dc <- cmd
-			if testRun {
-				close(dc)
-			}
-		}
-	}(commandPause{duration})
-	// handle 'pause' command
-	for cmd := range dc {
-		wg.Add(1)
-		go func(cmd commandPause) {
-			defer wg.Done()
-			if err := chaos.PauseContainers(client, names, pattern, cmd.duration); err != nil {
-				log.Error(err)
-			}
-		}(cmd)
-	}
+	cmd := action.CommandPause{Duration: duration}
+	runChaosCommand(cmd, names, pattern, chaos.PauseContainers)
 	return nil
 }
 
@@ -532,27 +489,9 @@ func remove(c *cli.Context) error {
 	link := c.String("link")
 	// get link flag
 	volumes := c.String("volumes")
-	// channel for 'stop' command
-	dc := make(chan commandRemove)
-	// handle interval timer event
-	go func(cmd commandRemove) {
-		for range commandTimeChan {
-			dc <- cmd
-			if testRun {
-				close(dc)
-			}
-		}
-	}(commandRemove{force, link, volumes})
-	// handle 'remove' command
-	for cmd := range dc {
-		wg.Add(1)
-		go func(cmd commandRemove) {
-			defer wg.Done()
-			if err := chaos.RemoveContainers(client, names, pattern, cmd.force, cmd.link, cmd.volumes); err != nil {
-				log.Error(err)
-			}
-		}(cmd)
-	}
+	// run chaos command
+	cmd := action.CommandRemove{Force: force, Link: link, Volumes: volumes}
+	runChaosCommand(cmd, names, pattern, chaos.RemoveContainers)
 	return nil
 }
 
@@ -560,29 +499,9 @@ func remove(c *cli.Context) error {
 func stop(c *cli.Context) error {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
-	// get time to wait
-	waitTime := c.Int("time")
-	// channel for 'stop' command
-	dc := make(chan commandStop)
-	// handle interval timer event
-	go func(cmd commandStop) {
-		for range commandTimeChan {
-			dc <- cmd
-			if testRun {
-				close(dc)
-			}
-		}
-	}(commandStop{waitTime})
-	// handle 'stop' command
-	for cmd := range dc {
-		wg.Add(1)
-		go func(cmd commandStop) {
-			defer wg.Done()
-			if err := chaos.StopContainers(client, names, pattern, cmd.waitTime); err != nil {
-				log.Error(err)
-			}
-		}(cmd)
-	}
+	// run chaos command
+	cmd := action.CommandStop{WaitTime: c.Int("time")}
+	runChaosCommand(cmd, names, pattern, chaos.StopContainers)
 	return nil
 }
 
@@ -594,7 +513,7 @@ func handleSignals() {
 
 	go func() {
 		<-c
-		wg.Wait()
+		gWG.Wait()
 		os.Exit(1)
 	}()
 }

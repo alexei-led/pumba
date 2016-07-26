@@ -1,6 +1,7 @@
-package actions
+package action
 
 import (
+	"errors"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -18,20 +19,53 @@ var (
 )
 
 const (
-	deafultWaitTime   = 10
-	defaultKillSignal = "SIGKILL"
+	// DeafultWaitTime time to wait before stopping container (in seconds)
+	DeafultWaitTime = 10
+	// DefaultKillSignal default kill signal
+	DefaultKillSignal = "SIGKILL"
 )
+
+// CommandKill arguments for kill command
+type CommandKill struct {
+	Signal string
+}
+
+// CommandPause arguments for pause command
+type CommandPause struct {
+	Duration time.Duration
+}
+
+// CommandNetemDelay arguments for 'netem delay' sub-command
+type CommandNetemDelay struct {
+	NetInterface string
+	Duration     time.Duration
+	Amount       int
+	Variation    int
+	Correlation  int
+}
+
+// CommandStop arguments for stop command
+type CommandStop struct {
+	WaitTime int
+}
+
+// CommandRemove arguments for remove command
+type CommandRemove struct {
+	Force   bool
+	Link    string
+	Volumes string
+}
 
 // A Chaos is the interface with different methods to stop runnig containers.
 type Chaos interface {
-	StopContainers(container.Client, []string, string, int) error
-	KillContainers(container.Client, []string, string, string) error
-	RemoveContainers(container.Client, []string, string, bool, string, string) error
-	NetemDelayContainers(container.Client, []string, string, string, time.Duration, int, int, int) error
-	PauseContainers(container.Client, []string, string, time.Duration) error
+	StopContainers(container.Client, []string, string, interface{}) error
+	KillContainers(container.Client, []string, string, interface{}) error
+	RemoveContainers(container.Client, []string, string, interface{}) error
+	NetemDelayContainers(container.Client, []string, string, interface{}) error
+	PauseContainers(container.Client, []string, string, interface{}) error
 }
 
-// Pumba makes chaos
+// Pumba makes Chaos
 type Pumba struct{}
 
 // all containers beside Pumba and PumbaSkip
@@ -107,7 +141,7 @@ func randomContainer(containers []container.Container) *container.Container {
 
 func stopContainers(client container.Client, containers []container.Container, waitTime int) error {
 	if waitTime == 0 {
-		waitTime = deafultWaitTime
+		waitTime = DeafultWaitTime
 	}
 	if RandomMode {
 		container := randomContainer(containers)
@@ -130,7 +164,7 @@ func stopContainers(client container.Client, containers []container.Container, w
 
 func killContainers(client container.Client, containers []container.Container, signal string) error {
 	if signal == "" {
-		signal = defaultKillSignal
+		signal = DefaultKillSignal
 	}
 	if RandomMode {
 		container := randomContainer(containers)
@@ -215,64 +249,89 @@ func disruptContainers(client container.Client, containers []container.Container
 //---------------------------------------------------------------------------------------------------
 
 // StopContainers stop containers matching pattern
-func (p Pumba) StopContainers(client container.Client, names []string, pattern string, waitTime int) error {
+func (p Pumba) StopContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Stop containers")
+	// get command details
+	command, ok := cmd.(CommandStop)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandStop")
+	}
 	var err error
 	var containers []container.Container
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return stopContainers(client, containers, waitTime)
+	return stopContainers(client, containers, command.WaitTime)
 }
 
 // KillContainers - kill containers either by RE2 pattern (if specified) or by names
-func (p Pumba) KillContainers(client container.Client, names []string, pattern string, signal string) error {
+func (p Pumba) KillContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Kill containers")
+	// get command details
+	command, ok := cmd.(CommandKill)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandKill")
+	}
 	var err error
 	var containers []container.Container
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return killContainers(client, containers, signal)
+	return killContainers(client, containers, command.Signal)
 }
 
 // RemoveContainers - remove container either by RE2 pattern (if specified) or by names
-func (p Pumba) RemoveContainers(client container.Client, names []string, pattern string, force bool, link string, volumes string) error {
+func (p Pumba) RemoveContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Remove containers")
+	// get command details
+	command, ok := cmd.(CommandRemove)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandRemove")
+	}
 	var err error
 	var containers []container.Container
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return removeContainers(client, containers, force, link, volumes)
+	return removeContainers(client, containers, command.Force, command.Link, command.Volumes)
 }
 
 // NetemDelayContainers delay network traffic with optional variation and correlation
-func (p Pumba) NetemDelayContainers(client container.Client, names []string, pattern string, netInterface string, duration time.Duration, amount int, variation int, correlation int) error {
+func (p Pumba) NetemDelayContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("netem dealy for containers")
+	// get command details
+	command, ok := cmd.(CommandNetemDelay)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandNetemDelay")
+	}
 	var err error
 	var containers []container.Container
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	netemCmd := "delay " + strconv.Itoa(amount) + "ms"
-	if variation > 0 {
-		netemCmd += " " + strconv.Itoa(variation) + "ms"
+	netemCmd := "delay " + strconv.Itoa(command.Amount) + "ms"
+	if command.Variation > 0 {
+		netemCmd += " " + strconv.Itoa(command.Variation) + "ms"
 	}
-	if correlation > 0 {
-		netemCmd += " " + strconv.Itoa(correlation) + "%"
+	if command.Correlation > 0 {
+		netemCmd += " " + strconv.Itoa(command.Correlation) + "%"
 	}
 
-	return disruptContainers(client, containers, netInterface, netemCmd)
+	return disruptContainers(client, containers, command.NetInterface, netemCmd)
 }
 
 // PauseContainers pause container,if its name within `names`, for specified interval
-func (p Pumba) PauseContainers(client container.Client, names []string, pattern string, duration time.Duration) error {
+func (p Pumba) PauseContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Infof("Pause containers")
+	// get command details
+	command, ok := cmd.(CommandPause)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandPause")
+	}
 	var err error
 	var containers []container.Container
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return pauseContainers(client, containers, duration)
+	return pauseContainers(client, containers, command.Duration)
 }

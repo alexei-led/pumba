@@ -1,4 +1,4 @@
-package actions
+package action
 
 import (
 	"strconv"
@@ -178,97 +178,129 @@ func TestAllFilter(t *testing.T) {
 }
 
 func TestStopByName(t *testing.T) {
+	// prepare test data and mock
 	names, cs := makeContainersN(10)
+	cmd := CommandStop{WaitTime: 10}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StopContainer", c, 10).Return(nil)
 	}
-	err := Pumba{}.StopContainers(client, names, "", 10)
+	// doc action
+	err := Pumba{}.StopContainers(client, names, "", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestStopByNameRandom(t *testing.T) {
+	// prepare test data and mock
 	names, cs := makeContainersN(10)
+	cmd := CommandStop{WaitTime: 10}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("StopContainer", mock.AnythingOfType("container.Container"), 10).Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.StopContainers(client, names, "", 10)
+	err := Pumba{}.StopContainers(client, names, "", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestStopByPattern(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
+	cmd := CommandStop{WaitTime: 10}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StopContainer", c, 10).Return(nil)
 	}
-	err := Pumba{}.StopContainers(client, []string{}, "^c", 10)
+	// do action
+	err := Pumba{}.StopContainers(client, []string{}, "^c", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestStopByPatternRandom(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
+	cmd := CommandStop{WaitTime: 10}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("StopContainer", mock.AnythingOfType("container.Container"), 10).Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.StopContainers(client, []string{}, "^c", 10)
+	err := Pumba{}.StopContainers(client, []string{}, "^c", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestKillByName(t *testing.T) {
+	// prepare test data and mock
 	names, cs := makeContainersN(10)
+	cmd := CommandKill{Signal: "SIGTEST"}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("KillContainer", c, "SIGTEST").Return(nil)
 	}
-	err := Pumba{}.KillContainers(client, names, "", "SIGTEST")
+	// do action
+	err := Pumba{}.KillContainers(client, names, "", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestKillByNameRandom(t *testing.T) {
+	// prepare test data and mocks
 	names, cs := makeContainersN(10)
+	cmd := CommandKill{Signal: "SIGTEST"}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.KillContainers(client, names, "", "SIGTEST")
+	err := Pumba{}.KillContainers(client, names, "", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestKillByPattern(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
+	cmd := CommandKill{Signal: "SIGTEST"}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for i := range cs {
 		client.On("KillContainer", cs[i], "SIGTEST").Return(nil)
 	}
-	err := Pumba{}.KillContainers(client, []string{}, "^c", "SIGTEST")
+	// do action
+	err := Pumba{}.KillContainers(client, []string{}, "^c", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestKillByPatternRandom(t *testing.T) {
+	// prepare test data and mock
 	_, cs := makeContainersN(10)
+	cmd := CommandKill{Signal: "SIGTEST"}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.KillContainers(client, []string{}, "^c", "SIGTEST")
+	err := Pumba{}.KillContainers(client, []string{}, "^c", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
@@ -277,97 +309,129 @@ func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	cmd := CommandRemove{Force: false, Link: "", Volumes: ""}
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false, "", "").Return(nil)
 	}
-	err := Pumba{}.RemoveContainers(client, names, "", false, "", "")
+	err := Pumba{}.RemoveContainers(client, names, "", cmd)
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestRemoveByNameRandom(t *testing.T) {
+	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	client := container.NewMockSamalbaClient()
+	cmd := CommandRemove{Force: false, Link: "mylink", Volumes: "myvol"}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, "mylink", "myvol").Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.RemoveContainers(client, names, "", false, "mylink", "myvol")
+	err := Pumba{}.RemoveContainers(client, names, "", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestRemoveByPattern(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
+	cmd := CommandRemove{Force: false, Link: "mylink", Volumes: "myvol"}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false, "mylink", "myvol").Return(nil)
 	}
-	err := Pumba{}.RemoveContainers(client, []string{}, "^c", false, "mylink", "myvol")
+	// do action
+	err := Pumba{}.RemoveContainers(client, []string{}, "^c", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestRemoveByPatternRandom(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
+	cmd := CommandRemove{Force: false, Link: "mylink", Volumes: "myvol"}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, "mylink", "myvol").Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.RemoveContainers(client, []string{}, "^c", false, "mylink", "myvol")
+	err := Pumba{}.RemoveContainers(client, []string{}, "^c", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestPauseByName(t *testing.T) {
+	// prepare test data and mocks
 	names, cs := makeContainersN(10)
-	d, _ := time.ParseDuration("2ms")
+	cmd := CommandPause{Duration: 2 * time.Millisecond}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("PauseContainer", c, d).Return(nil)
+		client.On("PauseContainer", c, 2*time.Millisecond).Return(nil)
 	}
-	err := Pumba{}.PauseContainers(client, names, "", d)
+	// do action
+	err := Pumba{}.PauseContainers(client, names, "", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestPauseByPattern(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
-	d, _ := time.ParseDuration("2ms")
+	cmd := CommandPause{Duration: 2 * time.Millisecond}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("PauseContainer", c, d).Return(nil)
+		client.On("PauseContainer", c, 2*time.Millisecond).Return(nil)
 	}
-	err := Pumba{}.PauseContainers(client, []string{}, "^c", d)
+	// do action
+	err := Pumba{}.PauseContainers(client, []string{}, "^c", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestPauseByNameRandom(t *testing.T) {
+	// prepare test data and mocks
 	names, cs := makeContainersN(10)
-	d, _ := time.ParseDuration("2ms")
+	cmd := CommandPause{Duration: 2 * time.Millisecond}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("PauseContainer", mock.AnythingOfType("container.Container"), d).Return(nil)
+	client.On("PauseContainer", mock.AnythingOfType("container.Container"), 2*time.Millisecond).Return(nil)
+	// do action
 	RandomMode = true
-	err := Pumba{}.PauseContainers(client, names, "", d)
+	err := Pumba{}.PauseContainers(client, names, "", cmd)
 	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
 func TestNetemDealyByName(t *testing.T) {
+	// prepare test data and mocks
 	names, cs := makeContainersN(10)
+	cmd := CommandNetemDelay{
+		NetInterface: "eth1",
+		Duration:     1 * time.Second,
+		Amount:       120,
+		Variation:    25,
+		Correlation:  15,
+	}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
 		client.On("DisruptContainer", c, "eth1", "delay 120ms 25ms 15%").Return(nil)
 	}
-	err := Pumba{}.NetemDelayContainers(client, names, "", "eth1", 1*time.Second, 120, 25, 15)
+	// do action
+	err := Pumba{}.NetemDelayContainers(client, names, "", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
