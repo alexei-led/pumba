@@ -8,7 +8,7 @@ RUN apk --update add git bash curl \
     && rm /var/cache/apk/*
 
 # install glide package manager
-RUN curl -Ls https://github.com/Masterminds/glide/releases/download/0.11.1/glide-0.11.1-linux-amd64.tar.gz | tar xz -C /tmp \
+RUN curl -Ls https://github.com/Masterminds/glide/releases/download/v0.11.1/glide-v0.11.1-linux-amd64.tar.gz | tar xz -C /tmp \
  && mv /tmp/linux-amd64/glide /usr/bin/
 
 # gox - Go cross compile tool
