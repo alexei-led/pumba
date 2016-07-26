@@ -25,8 +25,7 @@ spec:
 # Pumba command: modify it to suite your needs
 # Currently: randomly try to kill some container every 5 minutes
         command:
-          - --random
-          - --chaos "|5m|KILL:SIGTERM"
+          - "--random --interval 5m --random kill --signal SIGTERM"
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock

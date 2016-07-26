@@ -32,7 +32,7 @@ ExecStartPre=-/usr/bin/docker rm pumba
 ExecStart=/usr/bin/docker run --name pumba -h %H \
 					-v /var/run/docker.sock:/var/run/docker.sock \
 					-e COREOS_PRIVATE_IPV4=${COREOS_PRIVATE_IPV4} \
-				  gaiaadm/pumba:master --chaos "|5m|KILL:SIGTERM" --random
+				  gaiaadm/pumba:master --interval "5m" --random kill --signal SIGTERM
 
 # Stop
 ExecStop=/usr/bin/docker stop pumba
