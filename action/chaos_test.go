@@ -429,7 +429,7 @@ func TestNetemDealyByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("DisruptContainer", c, "eth1", "delay 120ms 25ms 15%", net.ParseIP("")).Return(nil)
+		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 15%", net.ParseIP(""), 1*time.Second).Return(nil)
 	}
 	// do action
 	err := Pumba{}.NetemDelayContainers(client, names, "", cmd)
@@ -443,7 +443,7 @@ func TestNetemByNameRandom(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
 	RandomMode = true
 	err := Pumba{}.NetemContainers(client, names, "", "delay 1000ms")
 	RandomMode = false
@@ -456,7 +456,7 @@ func TestNetemByPattern(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for i := range cs {
-		client.On("DisruptContainer", cs[i], "delay 3000ms:172.19.0.3").Return(nil)
+		client.On("NetemContainer", cs[i], "delay 3000ms:172.19.0.3").Return(nil)
 	}
 	err := Pumba{}.NetemContainers(client, []string{}, "^c", "delay 3000ms:172.19.0.3")
 	assert.NoError(t, err)
@@ -467,7 +467,7 @@ func TestNetemByPatternRandom(t *testing.T) {
 	_, cs := makeContainersN(10)
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("DisruptContainer", mock.AnythingOfType("container.Container"), "172.19.0.3").Return(nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "172.19.0.3").Return(nil)
 	RandomMode = true
 	err := Pumba{}.NetemContainers(client, []string{}, "^c", "172.19.0.3")
 	RandomMode = false

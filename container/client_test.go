@@ -537,7 +537,7 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 	api.AssertExpectations(t)
 }
 
-func TestDisruptContainer_Success(t *testing.T) {
+func TestNetemContainer_Success(t *testing.T) {
 	c := Container{
 		containerInfo: &dockerclient.ContainerInfo{
 			Id: "abc123",
@@ -551,13 +551,13 @@ func TestDisruptContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.DisruptContainer(c, "eth0", "delay 1000ms", nil, false)
+	err := client.NetemContainer(c, "eth0", "delay 1000ms", nil, 1*time.Millisecond, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
 }
 
-func TestDisruptContainer_DryRun(t *testing.T) {
+func TestNetemContainer_DryRun(t *testing.T) {
 	c := Container{
 		containerInfo: &dockerclient.ContainerInfo{
 			Id: "abc123",
@@ -566,7 +566,7 @@ func TestDisruptContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{apiClient: engineClient}
-	err := client.DisruptContainer(c, "eth0", "delay 1000ms", nil, true)
+	err := client.NetemContainer(c, "eth0", "delay 1000ms", nil, 1*time.Millisecond, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)

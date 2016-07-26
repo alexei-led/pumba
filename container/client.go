@@ -35,7 +35,7 @@ type Client interface {
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, string, string, bool) error
-	DisruptContainer(Container, string, string, net.IP, bool) error
+	NetemContainer(Container, string, string, net.IP, time.Duration, bool) error
 	PauseContainer(Container, time.Duration, bool) error
 }
 
@@ -188,7 +188,7 @@ func (client dockerClient) RemoveContainer(c Container, force bool, link string,
 	return nil
 }
 
-func (client dockerClient) DisruptContainer(c Container, netInterface string, netemCmd string, targetIP net.IP, dryrun bool) error {
+func (client dockerClient) NetemContainer(c Container, netInterface string, netemCmd string, targetIP net.IP, duration time.Duration, dryrun bool) error {
 	if targetIP == nil {
 		return client.startNetemContainer(c, netInterface, netemCmd, dryrun)
 	}
