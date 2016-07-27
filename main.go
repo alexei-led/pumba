@@ -132,7 +132,6 @@ func main() {
 			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, to emulate different network problems",
-			Before:      beforeCommand,
 			Subcommands: []cli.Command{
 				{
 					Name: "delay",
@@ -157,6 +156,7 @@ func main() {
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "dealy egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation",
 					Action:      netemDelay,
+					Before:      beforeCommand,
 				},
 				{
 					Name: "loss",
