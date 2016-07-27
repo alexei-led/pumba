@@ -438,46 +438,101 @@ func TestNetemDealyByName(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-/*
-func TestNetemByNameRandom(t *testing.T) {
+func TestNetemDealyByNameRandom(t *testing.T) {
+	// prepare test data and mocks
 	names, cs := makeContainersN(10)
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "delay 1000ms").Return(nil)
-	RandomMode = true
-	err := Pumba{}.NetemContainers(client, names, "", "delay 1000ms")
-	RandomMode = false
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestNetemByPattern(t *testing.T) {
-	_, cs := makeContainersN(10)
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	for i := range cs {
-		client.On("NetemContainer", cs[i], "delay 3000ms:172.19.0.3").Return(nil)
+	cmd := CommandNetemDelay{
+		NetInterface: "eth1",
+		IP:           nil,
+		Duration:     1 * time.Second,
+		Amount:       120,
+		Variation:    25,
+		Correlation:  15,
 	}
-	err := Pumba{}.NetemContainers(client, []string{}, "^c", "delay 3000ms:172.19.0.3")
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 15%", net.ParseIP(""), 1*time.Second).Return(nil)
+	// do action
+	RandomMode = true
+	err := Pumba{}.NetemDelayContainers(client, names, "", cmd)
+	RandomMode = false
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
 
-func TestNetemByPatternRandom(t *testing.T) {
+func TestNetemDealyByPattern(t *testing.T) {
+	// prepare test data and mocks
 	_, cs := makeContainersN(10)
+	cmd := CommandNetemDelay{
+		NetInterface: "eth1",
+		IP:           nil,
+		Duration:     1 * time.Second,
+		Amount:       120,
+		Variation:    25,
+		Correlation:  15,
+	}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "172.19.0.3").Return(nil)
-	RandomMode = true
-	err := Pumba{}.NetemContainers(client, []string{}, "^c", "172.19.0.3")
-	RandomMode = false
+	for _, c := range cs {
+		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 15%", net.ParseIP(""), 1*time.Second).Return(nil)
+	}
+	// do action
+	err := Pumba{}.NetemDelayContainers(client, []string{}, "^c", cmd)
+	// asserts
 	assert.NoError(t, err)
 	client.AssertExpectations(t)
 }
-*/
+
+func TestNetemDealyByPatternIPFilter(t *testing.T) {
+	// prepare test data and mocks
+	_, cs := makeContainersN(10)
+	ip := net.ParseIP("10.10.0.1")
+	cmd := CommandNetemDelay{
+		NetInterface: "eth1",
+		IP:           ip,
+		Duration:     1 * time.Second,
+		Amount:       120,
+		Variation:    25,
+		Correlation:  15,
+	}
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 15%", ip, 1*time.Second).Return(nil)
+	}
+	// do action
+	err := Pumba{}.NetemDelayContainers(client, []string{}, "^c", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemDealyByPatternRandom(t *testing.T) {
+	// prepare test data and mocks
+	_, cs := makeContainersN(10)
+	cmd := CommandNetemDelay{
+		NetInterface: "eth1",
+		IP:           nil,
+		Duration:     1 * time.Second,
+		Amount:       120,
+		Variation:    25,
+		Correlation:  15,
+	}
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 15%", net.ParseIP(""), 1*time.Second).Return(nil)
+	// do action
+	RandomMode = true
+	err := Pumba{}.NetemDelayContainers(client, []string{}, "^c", cmd)
+	RandomMode = false
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
 
 func TestSelectRandomContainer(t *testing.T) {
-	_, cs := makeContainersN(10)
+	_, cs := makeContainersN(30)
 	c1 := randomContainer(cs)
 	c2 := randomContainer(cs)
 	assert.NotNil(t, c1)

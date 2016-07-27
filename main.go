@@ -201,15 +201,15 @@ func main() {
 		{
 			Name: "rm",
 			Flags: []cli.Flag{
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  "force, f",
 					Usage: "force the removal of a running container (with SIGKILL)",
 				},
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  "links, l",
 					Usage: "remove container links",
 				},
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  "volumes, v",
 					Usage: "remove volumes associated with the container",
 				},
@@ -494,11 +494,11 @@ func remove(c *cli.Context) error {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get force flag
-	force := c.Bool("force")
+	force := c.BoolT("force")
 	// get link flag
-	links := c.Bool("links")
+	links := c.BoolT("links")
 	// get link flag
-	volumes := c.Bool("volumes")
+	volumes := c.BoolT("volumes")
 	// run chaos command
 	cmd := action.CommandRemove{Force: force, Links: links, Volumes: volumes}
 	runChaosCommand(cmd, names, pattern, chaos.RemoveContainers)

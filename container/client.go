@@ -282,13 +282,12 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 	if !dryrun {
 		// use dockerclient ExecStart to run Traffic Control
 		// to filter network, needs to create a priority scheduling, add a low priority
-		//  queue, apply netem command on that queue only, then route IP traffic
-		//  to the low priority queue
-		// 'tc qdisc add dev eth0 root handle 1: prio'
-		// 'tc qdisc add dev eth0 parent 1:3 netem delay 3000ms'
-		// 'tc filter add dev eth0 protocol ip parent 1:0 prio 3 /
-		//  u32 match ip dst 172.19.0.3 flowid 1:3'
-		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+		// queue, apply netem command on that queue only, then route IP traffic to the low priority queue
+		// See more: http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+
+		//  Create a priority-based queue.
+		// 'tc qdisc add dev <netInterface> root handle 1: prio'
+		// See more: http://stuff.onse.fi/man?program=tc
 		handleCommand := "tc qdisc add dev " + netInterface + " root handle 1: prio"
 		log.Debugf("handleCommand %s", handleCommand)
 		err := client.execOnContainer(c, handleCommand, true)
@@ -296,6 +295,9 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 			return err
 		}
 
+		//  Delay everything in band 3
+		// 'tc qdisc add dev <netInterface> parent 1:3 netem <netemCmd>'
+		// See more: http://stuff.onse.fi/man?program=tc
 		netemCommand := "tc qdisc add dev " + netInterface + " parent 1:3 netem " + strings.ToLower(netemCmd)
 		log.Debugf("netemCommand %s", netemCommand)
 		err = client.execOnContainer(c, netemCommand, true)
@@ -303,8 +305,11 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 			return err
 		}
 
+		// # say traffic to $PORT is band 3
+		// 'tc filter add dev <netInterface> protocol ip parent 1:0 prio 3 u32 match ip dst <targetIP> flowid 1:3'
+		// See more: http://stuff.onse.fi/man?program=tc-u32
 		filterCommand := "tc filter add dev " + netInterface + " protocol ip parent 1:0 prio 3 " +
-			"u32 match ip dst " + strings.ToLower(targetIP) + " flowid 1:3"
+			"u32 match ip dport " + strings.ToLower(targetIP) + " flowid 1:3"
 		log.Debugf("filterCommand %s", filterCommand)
 		return client.execOnContainer(c, filterCommand, true)
 	}
