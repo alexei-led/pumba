@@ -54,8 +54,8 @@ type CommandStop struct {
 // CommandRemove arguments for remove command
 type CommandRemove struct {
 	Force   bool
-	Link    string
-	Volumes string
+	Links   bool
+	Volumes bool
 }
 
 // A Chaos is the interface with different methods to stop runnig containers.
@@ -188,18 +188,18 @@ func killContainers(client container.Client, containers []container.Container, s
 	return nil
 }
 
-func removeContainers(client container.Client, containers []container.Container, force bool, link string, volumes string) error {
+func removeContainers(client container.Client, containers []container.Container, force bool, links bool, volumes bool) error {
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.RemoveContainer(*container, force, link, volumes, DryMode)
+			err := client.RemoveContainer(*container, force, links, volumes, DryMode)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		for _, container := range containers {
-			err := client.RemoveContainer(container, force, link, volumes, DryMode)
+			err := client.RemoveContainer(container, force, links, volumes, DryMode)
 			if err != nil {
 				return err
 			}
@@ -295,7 +295,7 @@ func (p Pumba) RemoveContainers(client container.Client, names []string, pattern
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return removeContainers(client, containers, command.Force, command.Link, command.Volumes)
+	return removeContainers(client, containers, command.Force, command.Links, command.Volumes)
 }
 
 // NetemDelayContainers delay network traffic with optional variation and correlation

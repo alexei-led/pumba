@@ -409,14 +409,16 @@ func TestRemoveContainer_Success(t *testing.T) {
 		},
 	}
 
-	api := mockclient.NewMockClient()
-	api.On("RemoveContainer", "abc123", true, true).Return(nil)
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	removeOpts := types.ContainerRemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
+	engineClient.On("ContainerRemove", ctx, "abc123", removeOpts).Return(nil)
 
-	client := dockerClient{api: api}
-	err := client.RemoveContainer(c, true, "mylink", "myvol", false)
+	client := dockerClient{apiClient: engineClient}
+	err := client.RemoveContainer(c, true, true, true, false)
 
 	assert.NoError(t, err)
-	api.AssertExpectations(t)
+	engineClient.AssertExpectations(t)
 }
 
 func TestRemoveContainer_DryRun(t *testing.T) {
@@ -426,14 +428,16 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 		},
 	}
 
-	api := mockclient.NewMockClient()
-	api.On("RemoveContainer", "abc123", true, "mylink", "myvol", true).Return(nil)
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	removeOpts := types.ContainerRemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
+	engineClient.On("ContainerRemove", ctx, "abc123", removeOpts).Return(nil)
 
-	client := dockerClient{api: api}
-	err := client.RemoveContainer(c, true, "mylink", "myvol", true)
+	client := dockerClient{apiClient: engineClient}
+	err := client.RemoveContainer(c, true, true, true, true)
 
 	assert.NoError(t, err)
-	api.AssertNotCalled(t, "RemoveContainer", "abc123", true, true)
+	engineClient.AssertNotCalled(t, "ContainerRemove", ctx, "abc123", removeOpts)
 }
 
 func TestRemoveImage_Error(t *testing.T) {
@@ -548,6 +552,9 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "1000ms"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
+	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 
 	client := dockerClient{apiClient: engineClient}

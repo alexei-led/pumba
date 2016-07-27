@@ -34,7 +34,7 @@ type Client interface {
 	StartContainer(Container) error
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
-	RemoveContainer(Container, bool, string, string, bool) error
+	RemoveContainer(Container, bool, bool, bool, bool) error
 	NetemContainer(Container, string, string, net.IP, time.Duration, bool) error
 	PauseContainer(Container, time.Duration, bool) error
 }
@@ -176,23 +176,43 @@ func (client dockerClient) RemoveImage(c Container, force bool, dryrun bool) err
 	return nil
 }
 
-func (client dockerClient) RemoveContainer(c Container, force bool, link string, volumes string, dryrun bool) error {
+func (client dockerClient) RemoveContainer(c Container, force bool, links bool, volumes bool, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
 	}
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
-		return client.api.RemoveContainer(c.ID(), force, len(volumes) > 0)
+		removeOpts := enginetypes.ContainerRemoveOptions{
+			RemoveVolumes: links,
+			RemoveLinks:   volumes,
+			Force:         force,
+		}
+		return client.apiClient.ContainerRemove(context.Background(), c.ID(), removeOpts)
 	}
 	return nil
 }
 
 func (client dockerClient) NetemContainer(c Container, netInterface string, netemCmd string, targetIP net.IP, duration time.Duration, dryrun bool) error {
-	if targetIP == nil {
-		return client.startNetemContainer(c, netInterface, netemCmd, dryrun)
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
 	}
-	return client.startNetemContainerIPFilter(c, netInterface, netemCmd, targetIP.String(), dryrun)
+	var err error
+	if targetIP == nil {
+		log.Infof("%sRunning netem command '%s' on container %s for %s", prefix, netemCmd, c.ID(), duration)
+		err = client.startNetemContainer(c, netInterface, netemCmd, dryrun)
+	} else {
+		log.Infof("%sRunning netem command '%s' on container %s with filter %s for %s", prefix, netemCmd, c.ID(), targetIP.String(), duration)
+		err = client.startNetemContainerIPFilter(c, netInterface, netemCmd, targetIP.String(), dryrun)
+	}
+	if err != nil {
+		return err
+	}
+	// sleep (current goroutine) for specified duration and then stop netem
+	time.Sleep(duration)
+	log.Infof("%sStopping netem on container %s", prefix, c.ID())
+	return client.stopNetemContainer(c, netInterface, dryrun)
 }
 
 func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
@@ -200,16 +220,18 @@ func (client dockerClient) PauseContainer(c Container, duration time.Duration, d
 	if dryrun {
 		prefix = dryRunPrefix
 	}
-	log.Infof("%sPausing container '%s' for '%s'", prefix, c.ID(), duration)
+	log.Infof("%sPausing container %s for %s", prefix, c.ID(), duration)
 	if !dryrun {
 		if err := client.api.PauseContainer(c.ID()); err != nil {
 			return err
 		}
+		log.Debugf("Container %s paused for %s", c.ID(), duration)
 		// pause the current goroutine for specified duration
 		time.Sleep(duration)
 		if err := client.api.UnpauseContainer(c.ID()); err != nil {
 			return err
 		}
+		log.Debugf("Container upaused %s after %s", c.ID(), duration)
 	}
 	return nil
 }
@@ -227,6 +249,7 @@ func (client dockerClient) startNetemContainer(c Container, netInterface string,
 		netemCommand := "tc qdisc add dev " + netInterface + " root netem " + strings.ToLower(netemCmd)
 		// stop disruption command
 		// netemStopCommand := "tc qdisc del dev eth0 root netem"
+		log.Debugf("netem command '%s'", netemCommand)
 		return client.execOnContainer(c, netemCommand, true)
 	}
 	return nil
@@ -237,11 +260,12 @@ func (client dockerClient) stopNetemContainer(c Container, netInterface string, 
 	if dryrun {
 		prefix = dryRunPrefix
 	}
-	log.Infof("%Stop netem for container %s on '%s'", prefix, c.ID(), netInterface)
+	log.Infof("%sStop netem for container %s on '%s'", prefix, c.ID(), netInterface)
 	if !dryrun {
 		// stop netem command
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 		netemCommand := "tc qdisc del dev " + netInterface + " root netem"
+		log.Debugf("netem command '%s'", netemCommand)
 		return client.execOnContainer(c, netemCommand, true)
 	}
 	return nil
@@ -288,7 +312,6 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 }
 
 func (client dockerClient) execOnContainer(c Container, execCmd string, privileged bool) error {
-	//client.apiClient.ContainerExecCreate(ctx, config)
 	config := enginetypes.ExecConfig{
 		Privileged: privileged,
 		Cmd:        strings.Split(execCmd, " "),

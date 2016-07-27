@@ -310,9 +310,9 @@ func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	cmd := CommandRemove{Force: false, Link: "", Volumes: ""}
+	cmd := CommandRemove{Force: false, Links: false, Volumes: false}
 	for _, c := range cs {
-		client.On("RemoveContainer", c, false, "", "").Return(nil)
+		client.On("RemoveContainer", c, false, false, false).Return(nil)
 	}
 	err := Pumba{}.RemoveContainers(client, names, "", cmd)
 	assert.NoError(t, err)
@@ -323,9 +323,9 @@ func TestRemoveByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	client := container.NewMockSamalbaClient()
-	cmd := CommandRemove{Force: false, Link: "mylink", Volumes: "myvol"}
+	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, "mylink", "myvol").Return(nil)
+	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, true, true).Return(nil)
 	// do action
 	RandomMode = true
 	err := Pumba{}.RemoveContainers(client, names, "", cmd)
@@ -338,11 +338,11 @@ func TestRemoveByNameRandom(t *testing.T) {
 func TestRemoveByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
-	cmd := CommandRemove{Force: false, Link: "mylink", Volumes: "myvol"}
+	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("RemoveContainer", c, false, "mylink", "myvol").Return(nil)
+		client.On("RemoveContainer", c, false, true, true).Return(nil)
 	}
 	// do action
 	err := Pumba{}.RemoveContainers(client, []string{}, "^c", cmd)
@@ -354,10 +354,10 @@ func TestRemoveByPattern(t *testing.T) {
 func TestRemoveByPatternRandom(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
-	cmd := CommandRemove{Force: false, Link: "mylink", Volumes: "myvol"}
+	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, "mylink", "myvol").Return(nil)
+	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, true, true).Return(nil)
 	// do action
 	RandomMode = true
 	err := Pumba{}.RemoveContainers(client, []string{}, "^c", cmd)

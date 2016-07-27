@@ -329,13 +329,13 @@ func (s *mainTestSuite) Test_removeSucess() {
 	// prepare
 	set := flag.NewFlagSet("stop", 0)
 	set.Bool("force", true, "doc")
-	set.String("link", "mylink", "doc")
-	set.String("volumes", "myvol", "doc")
+	set.Bool("links", true, "doc")
+	set.Bool("volumes", true, "doc")
 	c := cli.NewContext(nil, set, nil)
 	// set interval to 1ms
 	gInterval = 1 * time.Millisecond
 	// setup mock
-	cmd := action.CommandRemove{Force: true, Link: "mylink", Volumes: "myvol"}
+	cmd := action.CommandRemove{Force: true, Links: true, Volumes: true}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
 	chaosMock.On("RemoveContainers", nil, []string{}, "", cmd).Return(nil)

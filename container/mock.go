@@ -54,7 +54,7 @@ func (m *MockClient) KillContainer(c Container, s string, dryrun bool) error {
 }
 
 // RemoveContainer mock
-func (m *MockClient) RemoveContainer(c Container, f bool, l string, v string, dryrun bool) error {
+func (m *MockClient) RemoveContainer(c Container, f bool, l bool, v bool, dryrun bool) error {
 	args := m.Called(c, f, l, v)
 	return args.Error(0)
 }
