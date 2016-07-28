@@ -23,9 +23,9 @@ spec:
         imagePullPolicy: Always
         name: pumba
 # Pumba command: modify it to suite your needs
-# Currently: randomly try to kill some container every 5 minutes
+# Currently: randomly try to kill some container every 3 minutes
         command:
-          - "--random --interval 5m --random kill --signal SIGTERM"
+          - "pumba --debug --random --interval 3m kill --signal SIGKILL"
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock

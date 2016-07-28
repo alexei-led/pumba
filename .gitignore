@@ -1,4 +1,5 @@
 .git
 .cover
 .dist
+.idea
 vendor
