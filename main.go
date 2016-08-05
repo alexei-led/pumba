@@ -15,12 +15,12 @@ import (
 	"syscall"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gaia-adm/pumba/action"
 	"github.com/gaia-adm/pumba/container"
 
 	"github.com/urfave/cli"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/johntdyer/slackrus"
 )
 
@@ -30,6 +30,7 @@ var (
 	chaos     action.Chaos
 	gInterval time.Duration
 	gTestRun  bool
+	gStopChan chan bool
 )
 
 // LinuxSignals valid Linux signal table
@@ -79,8 +80,6 @@ const (
 func init() {
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(&log.TextFormatter{})
-	// set chaos to Pumba{}
-	chaos = action.Pumba{}
 }
 
 func main() {
@@ -315,6 +314,8 @@ func before(c *cli.Context) error {
 	}
 	// create new Docker client
 	client = container.NewClient(c.GlobalString("host"), tls)
+	// create new Chaos instance
+	chaos = action.NewChaos()
 	// habdle termination signal
 	handleSignals()
 	return nil
@@ -324,7 +325,7 @@ func before(c *cli.Context) error {
 func beforeCommand(c *cli.Context) error {
 	// get recurrent time interval
 	if intervalString := c.GlobalString("interval"); intervalString == "" {
-		return errors.New("Undefined interval value.")
+		log.Debug("No interval, running only once")
 	} else if interval, err := time.ParseDuration(intervalString); err != nil {
 		return err
 	} else {
@@ -358,7 +359,7 @@ func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn fu
 	dc := make(chan interface{})
 	// create Time channel for specified intterval: for TestRun use Timer (one time call)
 	var cmdTimeChan <-chan time.Time
-	if gTestRun {
+	if gInterval == 0 || gTestRun {
 		cmdTimeChan = time.NewTimer(gInterval).C
 	} else {
 		cmdTimeChan = time.NewTicker(gInterval).C
@@ -418,6 +419,11 @@ func netemDelay(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
+	if gInterval != 0 && duration >= gInterval {
+		err = errors.New("Duration cannot be bigger than interval")
+		log.Error(err)
+		return err
+	}
 	// get network interface and target ip
 	netInterface := "eth0"
 	var ip net.IP
@@ -427,7 +433,7 @@ func netemDelay(c *cli.Context) error {
 		reInterface := regexp.MustCompile("[a-zA-Z]+[0-9]{0,2}")
 		validInterface := reInterface.FindString(netInterface)
 		if netInterface != validInterface {
-			err := fmt.Errorf("Bad network interface name. Must match '%s'", reInterface.String())
+			err = fmt.Errorf("Bad network interface name. Must match '%s'", reInterface.String())
 			log.Error(err)
 			return err
 		}
@@ -463,6 +469,7 @@ func netemDelay(c *cli.Context) error {
 		Amount:       amount,
 		Variation:    variation,
 		Correlation:  correlation,
+		StopChan:     gStopChan,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)
 	return nil
@@ -517,13 +524,20 @@ func stop(c *cli.Context) error {
 
 func handleSignals() {
 	// Graceful shut-down on SIGINT/SIGTERM
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	// channel to notify long running commands to stop and cleanup
+	// long running commands must listen to this channel and react
+	gStopChan = make(chan bool, 1)
 
 	go func() {
-		<-c
+		sid := <-sigs
+		log.Debugf("Recieved signal: %d", sid)
+		gStopChan <- true
+		log.Debug("Sending stop signal to runnung chaos commands ...")
 		gWG.Wait()
+		log.Debug("Graceful exit :-)")
 		os.Exit(1)
 	}()
 }

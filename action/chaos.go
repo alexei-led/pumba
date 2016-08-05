@@ -44,6 +44,7 @@ type CommandNetemDelay struct {
 	Amount       int
 	Variation    int
 	Correlation  int
+	StopChan     <-chan bool
 }
 
 // CommandStop arguments for stop command
@@ -67,8 +68,14 @@ type Chaos interface {
 	PauseContainers(container.Client, []string, string, interface{}) error
 }
 
-// Pumba makes Chaos
-type Pumba struct{}
+// NewChaos create new Pumba Choas instance
+func NewChaos() Chaos {
+	return pumbaChaos{}
+}
+
+// pumba makes Chaos
+type pumbaChaos struct {
+}
 
 // all containers beside Pumba and PumbaSkip
 func allContainersFilter(c container.Container) bool {
@@ -228,30 +235,55 @@ func pauseContainers(client container.Client, containers []container.Container, 
 	return nil
 }
 
-func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string, ip net.IP, duration time.Duration) error {
+func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string, ip net.IP, duration time.Duration, stopChan <-chan bool) error {
+	var err error
+	netemContainers := []container.Container{}
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.NetemContainer(*container, netInterface, netemCmd, ip, duration, DryMode)
+			err = client.NetemContainer(*container, netInterface, netemCmd, ip, duration, DryMode)
 			if err != nil {
 				return err
 			}
+			netemContainers = append(netemContainers, *container)
 		}
 	} else {
 		for _, container := range containers {
-			err := client.NetemContainer(container, netInterface, netemCmd, ip, duration, DryMode)
+			err = client.NetemContainer(container, netInterface, netemCmd, ip, duration, DryMode)
 			if err != nil {
-				return err
+				break
+			} else {
+				netemContainers = append(netemContainers, container)
 			}
 		}
 	}
-	return nil
+	// wait for specified duration and then stop netem (where it applied) or stop on signal to stopChan channel
+	select {
+	case <-stopChan:
+		log.Debugf("Stopping netem by stop event")
+		err = stopNetemContainers(client, netemContainers, netInterface)
+	case <-time.After(duration):
+		log.Debugf("Stopping netem after: %s", duration)
+		err = stopNetemContainers(client, netemContainers, netInterface)
+	}
+
+	return err
+}
+
+func stopNetemContainers(client container.Client, containers []container.Container, netInterface string) error {
+	var err error
+	for _, container := range containers {
+		if e := client.StopNetemContainer(container, netInterface, DryMode); e != nil {
+			err = e
+		}
+	}
+	return err // last non nil error
 }
 
 //---------------------------------------------------------------------------------------------------
 
 // StopContainers stop containers matching pattern
-func (p Pumba) StopContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+func (p pumbaChaos) StopContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Stop containers")
 	// get command details
 	command, ok := cmd.(CommandStop)
@@ -267,7 +299,7 @@ func (p Pumba) StopContainers(client container.Client, names []string, pattern s
 }
 
 // KillContainers - kill containers either by RE2 pattern (if specified) or by names
-func (p Pumba) KillContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+func (p pumbaChaos) KillContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Kill containers")
 	// get command details
 	command, ok := cmd.(CommandKill)
@@ -283,7 +315,7 @@ func (p Pumba) KillContainers(client container.Client, names []string, pattern s
 }
 
 // RemoveContainers - remove container either by RE2 pattern (if specified) or by names
-func (p Pumba) RemoveContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+func (p pumbaChaos) RemoveContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Remove containers")
 	// get command details
 	command, ok := cmd.(CommandRemove)
@@ -299,8 +331,8 @@ func (p Pumba) RemoveContainers(client container.Client, names []string, pattern
 }
 
 // NetemDelayContainers delay network traffic with optional variation and correlation
-func (p Pumba) NetemDelayContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("netem dealy for containers")
+func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+	log.Info("netem: dealy for containers")
 	// get command details
 	command, ok := cmd.(CommandNetemDelay)
 	if !ok {
@@ -319,11 +351,11 @@ func (p Pumba) NetemDelayContainers(client container.Client, names []string, pat
 		netemCmd += " " + strconv.Itoa(command.Correlation) + "%"
 	}
 
-	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration)
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
 }
 
 // PauseContainers pause container,if its name within `names`, for specified interval
-func (p Pumba) PauseContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+func (p pumbaChaos) PauseContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Infof("Pause containers")
 	// get command details
 	command, ok := cmd.(CommandPause)

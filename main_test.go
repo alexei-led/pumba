@@ -100,8 +100,7 @@ func (s *mainTestSuite) Test_beforeCommand_NoInterval() {
 	err := beforeCommand(c)
 	// asserts
 	assert.NoError(s.T(), parseErr)
-	assert.Error(s.T(), err)
-	assert.EqualError(s.T(), err, "Undefined interval value.")
+	assert.NoError(s.T(), err)
 }
 
 func (s *mainTestSuite) Test_beforeCommand_BadInterval() {
@@ -363,7 +362,7 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
+	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemDelay{
 		NetInterface: "test0",
@@ -423,8 +422,30 @@ func (s *mainTestSuite) Test_netemDelayBadDuration() {
 	assert.EqualError(s.T(), err, "time: invalid duration BAD")
 }
 
+func (s *mainTestSuite) Test_netemDelayBigDuration() {
+	// prepare test data
+	gInterval = 1 * time.Second
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("interface", "test0", "doc")
+	netemSet.String("duration", "10s", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// delay flags
+	delaySet := flag.NewFlagSet("delay", 0)
+	delaySet.Int("amount", 200, "doc")
+	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("correlation", 10, "doc")
+	delaySet.Parse([]string{"c1", "c2", "c3"})
+	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
+	// invoke command
+	err := netemDelay(delayCtx)
+	// asserts
+	assert.EqualError(s.T(), err, "Duration cannot be bigger than interval")
+}
+
 func (s *mainTestSuite) Test_netemDelayBadNetInterface() {
 	// prepare test data
+	gInterval = 1 * time.Second
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
 	netemSet.String("interface", "hello test", "doc")

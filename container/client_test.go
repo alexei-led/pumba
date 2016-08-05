@@ -554,12 +554,29 @@ func TestNetemContainer_Success(t *testing.T) {
 	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "1000ms"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
+
+	client := dockerClient{apiClient: engineClient}
+	err := client.NetemContainer(c, "eth0", "delay 1000ms", nil, 1*time.Millisecond, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestStopNetemContainer_Success(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+
+	ctx := context.Background()
+	engineClient := NewMockEngine()
 	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", "delay 1000ms", nil, 1*time.Millisecond, false)
+	err := client.StopNetemContainer(c, "eth0", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -603,10 +620,6 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dport", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.ContainerExecCreateResponse{"cmd3"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd3", types.ExecStartCheck{}).Return(nil)
-
-	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
-	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 
 	client := dockerClient{apiClient: engineClient}
 	err := client.NetemContainer(c, "eth0", "delay 1000ms", net.ParseIP("10.10.0.1"), 1*time.Millisecond, false)

@@ -70,3 +70,9 @@ func (m *MockClient) NetemContainer(c Container, n string, s string, ip net.IP, 
 	args := m.Called(c, n, s, ip, d)
 	return args.Error(0)
 }
+
+// StopNetemContainer mock
+func (m *MockClient) StopNetemContainer(c Container, n string, dryrun bool) error {
+	args := m.Called(c, n)
+	return args.Error(0)
+}

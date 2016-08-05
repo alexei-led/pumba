@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.2.2] - 2016-08-04
+## Changed
+- `--interval` flag is optional now; if missing Pumba will do single chaos action and exit
+
+
 ## [v0.2.0] - 2016-07-20
 ### Added
 - Network emulation for egress container traffic, powered by [netem](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem)

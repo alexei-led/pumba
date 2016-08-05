@@ -36,6 +36,7 @@ type Client interface {
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool, bool, bool) error
 	NetemContainer(Container, string, string, net.IP, time.Duration, bool) error
+	StopNetemContainer(Container, string, bool) error
 	PauseContainer(Container, time.Duration, bool) error
 }
 
@@ -206,11 +207,14 @@ func (client dockerClient) NetemContainer(c Container, netInterface string, nete
 		log.Infof("%sRunning netem command '%s' on container %s with filter %s for %s", prefix, netemCmd, c.ID(), targetIP.String(), duration)
 		err = client.startNetemContainerIPFilter(c, netInterface, netemCmd, targetIP.String(), dryrun)
 	}
-	if err != nil {
-		return err
+	return err
+}
+
+func (client dockerClient) StopNetemContainer(c Container, netInterface string, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
 	}
-	// sleep (current goroutine) for specified duration and then stop netem
-	time.Sleep(duration)
 	log.Infof("%sStopping netem on container %s", prefix, c.ID())
 	return client.stopNetemContainer(c, netInterface, dryrun)
 }
@@ -226,7 +230,7 @@ func (client dockerClient) PauseContainer(c Container, duration time.Duration, d
 			return err
 		}
 		log.Debugf("Container %s paused for %s", c.ID(), duration)
-		// pause the current goroutine for specified duration
+		// TODO: FIXME: pause the current goroutine for specified duration
 		time.Sleep(duration)
 		if err := client.api.UnpauseContainer(c.ID()); err != nil {
 			return err
