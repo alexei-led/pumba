@@ -250,11 +250,11 @@ func (client dockerClient) startNetemContainer(c Container, netInterface string,
 		// use dockerclient ExecStart to run Traffic Control:
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-		netemCommand := "tc qdisc add dev " + netInterface + " root netem " + strings.ToLower(netemCmd)
+		netemCommand := "qdisc add dev " + netInterface + " root netem " + strings.ToLower(netemCmd)
 		// stop disruption command
 		// netemStopCommand := "tc qdisc del dev eth0 root netem"
 		log.Debugf("netem command '%s'", netemCommand)
-		return client.execOnContainer(c, netemCommand, true)
+		return client.execOnContainer(c, "tc", netemCommand, true)
 	}
 	return nil
 }
@@ -268,9 +268,9 @@ func (client dockerClient) stopNetemContainer(c Container, netInterface string, 
 	if !dryrun {
 		// stop netem command
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-		netemCommand := "tc qdisc del dev " + netInterface + " root netem"
+		netemCommand := "qdisc del dev " + netInterface + " root netem"
 		log.Debugf("netem command '%s'", netemCommand)
-		return client.execOnContainer(c, netemCommand, true)
+		return client.execOnContainer(c, "tc", netemCommand, true)
 	}
 	return nil
 }
@@ -292,9 +292,9 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		//  Create a priority-based queue.
 		// 'tc qdisc add dev <netInterface> root handle 1: prio'
 		// See more: http://stuff.onse.fi/man?program=tc
-		handleCommand := "tc qdisc add dev " + netInterface + " root handle 1: prio"
+		handleCommand := "qdisc add dev " + netInterface + " root handle 1: prio"
 		log.Debugf("handleCommand %s", handleCommand)
-		err := client.execOnContainer(c, handleCommand, true)
+		err := client.execOnContainer(c, "tc", handleCommand, true)
 		if err != nil {
 			return err
 		}
@@ -302,9 +302,9 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		//  Delay everything in band 3
 		// 'tc qdisc add dev <netInterface> parent 1:3 netem <netemCmd>'
 		// See more: http://stuff.onse.fi/man?program=tc
-		netemCommand := "tc qdisc add dev " + netInterface + " parent 1:3 netem " + strings.ToLower(netemCmd)
+		netemCommand := "qdisc add dev " + netInterface + " parent 1:3 netem " + strings.ToLower(netemCmd)
 		log.Debugf("netemCommand %s", netemCommand)
-		err = client.execOnContainer(c, netemCommand, true)
+		err = client.execOnContainer(c, "tc", netemCommand, true)
 		if err != nil {
 			return err
 		}
@@ -312,27 +312,62 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		// # say traffic to $PORT is band 3
 		// 'tc filter add dev <netInterface> protocol ip parent 1:0 prio 3 u32 match ip dst <targetIP> flowid 1:3'
 		// See more: http://stuff.onse.fi/man?program=tc-u32
-		filterCommand := "tc filter add dev " + netInterface + " protocol ip parent 1:0 prio 3 " +
+		filterCommand := "filter add dev " + netInterface + " protocol ip parent 1:0 prio 3 " +
 			"u32 match ip dport " + strings.ToLower(targetIP) + " flowid 1:3"
 		log.Debugf("filterCommand %s", filterCommand)
-		return client.execOnContainer(c, filterCommand, true)
+		return client.execOnContainer(c, "tc", filterCommand, true)
 	}
 	return nil
 }
 
-func (client dockerClient) execOnContainer(c Container, execCmd string, privileged bool) error {
-	config := enginetypes.ExecConfig{
-		Privileged: privileged,
-		Cmd:        strings.Split(execCmd, " "),
-	}
+func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs string, privileged bool) error {
+	// trim all spaces from cmd
+	execCmd = strings.Replace(execCmd, " ", "", -1)
 
-	exec, err := client.apiClient.ContainerExecCreate(context.Background(), c.ID(), config)
+	// check if command exists inside target container
+	checkExists := enginetypes.ExecConfig{
+		Cmd: []string{"which", execCmd},
+	}
+	exec, err := client.apiClient.ContainerExecCreate(context.Background(), c.ID(), checkExists)
 	if err != nil {
 		return err
 	}
+	log.Debugf("Check if command %s exists", execCmd)
+	err = client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
+	if err != nil {
+		return err
+	}
+	checkInspect, err := client.apiClient.ContainerExecInspect(context.Background(), exec.ID)
+	if err != nil {
+		return err
+	}
+	if checkInspect.ExitCode != 0 {
+		return fmt.Errorf("command '%s' not found in %s (%s) container", execCmd, c.Name(), c.ID())
+	}
 
-	log.Debugf("Starting Exec %s (%s)", execCmd, exec.ID)
-	return client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
+	// prepare exec config
+	config := enginetypes.ExecConfig{
+		Privileged: privileged,
+		Cmd:        strings.Split(execCmd+" "+execArgs, " "),
+	}
+	// execute the command
+	exec, err = client.apiClient.ContainerExecCreate(context.Background(), c.ID(), config)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Starting Exec %s %s (%s)", execCmd, execArgs, exec.ID)
+	err = client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
+	if err != nil {
+		return err
+	}
+	exitInspect, err := client.apiClient.ContainerExecInspect(context.Background(), exec.ID)
+	if err != nil {
+		return err
+	}
+	if exitInspect.ExitCode != 0 {
+		return fmt.Errorf("command '%s' failed in %s (%s) container; try to run in manually to debug", execCmd, c.Name(), c.ID())
+	}
+	return nil
 }
 
 func (client dockerClient) waitForStop(c Container, waitTime int) error {

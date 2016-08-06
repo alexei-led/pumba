@@ -356,9 +356,10 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 10, "doc")
+	delaySet.String("distribution", "normal", "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// set interval to 1ms
@@ -367,9 +368,10 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 	cmd := action.CommandNetemDelay{
 		NetInterface: "test0",
 		Duration:     10 * time.Millisecond,
-		Amount:       200,
-		Variation:    20,
+		Time:         200,
+		Jitter:       20,
 		Correlation:  10,
+		Distribution: "normal",
 		StopChan:     gStopChan,
 	}
 	chaosMock := &ChaosMock{}
@@ -392,8 +394,8 @@ func (s *mainTestSuite) Test_netemDelayNoDuration() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("Time", 200, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
@@ -412,8 +414,8 @@ func (s *mainTestSuite) Test_netemDelayBadDuration() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
@@ -433,8 +435,8 @@ func (s *mainTestSuite) Test_netemDelayBigDuration() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
@@ -454,8 +456,8 @@ func (s *mainTestSuite) Test_netemDelayBadNetInterface() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
@@ -465,7 +467,7 @@ func (s *mainTestSuite) Test_netemDelayBadNetInterface() {
 	assert.EqualError(s.T(), err, "Bad network interface name. Must match '[a-zA-Z]+[0-9]{0,2}'")
 }
 
-func (s *mainTestSuite) Test_netemDelayInvalidVariation() {
+func (s *mainTestSuite) Test_netemDelayInvalidJitter() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -474,18 +476,18 @@ func (s *mainTestSuite) Test_netemDelayInvalidVariation() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", -10, "doc")
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", -10, "doc")
 	delaySet.Int("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
 	err := netemDelay(delayCtx)
 	// asserts
-	assert.EqualError(s.T(), err, "Invalid delay variation")
+	assert.EqualError(s.T(), err, "Invalid delay jitter")
 }
 
-func (s *mainTestSuite) Test_netemDelayInvalidAmount() {
+func (s *mainTestSuite) Test_netemDelayInvalidTime() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -494,15 +496,15 @@ func (s *mainTestSuite) Test_netemDelayInvalidAmount() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", -20, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("time", -20, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 101, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
 	err := netemDelay(delayCtx)
 	// asserts
-	assert.EqualError(s.T(), err, "Invalid delay amount")
+	assert.EqualError(s.T(), err, "Invalid delay time")
 }
 
 func (s *mainTestSuite) Test_netemDelayInvalidCorrelation() {
@@ -514,8 +516,8 @@ func (s *mainTestSuite) Test_netemDelayInvalidCorrelation() {
 	netemCtx := cli.NewContext(nil, netemSet, nil)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
-	delaySet.Int("amount", 200, "doc")
-	delaySet.Int("variation", 20, "doc")
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", 20, "doc")
 	delaySet.Int("correlation", 101, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
@@ -523,6 +525,27 @@ func (s *mainTestSuite) Test_netemDelayInvalidCorrelation() {
 	err := netemDelay(delayCtx)
 	// asserts
 	assert.EqualError(s.T(), err, "Invalid delay correlation: must be between 0 and 100")
+}
+
+func (s *mainTestSuite) Test_netemDelayInvalidDistribution() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("interface", "test0", "doc")
+	netemSet.String("duration", "10ms", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// delay flags
+	delaySet := flag.NewFlagSet("delay", 0)
+	delaySet.Int("time", 200, "doc")
+	delaySet.Int("jitter", 10, "doc")
+	delaySet.Int("correlation", 10, "doc")
+	delaySet.String("distribution", "INVALID", "doc")
+	delaySet.Parse([]string{"c1", "c2", "c3"})
+	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
+	// invoke command
+	err := netemDelay(delayCtx)
+	// asserts
+	assert.EqualError(s.T(), err, "Invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
 }
 
 func TestMainTestSuite(t *testing.T) {

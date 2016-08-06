@@ -70,12 +70,21 @@ var LinuxSignals = map[string]int{
 
 const (
 	// Release version
-	Release = "v0.2.0"
+	Release = "v0.2.2"
 	// DefaultSignal default kill signal
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
 	Re2Prefix = "re2:"
 )
+
+func contains(slice []string, item string) bool {
+	set := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+	_, ok := set[item]
+	return ok
+}
 
 func init() {
 	log.SetLevel(log.InfoLevel)
@@ -136,19 +145,24 @@ func main() {
 					Name: "delay",
 					Flags: []cli.Flag{
 						cli.IntFlag{
-							Name:  "amount, a",
-							Usage: "delay amount; in milliseconds",
+							Name:  "time, t",
+							Usage: "delay time; in milliseconds",
 							Value: 100,
 						},
 						cli.IntFlag{
-							Name:  "variation, v",
-							Usage: "random delay variation; in milliseconds; example: 100ms ± 10ms",
+							Name:  "jitter, j",
+							Usage: "random delay variation (jitter); in milliseconds; example: 100ms ± 10ms",
 							Value: 10,
 						},
 						cli.IntFlag{
 							Name:  "correlation, c",
-							Usage: "delay correlation; in percents",
+							Usage: "delay correlation; in percentage",
 							Value: 20,
+						},
+						cli.StringFlag{
+							Name:  "distribution, d",
+							Usage: "delay distribution, can be one of {<empty> | uniform | normal | pareto |  paretonormal}",
+							Value: "",
 						},
 					},
 					Usage:       "dealy egress traffic",
@@ -440,17 +454,17 @@ func netemDelay(c *cli.Context) error {
 		// get target IP Filter
 		ip = net.ParseIP(c.Parent().String("target"))
 	}
-	// get delay amount
-	amount := c.Int("amount")
-	if amount <= 0 {
-		err = errors.New("Invalid delay amount")
+	// get delay time
+	time := c.Int("time")
+	if time <= 0 {
+		err = errors.New("Invalid delay time")
 		log.Error(err)
 		return err
 	}
 	// get delay variation
-	variation := c.Int("variation")
-	if variation < 0 || variation > amount {
-		err = errors.New("Invalid delay variation")
+	jitter := c.Int("jitter")
+	if jitter < 0 || jitter > time {
+		err = errors.New("Invalid delay jitter")
 		log.Error(err)
 		return err
 	}
@@ -461,14 +475,22 @@ func netemDelay(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
+	// get distribution
+	distribution := c.String("distribution")
+	if ok := contains(action.DelayDistribution, distribution); !ok {
+		err = errors.New("Invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
+		log.Error(err)
+		return err
+	}
 	// pepare netem delay command
 	delayCmd := action.CommandNetemDelay{
 		NetInterface: netInterface,
 		IP:           ip,
 		Duration:     duration,
-		Amount:       amount,
-		Variation:    variation,
+		Time:         time,
+		Jitter:       jitter,
 		Correlation:  correlation,
+		Distribution: distribution,
 		StopChan:     gStopChan,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)

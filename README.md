@@ -14,7 +14,7 @@ You can download Pumba binary for your OS from [release](https://github.com/gaia
 ```
 $ pumba help
 
-Pumba version v0.2.0
+Pumba version v0.2.2
 NAME:
    Pumba - Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance.
 
@@ -22,7 +22,7 @@ USAGE:
    pumba [global options] command [command options] containers (name, list of names, RE2 regex)
 
 VERSION:
-   v0.2.0
+   v0.2.2
 
 COMMANDS:
      kill     kill specified containers
@@ -180,16 +180,22 @@ DESCRIPTION:
    dealy egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation
 
 OPTIONS:
-   --amount value, -a value       delay amount; in milliseconds (default: 100)
-   --variation value, -v value    random delay variation; in milliseconds; example: 100ms ± 10ms (default: 10)
-   --correlation value, -c value  delay correlation; in percents (default: 20)
+   --time value, -t value          delay time; in milliseconds (default: 100)
+   --jitter value, -j value        random delay variation (jitter); in milliseconds; example: 100ms ± 10ms (default: 10)
+   --correlation value, -c value   delay correlation; in percentage (default: 20)
+   --distribution value, -d value  delay distribution, can be one of {uniform | normal | pareto |  paretonormal} (default: "uniform")
+
 ```
 
 ##### Example
 ```
-   $ pumba --debug --interval 5m --random netem --duration 2m --interface eth2 delay --amount 2000 re2:^result
+   $ pumba --debug --interval 5m --random netem --duration 2m --interface eth2 delay --time 2000 re2:^result
 ```
-Once in 5 minutes, Pumba will delay for 2 seconds (2000ms) egress traffic for some (randomly chosen) container named `result...` (matching `^result` regexp) on `eth2` network interface. Pumba will restore normal connectivity after 2 minutes.
+Pumba creates a 2s (2000ms) network delay for egress traffic for some (randomly chosen) container named `result...` (matching `^result` regexp) on `eth2` network interface. Pumba will exit and restore normal connectivity after 2 minutes.
+
+**Note 1:** Pumba uses `tc` Linux tool for network emulation. Make sure that your container has this tool available and properly installed. `tc` usually avaialble as part of `iproute2` package.
+
+**Note 2:** For Alpine Linux `tc`, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`
 
 ### Running inside Docker container
 

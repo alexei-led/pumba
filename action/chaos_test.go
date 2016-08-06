@@ -437,8 +437,8 @@ func TestNetemDealyByName(t *testing.T) {
 		NetInterface: "eth1",
 		IP:           nil,
 		Duration:     1 * time.Second,
-		Amount:       120,
-		Variation:    25,
+		Time:         120,
+		Jitter:       25,
 		Correlation:  15,
 	}
 	client := container.NewMockSamalbaClient()
@@ -462,8 +462,8 @@ func TestNetemDealyByNameRandom(t *testing.T) {
 		NetInterface: "eth1",
 		IP:           nil,
 		Duration:     1 * time.Second,
-		Amount:       120,
-		Variation:    25,
+		Time:         120,
+		Jitter:       25,
 		Correlation:  15,
 	}
 	client := container.NewMockSamalbaClient()
@@ -487,8 +487,8 @@ func TestNetemDealyByPattern(t *testing.T) {
 		NetInterface: "eth1",
 		IP:           nil,
 		Duration:     1 * time.Second,
-		Amount:       120,
-		Variation:    25,
+		Time:         120,
+		Jitter:       25,
 		Correlation:  15,
 	}
 	client := container.NewMockSamalbaClient()
@@ -513,8 +513,8 @@ func TestNetemDealyByPatternIPFilter(t *testing.T) {
 		NetInterface: "eth1",
 		IP:           ip,
 		Duration:     1 * time.Second,
-		Amount:       120,
-		Variation:    25,
+		Time:         120,
+		Jitter:       25,
 		Correlation:  15,
 	}
 	client := container.NewMockSamalbaClient()
@@ -538,8 +538,8 @@ func TestNetemDealyByPatternRandom(t *testing.T) {
 		NetInterface: "eth1",
 		IP:           nil,
 		Duration:     1 * time.Second,
-		Amount:       120,
-		Variation:    25,
+		Time:         120,
+		Jitter:       25,
 		Correlation:  15,
 	}
 	client := container.NewMockSamalbaClient()

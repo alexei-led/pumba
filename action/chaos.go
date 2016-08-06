@@ -17,6 +17,8 @@ var (
 	RandomMode = false
 	// DryMode - do not 'kill' the container only log event
 	DryMode = false
+	// DelayDistribution netem dalay distributions
+	DelayDistribution = []string{"", "uniform", "normal", "pareto", "paretonormal"}
 )
 
 const (
@@ -41,9 +43,10 @@ type CommandNetemDelay struct {
 	NetInterface string
 	IP           net.IP
 	Duration     time.Duration
-	Amount       int
-	Variation    int
+	Time         int
+	Jitter       int
 	Correlation  int
+	Distribution string
 	StopChan     <-chan bool
 }
 
@@ -330,7 +333,7 @@ func (p pumbaChaos) RemoveContainers(client container.Client, names []string, pa
 	return removeContainers(client, containers, command.Force, command.Links, command.Volumes)
 }
 
-// NetemDelayContainers delay network traffic with optional variation and correlation
+// NetemDelayContainers delay network traffic with optional Jitter and correlation
 func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("netem: dealy for containers")
 	// get command details
@@ -343,12 +346,15 @@ func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	netemCmd := "delay " + strconv.Itoa(command.Amount) + "ms"
-	if command.Variation > 0 {
-		netemCmd += " " + strconv.Itoa(command.Variation) + "ms"
+	netemCmd := "delay " + strconv.Itoa(command.Time) + "ms"
+	if command.Jitter > 0 {
+		netemCmd += " " + strconv.Itoa(command.Jitter) + "ms"
 	}
 	if command.Correlation > 0 {
 		netemCmd += " " + strconv.Itoa(command.Correlation) + "%"
+	}
+	if command.Distribution != "" {
+		netemCmd += " " + "distribution" + " " + command.Distribution
 	}
 
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
