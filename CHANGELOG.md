@@ -5,7 +5,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [v0.2.2] - 2016-08-04
 ## Changed
 - `--interval` flag is optional now; if missing Pumba will do single chaos action and exit
-
+- `netem delay --distribution` new option to define optional delay distribution, can be: {uniform | normal | pareto |  paretonormal}
+- check added to verify `tc` tool existence in container (`tc` is required for network emulation; part of `iproute2` package)
+- Use `Ctrl-C` to abort Pumba execution at any time
 
 ## [v0.2.0] - 2016-07-20
 ### Added
