@@ -368,9 +368,6 @@ func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn fu
 	go func(cmd interface{}) {
 		for range cmdTimeChan {
 			dc <- cmd
-			if gTestRun {
-				close(dc)
-			}
 		}
 	}(cmd)
 	// handle 'chaos' command
@@ -380,6 +377,9 @@ func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn fu
 			defer gWG.Done()
 			if err := chaosFn(client, names, pattern, cmd); err != nil {
 				log.Error(err)
+			}
+			if gInterval == 0 || gTestRun {
+				close(dc)
 			}
 		}(cmd)
 	}

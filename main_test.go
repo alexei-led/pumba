@@ -370,6 +370,7 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 		Amount:       200,
 		Variation:    20,
 		Correlation:  10,
+		StopChan:     gStopChan,
 	}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
