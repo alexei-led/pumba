@@ -86,6 +86,34 @@ func TestPattern_Re2Filter(t *testing.T) {
 	assert.False(t, cf(c3))
 }
 
+func TestPattern_Re2FilterEnds(t *testing.T) {
+	c1 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "AbcEFG-result-1",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	c2 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "AbcHKL-ignore",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	c3 := *container.NewContainer(
+		&dockerclient.ContainerInfo{
+			Name:   "AbcPumba-result-2",
+			Config: &dockerclient.ContainerConfig{},
+		},
+		nil,
+	)
+	cf := regexContainerFilter("(.+)result")
+	assert.True(t, cf(c1))
+	assert.False(t, cf(c2))
+	assert.True(t, cf(c3))
+}
+
 func TestNamesFilter(t *testing.T) {
 	c1 := *container.NewContainer(
 		&dockerclient.ContainerInfo{

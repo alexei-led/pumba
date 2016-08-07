@@ -195,7 +195,7 @@ Pumba creates a 2s (2000ms) network delay for egress traffic for some (randomly 
 
 **Note 1:** Pumba uses `tc` Linux tool for network emulation. Make sure that your container has this tool available and properly installed. `tc` usually avaialble as part of `iproute2` package.
 
-**Note 2:** For Alpine Linux `tc`, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`
+**Note 2:** For Alpine Linux `tc`, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
 
 ### Running inside Docker container
 

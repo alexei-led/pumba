@@ -88,6 +88,15 @@ func (s *mainTestSuite) Test_getPattern() {
 	assert.True(s.T(), pattern == "^test")
 }
 
+func (s *mainTestSuite) Test_getPattern2() {
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.Parse([]string{"re2:(.+)test"})
+	c := cli.NewContext(nil, globalSet, nil)
+	names, pattern := getNamesOrPattern(c)
+	assert.True(s.T(), len(names) == 0)
+	assert.True(s.T(), pattern == "(.+)test")
+}
+
 func (s *mainTestSuite) Test_beforeCommand_NoInterval() {
 	// prepare
 	set := flag.NewFlagSet("test", 0)

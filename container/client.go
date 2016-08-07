@@ -332,7 +332,7 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 	if err != nil {
 		return err
 	}
-	log.Debugf("Check if command %s exists", execCmd)
+	log.Debugf("checking if command %s exists", execCmd)
 	err = client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
 	if err != nil {
 		return err
@@ -342,8 +342,9 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 		return err
 	}
 	if checkInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' not found in %s (%s) container", execCmd, c.Name(), c.ID())
+		return fmt.Errorf("command '%s' not found inside the %s (%s) container", execCmd, c.Name(), c.ID())
 	}
+	log.Debugf("command %s found: continue...", execCmd)
 
 	// prepare exec config
 	config := enginetypes.ExecConfig{
@@ -365,7 +366,7 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 		return err
 	}
 	if exitInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' failed in %s (%s) container; try to run in manually to debug", execCmd, c.Name(), c.ID())
+		return fmt.Errorf("command '%s' failed in %s (%s) container; run it in manually to debug", execCmd, c.Name(), c.ID())
 	}
 	return nil
 }
