@@ -79,6 +79,16 @@ func (s *mainTestSuite) Test_getNames() {
 	assert.True(s.T(), pattern == "")
 }
 
+func (s *mainTestSuite) Test_getSingleName() {
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.Parse([]string{"single"})
+	c := cli.NewContext(nil, globalSet, nil)
+	names, pattern := getNamesOrPattern(c)
+	assert.True(s.T(), len(names) == 1)
+	assert.True(s.T(), names[0] == "single")
+	assert.True(s.T(), pattern == "")
+}
+
 func (s *mainTestSuite) Test_getPattern() {
 	globalSet := flag.NewFlagSet("test", 0)
 	globalSet.Parse([]string{"re2:^test"})
@@ -255,7 +265,10 @@ func (s *mainTestSuite) Test_pauseSucess() {
 	// setup mock
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	cmd := action.CommandPause{Duration: time.Duration(10 * time.Second)}
+	cmd := action.CommandPause{
+		Duration: time.Duration(10 * time.Second),
+		StopChan: gStopChan,
+	}
 	chaosMock.On("PauseContainers", nil, []string{}, "", cmd).Return(nil)
 	// invoke command
 	err := pause(c)

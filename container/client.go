@@ -37,7 +37,8 @@ type Client interface {
 	RemoveContainer(Container, bool, bool, bool, bool) error
 	NetemContainer(Container, string, string, net.IP, time.Duration, bool) error
 	StopNetemContainer(Container, string, bool) error
-	PauseContainer(Container, time.Duration, bool) error
+	PauseContainer(Container, bool) error
+	UnpauseContainer(Container, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -219,23 +220,31 @@ func (client dockerClient) StopNetemContainer(c Container, netInterface string, 
 	return client.stopNetemContainer(c, netInterface, dryrun)
 }
 
-func (client dockerClient) PauseContainer(c Container, duration time.Duration, dryrun bool) error {
+func (client dockerClient) PauseContainer(c Container, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
 	}
-	log.Infof("%sPausing container %s for %s", prefix, c.ID(), duration)
+	log.Infof("%sPausing container %s", prefix, c.ID())
 	if !dryrun {
-		if err := client.api.PauseContainer(c.ID()); err != nil {
+		if err := client.apiClient.ContainerPause(context.Background(), c.ID()); err != nil {
 			return err
 		}
-		log.Debugf("Container %s paused for %s", c.ID(), duration)
-		// TODO: FIXME: pause the current goroutine for specified duration
-		time.Sleep(duration)
-		if err := client.api.UnpauseContainer(c.ID()); err != nil {
+		log.Debugf("Container %s paused", c.ID())
+	}
+	return nil
+}
+
+func (client dockerClient) UnpauseContainer(c Container, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sUnpausing container %s", prefix, c.ID())
+	if !dryrun {
+		if err := client.apiClient.ContainerUnpause(context.Background(), c.ID()); err != nil {
 			return err
 		}
-		log.Debugf("Container upaused %s after %s", c.ID(), duration)
 	}
 	return nil
 }

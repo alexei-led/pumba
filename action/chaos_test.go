@@ -414,7 +414,8 @@ func TestPauseByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("PauseContainer", c, 2*time.Millisecond).Return(nil)
+		client.On("PauseContainer", c).Return(nil)
+		client.On("UnpauseContainer", c).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -431,7 +432,8 @@ func TestPauseByPattern(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("PauseContainer", c, 2*time.Millisecond).Return(nil)
+		client.On("PauseContainer", c).Return(nil)
+		client.On("UnpauseContainer", c).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -447,7 +449,8 @@ func TestPauseByNameRandom(t *testing.T) {
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("PauseContainer", mock.AnythingOfType("container.Container"), 2*time.Millisecond).Return(nil)
+	client.On("PauseContainer", mock.AnythingOfType("container.Container")).Return(nil)
+	client.On("UnpauseContainer", mock.AnythingOfType("container.Container")).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -587,6 +590,7 @@ func TestNetemDealyByPatternRandom(t *testing.T) {
 func TestSelectRandomContainer(t *testing.T) {
 	_, cs := makeContainersN(30)
 	c1 := randomContainer(cs)
+	time.Sleep(1 * time.Millisecond)
 	c2 := randomContainer(cs)
 	assert.NotNil(t, c1)
 	assert.NotNil(t, c2)

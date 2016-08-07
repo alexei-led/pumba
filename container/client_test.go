@@ -465,21 +465,32 @@ func TestPauseContainer_Success(t *testing.T) {
 			Id: "abc123",
 		},
 	}
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerPause", ctx, "abc123").Return(nil)
 
-	d, _ := time.ParseDuration("10ms")
+	client := dockerClient{apiClient: engineClient}
+	err := client.PauseContainer(c, false)
 
-	api := mockclient.NewMockClient()
-	api.On("PauseContainer", "abc123").Return(nil)
-	api.On("UnpauseContainer", "abc123").Return(nil)
-
-	client := dockerClient{api: api}
-	start := time.Now()
-	err := client.PauseContainer(c, d, false)
-	duration := time.Since(start)
-
-	assert.True(t, duration >= d)
 	assert.NoError(t, err)
-	api.AssertExpectations(t)
+	engineClient.AssertExpectations(t)
+}
+
+func TestUnauseContainer_Success(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "abc123",
+		},
+	}
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerUnpause", ctx, "abc123").Return(nil)
+
+	client := dockerClient{apiClient: engineClient}
+	err := client.UnpauseContainer(c, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
 }
 
 func TestPauseContainer_DryRun(t *testing.T) {
@@ -488,17 +499,13 @@ func TestPauseContainer_DryRun(t *testing.T) {
 			Id: "abc123",
 		},
 	}
-
-	d, _ := time.ParseDuration("2ms")
-
-	api := mockclient.NewMockClient()
-
-	client := dockerClient{api: api}
-	err := client.PauseContainer(c, d, true)
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	client := dockerClient{apiClient: engineClient}
+	err := client.PauseContainer(c, true)
 
 	assert.NoError(t, err)
-	api.AssertNotCalled(t, "PauseContainer", "abc123")
-	api.AssertNotCalled(t, "UnpauseContainer", "abc123")
+	engineClient.AssertNotCalled(t, "ContainerPause", ctx, "abc123")
 }
 
 func TestPauseContainer_PauseError(t *testing.T) {
@@ -507,18 +514,16 @@ func TestPauseContainer_PauseError(t *testing.T) {
 			Id: "abc123",
 		},
 	}
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerPause", ctx, "abc123").Return(errors.New("pause"))
 
-	d, _ := time.ParseDuration("2ms")
-
-	api := mockclient.NewMockClient()
-	api.On("PauseContainer", "abc123").Return(errors.New("pause"))
-
-	client := dockerClient{api: api}
-	err := client.PauseContainer(c, d, false)
+	client := dockerClient{apiClient: engineClient}
+	err := client.PauseContainer(c, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "pause")
-	api.AssertExpectations(t)
+	engineClient.AssertExpectations(t)
 }
 
 func TestPauseContainer_UnpauseError(t *testing.T) {
@@ -527,19 +532,16 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 			Id: "abc123",
 		},
 	}
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerUnpause", ctx, "abc123").Return(errors.New("unpause"))
 
-	d, _ := time.ParseDuration("2ms")
-
-	api := mockclient.NewMockClient()
-	api.On("PauseContainer", "abc123").Return(nil)
-	api.On("UnpauseContainer", "abc123").Return(errors.New("unpause"))
-
-	client := dockerClient{api: api}
-	err := client.PauseContainer(c, d, false)
+	client := dockerClient{apiClient: engineClient}
+	err := client.UnpauseContainer(c, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "unpause")
-	api.AssertExpectations(t)
+	engineClient.AssertExpectations(t)
 }
 
 func TestNetemContainer_Success(t *testing.T) {
@@ -548,7 +550,6 @@ func TestNetemContainer_Success(t *testing.T) {
 			Id: "abc123",
 		},
 	}
-
 	ctx := context.Background()
 	engineClient := NewMockEngine()
 

@@ -36,6 +36,7 @@ type CommandKill struct {
 // CommandPause arguments for pause command
 type CommandPause struct {
 	Duration time.Duration
+	StopChan <-chan bool
 }
 
 // CommandNetemDelay arguments for 'netem delay' sub-command
@@ -218,24 +219,48 @@ func removeContainers(client container.Client, containers []container.Container,
 	return nil
 }
 
-func pauseContainers(client container.Client, containers []container.Container, duration time.Duration) error {
+func pauseContainers(client container.Client, containers []container.Container, duration time.Duration, stopChan <-chan bool) error {
+	var err error
+	pausedContainers := []container.Container{}
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err := client.PauseContainer(*container, duration, DryMode)
+			err = client.PauseContainer(*container, DryMode)
 			if err != nil {
 				return err
 			}
+			pausedContainers = append(pausedContainers, *container)
 		}
 	} else {
 		for _, container := range containers {
-			err := client.PauseContainer(container, duration, DryMode)
+			err = client.PauseContainer(container, DryMode)
 			if err != nil {
-				return err
+				break
+			} else {
+				pausedContainers = append(pausedContainers, container)
 			}
 		}
 	}
-	return nil
+	// wait for specified duration and then unpause containers or unpause on signal to stopChan channel
+	select {
+	case <-stopChan:
+		log.Debugf("Unpause containers by stop event")
+		err = unpauseContainers(client, pausedContainers)
+	case <-time.After(duration):
+		log.Debugf("Unpause containers after: %s", duration)
+		err = unpauseContainers(client, pausedContainers)
+	}
+	return err
+}
+
+func unpauseContainers(client container.Client, containers []container.Container) error {
+	var err error
+	for _, container := range containers {
+		if e := client.UnpauseContainer(container, DryMode); e != nil {
+			err = e
+		}
+	}
+	return err // last non nil error
 }
 
 func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string, ip net.IP, duration time.Duration, stopChan <-chan bool) error {
@@ -373,5 +398,5 @@ func (p pumbaChaos) PauseContainers(client container.Client, names []string, pat
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	return pauseContainers(client, containers, command.Duration)
+	return pauseContainers(client, containers, command.Duration, command.StopChan)
 }

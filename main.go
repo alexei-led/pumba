@@ -70,7 +70,7 @@ var LinuxSignals = map[string]int{
 
 const (
 	// Release version
-	Release = "v0.2.2"
+	Release = "v0.2.3"
 	// DefaultSignal default kill signal
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
@@ -362,6 +362,8 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 			if strings.HasPrefix(first, Re2Prefix) {
 				pattern = strings.Trim(first, Re2Prefix)
 				log.Debugf("Pattern: '%s'", pattern)
+			} else {
+				names = append(names, first)
 			}
 		}
 	}
@@ -513,7 +515,10 @@ func pause(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	cmd := action.CommandPause{Duration: duration}
+	cmd := action.CommandPause{
+		Duration: duration,
+		StopChan: gStopChan,
+	}
 	runChaosCommand(cmd, names, pattern, chaos.PauseContainers)
 	return nil
 }

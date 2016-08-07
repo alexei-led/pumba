@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.2.3] - 2016-08-07
+## Fixed
+- `pause` command now can be interrupted with `Ctrl-C`; all paused processes will be unpaused
+- BUG: when using single container name, pumba disturbs all containers
+
 ## [v0.2.2] - 2016-08-04
 ## Changed
 - `--interval` flag is optional now; if missing Pumba will do single chaos action and exit
