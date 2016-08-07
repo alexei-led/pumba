@@ -46,8 +46,43 @@ type CommandNetemDelay struct {
 	Duration     time.Duration
 	Time         int
 	Jitter       int
-	Correlation  int
+	Correlation  float64
 	Distribution string
+	StopChan     <-chan bool
+}
+
+// CommandNetemLossRandom arguments for 'netem loss' (random) sub-command
+type CommandNetemLossRandom struct {
+	NetInterface string
+	IP           net.IP
+	Duration     time.Duration
+	Percent      float64
+	Correlation  float64
+	StopChan     <-chan bool
+}
+
+// CommandNetemLossState arguments for 'netem loss state' sub-command
+type CommandNetemLossState struct {
+	NetInterface string
+	IP           net.IP
+	Duration     time.Duration
+	P13          float64
+	P31          float64
+	P32          float64
+	P23          float64
+	P14          float64
+	StopChan     <-chan bool
+}
+
+// CommandNetemLossGEmodel arguments for 'netem loss gemodel' sub-command
+type CommandNetemLossGEmodel struct {
+	NetInterface string
+	IP           net.IP
+	Duration     time.Duration
+	PG           float64
+	PB           float64
+	OneH         float64
+	OneK         float64
 	StopChan     <-chan bool
 }
 
@@ -70,6 +105,9 @@ type Chaos interface {
 	RemoveContainers(container.Client, []string, string, interface{}) error
 	NetemDelayContainers(container.Client, []string, string, interface{}) error
 	PauseContainers(container.Client, []string, string, interface{}) error
+	NetemLossRandomContainers(container.Client, []string, string, interface{}) error
+	NetemLossStateContainers(container.Client, []string, string, interface{}) error
+	NetemLossGEmodelContainers(container.Client, []string, string, interface{}) error
 }
 
 // NewChaos create new Pumba Choas instance
@@ -376,12 +414,76 @@ func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string
 		netemCmd += " " + strconv.Itoa(command.Jitter) + "ms"
 	}
 	if command.Correlation > 0 {
-		netemCmd += " " + strconv.Itoa(command.Correlation) + "%"
+		netemCmd += " " + strconv.FormatFloat(command.Correlation, 'f', 2, 64)
 	}
 	if command.Distribution != "" {
 		netemCmd += " " + "distribution" + " " + command.Distribution
 	}
 
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+}
+
+func (p pumbaChaos) NetemLossRandomContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+	log.Info("netem: loss random for containers")
+	// get command details
+	command, ok := cmd.(CommandNetemLossRandom)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandNetemLossRandom")
+	}
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
+		return err
+	}
+	// prepare netem loss command
+	netemCmd := "loss " + strconv.FormatFloat(command.Percent, 'f', 2, 64)
+	if command.Correlation > 0 {
+		netemCmd += " " + strconv.FormatFloat(command.Correlation, 'f', 2, 64)
+	}
+	// run prepared netem loss command
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+}
+
+func (p pumbaChaos) NetemLossStateContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+	log.Info("netem: loss random for containers")
+	// get command details
+	command, ok := cmd.(CommandNetemLossState)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandNetemLossState")
+	}
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
+		return err
+	}
+	// prepare netem loss state command
+	netemCmd := "loss state " + strconv.FormatFloat(command.P13, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.P31, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.P32, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.P23, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.P14, 'f', 2, 64)
+	// run prepared netem state command
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+}
+
+func (p pumbaChaos) NetemLossGEmodelContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+	log.Info("netem: loss random for containers")
+	// get command details
+	command, ok := cmd.(CommandNetemLossGEmodel)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandNetemLossGEmodel")
+	}
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
+		return err
+	}
+	// prepare netem loss gemodel command
+	netemCmd := "loss gemodel " + strconv.FormatFloat(command.PG, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.PB, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.OneH, 'f', 2, 64)
+	netemCmd += " " + strconv.FormatFloat(command.OneK, 'f', 2, 64)
+	// run prepared netem loss gemodel command
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
 }
 

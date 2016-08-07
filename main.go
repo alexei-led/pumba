@@ -75,6 +75,8 @@ const (
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
 	Re2Prefix = "re2:"
+	// DefaultInterface default network interface
+	DefaultInterface = "eth0"
 )
 
 func contains(slice []string, item string) bool {
@@ -130,7 +132,7 @@ func main() {
 				cli.StringFlag{
 					Name:  "interface, i",
 					Usage: "network interface to apply delay on",
-					Value: "eth0",
+					Value: DefaultInterface,
 				},
 				cli.StringFlag{
 					Name:  "target, t",
@@ -154,7 +156,7 @@ func main() {
 							Usage: "random delay variation (jitter); in milliseconds; example: 100ms ± 10ms",
 							Value: 10,
 						},
-						cli.IntFlag{
+						cli.Float64Flag{
 							Name:  "correlation, c",
 							Usage: "delay correlation; in percentage",
 							Value: 20,
@@ -173,6 +175,88 @@ func main() {
 				},
 				{
 					Name: "loss",
+					Flags: []cli.Flag{
+						cli.Float64Flag{
+							Name:  "percent, p",
+							Usage: "packet loss percentage",
+							Value: 0.0,
+						},
+						cli.Float64Flag{
+							Name:  "correlation, c",
+							Usage: "loss correlation; in percentage",
+							Value: 0.0,
+						},
+					},
+					Usage:       "adds packet losses",
+					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					Description: "adds packet losses, based on independent (Bernoulli) probability model\n \tsee:  http://www.voiptroubleshooter.com/indepth/burstloss.html",
+					Action:      netemLossRandom,
+					Before:      beforeCommand,
+				},
+				{
+					Name: "loss-state",
+					Flags: []cli.Flag{
+						cli.Float64Flag{
+							Name:  "p13",
+							Usage: "probability to go from state (1) to state (3)",
+							Value: 0.0,
+						},
+						cli.Float64Flag{
+							Name:  "p31",
+							Usage: "probability to go from state (3) to state (1)",
+							Value: 100.0,
+						},
+						cli.Float64Flag{
+							Name:  "p32",
+							Usage: "probability to go from state (3) to state (2)",
+							Value: 0.0,
+						},
+						cli.Float64Flag{
+							Name:  "p23",
+							Usage: "probability to go from state (2) to state (3)",
+							Value: 100.0,
+						},
+						cli.Float64Flag{
+							Name:  "p14",
+							Usage: "probability to go from state (1) to state (4)",
+							Value: 0.0,
+						},
+					},
+					Usage:       "adds packet losses, based on 4-state Markov probability model",
+					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					Description: "adds a packet losses, based on 4-state Markov probability model\n \t\tstate (1) – packet received successfully\n \t\tstate (2) – packet received within a burst\n \t\tstate (3) – packet lost within a burst\n \t\tstate (4) – isolated packet lost within a gap\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
+					Action:      netemLossState,
+					Before:      beforeCommand,
+				},
+				{
+					Name: "loss-gemodel",
+					Flags: []cli.Flag{
+						cli.Float64Flag{
+							Name:  "pg, p",
+							Usage: "transition probability into the bad state",
+							Value: 0.0,
+						},
+						cli.Float64Flag{
+							Name:  "pb, r",
+							Usage: "transition probability into the good state",
+							Value: 100.0,
+						},
+						cli.Float64Flag{
+							Name:  "one-h",
+							Usage: "loss probability in the bad state",
+							Value: 100.0,
+						},
+						cli.Float64Flag{
+							Name:  "one-k",
+							Usage: "loss probability in the good state",
+							Value: 0.0,
+						},
+					},
+					Usage:       "adds packet losses, according to the Gilbert-Elliot loss model",
+					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					Description: "adds packet losses, according to the Gilbert-Elliot loss model\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
+					Action:      nil, //TODO
+					Before:      beforeCommand,
 				},
 				{
 					Name: "duplicate",
@@ -416,8 +500,7 @@ func kill(c *cli.Context) error {
 	return nil
 }
 
-// NETEM DELAY command
-func netemDelay(c *cli.Context) error {
+func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, net.IP, error) {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get duration
@@ -428,20 +511,20 @@ func netemDelay(c *cli.Context) error {
 	if durationString == "" {
 		err := errors.New("Undefined duration interval")
 		log.Error(err)
-		return err
+		return names, pattern, 0, "", nil, err
 	}
 	duration, err := time.ParseDuration(durationString)
 	if err != nil {
 		log.Error(err)
-		return err
+		return names, pattern, 0, "", nil, err
 	}
 	if gInterval != 0 && duration >= gInterval {
 		err = errors.New("Duration cannot be bigger than interval")
 		log.Error(err)
-		return err
+		return names, pattern, 0, "", nil, err
 	}
 	// get network interface and target ip
-	netInterface := "eth0"
+	netInterface := DefaultInterface
 	var ip net.IP
 	if c.Parent() != nil {
 		netInterface = c.Parent().String("interface")
@@ -451,10 +534,20 @@ func netemDelay(c *cli.Context) error {
 		if netInterface != validInterface {
 			err = fmt.Errorf("Bad network interface name. Must match '%s'", reInterface.String())
 			log.Error(err)
-			return err
+			return names, pattern, duration, "", nil, err
 		}
 		// get target IP Filter
 		ip = net.ParseIP(c.Parent().String("target"))
+	}
+	return names, pattern, duration, netInterface, ip, nil
+}
+
+// NETEM DELAY command
+func netemDelay(c *cli.Context) error {
+	// parse common netem options
+	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	if err != nil {
+		return err
 	}
 	// get delay time
 	time := c.Int("time")
@@ -471,9 +564,9 @@ func netemDelay(c *cli.Context) error {
 		return err
 	}
 	// get delay variation
-	correlation := c.Int("correlation")
-	if correlation < 0 || correlation > 100 {
-		err = errors.New("Invalid delay correlation: must be between 0 and 100")
+	correlation := c.Float64("correlation")
+	if correlation < 0.0 || correlation > 100.0 {
+		err = errors.New("Invalid delay correlation: must be between 0.0 and 100.0")
 		log.Error(err)
 		return err
 	}
@@ -496,6 +589,98 @@ func netemDelay(c *cli.Context) error {
 		StopChan:     gStopChan,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)
+	return nil
+}
+
+// NETEM LOSS random command
+func netemLossRandom(c *cli.Context) error {
+	// parse common netem options
+	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	if err != nil {
+		return err
+	}
+	// get loss percentage
+	percent := c.Float64("percent")
+	if percent < 0.0 || percent > 100.0 {
+		err = errors.New("Invalid packet loss percentage: : must be between 0 and 100")
+		log.Error(err)
+		return err
+	}
+	// get delay variation
+	correlation := c.Float64("correlation")
+	if correlation < 0.0 || correlation > 100.0 {
+		err = errors.New("Invalid loss correlation: must be between 0 and 100")
+		log.Error(err)
+		return err
+	}
+	// pepare netem loss command
+	delayCmd := action.CommandNetemLossRandom{
+		NetInterface: netInterface,
+		IP:           ip,
+		Duration:     duration,
+		Percent:      percent,
+		Correlation:  correlation,
+		StopChan:     gStopChan,
+	}
+	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossRandomContainers)
+	return nil
+}
+
+// NETEM LOSS state command
+func netemLossState(c *cli.Context) error {
+	// parse common netem options
+	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	if err != nil {
+		return err
+	}
+	// get p13
+	p13 := c.Float64("p13")
+	if p13 < 0.0 || p13 > 100.0 {
+		err = errors.New("Invalid p13 percentage: : must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get p31
+	p31 := c.Float64("p31")
+	if p31 < 0.0 || p31 > 100.0 {
+		err = errors.New("Invalid p31 percentage: : must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get p32
+	p32 := c.Float64("p32")
+	if p32 < 0.0 || p32 > 100.0 {
+		err = errors.New("Invalid p32 percentage: : must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get p23
+	p23 := c.Float64("p23")
+	if p23 < 0.0 || p23 > 100.0 {
+		err = errors.New("Invalid p23 percentage: : must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get p14
+	p14 := c.Float64("p14")
+	if p14 < 0.0 || p14 > 100.0 {
+		err = errors.New("Invalid p14 percentage: : must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// pepare netem loss command
+	delayCmd := action.CommandNetemLossState{
+		NetInterface: netInterface,
+		IP:           ip,
+		Duration:     duration,
+		P13:          p13,
+		P31:          p31,
+		P32:          p32,
+		P23:          p23,
+		P14:          p14,
+		StopChan:     gStopChan,
+	}
+	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossStateContainers)
 	return nil
 }
 

@@ -46,6 +46,21 @@ func (m *ChaosMock) NetemDelayContainers(c container.Client, n []string, p strin
 	return args.Error(0)
 }
 
+func (m *ChaosMock) NetemLossRandomContainers(c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(c, n, p, cmd)
+	return args.Error(0)
+}
+
+func (m *ChaosMock) NetemLossStateContainers(c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(c, n, p, cmd)
+	return args.Error(0)
+}
+
+func (m *ChaosMock) NetemLossGEmodelContainers(c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(c, n, p, cmd)
+	return args.Error(0)
+}
+
 //---- TESTS
 
 type mainTestSuite struct {
@@ -380,7 +395,7 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 1.5, "doc")
 	delaySet.String("distribution", "normal", "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
@@ -392,7 +407,7 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 		Duration:     10 * time.Millisecond,
 		Time:         200,
 		Jitter:       20,
-		Correlation:  10,
+		Correlation:  1.5,
 		Distribution: "normal",
 		StopChan:     gStopChan,
 	}
@@ -418,7 +433,7 @@ func (s *mainTestSuite) Test_netemDelayNoDuration() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("Time", 200, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
@@ -438,7 +453,7 @@ func (s *mainTestSuite) Test_netemDelayBadDuration() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
@@ -459,7 +474,7 @@ func (s *mainTestSuite) Test_netemDelayBigDuration() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
@@ -480,7 +495,7 @@ func (s *mainTestSuite) Test_netemDelayBadNetInterface() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
@@ -500,7 +515,7 @@ func (s *mainTestSuite) Test_netemDelayInvalidJitter() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", -10, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 10, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
@@ -520,7 +535,7 @@ func (s *mainTestSuite) Test_netemDelayInvalidTime() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", -20, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 101, "doc")
+	delaySet.Float64("correlation", 101.5, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
@@ -540,13 +555,13 @@ func (s *mainTestSuite) Test_netemDelayInvalidCorrelation() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", 20, "doc")
-	delaySet.Int("correlation", 101, "doc")
+	delaySet.Float64("correlation", 101.5, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
 	// invoke command
 	err := netemDelay(delayCtx)
 	// asserts
-	assert.EqualError(s.T(), err, "Invalid delay correlation: must be between 0 and 100")
+	assert.EqualError(s.T(), err, "Invalid delay correlation: must be between 0.0 and 100.0")
 }
 
 func (s *mainTestSuite) Test_netemDelayInvalidDistribution() {
@@ -560,7 +575,7 @@ func (s *mainTestSuite) Test_netemDelayInvalidDistribution() {
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
 	delaySet.Int("jitter", 10, "doc")
-	delaySet.Int("correlation", 10, "doc")
+	delaySet.Float64("correlation", 10, "doc")
 	delaySet.String("distribution", "INVALID", "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)

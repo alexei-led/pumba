@@ -2,13 +2,19 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.2.4] - 2016-08-08
+### Added
+- `netem loss` network emulation packer loss, based on independent (Bernoulli) probability model
+- `netem loss-state` network emulation packer loss, based on 4-Markov state probability model
+- `netem loss-gemodel` network emulation packer loss, according to the Gilbert-Elliot loss model
+
 ## [v0.2.3] - 2016-08-07
-## Fixed
+### Fixed
 - `pause` command now can be interrupted with `Ctrl-C`; all paused processes will be unpaused
 - BUG: when using single container name, pumba disturbs all containers
 
 ## [v0.2.2] - 2016-08-04
-## Changed
+### Changed
 - `--interval` flag is optional now; if missing Pumba will do single chaos action and exit
 - `netem delay --distribution` new option to define optional delay distribution, can be: {uniform | normal | pareto |  paretonormal}
 - check added to verify `tc` tool existence in container (`tc` is required for network emulation; part of `iproute2` package)
