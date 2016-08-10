@@ -585,6 +585,121 @@ func (s *mainTestSuite) Test_netemDelayInvalidDistribution() {
 	assert.EqualError(s.T(), err, "Invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
 }
 
+func (s *mainTestSuite) Test_netemLossRandomSucess() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// delay flags
+	delaySet := flag.NewFlagSet("loss", 0)
+	delaySet.Float64("percent", 20, "doc")
+	delaySet.Float64("correlation", 1.5, "doc")
+	delaySet.Parse([]string{"c1", "c2", "c3"})
+	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
+	// set interval to 20ms
+	gInterval = 20 * time.Millisecond
+	// setup mock
+	cmd := action.CommandNetemLossRandom{
+		NetInterface: "test0",
+		Duration:     10 * time.Millisecond,
+		Percent:      20.0,
+		Correlation:  1.5,
+		StopChan:     gStopChan,
+	}
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("NetemLossRandomContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	// invoke command
+	err := netemLossRandom(delayCtx)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_netemLossStateSucess() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// delay flags
+	delaySet := flag.NewFlagSet("loss-state", 0)
+	delaySet.Float64("p13", 17.5, "doc")
+	delaySet.Float64("p31", 79.26, "doc")
+	delaySet.Float64("p32", 1.5, "doc")
+	delaySet.Float64("p23", 7.5, "doc")
+	delaySet.Float64("p14", 9.31, "doc")
+	delaySet.Parse([]string{"c1", "c2", "c3"})
+	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
+	// set interval to 20ms
+	gInterval = 20 * time.Millisecond
+	// setup mock
+	cmd := action.CommandNetemLossState{
+		NetInterface: "test0",
+		Duration:     10 * time.Millisecond,
+		P13:          17.5,
+		P31:          79.26,
+		P32:          1.5,
+		P23:          7.5,
+		P14:          9.31,
+		StopChan:     gStopChan,
+	}
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("NetemLossStateContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	// invoke command
+	err := netemLossState(delayCtx)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_netemLossGEmodelSucess() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// delay flags
+	delaySet := flag.NewFlagSet("loss-state", 0)
+	delaySet.Float64("pg", 7.5, "doc")
+	delaySet.Float64("pb", 92.1, "doc")
+	delaySet.Float64("one-h", 82.34, "doc")
+	delaySet.Float64("one-k", 8.32, "doc")
+	delaySet.Parse([]string{"c1", "c2", "c3"})
+	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
+	// set interval to 20ms
+	gInterval = 20 * time.Millisecond
+	// setup mock
+	cmd := action.CommandNetemLossGEmodel{
+		NetInterface: "test0",
+		Duration:     10 * time.Millisecond,
+		PG:           7.5,
+		PB:           92.1,
+		OneH:         82.34,
+		OneK:         8.32,
+		StopChan:     gStopChan,
+	}
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("NetemLossGEmodelContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	// invoke command
+	err := netemLossGEmodel(delayCtx)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
 func TestMainTestSuite(t *testing.T) {
 	suite.Run(t, new(mainTestSuite))
 }
