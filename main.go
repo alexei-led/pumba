@@ -70,7 +70,7 @@ var LinuxSignals = map[string]int{
 
 const (
 	// Release version
-	Release = "v0.2.3"
+	Release = "v0.2.4"
 	// DefaultSignal default kill signal
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
@@ -255,7 +255,7 @@ func main() {
 					Usage:       "adds packet losses, according to the Gilbert-Elliot loss model",
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "adds packet losses, according to the Gilbert-Elliot loss model\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
-					Action:      nil, //TODO
+					Action:      netemLossGEmodel,
 					Before:      beforeCommand,
 				},
 				{
@@ -681,6 +681,56 @@ func netemLossState(c *cli.Context) error {
 		StopChan:     gStopChan,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossStateContainers)
+	return nil
+}
+
+// NETEM Gilbert-Elliot command
+func netemLossGEmodel(c *cli.Context) error {
+	// parse common netem options
+	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	if err != nil {
+		return err
+	}
+	// get pg - Good State transition probability
+	pg := c.Float64("pg")
+	if pg < 0.0 || pg > 100.0 {
+		err = errors.New("Invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get pb - Bad State transition probability
+	pb := c.Float64("pb")
+	if pb < 0.0 || pb > 100.0 {
+		err = errors.New("Invalid pb (Bad State) transition probability: must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get (1-h) - loss probability in Bad state
+	oneH := c.Float64("one-h")
+	if oneH < 0.0 || oneH > 100.0 {
+		err = errors.New("Invalid loss probability: must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// get (1-k) - loss probability in Good state
+	oneK := c.Float64("one-k")
+	if oneK < 0.0 || oneK > 100.0 {
+		err = errors.New("Invalid loss probability: must be between 0.0 and 100.0")
+		log.Error(err)
+		return err
+	}
+	// pepare netem loss command
+	delayCmd := action.CommandNetemLossGEmodel{
+		NetInterface: netInterface,
+		IP:           ip,
+		Duration:     duration,
+		PG:           pg,
+		PB:           pb,
+		OneH:         oneH,
+		OneK:         oneK,
+		StopChan:     gStopChan,
+	}
+	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossGEmodelContainers)
 	return nil
 }
 
