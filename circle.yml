@@ -19,6 +19,8 @@ test:
   post:
     # copy test results
     - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
+    # push coverage data to codecov
+    - bash <(curl -s https://codecov.io/bash)
 deployment:
   continuous:
     branch: [develop, /feature_.*/]

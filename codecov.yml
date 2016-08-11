@@ -1,0 +1,11 @@
+coverage:
+  ignore:
+    - "container/mock.go"
+    - "container/mockengine.go"    
+  notify:
+    webhook:
+      default:
+        url: "https://webhook.boris.gaiahub.io/wh/3a44a3cd-66e6-4dd1-83e0-f6bde38fc08e/b645da493e7d4ea7c0339679e9987b788412a487"
+        threshold: null
+        brunches: null
+        only_pulls: false
