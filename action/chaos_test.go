@@ -467,7 +467,7 @@ func TestNetemDealyByName(t *testing.T) {
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
 		IP:           nil,
-		Duration:     1 * time.Second,
+		Duration:     1 * time.Millisecond,
 		Time:         120,
 		Jitter:       25,
 		Correlation:  0.23,
@@ -475,7 +475,7 @@ func TestNetemDealyByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 0.23", net.ParseIP(""), 1*time.Second).Return(nil)
+		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 0.23", net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -492,14 +492,15 @@ func TestNetemDealyByNameRandom(t *testing.T) {
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
 		IP:           nil,
-		Duration:     1 * time.Second,
+		Duration:     1 * time.Millisecond,
 		Time:         120,
 		Jitter:       25,
 		Correlation:  5.5,
+		Distribution: "uniform",
 	}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 5.50", net.ParseIP(""), 1*time.Second).Return(nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 5.50 distribution uniform", net.ParseIP(""), 1*time.Millisecond).Return(nil)
 	client.On("StopNetemContainer", mock.AnythingOfType("container.Container"), "eth1").Return(nil)
 	// do action
 	RandomMode = true
@@ -517,7 +518,7 @@ func TestNetemDealyByPattern(t *testing.T) {
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
 		IP:           nil,
-		Duration:     1 * time.Second,
+		Duration:     1 * time.Millisecond,
 		Time:         120,
 		Jitter:       25,
 		Correlation:  15,
@@ -525,7 +526,7 @@ func TestNetemDealyByPattern(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 15.00", net.ParseIP(""), 1*time.Second).Return(nil)
+		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 15.00", net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -543,7 +544,7 @@ func TestNetemDealyByPatternIPFilter(t *testing.T) {
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
 		IP:           ip,
-		Duration:     1 * time.Second,
+		Duration:     1 * time.Millisecond,
 		Time:         120,
 		Jitter:       25,
 		Correlation:  10,
@@ -551,7 +552,7 @@ func TestNetemDealyByPatternIPFilter(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 10.00", ip, 1*time.Second).Return(nil)
+		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 10.00", ip, 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -568,14 +569,14 @@ func TestNetemDealyByPatternRandom(t *testing.T) {
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
 		IP:           nil,
-		Duration:     1 * time.Second,
+		Duration:     1 * time.Millisecond,
 		Time:         120,
 		Jitter:       25,
 		Correlation:  10.2,
 	}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 10.20", net.ParseIP(""), 1*time.Second).Return(nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 10.20", net.ParseIP(""), 1*time.Millisecond).Return(nil)
 	client.On("StopNetemContainer", mock.AnythingOfType("container.Container"), "eth1").Return(nil)
 	// do action
 	RandomMode = true
@@ -584,6 +585,131 @@ func TestNetemDealyByPatternRandom(t *testing.T) {
 	RandomMode = false
 	// asserts
 	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemLossByName(t *testing.T) {
+	// prepare test data and mocks
+	names, cs := makeContainersN(10)
+	cmd := CommandNetemLossRandom{
+		NetInterface: "eth1",
+		IP:           nil,
+		Duration:     1 * time.Millisecond,
+		Percent:      11.5,
+		Correlation:  25.53,
+	}
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("NetemContainer", c, "eth1", "loss 11.50 25.53", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("StopNetemContainer", c, "eth1").Return(nil)
+	}
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemLossRandomContainers(client, names, "", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemLossBadCommand(t *testing.T) {
+	// prepare test data and mocks
+	names, _ := makeContainersN(10)
+	cmd := CommandKill{
+		Signal: "xuyak",
+	}
+	client := container.NewMockSamalbaClient()
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemLossRandomContainers(client, names, "", cmd)
+	// asserts
+	assert.Error(t, err)
+	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemLossRandom")
+	client.AssertExpectations(t)
+}
+
+func TestNetemLossStateByName(t *testing.T) {
+	// prepare test data and mocks
+	names, cs := makeContainersN(10)
+	cmd := CommandNetemLossState{
+		NetInterface: "eth1",
+		IP:           nil,
+		Duration:     1 * time.Millisecond,
+		P13:          11.5,
+		P31:          12.6,
+		P32:          13.7,
+		P23:          14.8,
+		P14:          15.9,
+	}
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("NetemContainer", c, "eth1", "loss state 11.50 12.60 13.70 14.80 15.90", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("StopNetemContainer", c, "eth1").Return(nil)
+	}
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemLossStateContainers(client, names, "", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemLossStateBadCommand(t *testing.T) {
+	// prepare test data and mocks
+	names, _ := makeContainersN(10)
+	cmd := CommandKill{
+		Signal: "xuyak",
+	}
+	client := container.NewMockSamalbaClient()
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemLossStateContainers(client, names, "", cmd)
+	// asserts
+	assert.Error(t, err)
+	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemLossState")
+	client.AssertExpectations(t)
+}
+
+func TestNetemLossGEmodelByName(t *testing.T) {
+	// prepare test data and mocks
+	names, cs := makeContainersN(10)
+	cmd := CommandNetemLossGEmodel{
+		NetInterface: "eth1",
+		IP:           nil,
+		Duration:     1 * time.Millisecond,
+		PG:           11.5,
+		PB:           12.6,
+		OneH:         13.7,
+		OneK:         14.8,
+	}
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("NetemContainer", c, "eth1", "loss gemodel 11.50 12.60 13.70 14.80", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("StopNetemContainer", c, "eth1").Return(nil)
+	}
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemLossGEmodelContainers(client, names, "", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemLossGEmodelBadCommand(t *testing.T) {
+	// prepare test data and mocks
+	names, _ := makeContainersN(10)
+	cmd := CommandKill{
+		Signal: "xuyak",
+	}
+	client := container.NewMockSamalbaClient()
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemLossGEmodelContainers(client, names, "", cmd)
+	// asserts
+	assert.Error(t, err)
+	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemLossGEmodel")
 	client.AssertExpectations(t)
 }
 
