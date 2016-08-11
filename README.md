@@ -1,6 +1,6 @@
 # Pumba: Chaos testing tool for Docker
 
-[![Circle CI](https://circleci.com/gh/gaia-adm/pumba.svg?style=svg)](https://circleci.com/gh/gaia-adm/pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![Coverage Status](https://coveralls.io/repos/github/gaia-adm/pumba/badge.svg?branch=master)](https://coveralls.io/github/gaia-adm/pumba?branch=master)  [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.1.10)
+[![Circle CI](https://circleci.com/gh/gaia-adm/pumba.svg?style=svg)](https://circleci.com/gh/gaia-adm/pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![Coverage Status](https://coveralls.io/repos/github/gaia-adm/pumba/badge.svg?branch=master)](https://coveralls.io/github/gaia-adm/pumba?branch=master)  [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.2.5)
 [![Docker badge](https://img.shields.io/docker/pulls/gaiaadm/pumba.svg)](https://hub.docker.com/r/gaiaadm/pumba/)
 
 ## Demo
@@ -135,6 +135,7 @@ USAGE:
    Pumba netem command [command options] [arguments...]
 
 COMMANDS:
+<<<<<<< HEAD
      delay      dealy egress traffic
      loss
      duplicate
@@ -156,6 +157,12 @@ USAGE:
 COMMANDS:
      delay      dealy egress traffic
      loss
+=======
+     delay         dealy egress traffic
+     loss          adds packet losses
+     loss-state    adds packet losses, based on 4-state Markov probability model
+     loss-gemodel  adds packet losses, according to the Gilbert-Elliot loss model
+>>>>>>> update README [skip ci]
      duplicate
      corrupt
 
@@ -184,15 +191,106 @@ OPTIONS:
    --time value, -t value          delay time; in milliseconds (default: 100)
    --jitter value, -j value        random delay variation (jitter); in milliseconds; example: 100ms ± 10ms (default: 10)
    --correlation value, -c value   delay correlation; in percentage (default: 20)
-   --distribution value, -d value  delay distribution, can be one of {uniform | normal | pareto |  paretonormal} (default: "uniform")
-
+   --distribution value, -d value  delay distribution, can be one of {<empty> | uniform | normal | pareto |  paretonormal}
 ```
 
-##### Example
+#### Network Emulation Loss sub-commands
+
 ```
-   $ pumba --debug --interval 5m --random netem --duration 2m --interface eth2 delay --time 2000 re2:^result
+$ pumba netem loss -h
+
+NAME:
+   Pumba netem loss - adds packet losses
+
+USAGE:
+   Pumba netem loss [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   adds packet losses, based on independent (Bernoulli) probability model
+   see:  http://www.voiptroubleshooter.com/indepth/burstloss.html
+
+OPTIONS:
+   --percent value, -p value      packet loss percentage (default: 0)
+   --correlation value, -c value  loss correlation; in percentage (default: 0)
 ```
-Pumba creates a 2s (2000ms) network delay for egress traffic for some (randomly chosen) container named `result...` (matching `^result` regexp) on `eth2` network interface. Pumba will exit and restore normal connectivity after 2 minutes.
+
+```
+$ pumba netem loss-state -h
+
+NAME:
+   Pumba netem loss-state - adds packet losses, based on 4-state Markov probability model
+
+USAGE:
+   Pumba netem loss-state [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   adds a packet losses, based on 4-state Markov probability model
+     state (1) – packet received successfully
+     state (2) – packet received within a burst
+     state (3) – packet lost within a burst
+     state (4) – isolated packet lost within a gap
+   see: http://www.voiptroubleshooter.com/indepth/burstloss.html
+
+OPTIONS:
+   --p13 value  probability to go from state (1) to state (3) (default: 0)
+   --p31 value  probability to go from state (3) to state (1) (default: 100)
+   --p32 value  probability to go from state (3) to state (2) (default: 0)
+   --p23 value  probability to go from state (2) to state (3) (default: 100)
+   --p14 value  probability to go from state (1) to state (4) (default: 0)
+```
+
+```
+$ pumba netem loss-gemodel -h
+
+NAME:
+   Pumba netem loss-gemodel - adds packet losses, according to the Gilbert-Elliot loss model
+
+USAGE:
+   Pumba netem loss-gemodel [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   adds packet losses, according to the Gilbert-Elliot loss model
+   see: http://www.voiptroubleshooter.com/indepth/burstloss.html
+
+OPTIONS:
+   --pg value, -p value  transition probability into the bad state (default: 0)
+   --pb value, -r value  transition probability into the good state (default: 100)
+   --one-h value         loss probability in the bad state (default: 100)
+   --one-k value         loss probability in the good state (default: 0)
+```
+
+##### Examples
+
+```
+# add 3 seconds delay for all outgoing packets on device `eth0` (default) of `mydb` Docker container for 5 minutes
+
+$ pumba netem --duration 5m delay --time 3000 mydb
+```
+
+```
+# add a delay of 3000ms ± 30ms, with the next random element depending 20% on the last one,
+# for all outgoing packets on device `eth1` of all Docker container, with name start with `hp`
+# for 10 minutes
+
+$ pumba netem --duration 5m --interface eth1 delay \
+      --time 3000 \
+      --jitter 30 \
+      --correlation 20 \
+    re2:^hp
+```
+
+```
+# add a delay of 3000ms ± 40ms, where variation in delay is described by `normal` distribution,
+# for all outgoing packets on device `eth0` of randomly chosen Docker container from the list
+# for 10 minutes
+
+$ pumba --random netem --duration 5m \
+    delay \
+      --time 3000 \
+      --jitter 40 \
+      --distribution normal \
+    container1 container2 container3
+```
 
 ##### `tc` tool
 Pumba uses `tc` Linux tool for network emulation. You have two options:
@@ -202,16 +300,20 @@ Pumba uses `tc` Linux tool for network emulation. You have two options:
 
 **Note:** For Alpine Linux based image, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
 
+
 ### Running inside Docker container
 
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
 
 ```
-docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba kill --interval 10s --signal SIGTERM ^hp
+# once in a 10 seconds, try to kill (with `SIGTERM` signal) all containers named **hp(something)**
+# on same Docker host, where Pumba container is running
+
+$ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba kill --interval 10s --signal SIGTERM ^hp
 ```
-The above command, once in a 10 seconds, tries to kill (with `SIGTERM` signal) all containers named **hp(something)** on same Docker host, where Pumba container is running.
 
 **Note:** For Windows and OS X you will need to use `--host` argument, since there is no unix socket `/var/run/docker.sock` to mount.
+
 
 ### Running Pumba on Kubernetes cluster
 
