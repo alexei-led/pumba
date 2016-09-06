@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	"github.com/docker/engine-api/types/network"
 	"github.com/samalba/dockerclient/mockclient"
 	"golang.org/x/net/context"
 
@@ -558,13 +560,13 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
-	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "1000ms"}, Privileged: true}
+	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", "delay 1000ms", nil, 1*time.Millisecond, false)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -606,7 +608,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", "delay 1000ms", nil, 1*time.Millisecond, true)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
@@ -633,7 +635,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecStart", ctx, "cmd1", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd1").Return(types.ContainerExecInspect{}, nil)
 
-	config2 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "netem", "delay", "1000ms"}, Privileged: true}
+	config2 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "netem", "delay", "500ms"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.ContainerExecCreateResponse{"cmd2"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd2", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd2").Return(types.ContainerExecInspect{}, nil)
@@ -645,7 +647,43 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", "delay 1000ms", net.ParseIP("10.10.0.1"), 1*time.Millisecond, false)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func Test_tcContainerCommand(t *testing.T) {
+	c := Container{
+		containerInfo: &dockerclient.ContainerInfo{
+			Id: "targetID",
+		},
+	}
+
+	config := container.Config{
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Entrypoint: []string{"tc"},
+		Cmd:        []string{"test", "me"},
+		Image:      "pumba/tcimage",
+	}
+	hconfig := container.HostConfig{
+		// auto remove container on tc command exit
+		AutoRemove: true,
+		// NET_ADMIN is required for "tc netem"
+		CapAdd: []string{"NET_ADMIN"},
+		// use target container network stack
+		NetworkMode: "container",
+		IpcMode:     container.IpcMode("container:targetID"),
+	}
+
+	ctx := context.Background()
+	engineClient := NewMockEngine()
+
+	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(types.ContainerCreateResponse{ID: "tcID"}, nil)
+	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
+
+	client := dockerClient{apiClient: engineClient}
+	err := client.tcContainerCommand(c, []string{"test", "me"}, "pumba/tcimage")
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -672,7 +710,7 @@ func Test_execOnContainerSuccess(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.execOnContainer(c, "testcmd", "arg1 arg2 arg3", false)
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -695,7 +733,7 @@ func Test_execOnContainerNotFound(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.execOnContainer(c, "testcmd", "arg1 arg2 arg3", false)
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "command 'testcmd' not found inside the abcName (abc123) container")
@@ -724,7 +762,7 @@ func Test_execOnContainerFailed(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.execOnContainer(c, "testcmd", "arg1 arg2 arg3", false)
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "command 'testcmd' failed in abcName (abc123) container; run it in manually to debug")
@@ -747,7 +785,7 @@ func Test_execOnContainerExecStartError(t *testing.T) {
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(errors.New("oops"))
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.execOnContainer(c, "testcmd", "arg1 arg2 arg3", false)
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)
@@ -768,7 +806,7 @@ func Test_execOnContainerExecCreateError(t *testing.T) {
 	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, errors.New("oops"))
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.execOnContainer(c, "testcmd", "arg1 arg2 arg3", false)
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)
@@ -791,7 +829,7 @@ func Test_execOnContainerExecInspectError(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, errors.New("oops"))
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.execOnContainer(c, "testcmd", "arg1 arg2 arg3", false)
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)

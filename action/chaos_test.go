@@ -475,7 +475,7 @@ func TestNetemDealyByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 0.23", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "0.23"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -500,7 +500,7 @@ func TestNetemDealyByNameRandom(t *testing.T) {
 	}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 5.50 distribution uniform", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", []string{"delay", "120ms", "25ms", "5.50", "distribution", "uniform"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 	client.On("StopNetemContainer", mock.AnythingOfType("container.Container"), "eth1").Return(nil)
 	// do action
 	RandomMode = true
@@ -526,7 +526,7 @@ func TestNetemDealyByPattern(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 15.00", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "15.00"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -552,7 +552,7 @@ func TestNetemDealyByPatternIPFilter(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "delay 120ms 25ms 10.00", ip, 1*time.Millisecond).Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ip, 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -576,7 +576,7 @@ func TestNetemDealyByPatternRandom(t *testing.T) {
 	}
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", "delay 120ms 25ms 10.20", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", []string{"delay", "120ms", "25ms", "10.20"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 	client.On("StopNetemContainer", mock.AnythingOfType("container.Container"), "eth1").Return(nil)
 	// do action
 	RandomMode = true
@@ -601,7 +601,7 @@ func TestNetemLossByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "loss 11.50 25.53", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"loss", "11.50", "25.53"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -644,7 +644,7 @@ func TestNetemLossStateByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "loss state 11.50 12.60 13.70 14.80 15.90", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"loss", "state", "11.50", "12.60", "13.70", "14.80", "15.90"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action
@@ -686,7 +686,7 @@ func TestNetemLossGEmodelByName(t *testing.T) {
 	client := container.NewMockSamalbaClient()
 	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", "loss gemodel 11.50 12.60 13.70 14.80", net.ParseIP(""), 1*time.Millisecond).Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"loss", "gemodel", "11.50", "12.60", "13.70", "14.80"}, net.ParseIP(""), 1*time.Millisecond).Return(nil)
 		client.On("StopNetemContainer", c, "eth1").Return(nil)
 	}
 	// do action

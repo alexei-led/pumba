@@ -138,6 +138,10 @@ func main() {
 					Name:  "target, t",
 					Usage: "target IP filter; netem will impact only on traffic to target IP",
 				},
+				cli.StringFlag{
+					Name:  "tc-image",
+					Usage: "Docker image with tc (iproute2 package)",
+				},
 			},
 			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
@@ -539,6 +543,11 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		// get target IP Filter
 		ip = net.ParseIP(c.Parent().String("target"))
 	}
+	// get Docker image with tc (iproute2 package)
+	// var image string
+	// if c.Parent() != nil {
+	// 	image = c.Parent().String("tc-image")
+	// }
 	return names, pattern, duration, netInterface, ip, nil
 }
 

@@ -14,6 +14,7 @@ import (
 
 	engineapi "github.com/docker/engine-api/client"
 	enginetypes "github.com/docker/engine-api/types"
+	ctypes "github.com/docker/engine-api/types/container"
 )
 
 const (
@@ -35,7 +36,7 @@ type Client interface {
 	RenameContainer(Container, string) error
 	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool, bool, bool) error
-	NetemContainer(Container, string, string, net.IP, time.Duration, bool) error
+	NetemContainer(Container, string, []string, net.IP, time.Duration, bool) error
 	StopNetemContainer(Container, string, bool) error
 	PauseContainer(Container, bool) error
 	UnpauseContainer(Container, bool) error
@@ -195,7 +196,7 @@ func (client dockerClient) RemoveContainer(c Container, force bool, links bool, 
 	return nil
 }
 
-func (client dockerClient) NetemContainer(c Container, netInterface string, netemCmd string, targetIP net.IP, duration time.Duration, dryrun bool) error {
+func (client dockerClient) NetemContainer(c Container, netInterface string, netemCmd []string, targetIP net.IP, duration time.Duration, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
@@ -249,7 +250,7 @@ func (client dockerClient) UnpauseContainer(c Container, dryrun bool) error {
 	return nil
 }
 
-func (client dockerClient) startNetemContainer(c Container, netInterface string, netemCmd string, dryrun bool) error {
+func (client dockerClient) startNetemContainer(c Container, netInterface string, netemCmd []string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
@@ -259,11 +260,11 @@ func (client dockerClient) startNetemContainer(c Container, netInterface string,
 		// use dockerclient ExecStart to run Traffic Control:
 		// 'tc qdisc add dev eth0 root netem delay 100ms'
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-		netemCommand := "qdisc add dev " + netInterface + " root netem " + strings.ToLower(netemCmd)
+		netemCommand := append([]string{"qdisc", "add", "dev", netInterface, "root", "netem"}, netemCmd...)
 		// stop disruption command
 		// netemStopCommand := "tc qdisc del dev eth0 root netem"
-		log.Debugf("netem command '%s'", netemCommand)
-		return client.execOnContainer(c, "tc", netemCommand, true)
+		log.Debugf("netem command '%s'", strings.Join(netemCommand, " "))
+		return client.tcCommand(c, netemCommand)
 	}
 	return nil
 }
@@ -277,14 +278,14 @@ func (client dockerClient) stopNetemContainer(c Container, netInterface string, 
 	if !dryrun {
 		// stop netem command
 		// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-		netemCommand := "qdisc del dev " + netInterface + " root netem"
-		log.Debugf("netem command '%s'", netemCommand)
-		return client.execOnContainer(c, "tc", netemCommand, true)
+		netemCommand := []string{"qdisc", "del", "dev", netInterface, "root", "netem"}
+		log.Debugf("netem command '%s'", strings.Join(netemCommand, " "))
+		return client.tcCommand(c, netemCommand)
 	}
 	return nil
 }
 
-func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface string, netemCmd string,
+func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface string, netemCmd []string,
 	targetIP string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
@@ -301,9 +302,9 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		//  Create a priority-based queue.
 		// 'tc qdisc add dev <netInterface> root handle 1: prio'
 		// See more: http://stuff.onse.fi/man?program=tc
-		handleCommand := "qdisc add dev " + netInterface + " root handle 1: prio"
+		handleCommand := []string{"qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"}
 		log.Debugf("handleCommand %s", handleCommand)
-		err := client.execOnContainer(c, "tc", handleCommand, true)
+		err := client.tcCommand(c, handleCommand)
 		if err != nil {
 			return err
 		}
@@ -311,9 +312,9 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		//  Delay everything in band 3
 		// 'tc qdisc add dev <netInterface> parent 1:3 netem <netemCmd>'
 		// See more: http://stuff.onse.fi/man?program=tc
-		netemCommand := "qdisc add dev " + netInterface + " parent 1:3 netem " + strings.ToLower(netemCmd)
+		netemCommand := append([]string{"qdisc", "add", "dev", netInterface, "parent", "1:3", "netem"}, netemCmd...)
 		log.Debugf("netemCommand %s", netemCommand)
-		err = client.execOnContainer(c, "tc", netemCommand, true)
+		err = client.tcCommand(c, netemCommand)
 		if err != nil {
 			return err
 		}
@@ -321,15 +322,46 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		// # say traffic to $PORT is band 3
 		// 'tc filter add dev <netInterface> protocol ip parent 1:0 prio 3 u32 match ip dst <targetIP> flowid 1:3'
 		// See more: http://stuff.onse.fi/man?program=tc-u32
-		filterCommand := "filter add dev " + netInterface + " protocol ip parent 1:0 prio 3 " +
-			"u32 match ip dport " + strings.ToLower(targetIP) + " flowid 1:3"
+		filterCommand := []string{"filter", "add", "dev", netInterface, "protocol", "ip", "parent", "1:0", "prio", "3",
+			"u32", "match", "ip", "dport", strings.ToLower(targetIP), "flowid", "1:3"}
 		log.Debugf("filterCommand %s", filterCommand)
-		return client.execOnContainer(c, "tc", filterCommand, true)
+		return client.tcCommand(c, filterCommand)
 	}
 	return nil
 }
 
-func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs string, privileged bool) error {
+func (client dockerClient) tcCommand(c Container, args []string) error {
+	return client.execOnContainer(c, "tc", args, true)
+}
+
+// execute tc command using other container (with iproute2 package installed), using target container network stack
+// try to use `gaiadocker\iproute2` image (Alpine + iproute2 package)
+func (client dockerClient) tcContainerCommand(target Container, args []string, tcimage string) error {
+	// container config
+	config := ctypes.Config{
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Entrypoint: []string{"tc"},
+		Cmd:        args,
+		Image:      tcimage,
+	}
+	// host config
+	hconfig := ctypes.HostConfig{
+		// auto remove container on tc command exit
+		AutoRemove: true,
+		// NET_ADMIN is required for "tc netem"
+		CapAdd: []string{"NET_ADMIN"},
+		// use target container network stack
+		NetworkMode: "container",
+		IpcMode:     ctypes.IpcMode("container:" + target.ID()),
+	}
+	createResponse, err := client.apiClient.ContainerCreate(context.Background(), &config, &hconfig, nil, "")
+	if err != nil {
+		return err
+	}
+	return client.apiClient.ContainerStart(context.Background(), createResponse.ID, enginetypes.ContainerStartOptions{})
+}
+
+func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs []string, privileged bool) error {
 	// trim all spaces from cmd
 	execCmd = strings.Replace(execCmd, " ", "", -1)
 
@@ -358,8 +390,9 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 	// prepare exec config
 	config := enginetypes.ExecConfig{
 		Privileged: privileged,
-		Cmd:        strings.Split(execCmd+" "+execArgs, " "),
+		Cmd:        append([]string{execCmd}, execArgs...),
 	}
+	fmt.Print(config.Cmd)
 	// execute the command
 	exec, err = client.apiClient.ContainerExecCreate(context.Background(), c.ID(), config)
 	if err != nil {

@@ -301,7 +301,7 @@ func unpauseContainers(client container.Client, containers []container.Container
 	return err // last non nil error
 }
 
-func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd string, ip net.IP, duration time.Duration, stopChan <-chan bool) error {
+func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd []string, ip net.IP, duration time.Duration, stopChan <-chan bool) error {
 	var err error
 	netemContainers := []container.Container{}
 	if RandomMode {
@@ -409,15 +409,15 @@ func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string
 	if containers, err = listContainers(client, names, pattern); err != nil {
 		return err
 	}
-	netemCmd := "delay " + strconv.Itoa(command.Time) + "ms"
+	netemCmd := []string{"delay", strconv.Itoa(command.Time) + "ms"}
 	if command.Jitter > 0 {
-		netemCmd += " " + strconv.Itoa(command.Jitter) + "ms"
+		netemCmd = append(netemCmd, strconv.Itoa(command.Jitter)+"ms")
 	}
 	if command.Correlation > 0 {
-		netemCmd += " " + strconv.FormatFloat(command.Correlation, 'f', 2, 64)
+		netemCmd = append(netemCmd, strconv.FormatFloat(command.Correlation, 'f', 2, 64))
 	}
 	if command.Distribution != "" {
-		netemCmd += " " + "distribution" + " " + command.Distribution
+		netemCmd = append(netemCmd, []string{"distribution", command.Distribution}...)
 	}
 
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
@@ -436,9 +436,9 @@ func (p pumbaChaos) NetemLossRandomContainers(client container.Client, names []s
 		return err
 	}
 	// prepare netem loss command
-	netemCmd := "loss " + strconv.FormatFloat(command.Percent, 'f', 2, 64)
+	netemCmd := []string{"loss", strconv.FormatFloat(command.Percent, 'f', 2, 64)}
 	if command.Correlation > 0 {
-		netemCmd += " " + strconv.FormatFloat(command.Correlation, 'f', 2, 64)
+		netemCmd = append(netemCmd, strconv.FormatFloat(command.Correlation, 'f', 2, 64))
 	}
 	// run prepared netem loss command
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
@@ -457,11 +457,11 @@ func (p pumbaChaos) NetemLossStateContainers(client container.Client, names []st
 		return err
 	}
 	// prepare netem loss state command
-	netemCmd := "loss state " + strconv.FormatFloat(command.P13, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.P31, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.P32, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.P23, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.P14, 'f', 2, 64)
+	netemCmd := []string{"loss", "state", strconv.FormatFloat(command.P13, 'f', 2, 64)}
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.P31, 'f', 2, 64))
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.P32, 'f', 2, 64))
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.P23, 'f', 2, 64))
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.P14, 'f', 2, 64))
 	// run prepared netem state command
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
 }
@@ -479,10 +479,10 @@ func (p pumbaChaos) NetemLossGEmodelContainers(client container.Client, names []
 		return err
 	}
 	// prepare netem loss gemodel command
-	netemCmd := "loss gemodel " + strconv.FormatFloat(command.PG, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.PB, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.OneH, 'f', 2, 64)
-	netemCmd += " " + strconv.FormatFloat(command.OneK, 'f', 2, 64)
+	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(command.PG, 'f', 2, 64)}
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.PB, 'f', 2, 64))
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneH, 'f', 2, 64))
+	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneK, 'f', 2, 64))
 	// run prepared netem loss gemodel command
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
 }
