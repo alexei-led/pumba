@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.2.4] - 2016-09-07
+### Added
+- `netem --tc-image` flag to specify external Docker image with `tc` tool (try `gaiadocker/iproute2` image)
+- integration tests, run with `bats ./tests/`
+
 ## [v0.2.4] - 2016-08-10
 ### Added
 - `netem loss` network emulation packer loss, based on independent (Bernoulli) probability model

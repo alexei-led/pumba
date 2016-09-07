@@ -49,6 +49,7 @@ type CommandNetemDelay struct {
 	Correlation  float64
 	Distribution string
 	StopChan     <-chan bool
+	Image        string
 }
 
 // CommandNetemLossRandom arguments for 'netem loss' (random) sub-command
@@ -59,6 +60,7 @@ type CommandNetemLossRandom struct {
 	Percent      float64
 	Correlation  float64
 	StopChan     <-chan bool
+	Image        string
 }
 
 // CommandNetemLossState arguments for 'netem loss state' sub-command
@@ -72,6 +74,7 @@ type CommandNetemLossState struct {
 	P23          float64
 	P14          float64
 	StopChan     <-chan bool
+	Image        string
 }
 
 // CommandNetemLossGEmodel arguments for 'netem loss gemodel' sub-command
@@ -84,6 +87,7 @@ type CommandNetemLossGEmodel struct {
 	OneH         float64
 	OneK         float64
 	StopChan     <-chan bool
+	Image        string
 }
 
 // CommandStop arguments for stop command
@@ -301,13 +305,13 @@ func unpauseContainers(client container.Client, containers []container.Container
 	return err // last non nil error
 }
 
-func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd []string, ip net.IP, duration time.Duration, stopChan <-chan bool) error {
+func netemContainers(client container.Client, containers []container.Container, netInterface string, netemCmd []string, ip net.IP, duration time.Duration, stopChan <-chan bool, tcimage string) error {
 	var err error
 	netemContainers := []container.Container{}
 	if RandomMode {
 		container := randomContainer(containers)
 		if container != nil {
-			err = client.NetemContainer(*container, netInterface, netemCmd, ip, duration, DryMode)
+			err = client.NetemContainer(*container, netInterface, netemCmd, ip, duration, tcimage, DryMode)
 			if err != nil {
 				return err
 			}
@@ -315,7 +319,7 @@ func netemContainers(client container.Client, containers []container.Container, 
 		}
 	} else {
 		for _, container := range containers {
-			err = client.NetemContainer(container, netInterface, netemCmd, ip, duration, DryMode)
+			err = client.NetemContainer(container, netInterface, netemCmd, ip, duration, tcimage, DryMode)
 			if err != nil {
 				break
 			} else {
@@ -327,19 +331,19 @@ func netemContainers(client container.Client, containers []container.Container, 
 	select {
 	case <-stopChan:
 		log.Debugf("Stopping netem by stop event")
-		err = stopNetemContainers(client, netemContainers, netInterface)
+		err = stopNetemContainers(client, netemContainers, netInterface, tcimage)
 	case <-time.After(duration):
 		log.Debugf("Stopping netem after: %s", duration)
-		err = stopNetemContainers(client, netemContainers, netInterface)
+		err = stopNetemContainers(client, netemContainers, netInterface, tcimage)
 	}
 
 	return err
 }
 
-func stopNetemContainers(client container.Client, containers []container.Container, netInterface string) error {
+func stopNetemContainers(client container.Client, containers []container.Container, netInterface string, tcimage string) error {
 	var err error
 	for _, container := range containers {
-		if e := client.StopNetemContainer(container, netInterface, DryMode); e != nil {
+		if e := client.StopNetemContainer(container, netInterface, tcimage, DryMode); e != nil {
 			err = e
 		}
 	}
@@ -420,7 +424,7 @@ func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string
 		netemCmd = append(netemCmd, []string{"distribution", command.Distribution}...)
 	}
 
-	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan, command.Image)
 }
 
 func (p pumbaChaos) NetemLossRandomContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
@@ -441,7 +445,7 @@ func (p pumbaChaos) NetemLossRandomContainers(client container.Client, names []s
 		netemCmd = append(netemCmd, strconv.FormatFloat(command.Correlation, 'f', 2, 64))
 	}
 	// run prepared netem loss command
-	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan, command.Image)
 }
 
 func (p pumbaChaos) NetemLossStateContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
@@ -463,7 +467,7 @@ func (p pumbaChaos) NetemLossStateContainers(client container.Client, names []st
 	netemCmd = append(netemCmd, strconv.FormatFloat(command.P23, 'f', 2, 64))
 	netemCmd = append(netemCmd, strconv.FormatFloat(command.P14, 'f', 2, 64))
 	// run prepared netem state command
-	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan, command.Image)
 }
 
 func (p pumbaChaos) NetemLossGEmodelContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
@@ -484,7 +488,7 @@ func (p pumbaChaos) NetemLossGEmodelContainers(client container.Client, names []
 	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneH, 'f', 2, 64))
 	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneK, 'f', 2, 64))
 	// run prepared netem loss gemodel command
-	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan)
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan, command.Image)
 }
 
 // PauseContainers pause container,if its name within `names`, for specified interval

@@ -72,13 +72,13 @@ func (m *MockClient) UnpauseContainer(c Container, dryrun bool) error {
 }
 
 // NetemContainer mock
-func (m *MockClient) NetemContainer(c Container, n string, s []string, ip net.IP, d time.Duration, dryrun bool) error {
-	args := m.Called(c, n, s, ip, d)
+func (m *MockClient) NetemContainer(c Container, n string, s []string, ip net.IP, d time.Duration, image string, dryrun bool) error {
+	args := m.Called(c, n, s, ip, d, image)
 	return args.Error(0)
 }
 
 // StopNetemContainer mock
-func (m *MockClient) StopNetemContainer(c Container, n string, dryrun bool) error {
-	args := m.Called(c, n)
+func (m *MockClient) StopNetemContainer(c Container, n string, image string, dryrun bool) error {
+	args := m.Called(c, n, image)
 	return args.Error(0)
 }

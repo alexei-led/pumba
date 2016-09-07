@@ -70,7 +70,7 @@ var LinuxSignals = map[string]int{
 
 const (
 	// Release version
-	Release = "v0.2.4"
+	Release = "v0.2.5"
 	// DefaultSignal default kill signal
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
@@ -140,7 +140,7 @@ func main() {
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
-					Usage: "Docker image with tc (iproute2 package)",
+					Usage: "Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'",
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",
@@ -504,7 +504,7 @@ func kill(c *cli.Context) error {
 	return nil
 }
 
-func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, net.IP, error) {
+func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, net.IP, string, error) {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get duration
@@ -515,17 +515,17 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 	if durationString == "" {
 		err := errors.New("Undefined duration interval")
 		log.Error(err)
-		return names, pattern, 0, "", nil, err
+		return names, pattern, 0, "", nil, "", err
 	}
 	duration, err := time.ParseDuration(durationString)
 	if err != nil {
 		log.Error(err)
-		return names, pattern, 0, "", nil, err
+		return names, pattern, 0, "", nil, "", err
 	}
 	if gInterval != 0 && duration >= gInterval {
 		err = errors.New("Duration cannot be bigger than interval")
 		log.Error(err)
-		return names, pattern, 0, "", nil, err
+		return names, pattern, 0, "", nil, "", err
 	}
 	// get network interface and target ip
 	netInterface := DefaultInterface
@@ -538,23 +538,24 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		if netInterface != validInterface {
 			err = fmt.Errorf("Bad network interface name. Must match '%s'", reInterface.String())
 			log.Error(err)
-			return names, pattern, duration, "", nil, err
+			return names, pattern, duration, "", nil, "", err
 		}
 		// get target IP Filter
 		ip = net.ParseIP(c.Parent().String("target"))
 	}
 	// get Docker image with tc (iproute2 package)
-	// var image string
-	// if c.Parent() != nil {
-	// 	image = c.Parent().String("tc-image")
-	// }
-	return names, pattern, duration, netInterface, ip, nil
+	log.Debug("SHIT4")
+	var image string
+	if c.Parent() != nil {
+		image = c.Parent().String("tc-image")
+	}
+	return names, pattern, duration, netInterface, ip, image, nil
 }
 
 // NETEM DELAY command
 func netemDelay(c *cli.Context) error {
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -596,6 +597,7 @@ func netemDelay(c *cli.Context) error {
 		Correlation:  correlation,
 		Distribution: distribution,
 		StopChan:     gStopChan,
+		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)
 	return nil
@@ -604,7 +606,7 @@ func netemDelay(c *cli.Context) error {
 // NETEM LOSS random command
 func netemLossRandom(c *cli.Context) error {
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -630,6 +632,7 @@ func netemLossRandom(c *cli.Context) error {
 		Percent:      percent,
 		Correlation:  correlation,
 		StopChan:     gStopChan,
+		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossRandomContainers)
 	return nil
@@ -638,7 +641,7 @@ func netemLossRandom(c *cli.Context) error {
 // NETEM LOSS state command
 func netemLossState(c *cli.Context) error {
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -688,6 +691,7 @@ func netemLossState(c *cli.Context) error {
 		P23:          p23,
 		P14:          p14,
 		StopChan:     gStopChan,
+		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossStateContainers)
 	return nil
@@ -696,7 +700,7 @@ func netemLossState(c *cli.Context) error {
 // NETEM Gilbert-Elliot command
 func netemLossGEmodel(c *cli.Context) error {
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -738,6 +742,7 @@ func netemLossGEmodel(c *cli.Context) error {
 		OneH:         oneH,
 		OneK:         oneK,
 		StopChan:     gStopChan,
+		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossGEmodelContainers)
 	return nil

@@ -14,7 +14,7 @@ You can download Pumba binary for your OS from [release](https://github.com/gaia
 ```
 $ pumba help
 
-Pumba version v0.2.4
+Pumba version v0.2.5
 NAME:
    Pumba - Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance.
 
@@ -22,7 +22,7 @@ USAGE:
    pumba [global options] command [command options] containers (name, list of names, RE2 regex)
 
 VERSION:
-   v0.2.4
+   v0.2.5
 
 COMMANDS:
      kill     kill specified containers
@@ -144,6 +144,7 @@ OPTIONS:
    --duration value, -d value   network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
    --interface value, -i value  network interface to apply delay on (default: "eth0")
    --target value, -t value     target IP filter; netem will impact only on traffic to target IP
+   --tc-image value             Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'
    --help, -h                   show help
 
 NAME:
@@ -193,9 +194,13 @@ OPTIONS:
 ```
 Pumba creates a 2s (2000ms) network delay for egress traffic for some (randomly chosen) container named `result...` (matching `^result` regexp) on `eth2` network interface. Pumba will exit and restore normal connectivity after 2 minutes.
 
-**Note 1:** Pumba uses `tc` Linux tool for network emulation. Make sure that your container has this tool available and properly installed. `tc` usually avaialble as part of `iproute2` package.
+##### `tc` tool
+Pumba uses `tc` Linux tool for network emulation. You have two options:
 
-**Note 2:** For Alpine Linux `tc`, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
+1. Make sure that container, you want to disturb, has `tc` tool available and properly installed (install `iproute2` package)
+2. Use `--tc-image` option, with any `netem` command, to specify external Docker image with `tc` tool available. Pubma will create a new container from this image, adding `NET_ADMIN` capability to it and reusing target container network stack. You can try to use [gaiadocker/iproute2](https://hub.docker.com/r/gaiadocker/iproute2/) image (it's just Alpine Linux 3.3 with `iproute2` package installed)
+
+**Note:** For Alpine Linux based image, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
 
 ### Running inside Docker container
 

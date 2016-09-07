@@ -566,7 +566,7 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, false)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -593,7 +593,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.StopNetemContainer(c, "eth0", false)
+	err := client.StopNetemContainer(c, "eth0", "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -608,7 +608,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, true)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
@@ -647,7 +647,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{apiClient: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, false)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
