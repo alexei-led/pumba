@@ -412,7 +412,6 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 		Privileged: privileged,
 		Cmd:        append([]string{execCmd}, execArgs...),
 	}
-	fmt.Print(config.Cmd)
 	// execute the command
 	exec, err = client.apiClient.ContainerExecCreate(context.Background(), c.ID(), config)
 	if err != nil {
