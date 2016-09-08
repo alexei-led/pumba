@@ -135,7 +135,6 @@ USAGE:
    Pumba netem command [command options] [arguments...]
 
 COMMANDS:
-<<<<<<< HEAD
      delay      dealy egress traffic
      loss
      duplicate
@@ -146,30 +145,6 @@ OPTIONS:
    --interface value, -i value  network interface to apply delay on (default: "eth0")
    --target value, -t value     target IP filter; netem will impact only on traffic to target IP
    --tc-image value             Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'
-   --help, -h                   show help
-
-NAME:
-   Pumba netem - delay, loss, duplicate and re-order (run 'netem') packets, to emulate different network problems
-
-USAGE:
-   Pumba netem command [command options] [arguments...]
-
-COMMANDS:
-     delay      dealy egress traffic
-     loss
-=======
-     delay         dealy egress traffic
-     loss          adds packet losses
-     loss-state    adds packet losses, based on 4-state Markov probability model
-     loss-gemodel  adds packet losses, according to the Gilbert-Elliot loss model
->>>>>>> update README [skip ci]
-     duplicate
-     corrupt
-
-OPTIONS:
-   --duration value, -d value   network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
-   --interface value, -i value  network interface to apply delay on (default: "eth0")
-   --target value, -t value     target IP filter; netem will impact only on traffic to target IP
    --help, -h                   show help
 ```
 
