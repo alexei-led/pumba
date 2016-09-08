@@ -2,6 +2,9 @@ machine:
   pre:
     - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
     - sudo chmod 0755 /usr/bin/docker
+    - sudo add-apt-repository ppa:duggan/bats
+    - sudo apt-get update
+    - sudo apt-get install bats
   services:
     - docker
 dependencies:
@@ -16,9 +19,13 @@ test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
     - docker run --rm -e "COVERALLS_TOKEN=${COVERALLS_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --coveralls
+    # run bats integration tests and produce TAP report
+    - bats -t tests > tests.output
   post:
     # copy test results
     - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
+    # copy integration test results
+    - cp tests.output $CIRCLE_TEST_REPORTS
     # push coverage data to codecov
     - bash <(curl -s https://codecov.io/bash)
 deployment:
