@@ -9,6 +9,7 @@ import (
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/network"
+	"github.com/docker/go-connections/nat"
 	"github.com/samalba/dockerclient/mockclient"
 	"golang.org/x/net/context"
 
@@ -666,14 +667,19 @@ func Test_tcContainerCommand(t *testing.T) {
 		Cmd:        []string{"test", "me"},
 		Image:      "pumba/tcimage",
 	}
+	// host config
 	hconfig := container.HostConfig{
 		// auto remove container on tc command exit
 		AutoRemove: true,
 		// NET_ADMIN is required for "tc netem"
 		CapAdd: []string{"NET_ADMIN"},
 		// use target container network stack
-		NetworkMode: "container",
-		IpcMode:     container.IpcMode("container:targetID"),
+		NetworkMode: container.NetworkMode("container:targetID"),
+		// others
+		PortBindings: nat.PortMap{},
+		DNS:          []string{},
+		DNSOptions:   []string{},
+		DNSSearch:    []string{},
 	}
 
 	ctx := context.Background()
