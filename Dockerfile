@@ -19,9 +19,7 @@ RUN set -x \
     && gosu nobody true \
     && apk del .gosu-deps
 
-RUN apk --update add iproute2 curl wget \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm /var/cache/apk/*
+RUN apk --no-cache add iproute2 curl wget
 
 COPY .dist/pumba /usr/bin/pumba
 COPY docker_entrypoint.sh /

@@ -3,9 +3,7 @@ FROM golang:1.7.1-alpine
 MAINTAINER Alexei Ledenev <alexei.led@gmail.com>
 
 # install Git apk
-RUN apk --update add git bash curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm /var/cache/apk/*
+RUN apk --no-cache add git bash curl
 
 # install glide package manager
 RUN curl -Ls https://github.com/Masterminds/glide/releases/download/v0.12.1/glide-v0.12.1-linux-amd64.tar.gz | tar xz -C /tmp \

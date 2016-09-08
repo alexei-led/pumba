@@ -37,5 +37,5 @@
   [[ $output =~ "Start netem for container $cid" ]]
   [[ $output =~ "Stop netem for container $cid" ]]
   # cleanup
-  docker rm -f pingtest
+  docker stop pingtest
 }
