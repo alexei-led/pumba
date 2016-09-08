@@ -2,7 +2,7 @@ machine:
   pre:
     - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
     - sudo chmod 0755 /usr/bin/docker
-    - sudo add-apt-repository ppa:duggan/bats
+    - yes y | sudo add-apt-repository ppa:duggan/bats
     - sudo apt-get update
     - sudo apt-get install bats
   services:
