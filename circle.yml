@@ -20,7 +20,7 @@ test:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
     - docker run --rm -e "COVERALLS_TOKEN=${COVERALLS_TOKEN}" -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --coveralls
     # run bats integration tests and produce TAP report
-    - bats -t tests > tests.output
+    - PATH=.dist:$PATH bats -t tests > tests.output
   post:
     # copy test results
     - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
