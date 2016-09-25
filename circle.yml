@@ -14,7 +14,7 @@ dependencies:
     # compile Pumba binary (linux/amd64)
     - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/go_build.sh
     # create Pumba Docker image too
-    - docker build -t gaiaadm/pumba .
+    - docker build --build-arg VCS_REF=`git rev-parse --short HEAD` -t gaiaadm/pumba .
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
@@ -54,6 +54,7 @@ deployment:
 notify:
   webhooks:
     - url: https://webhook.master.gaiahub.io/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
+    - url: https://hooks.microbadger.com/images/gaiaadm/pumba/mFsG9N5E0frOdrOLTPjYKqqt-Iw=
 general:
   artifacts:
     - .dist
