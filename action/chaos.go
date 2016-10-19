@@ -402,7 +402,7 @@ func (p pumbaChaos) RemoveContainers(client container.Client, names []string, pa
 
 // NetemDelayContainers delay network traffic with optional Jitter and correlation
 func (p pumbaChaos) NetemDelayContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("netem: dealy for containers")
+	log.Info("netem: delay for containers")
 	// get command details
 	command, ok := cmd.(CommandNetemDelay)
 	if !ok {
