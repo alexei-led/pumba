@@ -19,7 +19,7 @@
 @test "Netem Delay 200ms" {
   run pumba netem --duration 200ms delay --time 100
   [ $status -eq 0 ]
-  [[ $output =~ "netem: dealy for containers" ]]
+  [[ $output =~ "netem: delay for containers" ]]
 }
 
 @test "Netem Delay 200ms External Image" {

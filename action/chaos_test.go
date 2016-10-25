@@ -461,7 +461,7 @@ func TestPauseByNameRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemDealyByName(t *testing.T) {
+func TestNetemDelayByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandNetemDelay{
@@ -486,7 +486,7 @@ func TestNetemDealyByName(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemDealyByNameRandom(t *testing.T) {
+func TestNetemDelayByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandNetemDelay{
@@ -512,7 +512,7 @@ func TestNetemDealyByNameRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemDealyByPattern(t *testing.T) {
+func TestNetemDelayByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandNetemDelay{
@@ -537,7 +537,7 @@ func TestNetemDealyByPattern(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemDealyByPatternIPFilter(t *testing.T) {
+func TestNetemDelayByPatternIPFilter(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	ip := net.ParseIP("10.10.0.1")
@@ -563,7 +563,7 @@ func TestNetemDealyByPatternIPFilter(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemDealyByPatternRandom(t *testing.T) {
+func TestNetemDelayByPatternRandom(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandNetemDelay{

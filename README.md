@@ -138,7 +138,7 @@ USAGE:
    Pumba netem command [command options] [arguments...]
 
 COMMANDS:
-     delay      dealy egress traffic
+     delay      delay egress traffic
      loss
      duplicate
      corrupt
@@ -157,13 +157,13 @@ OPTIONS:
 $ pumba netem delay -h
 
 NAME:
-   Pumba netem delay - dealy egress traffic
+   Pumba netem delay - delay egress traffic
 
 USAGE:
    Pumba netem delay [command options] containers (name, list of names, RE2 regex)
 
 DESCRIPTION:
-   dealy egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation
+   delay egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation
 
 OPTIONS:
    --time value, -t value          delay time; in milliseconds (default: 100)
