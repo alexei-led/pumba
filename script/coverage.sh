@@ -18,6 +18,7 @@ mode=count
 generate_cover_data() {
   rm -rf "$workdir"
   mkdir "$workdir"
+  glide install
 
   for pkg in "$@"; do
     f="$workdir/$(echo $pkg | tr / -).cover"
