@@ -1,3 +1,6 @@
 .git
 .gitignore
+.idea
+.cover
+deploy
 vendor

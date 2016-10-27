@@ -12,7 +12,7 @@ dependencies:
     # create builder image
     - docker build -t pumba/builder -f Build.Dockerfile .
     # compile Pumba binary (linux/amd64)
-    - docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/go_build.sh
+    - docker run --rm -v "$PWD/.dist":/go/src/github.com/gaia-adm/pumba/.dist pumba/builder script/go_build.sh
     # create Pumba Docker image too
     - docker build --build-arg VCS_REF=`git rev-parse --short HEAD` -t gaiaadm/pumba .
 test:

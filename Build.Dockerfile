@@ -14,10 +14,18 @@ RUN curl -Ls https://github.com/Masterminds/glide/releases/download/v0.12.1/glid
 # goveralls - Go integration for Coveralls.io
 # cover - Go code coverage tool
 # go-junit-report - convert Go test into junit.xml format
-RUN go get -v github.com/mitchellh/gox
-RUN go get -v github.com/aktau/github-release
-RUN go get -v github.com/mattn/goveralls
-RUN go get -v golang.org/x/tools/cmd/cover
-RUN go get -v github.com/jstemmer/go-junit-report
+RUN go get -v github.com/mitchellh/gox && \
+    go get -v github.com/aktau/github-release && \
+    go get -v github.com/mattn/goveralls && \
+    go get -v golang.org/x/tools/cmd/cover && \
+    go get -v github.com/jstemmer/go-junit-report
+
+# prepare work directory
+ENV PUMBADIR /go/src/github.com/gaia-adm/pumba
+RUN mkdir -p $PUMBADIR
+WORKDIR $PUMBADIR
+
+# add source files
+COPY . .
 
 CMD ["script/go_build.sh"]
