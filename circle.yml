@@ -50,7 +50,7 @@ deployment:
       # cross compile Pumba for multiple platforms
       - docker run --rm -v "$PWD/.dist":/go/src/github.com/gaia-adm/pumba/.dist pumba/builder script/gox_build.sh
       # publish new release to GitHub
-      - docker run --rm -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -v "$PWD/.dist":/go/src/github.com/gaia-adm/pumba/.dist pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - docker run --rm -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -v "$PWD/.dist":/go/src/github.com/gaia-adm/pumba/.dist "$PWD/.git":/go/src/github.com/gaia-adm/pumba/.git pumba/builder script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
     - url: https://webhook.master.gaiahub.io/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
