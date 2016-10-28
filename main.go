@@ -70,7 +70,7 @@ var LinuxSignals = map[string]int{
 
 const (
 	// Release version
-	Release = "v0.2.7"
+	Release = "v0.2.9"
 	// DefaultSignal default kill signal
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix

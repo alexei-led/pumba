@@ -17,7 +17,7 @@ You can download Pumba binary for your OS from [release](https://github.com/gaia
 ```
 $ pumba help
 
-Pumba version v0.2.7
+Pumba version v0.2.9
 NAME:
    Pumba - Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance.
 
@@ -25,7 +25,7 @@ USAGE:
    pumba [global options] command [command options] containers (name, list of names, RE2 regex)
 
 VERSION:
-   v0.2.7
+   v0.2.9
 
 COMMANDS:
      kill     kill specified containers
