@@ -1,4 +1,4 @@
-FROM alpine:3.3
+FROM alpine:3.4
 
 MAINTAINER Alexei Ledenev <alexei.led@gmail.com>
 
@@ -18,8 +18,6 @@ RUN set -x \
     && chmod +x /usr/local/bin/gosu \
     && gosu nobody true \
     && apk del .gosu-deps
-
-RUN apk --no-cache add iproute2 curl wget
 
 COPY .dist/pumba /usr/bin/pumba
 COPY docker_entrypoint.sh /
