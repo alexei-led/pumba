@@ -2,5 +2,6 @@
 .gitignore
 .idea
 .cover
+.ssh_debug
 deploy
 vendor

@@ -2,4 +2,5 @@
 .cover
 .dist
 .idea
+.ssh_debug
 vendor
