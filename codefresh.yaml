@@ -7,13 +7,13 @@ steps:
     description: create Pumba Go builder image (Go, tools, and libraries)
     dockerfile: Build.Dockerfile
     image-name: pumba/builder
-    tag: ci
 
   build-pumba:
     description: build Pumba binary
     image: ${{setup-builder}}
     working-directory: /go/src/github.com/gaia-adm/pumba
     commands:
+    - ls -al
     - script/go_build.sh
 
   package-pumba:
