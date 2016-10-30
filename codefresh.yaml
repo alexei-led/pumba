@@ -12,6 +12,7 @@ steps:
   build-pumba:
     description: build Pumba binary
     image: ${{setup-builder}}
+    working-directory: /go/src/github.com/gaia-adm/pumba
     commands:
     - script/go_build.sh
 
