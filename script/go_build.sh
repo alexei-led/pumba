@@ -1,11 +1,12 @@
 #!/bin/bash
-distdir=.dist
+[ -z "$DIST" ] && DIST=.dist
+CGO_ENABLE=0
 
 go_build() {
-  rm -rf "${distdir}"
-  mkdir "${distdir}"
+  [ -d "${DIST}" ] && rm -rf "${DIST}/*"
+  [ -d "${DIST}" ] || mkdir -p "${DIST}"
   glide install
-  CGO_ENABLED=0 go build -v -o ${distdir}/pumba
+  go build -v -o "${DIST}/pumba"
 }
 
 go_build

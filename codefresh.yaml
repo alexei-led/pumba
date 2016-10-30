@@ -1,0 +1,23 @@
+version: '1.0'
+
+steps:
+
+  setup-builder:
+    type: build
+    description: create Pumba Go builder image (Go, tools, and libraries)
+    dockerfile: Build.Dockerfile
+    image-name: pumba/builder
+    tag: ci
+
+  build-pumba:
+    description: build Pumba binary
+    image: ${{setup-builder}}
+    commands:
+    - script/go_build.sh
+
+  package-pumba:
+    type: build
+    description: build Pumba into Docker container
+    working-directory: ${{build-pumba}}
+    image-name: pumba/pumba
+    tag: cf

@@ -26,6 +26,16 @@ ENV PUMBADIR /go/src/github.com/gaia-adm/pumba
 RUN mkdir -p $PUMBADIR
 WORKDIR $PUMBADIR
 
+# prepare dist directory and export is as volume
+ENV DIST /.dist
+RUN mkdir -p $DIST
+VOLUME $DIST
+
+# prepare directory for test results and coverage
+ENV COVER /.cover
+RUN mkdir -p $COVER
+VOLUME $COVER
+
 # install dependencies
 COPY glide.* ./
 RUN glide install

@@ -8,28 +8,27 @@
 #
 #     --html  Additionally create HTML report and open it in browser
 #
-
-workdir=.cover
-profile="$workdir/cover.out"
+[ -z "$COVER" ] && COVER=.cover
+profile="$COVER/cover.out"
 mode=count
 
 generate_cover_data() {
-  rm -rf "$workdir"
-  mkdir "$workdir"
+  [ -d "${COVER}" ] && rm -rf "${COVER}/*"
+  [ -d "${COVER}" ] || mkdir -p "${COVER}"
   glide install
 
   for pkg in "$@"; do
-    f="$workdir/$(echo $pkg | tr / -).cover"
-    tf="$workdir/$(echo $pkg | tr / -)_tests.xml"
+    f="${COVER}/$(echo $pkg | tr / -).cover"
+    tf="${COVER}/$(echo $pkg | tr / -)_tests.xml"
     go test -v -covermode="$mode" -coverprofile="$f" "$pkg" | go-junit-report > "$tf"
   done
 
   echo "mode: $mode" >"$profile"
-  grep -h -v "^mode:" "$workdir"/*.cover >>"$profile"
+  grep -h -v "^mode:" "${COVER}"/*.cover >>"$profile"
 }
 
 show_cover_report() {
-  go tool cover -${1}="$profile" -o "$workdir/coverage.html"
+  go tool cover -${1}="$profile" -o "${COVER}/coverage.html"
 }
 
 push_to_coveralls() {

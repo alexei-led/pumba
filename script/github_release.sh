@@ -1,5 +1,5 @@
 #!/bin/bash
-distdir=.dist
+[ -z "$DIST" ] && DIST=.dist
 user=${1}
 repo=${2}
 
@@ -29,7 +29,7 @@ github-release release \
   --description "$tag_message"
 
 # upload files
-( cd ${distdir} || exit
+( cd "${DIST}" || exit
 for f in *; do
   github-release upload \
     --security-token ${GITHUB_TOKEN} \
