@@ -18,6 +18,5 @@ steps:
   package-pumba:
     type: build
     description: build Pumba into Docker container
-    working-directory: ${{build-pumba}}
     image-name: pumba/pumba
     tag: cf
