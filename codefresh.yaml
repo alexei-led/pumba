@@ -6,7 +6,7 @@ steps:
     type: build
     description: create Pumba Go builder image (Go, tools, and libraries)
     dockerfile: Build.Dockerfile
-    image-name: pumba/builder:ci
+    image-name: pumba/builder
 
   go-pumba:
     description: compile Pumba binary, using builder image
