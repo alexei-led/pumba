@@ -10,7 +10,7 @@ steps:
 
   go-pumba:
     description: compile Pumba binary, using builder image
-    image: pumba/builder:ci
+    image: pumba/builder
     working-directory: /go/src/github.com/gaia-adm/pumba
     commands:
     - ls -al
