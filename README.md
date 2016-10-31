@@ -287,7 +287,7 @@ If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba
 # once in a 10 seconds, try to kill (with `SIGTERM` signal) all containers named **hp(something)**
 # on same Docker host, where Pumba container is running
 
-$ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba kill --interval 10s --signal SIGTERM ^hp
+$ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba --interval 10s kill --signal SIGTERM ^hp
 ```
 
 **Note:** For Windows and OS X you will need to use `--host` argument, since there is no unix socket `/var/run/docker.sock` to mount.
