@@ -4,6 +4,9 @@
 FROM golang:1.7.3-alpine
 MAINTAINER Alexei Ledenev <alexei.led@gmail.com>
 
+# Golang build cache
+MOUNT /go/pkg/linux_amd64 /go/src
+
 # install required packages
 RUN apk --no-cache add git bash curl openssl ca-certificates
 
@@ -31,8 +34,26 @@ WORKDIR $PUMBADIR
 # add source files
 COPY . .
 
-# compile Pumba
-RUN script/go_build.sh
+# mount vendor directory to reuse between builds
+MOUNT /go/src/github.com/gaia-adm/pumba/.glide
+ENV GLIDE_HOME /go/src/github.com/gaia-adm/pumba/.glide
+
+# run code level test and get code coverage
+{{ if .test }}
+  MOUNT .cover:/go/src/github.com/gaia-adm/pumba/.cover
+  RUN script/coverage.sh
+{{ end }}
+
+# compile Pumba: set git commit and branch through variables
+#   GitCommit=$(git rev-parse HEAD 2>/dev/null)
+#   GitBranch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+ENV GITCOMMIT {{ .GitCommit }}
+ENV GITBRANCH {{ .GitBranch }}
+{{ if .cross }}
+  RUN script/gox_build.sh
+{{ else }}
+  RUN script/go_build.sh
+{{ end }}
 
 # export Pumba binary
 EXPORT .dist/pumba
@@ -71,7 +92,7 @@ RUN chmod +x /docker_entrypoint.sh
 ENTRYPOINT ["/docker_entrypoint.sh"]
 CMD ["pumba", "--help"]
 
-LABEL org.label-schema.vcs-ref={{ .Revision }} \
+LABEL org.label-schema.vcs-ref={{ .GitCommit }} \
       org.label-schema.vcs-url="https://github.com/gaia-adm/pumba"
 
 TAG pumba/pumba:local

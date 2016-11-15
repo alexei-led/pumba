@@ -68,9 +68,24 @@ var LinuxSignals = map[string]int{
 	"SIGPWR":    30,
 }
 
+var (
+	// Version that is passed on compile time through -ldflags
+	Version = "built locally"
+
+	// GitCommit that is passed on compile time through -ldflags
+	GitCommit = "none"
+
+	// GitBranch that is passed on compile time through -ldflags
+	GitBranch = "none"
+
+	// BuildTime that is passed on compile time through -ldflags
+	BuildTime = "none"
+
+	// HumanVersion is a human readable app version
+	HumanVersion = fmt.Sprintf("%s - %.7s (%s) %s", Version, GitCommit, GitBranch, BuildTime)
+)
+
 const (
-	// Release version
-	Release = "v0.2.9"
 	// DefaultSignal default kill signal
 	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
@@ -102,7 +117,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "Pumba"
-	app.Version = Release
+	app.Version = HumanVersion
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
 	app.ArgsUsage = "containers (name, list of names, RE2 regex)"
 	app.Before = before

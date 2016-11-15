@@ -3,5 +3,6 @@
 .idea
 .cover
 .ssh_debug
+.rocker_cache
 deploy
 vendor

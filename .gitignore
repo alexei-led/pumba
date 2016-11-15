@@ -3,4 +3,5 @@
 .dist
 .idea
 .ssh_debug
+.rocker_cache
 vendor

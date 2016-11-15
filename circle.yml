@@ -1,4 +1,9 @@
 machine:
+  environment:
+    VERSION: $(cat VERSION)
+    BUILDTIME: $(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
+    GITCOMMIT: $(git rev-parse --short HEAD 2>/dev/null)
+    GITBRANCH: $(git rev-parse --abbrev-ref HEAD 2>/dev/null)
   pre:
     - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
     - sudo chmod 0755 /usr/bin/docker
@@ -8,13 +13,24 @@ machine:
   services:
     - docker
 dependencies:
+  cache_directories:
+    - .glide
+    - .rocker_cache
   override:
     # create builder image
     - docker build -t pumba/builder:ci -f Build.Dockerfile .
     # compile Pumba binary (linux/amd64)
-    - docker run -v "$PWD/.dist":/.dist pumba/builder:ci script/go_build.sh
+    - >
+      docker run \
+        -v "$PWD/.dist":/.dist \
+        -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
+        -e VERSION=${VERSION} \
+        -e BUILDTIME=${BUILDTIME} \
+        -e GITCOMMIT=${GITCOMMIT} \
+        -e GITBRANCH=${GITBRANCH} \
+        pumba/builder:ci script/go_build.sh
     # create Pumba Docker image too
-    - docker build --build-arg VCS_REF=`git rev-parse --short HEAD` -t gaiaadm/pumba .
+    - docker build--build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
@@ -48,9 +64,22 @@ deployment:
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push gaiaadm/pumba
       # cross compile Pumba for multiple platforms
-      - docker run -v "$PWD/.dist":/.dist pumba/builder:ci script/gox_build.sh
+      - >
+        docker run \
+          -v "$PWD/.dist":/.dist \
+          -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
+          -e VERSION=${VERSION} \
+          -e BUILDTIME=${BUILDTIME} \
+          -e GITCOMMIT=${GITCOMMIT} \
+          -e GITBRANCH=${GITBRANCH} \        
+          pumba/builder:ci script/gox_build.sh
       # publish new release to GitHub
-      - docker run -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -v "$PWD/.dist":/.dist -v  "$PWD/.git":/go/src/github.com/gaia-adm/pumba/.git pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - >
+        docker run \
+          -e "GITHUB_TOKEN=${GITHUB_TOKEN}" \
+          -v "$PWD/.dist":/.dist \
+          -v  "$PWD/.git":/go/src/github.com/gaia-adm/pumba/.git \
+          pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
     - url: https://webhook.master.gaiahub.io/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
