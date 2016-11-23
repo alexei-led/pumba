@@ -23,7 +23,7 @@ dependencies:
     - >
       docker run \
         -v "$PWD/.dist":/.dist \
-        -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
+        -v "$PWD/.glide":/go/src/app/.glide \
         -e VERSION=${VERSION} \
         -e BUILDTIME=${BUILDTIME} \
         -e GITCOMMIT=${GITCOMMIT} \
@@ -67,7 +67,7 @@ deployment:
       - >
         docker run \
           -v "$PWD/.dist":/.dist \
-          -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
+          -v "$PWD/.glide":/go/src/app/.glide \
           -e VERSION=${VERSION} \
           -e BUILDTIME=${BUILDTIME} \
           -e GITCOMMIT=${GITCOMMIT} \
@@ -78,7 +78,7 @@ deployment:
         docker run \
           -e "GITHUB_TOKEN=${GITHUB_TOKEN}" \
           -v "$PWD/.dist":/.dist \
-          -v  "$PWD/.git":/go/src/github.com/gaia-adm/pumba/.git \
+          -v  "$PWD/.git":/go/src/app/.git \
           pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
