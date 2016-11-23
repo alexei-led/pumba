@@ -23,14 +23,14 @@ dependencies:
     - >
       docker run \
         -v "$PWD/.dist":/.dist \
-        -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
+        -v "$PWD/.glide":/go/src/app/.glide \
         -e VERSION=${VERSION} \
         -e BUILDTIME=${BUILDTIME} \
         -e GITCOMMIT=${GITCOMMIT} \
         -e GITBRANCH=${GITBRANCH} \
         pumba/builder:ci script/go_build.sh
     # create Pumba Docker image too
-    - docker build--build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
+    - docker build --build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
@@ -67,7 +67,7 @@ deployment:
       - >
         docker run \
           -v "$PWD/.dist":/.dist \
-          -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
+          -v "$PWD/.glide":/go/src/app/.glide \
           -e VERSION=${VERSION} \
           -e BUILDTIME=${BUILDTIME} \
           -e GITCOMMIT=${GITCOMMIT} \
@@ -78,7 +78,7 @@ deployment:
         docker run \
           -e "GITHUB_TOKEN=${GITHUB_TOKEN}" \
           -v "$PWD/.dist":/.dist \
-          -v  "$PWD/.git":/go/src/github.com/gaia-adm/pumba/.git \
+          -v  "$PWD/.git":/go/src/app/.git \
           pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:

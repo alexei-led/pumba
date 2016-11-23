@@ -1,7 +1,9 @@
 .git
 .cover
 .dist
+.glide
 .idea
 .ssh_debug
 .rocker_cache
 vendor
+/.gtm/
