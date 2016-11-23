@@ -5,3 +5,4 @@
 .ssh_debug
 .rocker_cache
 vendor
+/.gtm/

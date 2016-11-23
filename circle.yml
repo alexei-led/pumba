@@ -30,7 +30,7 @@ dependencies:
         -e GITBRANCH=${GITBRANCH} \
         pumba/builder:ci script/go_build.sh
     # create Pumba Docker image too
-    - docker build--build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
+    - docker build --build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
