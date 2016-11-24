@@ -12,6 +12,8 @@ steps:
     description: compile Pumba binary, using builder image
     image: ${{go-builder}}
     working_directory: /pumba
+    commands:
+    - /go/src/app/script/go_build.sh
 
   package-pumba:
     type: build
