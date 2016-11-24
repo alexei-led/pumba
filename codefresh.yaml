@@ -10,7 +10,7 @@ steps:
 
   go-pumba:
     description: compile Pumba binary, using builder image
-    image: pumba/builder:ci
+    image: ${{go-builder}}
     working_directory: /pumba
     commands:
     - ls -al
