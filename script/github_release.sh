@@ -32,7 +32,7 @@ github-release release \
   --repo ${repo} \
   --name "v${RELEASE_TAG}" \
   --tag "${RELEASE_TAG}" \
-  --description "${TAG_MESSAGE}"
+  --description "${TAG_MESSAGE}" \
   --pre-release
 
 # upload files
