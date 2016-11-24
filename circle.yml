@@ -1,9 +1,6 @@
 machine:
   environment:
-    VERSION: $(cat VERSION)
     BUILDTIME: $(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
-    GITCOMMIT: $(git rev-parse --short HEAD 2>/dev/null)
-    GITBRANCH: $(git rev-parse --abbrev-ref HEAD 2>/dev/null)
   pre:
     - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
     - sudo chmod 0755 /usr/bin/docker
@@ -24,13 +21,13 @@ dependencies:
       docker run \
         -v "$PWD/.dist":/.dist \
         -v "$PWD/.glide":/go/src/app/.glide \
-        -e VERSION=${VERSION} \
+        -e VERSION=$(cat VERSION) \
         -e BUILDTIME=${BUILDTIME} \
-        -e GITCOMMIT=${GITCOMMIT} \
-        -e GITBRANCH=${GITBRANCH} \
+        -e GITCOMMIT=${CIRCLE_SHA1} \
+        -e GITBRANCH=${CIRCLE_BRANCH} \
         pumba/builder:ci script/go_build.sh
     # create Pumba Docker image too
-    - docker build --build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
+    - docker build --build-arg VCS_REF=${CIRCLE_SHA1} -t gaiaadm/pumba .
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
@@ -68,10 +65,10 @@ deployment:
         docker run \
           -v "$PWD/.dist":/.dist \
           -v "$PWD/.glide":/go/src/app/.glide \
-          -e VERSION=${VERSION} \
+          -e VERSION=$(cat VERSION) \
           -e BUILDTIME=${BUILDTIME} \
-          -e GITCOMMIT=${GITCOMMIT} \
-          -e GITBRANCH=${GITBRANCH} \        
+          -e GITCOMMIT=${CIRCLE_SHA1} \
+          -e GITBRANCH=${CIRCLE_BRANCH} \        
           pumba/builder:ci script/gox_build.sh
       # publish new release to GitHub
       - >
