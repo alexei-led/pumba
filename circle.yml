@@ -63,7 +63,7 @@ deployment:
       # cross compile Pumba for multiple platforms
       - docker run -v "$PWD/.dist":/.dist -v "$PWD/.glide":/go/src/app/.glide -e VERSION=$(cat VERSION) -e BUILDTIME=${BUILDTIME} -e GITCOMMIT=${CIRCLE_SHA1} -e GITBRANCH=${CIRCLE_BRANCH} pumba/builder:ci script/gox_build.sh
       # publish new release to GitHub
-      - docker run -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -e RELEASE_TAG=$(git describe --tags) -v "$PWD/.dist":/.dist pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - RELEASE_TAG=$(git describe --tags) docker run -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -e RELEASE_TAG=${RELEASE_TAG} -e TAG_MESSAGE=$(git tag -l ${RELEASE_TAG} -n 20 | awk '{$1=""; print}') -v "$PWD/.dist":/.dist pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
     - url: https://webhook.master.gaiahub.io/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
