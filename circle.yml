@@ -60,6 +60,8 @@ deployment:
       # deploy image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push gaiaadm/pumba
+      # create builder image
+      - docker build -t pumba/builder:ci -f Build.Dockerfile .
       # cross compile Pumba for multiple platforms
       - >
         docker run \
