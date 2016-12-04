@@ -1,34 +1,20 @@
 version: 0.1
 
-environment_variables:
-  plaintext:
-    A_ENV: "Only String Here?"
-
 phases:
-  install:
-    commands:
-      - apt-get update -y
-      # - apt-get install -y bats
   pre_build:
     commands:
       - echo Build Environment ...
       - export BUILDTIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
       - export GITCOMMIT=$(git rev-parse HEAD --short 2>/dev/null)
       - export GITBRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-      - env
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
       # create builder image
       - docker build -t pumba/builder:ci -f Build.Dockerfile .
       # compile Pumba binary (linux/amd64)
       - docker run -v "$PWD/.dist":/.dist -v "$PWD/.glide":/go/src/app/.glide -e VERSION=$(cat VERSION) -e BUILDTIME=${BUILDTIME} -e GITCOMMIT=${GITCOMMIT} -e GITBRANCH=${GITBRANCH} pumba/builder:ci script/go_build.sh
       # create Pumba Docker image too
-      - docker build --build-arg VCS_REF=${CIRCLE_SHA1} -t gaiaadm/pumba .
-  post_build:
-    commands:
-      - echo Build completed on `date`
+      - docker build --build-arg VCS_REF=${GITCOMMIT} -t gaiaadm/pumba .
 artifacts:
   type: zip
   files:
