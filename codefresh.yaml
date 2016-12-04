@@ -11,7 +11,7 @@ steps:
   go_pumba:
     description: compile Pumba binary, using builder image
     image: ${{go_builder}}
-    working_directory: /pumba
+    working_directory: ${{main_clone}}
     commands:
     - cd /go/src/app
     - script/go_build.sh
