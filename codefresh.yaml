@@ -13,14 +13,12 @@ steps:
     image: ${{go_builder}}
     commands:
     - cd /go/src/github.com/gaia-adm/pumba
-    - mkdir -p /codefresh/volume/.dist
-    - export DIST=/codefresh/volume/.dist
+    - mkdir -p /codefresh/volume/pumba/.dist
+    - export DIST=/codefresh/volume/pumba/.dist
     - script/go_build.sh
 
   package-pumba:
     type: build
     description: build Pumba into Docker container
     image-name: pumba/pumba
-    dockerfile: /codefresh/volume/pumba/Dockerfile
-    working_directory: /codefresh/volume
     tag: cf
