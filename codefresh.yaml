@@ -6,15 +6,18 @@ steps:
     type: build
     description: create Pumba Go builder image (Go, tools, and libraries)
     dockerfile: Build.Dockerfile
+    working-directory: ${{main_clone}}
     image-name: pumba/builder
 
   go_pumba:
     description: compile Pumba binary, using builder image
     image: ${{go_builder}}
+    working-directory: ${{main_clone}}
     commands:
+    - echo $PWD
+    - mkdir -p .dist
+    - export DIST=$PWD/.dist; echo $DIST
     - cd /go/src/github.com/gaia-adm/pumba
-    - mkdir -p /codefresh/volume/pumba/.dist
-    - export DIST=/codefresh/volume/pumba/.dist
     - script/go_build.sh
 
   package-pumba:
