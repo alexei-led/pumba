@@ -1,5 +1,8 @@
 .git
 .gitignore
+.rocker_cache
+.glide
+.gtm
 .idea
 .cover
 .ssh_debug

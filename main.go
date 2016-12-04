@@ -559,7 +559,6 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		ip = net.ParseIP(c.Parent().String("target"))
 	}
 	// get Docker image with tc (iproute2 package)
-	log.Debug("SHIT4")
 	var image string
 	if c.Parent() != nil {
 		image = c.Parent().String("tc-image")

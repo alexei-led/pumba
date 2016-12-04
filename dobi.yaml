@@ -1,0 +1,46 @@
+meta:
+    project: pumba
+
+mount=dist:
+    bind: ./.dist
+    path: /.dist
+
+mount=glide:
+    bind: ./.glide
+    path: /go/src/app/.glide
+
+image=builder:
+    image: pumba/builder
+    tags: [ci]
+    context: .
+    dockerfile: Build.Dockerfile
+    pull: once
+    args:
+      http_proxy: "{env.http_proxy}"
+      https_proxy: "{env.https_proxy}"
+
+job=binary:
+    use: builder
+    artifact: ./dist/pumba
+    mounts: [glide, dist]
+    description: "Build the static binary"
+
+image=dist-img:
+    image: pumba/pumba
+    dockerfile: Dockerfile
+    tags: ['dev']
+    depends: [binary]
+    description: "Build the distribution image"
+    args:
+      http_proxy: "{env.http_proxy}"
+      https_proxy: "{env.https_proxy}"
+
+job=run-dist:
+    use: dist-img
+    interactive: true
+    description: "Run the distribution image"
+
+# alias used by dobi test suite to test this example
+alias=test:
+    tasks: [run-dist]
+
