@@ -17,8 +17,7 @@ steps:
     - echo $PWD
     - mkdir -p .dist
     - export DIST=$PWD/.dist; echo $DIST
-    - cd /go/src/github.com/gaia-adm/pumba
-    - script/go_build.sh
+    - cd /go/src/github.com/gaia-adm/pumba && echo $PWD && echo $DIST && script/go_build.sh
 
   package-pumba:
     type: build
