@@ -11,14 +11,16 @@ steps:
   go_pumba:
     description: compile Pumba binary, using builder image
     image: ${{go_builder}}
-    working_directory: ${{main_clone}}
     commands:
-    - cd /go/src/app
+    - cd /go/src/github.com/gaia-adm/pumba
     - script/go_build.sh
+    - mkdir -p /codefresh/volume/.dist
+    - cp ./dist/pumba /codefresh/volume/.dist/
 
   package-pumba:
     type: build
     description: build Pumba into Docker container
     image-name: pumba/pumba
-    working_directory: working-directory:${{go_pumba}}
+    dockerfile: ${{main_clone}}/Dockerfile
+    working_directory: /codefresh/volume
     tag: cf
