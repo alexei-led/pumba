@@ -21,6 +21,6 @@ steps:
     type: build
     description: build Pumba into Docker container
     image-name: pumba/pumba
-    dockerfile: ${{main_clone}}/Dockerfile
+    dockerfile: /codefresh/volume/pumba/Dockerfile
     working_directory: /codefresh/volume
     tag: cf
