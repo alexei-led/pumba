@@ -13,9 +13,9 @@ steps:
     image: ${{go_builder}}
     commands:
     - cd /go/src/github.com/gaia-adm/pumba
-    - script/go_build.sh
     - mkdir -p /codefresh/volume/.dist
-    - cp ./dist/pumba /codefresh/volume/.dist/
+    - export DIST=/codefresh/volume/.dist
+    - script/go_build.sh
 
   package-pumba:
     type: build
