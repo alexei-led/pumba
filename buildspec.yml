@@ -10,7 +10,7 @@ phases:
   install:
     commands:
       - apt-get update -y
-      - apt-get install -y bats
+      # - apt-get install -y bats
   pre_build:
     commands:
       - echo Build Environment ...
