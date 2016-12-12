@@ -90,6 +90,19 @@ type CommandNetemLossGEmodel struct {
 	Image        string
 }
 
+// CommandNetemRate arguments for 'netem rate' sub-command
+type CommandNetemRate struct {
+	NetInterface   string
+	IP             net.IP
+	Duration       time.Duration
+	Rate           string
+	PacketOverhead int
+	CellSize       int
+	CellOverhead   int
+	StopChan       <-chan bool
+	Image          string
+}
+
 // CommandStop arguments for stop command
 type CommandStop struct {
 	WaitTime int
@@ -112,6 +125,7 @@ type Chaos interface {
 	NetemLossRandomContainers(container.Client, []string, string, interface{}) error
 	NetemLossStateContainers(container.Client, []string, string, interface{}) error
 	NetemLossGEmodelContainers(container.Client, []string, string, interface{}) error
+	NetemRateContainers(container.Client, []string, string, interface{}) error
 }
 
 // NewChaos create new Pumba Choas instance
@@ -488,6 +502,33 @@ func (p pumbaChaos) NetemLossGEmodelContainers(client container.Client, names []
 	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneH, 'f', 2, 64))
 	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneK, 'f', 2, 64))
 	// run prepared netem loss gemodel command
+	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan, command.Image)
+}
+
+// NetemRateContainers delay network traffic with optional Jitter and correlation
+func (p pumbaChaos) NetemRateContainers(client container.Client, names []string, pattern string, cmd interface{}) error {
+	log.Info("netem: rate for containers")
+	// get command details
+	command, ok := cmd.(CommandNetemRate)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandNetemRate")
+	}
+	var err error
+	var containers []container.Container
+	if containers, err = listContainers(client, names, pattern); err != nil {
+		return err
+	}
+	netemCmd := []string{"rate", command.Rate}
+	if command.PacketOverhead != 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(command.PacketOverhead))
+	}
+	if command.CellSize > 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(command.CellSize))
+	}
+	if command.CellOverhead != 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(command.CellOverhead))
+	}
+
 	return netemContainers(client, containers, command.NetInterface, netemCmd, command.IP, command.Duration, command.StopChan, command.Image)
 }
 
