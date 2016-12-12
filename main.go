@@ -160,7 +160,7 @@ func main() {
 			},
 			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "delay, loss, duplicate and re-order (run 'netem') packets, to emulate different network problems",
+			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
 				{
 					Name: "delay",
@@ -282,6 +282,36 @@ func main() {
 				},
 				{
 					Name: "corrupt",
+				},
+				{
+					Name: "rate",
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "rate, r",
+							Usage: "delay outgoing packets; in common units",
+							Value: "100kbit",
+						},
+						cli.IntFlag{
+							Name:  "packetoverhead, p",
+							Usage: "per packet overhead; in bytes",
+							Value: 0,
+						},
+						cli.IntFlag{
+							Name:  "cellsize, s",
+							Usage: "cell size of the simulated link layer scheme",
+							Value: 0,
+						},
+						cli.IntFlag{
+							Name:  "celloverhead, c",
+							Usage: "per cell overhead; in bytes",
+							Value: 0,
+						},
+					},
+					Usage:       "rate limit egress traffic",
+					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					Description: "rate limit egress traffic for specified containers",
+					Action:      netemRate,
+					Before:      beforeCommand,
 				},
 			},
 		},
@@ -763,6 +793,52 @@ func netemLossGEmodel(c *cli.Context) error {
 	return nil
 }
 
+// NETEM RATE command
+func netemRate(c *cli.Context) error {
+	// parse common netem options
+	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
+	if err != nil {
+		return err
+	}
+	// get target egress rate
+	rateString := c.String("rate")
+	if rateString == "" {
+		err := errors.New("Undefined rate limit")
+		log.Error(err)
+		return err
+	}
+	rate, err := parseRate(rateString)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	// get packet overhead
+	packetOverhead := c.Int("packetoverhead")
+	// get cell size
+	cellSize := c.Int("cellsize")
+	if cellSize < 0 {
+		err = errors.New("Invalid cell size: must be a non-negative integer")
+		log.Error(err)
+		return err
+	}
+	// get cell overhead
+	cellOverhead := c.Int("celloverhead")
+	// pepare netem rate command
+	rateCmd := action.CommandNetemRate{
+		NetInterface:   netInterface,
+		IP:             ip,
+		Duration:       duration,
+		Rate:           rate,
+		PacketOverhead: packetOverhead,
+		CellSize:       cellSize,
+		CellOverhead:   cellOverhead,
+		StopChan:       gStopChan,
+		Image:          image,
+	}
+	runChaosCommand(rateCmd, names, pattern, chaos.NetemRateContainers)
+	return nil
+}
+
 // PAUSE command
 func pause(c *cli.Context) error {
 	// get names or pattern
@@ -880,4 +956,16 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 		}
 	}
 	return tlsConfig, nil
+}
+
+// Parse rate
+func parseRate(rate string) (string, error) {
+	reRate := regexp.MustCompile("[0-9]+[gmk]?bit")
+	validRate := reRate.FindString(rate)
+	if rate != validRate {
+		err := fmt.Errorf("Invalid rate. Must match '%s'", reRate.String())
+		log.Error(err)
+		return "", err
+	}
+	return rate, nil
 }
