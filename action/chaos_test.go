@@ -713,6 +713,48 @@ func TestNetemLossGEmodelBadCommand(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
+func TestNetemRateByName(t *testing.T) {
+	// prepare test data and mocks
+	names, cs := makeContainersN(10)
+	cmd := CommandNetemRate{
+		NetInterface:   "eth1",
+		IP:             nil,
+		Duration:       1 * time.Millisecond,
+		Rate:           "300kbit",
+		PacketOverhead: 10,
+		CellSize:       20,
+		CellOverhead:   30,
+	}
+	client := container.NewMockSamalbaClient()
+	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	for _, c := range cs {
+		client.On("NetemContainer", c, "eth1", []string{"rate", "300kbit", "10", "20", "30"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
+	}
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemRateContainers(client, names, "", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemRateBadCommand(t *testing.T) {
+	// prepare test data and mocks
+	names, _ := makeContainersN(10)
+	cmd := CommandKill{
+		Signal: "xuyak",
+	}
+	client := container.NewMockSamalbaClient()
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemRateContainers(client, names, "", cmd)
+	// asserts
+	assert.Error(t, err)
+	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemRate")
+	client.AssertExpectations(t)
+}
+
 func TestSelectRandomContainer(t *testing.T) {
 	_, cs := makeContainersN(30)
 	c1 := randomContainer(cs)

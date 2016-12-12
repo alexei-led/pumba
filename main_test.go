@@ -61,6 +61,11 @@ func (m *ChaosMock) NetemLossGEmodelContainers(c container.Client, n []string, p
 	return args.Error(0)
 }
 
+func (m *ChaosMock) NetemRateContainers(c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(c, n, p, cmd)
+	return args.Error(0)
+}
+
 //---- TESTS
 
 type mainTestSuite struct {
@@ -698,6 +703,108 @@ func (s *mainTestSuite) Test_netemLossGEmodelSucess() {
 	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_netemRateSucess() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// rate flags
+	rateSet := flag.NewFlagSet("rate", 0)
+	rateSet.String("rate", "300kbit", "doc")
+	rateSet.Int("packetoverhead", 10, "doc")
+	rateSet.Int("cellsize", 20, "doc")
+	rateSet.Int("celloverhead", 30, "doc")
+	rateSet.Parse([]string{"c1", "c2", "c3"})
+	rateCtx := cli.NewContext(nil, rateSet, netemCtx)
+	// set interval to 1ms
+	gInterval = 20 * time.Millisecond
+	// setup mock
+	cmd := action.CommandNetemRate{
+		NetInterface:   "test0",
+		Duration:       10 * time.Millisecond,
+		Rate:           "300kbit",
+		PacketOverhead: 10,
+		CellSize:       20,
+		CellOverhead:   30,
+		StopChan:       gStopChan,
+	}
+	chaosMock := &ChaosMock{}
+	chaos = chaosMock
+	chaosMock.On("NetemRateContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	// invoke command
+	err := netemRate(rateCtx)
+	// asserts
+	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
+	time.Sleep(2 * time.Millisecond)
+	assert.NoError(s.T(), err)
+	chaosMock.AssertExpectations(s.T())
+}
+
+func (s *mainTestSuite) Test_netemRateInvalidRate() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// rate flags
+	rateSet := flag.NewFlagSet("rate", 0)
+	rateSet.String("rate", "300", "doc")
+	rateSet.Int("packetoverhead", 10, "doc")
+	rateSet.Int("cellsize", 20, "doc")
+	rateSet.Int("celloverhead", 30, "doc")
+	rateSet.Parse([]string{"c1", "c2", "c3"})
+	rateCtx := cli.NewContext(nil, rateSet, netemCtx)
+	// invoke command
+	err := netemRate(rateCtx)
+	// asserts
+	assert.EqualError(s.T(), err, "Invalid rate. Must match '[0-9]+[gmk]?bit'")
+}
+
+func (s *mainTestSuite) Test_netemRateEmptyRate() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// rate flags
+	rateSet := flag.NewFlagSet("rate", 0)
+	rateSet.String("rate", "", "doc")
+	rateSet.Int("packetoverhead", 10, "doc")
+	rateSet.Int("cellsize", -20, "doc")
+	rateSet.Int("celloverhead", 30, "doc")
+	rateSet.Parse([]string{"c1", "c2", "c3"})
+	rateCtx := cli.NewContext(nil, rateSet, netemCtx)
+	// invoke command
+	err := netemRate(rateCtx)
+	// asserts
+	assert.EqualError(s.T(), err, "Undefined rate limit")
+}
+
+func (s *mainTestSuite) Test_netemRateInvalidCellSize() {
+	// prepare test data
+	// netem flags
+	netemSet := flag.NewFlagSet("netem", 0)
+	netemSet.String("duration", "10ms", "doc")
+	netemSet.String("interface", "test0", "doc")
+	netemCtx := cli.NewContext(nil, netemSet, nil)
+	// rate flags
+	rateSet := flag.NewFlagSet("rate", 0)
+	rateSet.String("rate", "300kbit", "doc")
+	rateSet.Int("packetoverhead", 10, "doc")
+	rateSet.Int("cellsize", -20, "doc")
+	rateSet.Int("celloverhead", 30, "doc")
+	rateSet.Parse([]string{"c1", "c2", "c3"})
+	rateCtx := cli.NewContext(nil, rateSet, netemCtx)
+	// invoke command
+	err := netemRate(rateCtx)
+	// asserts
+	assert.EqualError(s.T(), err, "Invalid cell size: must be a non-negative integer")
 }
 
 func TestMainTestSuite(t *testing.T) {
