@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.3.1] - 2016-12-13
+### Added
+- `netem rate` command, contributed by Ricardo Martins @meqif
+
 ## [v0.3.0] - 2016-11-6
 ### Added
 - build label is calculated based on major build (VERSION file), git branch and commit

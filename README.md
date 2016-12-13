@@ -142,6 +142,7 @@ COMMANDS:
      loss
      duplicate
      corrupt
+     rate       limit egress traffic
 
 OPTIONS:
    --duration value, -d value   network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
@@ -235,6 +236,25 @@ OPTIONS:
    --pb value, -r value  transition probability into the good state (default: 100)
    --one-h value         loss probability in the bad state (default: 100)
    --one-k value         loss probability in the good state (default: 0)
+```
+
+```
+$ pumba netem rate -h
+
+NAME:
+   Pumba netem rate - rate limit egress traffic
+
+USAGE:
+   Pumba netem rate [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   rate limit egress traffic for specified containers
+
+OPTIONS:
+   --rate value, -r value            delay outgoing packets; in common units (default: "100kbit")
+   --packetoverhead value, -p value  per packet overhead; in bytes (default: 0)
+   --cellsize value, -s value        cell size of the simulated link layer scheme (default: 0)
+   --celloverhead value, -c value    per cell overhead; in bytes (default: 0)
 ```
 
 ##### Examples
