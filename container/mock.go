@@ -29,24 +29,6 @@ func (m *MockClient) StopContainer(c Container, timeout int, dryrun bool) error 
 	return args.Error(0)
 }
 
-// StartContainer mock
-func (m *MockClient) StartContainer(c Container) error {
-	args := m.Called(c)
-	return args.Error(0)
-}
-
-// RenameContainer mock
-func (m *MockClient) RenameContainer(c Container, name string) error {
-	args := m.Called(c, name)
-	return args.Error(0)
-}
-
-// RemoveImage mock
-func (m *MockClient) RemoveImage(c Container, b bool, dryrun bool) error {
-	args := m.Called(c, b)
-	return args.Error(0)
-}
-
 // KillContainer mock
 func (m *MockClient) KillContainer(c Container, s string, dryrun bool) error {
 	args := m.Called(c, s)
