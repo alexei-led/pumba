@@ -12,8 +12,8 @@ type MockClient struct {
 	mock.Mock
 }
 
-// NewMockSamalbaClient creates a new mock client
-func NewMockSamalbaClient() *MockClient {
+// NewMockClient creates a new mock client
+func NewMockClient() *MockClient {
 	return &MockClient{}
 }
 
