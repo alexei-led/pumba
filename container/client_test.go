@@ -1,21 +1,10 @@
 package container
 
 import (
-	//"errors"
-	//"net"
-	//"testing"
-	//"time"
-	//
-	//"github.com/docker/engine-api/types"
-	//"github.com/docker/engine-api/types/container"
-	//"github.com/docker/engine-api/types/network"
-	//"github.com/docker/go-connections/nat"
-	//"golang.org/x/net/context"
-
-	//"github.com/samalba/dockerclient"
-	//"github.com/stretchr/testify/assert"
-	//"github.com/stretchr/testify/mock"
-	//"testing"
+	"testing"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"errors"
 )
 
 func allContainers(Container) bool {
@@ -25,108 +14,119 @@ func noContainers(Container) bool {
 	return false
 }
 
-//func TestListContainers_Success(t *testing.T) {
-//	ci := &dockerclient.ContainerInfo{Image: "abc123", Config: &dockerclient.ContainerConfig{Image: "img"}}
-//	ii := &dockerclient.ImageInfo{}
-//	api := NewMockEngine()
-//	api.On("ContainerList", ).Return([]dockerclient.Container{{Id: "foo", Names: []string{"bar"}}}, nil)
-//	api.On("InspectContainer", "foo").Return(ci, nil)
-//	api.On("InspectImage", "abc123").Return(ii, nil)
-//
-//	client := dockerClient{containerAPI: api}
-//	cs, err := client.ListContainers(allContainers)
-//
-//	assert.NoError(t, err)
-//	assert.Len(t, cs, 1)
-//	assert.Equal(t, ci, cs[0].containerInfo)
-//	assert.Equal(t, ii, cs[0].imageInfo)
-//	api.AssertExpectations(t)
-//}
+func TestListContainers_Success(t *testing.T) {
+	containerDetails := ContainerDetailsResponse(AsMap("Image", "abc123"))
+	allContainersResponse := Containers(ContainerResponse(AsMap(
+		"ID", "foo",
+		"Names", []string{"bar"})),
+	)
+	imageDetails := ImageDetailsResponse(AsMap())
 
-//func TestListContainers_Filter(t *testing.T) {
-//	ci := &dockerclient.ContainerInfo{Image: "abc123", Config: &dockerclient.ContainerConfig{Image: "img"}}
-//	ii := &dockerclient.ImageInfo{}
-//	api := NewMockEngine()
-//	api.On("ListContainers", false, false, "").Return([]dockerclient.Container{{Id: "foo", Names: []string{"bar"}}}, nil)
-//	api.On("InspectContainer", "foo").Return(ci, nil)
-//	api.On("InspectImage", "abc123").Return(ii, nil)
-//
-//	client := dockerClient{containerAPI: api}
-//	cs, err := client.ListContainers(noContainers)
-//
-//	assert.NoError(t, err)
-//	assert.Len(t, cs, 0)
-//	api.AssertExpectations(t)
-//}
+	api := NewMockEngine()
+	api.On("ContainerList", mock.Anything, mock.Anything).Return(allContainersResponse, nil)
+	api.On("ContainerInspect", mock.Anything, "foo").Return(containerDetails, nil)
+	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetails, []byte{}, nil)
 
-//func TestListContainers_ListError(t *testing.T) {
-//	api := mockclient.NewMockClient()
-//	api.On("ListContainers", false, false, "").Return([]dockerclient.Container{}, errors.New("oops"))
-//
-//	client := dockerClient{api: api}
-//	_, err := client.ListContainers(allContainers)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "oops")
-//	api.AssertExpectations(t)
-//}
-//
-//func TestListContainers_InspectContainerError(t *testing.T) {
-//	api := mockclient.NewMockClient()
-//	api.On("ListContainers", false, false, "").Return([]dockerclient.Container{{Id: "foo", Names: []string{"bar"}}}, nil)
-//	api.On("InspectContainer", "foo").Return(&dockerclient.ContainerInfo{}, errors.New("uh-oh"))
-//
-//	client := dockerClient{api: api}
-//	_, err := client.ListContainers(allContainers)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "uh-oh")
-//	api.AssertExpectations(t)
-//}
-//
-//func TestListContainers_InspectImageError(t *testing.T) {
-//	ci := &dockerclient.ContainerInfo{Image: "abc123", Config: &dockerclient.ContainerConfig{Image: "img"}}
-//	ii := &dockerclient.ImageInfo{}
-//	api := mockclient.NewMockClient()
-//	api.On("ListContainers", false, false, "").Return([]dockerclient.Container{{Id: "foo", Names: []string{"bar"}}}, nil)
-//	api.On("InspectContainer", "foo").Return(ci, nil)
-//	api.On("InspectImage", "abc123").Return(ii, errors.New("whoops"))
-//
-//	client := dockerClient{api: api}
-//	_, err := client.ListContainers(allContainers)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "whoops")
-//	api.AssertExpectations(t)
-//}
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	containers, err := client.ListContainers(allContainers)
 
-//func TestStopContainer_DefaultSuccess(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name:   "foo",
-//			Id:     "abc123",
-//			Config: &dockerclient.ContainerConfig{},
-//		},
-//	}
-//
-//	ci := &dockerclient.ContainerInfo{
-//		State: &dockerclient.State{
-//			Running: false,
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
-//	api.On("KillContainer", "abc123", "SIGKILL").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
-//
-//	client := dockerClient{api: api}
-//	err := client.StopContainer(c, 1, false)
-//
-//	assert.NoError(t, err)
-//	api.AssertExpectations(t)
-//}
+	assert.NoError(t, err)
+	assert.Len(t, containers, 1)
+	assert.Equal(t, containerDetails, containers[0].containerInfo)
+	assert.Equal(t, imageDetails, containers[0].imageInfo)
+	api.AssertExpectations(t)
+}
+
+func TestListContainers_Filter(t *testing.T) {
+	containerDetails := ContainerDetailsResponse(AsMap("Image", "abc123"))
+	allContainersResponse := Containers(ContainerResponse(AsMap(
+		"ID", "foo",
+		"Names", []string{"bar"})),
+	)
+	imageDetails := ImageDetailsResponse(AsMap())
+
+	api := NewMockEngine()
+	api.On("ContainerList", mock.Anything, mock.Anything).Return(allContainersResponse, nil)
+	api.On("ContainerInspect", mock.Anything, "foo").Return(containerDetails, nil)
+	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetails, []byte{}, nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	containers, err := client.ListContainers(noContainers)
+
+	assert.NoError(t, err)
+	assert.Len(t, containers, 0)
+	api.AssertExpectations(t)
+}
+
+func TestListContainers_ListError(t *testing.T) {
+	api := NewMockEngine()
+	api.On("ContainerList", mock.Anything, mock.Anything).Return(Containers(), errors.New("oops"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	_, err := client.ListContainers(allContainers)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "oops")
+	api.AssertExpectations(t)
+}
+
+func TestListContainers_InspectContainerError(t *testing.T) {
+	api := NewMockEngine()
+	allContainersResponse := Containers(ContainerResponse(AsMap(
+		"ID", "foo",
+		"Names", []string{"bar"})),
+	)
+	api.On("ContainerList", mock.Anything, mock.Anything).Return(allContainersResponse, nil)
+	api.On("ContainerInspect", mock.Anything, "foo").Return(ContainerDetailsResponse(AsMap()), errors.New("uh-oh"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	_, err := client.ListContainers(allContainers)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "uh-oh")
+	api.AssertExpectations(t)
+}
+
+func TestListContainers_InspectImageError(t *testing.T) {
+	allContainersResponse := Containers(ContainerResponse(AsMap(
+		"ID", "foo",
+		"Names", []string{"bar"})),
+	)
+	containerDetailsResponse := ContainerDetailsResponse(AsMap("Image", "abc123"))
+	imageDetailsResponse := ImageDetailsResponse(AsMap())
+	api := NewMockEngine()
+	api.On("ContainerList", mock.Anything, mock.Anything).Return(allContainersResponse, nil)
+	api.On("ContainerInspect", mock.Anything, "foo").Return(containerDetailsResponse, nil)
+	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetailsResponse, []byte{}, errors.New("whoops"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	_, err := client.ListContainers(allContainers)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "whoops")
+	api.AssertExpectations(t)
+}
+
+func TestStopContainer_DefaultSuccess(t *testing.T) {
+	containerDetails := ContainerDetailsResponse(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+	container := Container{containerInfo: containerDetails}
+	notRunningContainer := ContainerDetailsResponse(AsMap("Running", false))
+
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(container, 1, false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
 
 //func TestStopContainer_DryRun(t *testing.T) {
 //	c := Container{
