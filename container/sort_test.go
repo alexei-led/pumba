@@ -4,8 +4,6 @@ import (
 	"testing"
 	"sort"
 	"github.com/stretchr/testify/assert"
-	"github.com/docker/engine-api/types"
-	"github.com/docker/engine-api/types/network"
 )
 
 func TestByCreated(t *testing.T) {
@@ -48,21 +46,15 @@ func TestSortByDependencies_Error(t *testing.T) {
 
 func containerCreatedAt(creationDate string) Container {
 	return Container{
-		containerInfo: types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{Created: creationDate}},
+		containerInfo: ContainerDetailsResponse(AsMap("Created", creationDate)),
 	}
 }
 
 func containerWithLinks(name string, links []string) Container {
-	networks := map[string]*network.EndpointSettings{
-		"default": {Links: links},
-	}
-
 	return Container{
-		containerInfo: types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{Name: name},
-			NetworkSettings: &types.NetworkSettings{Networks: networks},
-		},
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"Name", name,
+			"Links", links,
+		)),
 	}
 }
-
-

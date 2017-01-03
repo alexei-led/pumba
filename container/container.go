@@ -19,6 +19,15 @@ type Container struct {
 	imageInfo     types.ImageInspect
 }
 
+// NewContainer returns a new Container instance instantiated with the
+// specified ContainerJSON and ImageInpsect structs.
+func NewContainer(containerInfo types.ContainerJSON, imageInfo types.ImageInspect) *Container {
+	return &Container{
+		containerInfo: containerInfo,
+		imageInfo:     imageInfo,
+	}
+}
+
 // ID returns the Docker container ID.
 func (c Container) ID() string {
 	return c.containerInfo.ID

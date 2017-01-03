@@ -10,12 +10,12 @@ import (
 	"golang.org/x/net/context"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/samalba/dockerclient"
 
 	engineapi "github.com/docker/engine-api/client"
 	enginetypes "github.com/docker/engine-api/types"
 	ctypes "github.com/docker/engine-api/types/container"
 	"github.com/docker/go-connections/nat"
+	"github.com/samalba/dockerclient"
 )
 
 const (
