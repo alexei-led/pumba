@@ -5,6 +5,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"errors"
+	"github.com/docker/engine-api/types"
+	"time"
+	"net"
+	"github.com/docker/go-connections/nat"
+	"github.com/docker/engine-api/types/network"
+	"github.com/docker/engine-api/types/container"
 )
 
 func allContainers(Container) bool {
@@ -128,559 +134,513 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	api.AssertExpectations(t)
 }
 
-//func TestStopContainer_DryRun(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name:   "foo",
-//			Id:     "abc123",
-//			Config: &dockerclient.ContainerConfig{},
-//		},
-//	}
-//
-//	ci := &dockerclient.ContainerInfo{
-//		State: &dockerclient.State{
-//			Running: false,
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
-//	api.On("KillContainer", "abc123", "SIGKILL").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
-//
-//	client := dockerClient{api: api}
-//	err := client.StopContainer(c, 1, true)
-//
-//	assert.NoError(t, err)
-//	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGTERM")
-//	api.AssertNotCalled(t, "InspectContainer", "abc123")
-//	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGKILL")
-//	api.AssertNotCalled(t, "InspectContainer", "abc123")
-//}
+func TestStopContainer_DryRun(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+		)),
+	}
 
-//func TestKillContainer_DefaultSuccess(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name:   "foo",
-//			Id:     "abc123",
-//			Config: &dockerclient.ContainerConfig{},
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
-//
-//	client := dockerClient{api: api}
-//	err := client.KillContainer(c, "SIGTERM", false)
-//
-//	assert.NoError(t, err)
-//	api.AssertExpectations(t)
-//}
+	notRunningContainer := ContainerDetailsResponse(AsMap("Running", false))
 
-//func TestKillContainer_DryRun(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name:   "foo",
-//			Id:     "abc123",
-//			Config: &dockerclient.ContainerConfig{},
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
-//
-//	client := dockerClient{api: api}
-//	err := client.KillContainer(c, "SIGTERM", true)
-//
-//	assert.NoError(t, err)
-//	api.AssertNotCalled(t, "KillContainer", "abc123", "SIGTERM")
-//}
-//
-//func TestStopContainer_CustomSignalSuccess(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name: "foo",
-//			Id:   "abc123",
-//			Config: &dockerclient.ContainerConfig{
-//				Labels: map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"}},
-//		},
-//	}
-//
-//	ci := &dockerclient.ContainerInfo{
-//		State: &dockerclient.State{
-//			Running: false,
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGUSR1").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(ci, nil).Once()
-//	api.On("KillContainer", "abc123", "SIGKILL").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("Not Found"))
-//
-//	client := dockerClient{api: api}
-//	err := client.StopContainer(c, 1, false)
-//
-//	assert.NoError(t, err)
-//	api.AssertExpectations(t)
-//}
-//
-//func TestStopContainer_KillContainerError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name:   "foo",
-//			Id:     "abc123",
-//			Config: &dockerclient.ContainerConfig{},
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGTERM").Return(errors.New("oops"))
-//
-//	client := dockerClient{api: api}
-//	err := client.StopContainer(c, 1, false)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "oops")
-//	api.AssertExpectations(t)
-//}
-//
-//func TestStopContainer_2ndKillContainerError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Name:   "foo",
-//			Id:     "abc123",
-//			Config: &dockerclient.ContainerConfig{},
-//		},
-//	}
-//
-//	api := mockclient.NewMockClient()
-//	api.On("KillContainer", "abc123", "SIGTERM").Return(nil)
-//	api.On("InspectContainer", "abc123").Return(&dockerclient.ContainerInfo{}, errors.New("dangit"))
-//	api.On("KillContainer", "abc123", "SIGKILL").Return(errors.New("whoops"))
-//
-//	client := dockerClient{api: api}
-//	err := client.StopContainer(c, 1, false)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "whoops")
-//	api.AssertExpectations(t)
-//}
-//
-//func TestRemoveContainer_Success(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	removeOpts := types.ContainerRemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
-//	engineClient.On("ContainerRemove", ctx, "abc123", removeOpts).Return(nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.RemoveContainer(c, true, true, true, false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestRemoveContainer_DryRun(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	removeOpts := types.ContainerRemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
-//	engineClient.On("ContainerRemove", ctx, "abc123", removeOpts).Return(nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.RemoveContainer(c, true, true, true, true)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertNotCalled(t, "ContainerRemove", ctx, "abc123", removeOpts)
-//}
-//
-//func TestPauseContainer_Success(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	engineClient.On("ContainerPause", ctx, "abc123").Return(nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.PauseContainer(c, false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestUnauseContainer_Success(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	engineClient.On("ContainerUnpause", ctx, "abc123").Return(nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.UnpauseContainer(c, false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestPauseContainer_DryRun(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.PauseContainer(c, true)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertNotCalled(t, "ContainerPause", ctx, "abc123")
-//}
-//
-//func TestPauseContainer_PauseError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	engineClient.On("ContainerPause", ctx, "abc123").Return(errors.New("pause"))
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.PauseContainer(c, false)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "pause")
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestPauseContainer_UnpauseError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//	engineClient.On("ContainerUnpause", ctx, "abc123").Return(errors.New("unpause"))
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.UnpauseContainer(c, false)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "unpause")
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestNetemContainer_Success(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
-//
-//	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1 * time.Millisecond, "", false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestStopNetemContainer_Success(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
-//
-//	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.StopNetemContainer(c, "eth0", "", false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func TestNetemContainer_DryRun(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//
-//	engineClient := NewMockEngine()
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1 * time.Millisecond, "", true)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
-//	engineClient.AssertNotCalled(t, "ContainerExecStart", "abc123", mock.Anything)
-//}
-//
-//func TestNetemContainerIPFilter_Success(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
-//
-//	config1 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", config1).Return(types.ContainerExecCreateResponse{"cmd1"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "cmd1", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "cmd1").Return(types.ContainerExecInspect{}, nil)
-//
-//	config2 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "netem", "delay", "500ms"}, Privileged: true}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.ContainerExecCreateResponse{"cmd2"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "cmd2", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "cmd2").Return(types.ContainerExecInspect{}, nil)
-//
-//	config3 := types.ExecConfig{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
-//		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dport", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.ContainerExecCreateResponse{"cmd3"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "cmd3", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1 * time.Millisecond, "", false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_tcContainerCommand(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "targetID",
-//		},
-//	}
-//
-//	config := container.Config{
-//		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-//		Entrypoint: []string{"tc"},
-//		Cmd:        []string{"test", "me"},
-//		Image:      "pumba/tcimage",
-//	}
-//	// host config
-//	hconfig := container.HostConfig{
-//		// auto remove container on tc command exit
-//		AutoRemove: true,
-//		// NET_ADMIN is required for "tc netem"
-//		CapAdd: []string{"NET_ADMIN"},
-//		// use target container network stack
-//		NetworkMode: container.NetworkMode("container:targetID"),
-//		// others
-//		PortBindings: nat.PortMap{},
-//		DNS:          []string{},
-//		DNSOptions:   []string{},
-//		DNSSearch:    []string{},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(types.ContainerCreateResponse{ID: "tcID"}, nil)
-//	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.tcContainerCommand(c, []string{"test", "me"}, "pumba/tcimage")
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_execOnContainerSuccess(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id: "abc123",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
-//
-//	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
-//
-//	assert.NoError(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_execOnContainerNotFound(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id:   "abc123",
-//			Name: "abcName",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "command 'testcmd' not found inside the abcName (abc123) container")
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_execOnContainerFailed(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id:   "abc123",
-//			Name: "abcName",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
-//
-//	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
-//
-//	assert.Error(t, err)
-//	assert.EqualError(t, err, "command 'testcmd' failed in abcName (abc123) container; run it in manually to debug")
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_execOnContainerExecStartError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id:   "abc123",
-//			Name: "abcName",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(errors.New("oops"))
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
-//
-//	assert.Error(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_execOnContainerExecCreateError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id:   "abc123",
-//			Name: "abcName",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, errors.New("oops"))
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
-//
-//	assert.Error(t, err)
-//	engineClient.AssertExpectations(t)
-//}
-//
-//func Test_execOnContainerExecInspectError(t *testing.T) {
-//	c := Container{
-//		containerInfo: &dockerclient.ContainerInfo{
-//			Id:   "abc123",
-//			Name: "abcName",
-//		},
-//	}
-//
-//	ctx := context.Background()
-//	engineClient := NewMockEngine()
-//
-//	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-//	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
-//	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
-//	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, errors.New("oops"))
-//
-//	client := dockerClient{containerAPI: engineClient}
-//	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
-//
-//	assert.Error(t, err)
-//	engineClient.AssertExpectations(t)
-//}
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(container, 1, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
+	api.AssertNotCalled(t, "ContainerInspect", mock.Anything, "abc123")
+	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGKILL")
+	api.AssertNotCalled(t, "ContainerInspect", mock.Anything, "abc123")
+}
+
+func TestKillContainer_DefaultSuccess(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+		)),
+	}
+
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.KillContainer(container, "SIGTERM", false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestKillContainer_DryRun(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+		)),
+	}
+
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.KillContainer(container, "SIGTERM", true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
+}
+
+func TestStopContainer_CustomSignalSuccess(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+			"Labels", map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"},
+		)),
+	}
+
+	notRunningContainer := ContainerDetailsResponse(AsMap("Running", false))
+
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGUSR1").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(container, 1, false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStopContainer_KillContainerError(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+		)),
+	}
+
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(container, 1, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "oops")
+	api.AssertExpectations(t)
+}
+
+func TestStopContainer_2ndKillContainerError(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+		)),
+	}
+
+	api := NewMockEngine()
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("dangit"))
+	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(errors.New("whoops"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(c, 1, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "whoops")
+	api.AssertExpectations(t)
+}
+
+func TestRemoveContainer_Success(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	engineClient := NewMockEngine()
+	removeOpts := types.ContainerRemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
+	engineClient.On("ContainerRemove", mock.Anything, "abc123", removeOpts).Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.RemoveContainer(container, true, true, true, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestRemoveContainer_DryRun(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	engineClient := NewMockEngine()
+	removeOpts := types.ContainerRemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
+	engineClient.On("ContainerRemove", mock.Anything, "abc123", removeOpts).Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.RemoveContainer(container, true, true, true, true)
+
+	assert.NoError(t, err)
+	engineClient.AssertNotCalled(t, "ContainerRemove", mock.Anything, "abc123", removeOpts)
+}
+
+func TestPauseContainer_Success(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.PauseContainer(container, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestUnauseContainer_Success(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.UnpauseContainer(container, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestPauseContainer_DryRun(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	engineClient := NewMockEngine()
+	client := dockerClient{containerAPI: engineClient}
+	err := client.PauseContainer(container, true)
+
+	assert.NoError(t, err)
+	engineClient.AssertNotCalled(t, "ContainerPause", mock.Anything, "abc123")
+}
+
+func TestPauseContainer_PauseError(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(errors.New("pause"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.PauseContainer(container, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "pause")
+	engineClient.AssertExpectations(t)
+}
+
+func TestPauseContainer_UnpauseError(t *testing.T) {
+	container := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+	engineClient := NewMockEngine()
+	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(errors.New("unpause"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.UnpauseContainer(container, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "unpause")
+	engineClient.AssertExpectations(t)
+}
+
+func TestNetemContainer_Success(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
+	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", mock.Anything, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", mock.Anything, "checkID").Return(types.ContainerExecInspect{}, nil)
+
+	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecStart", mock.Anything, "testID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", mock.Anything, "testID").Return(types.ContainerExecInspect{}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1 * time.Millisecond, "", false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestStopNetemContainer_Success(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
+
+	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.StopNetemContainer(c, "eth0", "", false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestNetemContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	engineClient := NewMockEngine()
+	client := dockerClient{containerAPI: engineClient}
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1 * time.Millisecond, "", true)
+
+	assert.NoError(t, err)
+	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
+	engineClient.AssertNotCalled(t, "ContainerExecStart", "abc123", mock.Anything)
+}
+
+func TestNetemContainerIPFilter_Success(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
+
+	config1 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config1).Return(types.ContainerExecCreateResponse{"cmd1"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "cmd1", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "cmd1").Return(types.ContainerExecInspect{}, nil)
+
+	config2 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "netem", "delay", "500ms"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.ContainerExecCreateResponse{"cmd2"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "cmd2", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "cmd2").Return(types.ContainerExecInspect{}, nil)
+
+	config3 := types.ExecConfig{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
+		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dport", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.ContainerExecCreateResponse{"cmd3"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "cmd3", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1 * time.Millisecond, "", false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func Test_tcContainerCommand(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "targetID")),
+	}
+
+	config := container.Config{
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Entrypoint: []string{"tc"},
+		Cmd:        []string{"test", "me"},
+		Image:      "pumba/tcimage",
+	}
+	// host config
+	hconfig := container.HostConfig{
+		// auto remove container on tc command exit
+		AutoRemove: true,
+		// NET_ADMIN is required for "tc netem"
+		CapAdd: []string{"NET_ADMIN"},
+		// use target container network stack
+		NetworkMode: container.NetworkMode("container:targetID"),
+		// others
+		PortBindings: nat.PortMap{},
+		DNS:          []string{},
+		DNSOptions:   []string{},
+		DNSSearch:    []string{},
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(types.ContainerCreateResponse{ID: "tcID"}, nil)
+	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.tcContainerCommand(c, []string{"test", "me"}, "pumba/tcimage")
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func Test_execOnContainerSuccess(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
+
+	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func Test_execOnContainerNotFound(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "abcName",
+		)),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "command 'testcmd' not found inside the abcName (abc123) container")
+	engineClient.AssertExpectations(t)
+}
+
+func Test_execOnContainerFailed(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "abcName",
+		)),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
+
+	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "command 'testcmd' failed in abcName (abc123) container; run it in manually to debug")
+	engineClient.AssertExpectations(t)
+}
+
+func Test_execOnContainerExecStartError(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "abcName",
+		)),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(errors.New("oops"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+
+	assert.Error(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func Test_execOnContainerExecCreateError(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "abcName",
+		)),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, errors.New("oops"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+
+	assert.Error(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func Test_execOnContainerExecInspectError(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "abcName",
+		)),
+	}
+
+	ctx := mock.Anything
+	engineClient := NewMockEngine()
+
+	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
+	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, errors.New("oops"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+
+	assert.Error(t, err)
+	engineClient.AssertExpectations(t)
+}
