@@ -78,7 +78,7 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 		}
 		log.Debugf("Running container: %s - (%s)", containerInfo.Name, containerInfo.ID)
 
-		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(apiContext(), containerInfo.Image)
+		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(apiContext(), containerInfo.Image, false)
 		if err != nil {
 			return nil, err
 		}

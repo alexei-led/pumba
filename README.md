@@ -1,7 +1,7 @@
 # Pumba: Chaos testing tool for Docker
 
 #### Build
-[![Circle CI](https://circleci.com/gh/gaia-adm/pumba.svg?style=svg)](https://circleci.com/gh/gaia-adm/pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![Coverage Status](https://coveralls.io/repos/github/gaia-adm/pumba/badge.svg?branch=master)](https://coveralls.io/github/gaia-adm/pumba?branch=master)  [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.2.5)
+[![Circle CI](https://circleci.com/gh/slnowak/pumba.svg?style=svg)](https://circleci.com/gh/slnowak/pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/slnowak/pumba)](https://goreportcard.com/report/github.com/slnowak/pumba) [![Coverage Status](https://coveralls.io/repos/github/slnowak/pumba/badge.svg?branch=master)](https://coveralls.io/github/slnowak/pumba?branch=master)  [![codecov](https://codecov.io/gh/slnowak/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/slnowak/pumba) [![GitHub release](https://img.shields.io/github/release/slnowak/pumba.svg?no-cache)](https://github.com/slnowak/pumba/releases/tag/0.2.5)
 
 #### Image
 [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master)  [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![Docker badge](https://img.shields.io/docker/pulls/gaiaadm/pumba.svg)](https://hub.docker.com/r/gaiaadm/pumba/)
@@ -12,7 +12,7 @@
 
 ## Usage
 
-You can download Pumba binary for your OS from [release](https://github.com/gaia-adm/pumba/releases) page.
+You can download Pumba binary for your OS from [release](https://github.com/slnowak/pumba/releases) page.
 
 ```
 $ pumba help
@@ -345,8 +345,8 @@ Here is the approximate list of commands you will need to run:
 
 ```
 cd $GOPATH
-mkdir github.com/gaia-adm && cd github.com/gaia-adm
-git clone git@github.com:gaia-adm/pumba.git
+mkdir github.com/slnowak && cd github.com/slnowak
+git clone git@github.com:slnowak/pumba.git
 cd pumba
 glide install
 go build -v
@@ -358,7 +358,7 @@ You do not have to install and configure Go in order to build and test Pumba pro
 
 First of all clone Pumba git repository:
 ```
-git clone git@github.com:gaia-adm/pumba.git
+git clone git@github.com:slnowak/pumba.git
 cd pumba
 ```
 
@@ -371,23 +371,22 @@ Now you can use `pumba/builder` to build, test (with coverage) and deploy Pumba.
 
 To build a new Pumba binary run the following command:
 ```
-docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/go_build.sh
+docker run --rm -v "$PWD":/go/src/github.com/slnowak/pumba -w /go/src/github.com/slnowak/pumba pumba/builder script/go_build.sh
 ```
 
 To build new Pumba binaries for multiple platforms run the following command (using `gox` tool):
 ```
-docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/gox_build.sh
+docker run --rm -v "$PWD":/go/src/github.com/slnowak/pumba -w /go/src/github.com/slnowak/pumba pumba/builder script/gox_build.sh
 ```
 
 To run all Pumba tests and generate coverage report run the following command:
 ```
-docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --html
+docker run --rm -v "$PWD":/go/src/github.com/slnowak/pumba -w /go/src/github.com/slnowak/pumba pumba/builder script/coverage.sh --html
 ```
 
 ## Used Libraries and Code
 
 - Official Docker Engine API for Go [docker/engine-api](https://github.com/docker/engine-api)
-- Docker Client [samalba/dockerclient](https://github.com/samalba/dockerclient) - refactoring to Docker Engine API
 - Logging  [Sirupsen/logrus](https://github.com/Sirupsen/logrus)
 - Command line app lib [codegangsta/cli](https://github.com/codegangsta/cli)
 

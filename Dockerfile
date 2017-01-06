@@ -30,4 +30,4 @@ CMD ["pumba", "--help"]
 ARG VCS_REF
 
 LABEL org.label-schema.vcs-ref=$VCS_REF \
-      org.label-schema.vcs-url="https://github.com/gaia-adm/pumba"
+      org.label-schema.vcs-url="https://github.com/slnowak/pumba"

@@ -27,7 +27,7 @@ RUN go get -v github.com/mitchellh/gox && \
     go get -v github.com/jstemmer/go-junit-report
 
 # prepare work directory
-ENV PUMBADIR /go/src/github.com/gaia-adm/pumba
+ENV PUMBADIR /go/src/github.com/slnowak/pumba
 RUN mkdir -p $PUMBADIR
 WORKDIR $PUMBADIR
 
@@ -35,12 +35,12 @@ WORKDIR $PUMBADIR
 COPY . .
 
 # mount vendor directory to reuse between builds
-MOUNT /go/src/github.com/gaia-adm/pumba/.glide
-ENV GLIDE_HOME /go/src/github.com/gaia-adm/pumba/.glide
+MOUNT /go/src/github.com/slnowak/pumba/.glide
+ENV GLIDE_HOME /go/src/github.com/slnowak/pumba/.glide
 
 # run code level test and get code coverage
 {{ if .test }}
-  MOUNT .cover:/go/src/github.com/gaia-adm/pumba/.cover
+  MOUNT .cover:/go/src/github.com/slnowak/pumba/.cover
   RUN script/coverage.sh
 {{ end }}
 
@@ -93,6 +93,6 @@ ENTRYPOINT ["/docker_entrypoint.sh"]
 CMD ["pumba", "--help"]
 
 LABEL org.label-schema.vcs-ref={{ .GitCommit }} \
-      org.label-schema.vcs-url="https://github.com/gaia-adm/pumba"
+      org.label-schema.vcs-url="https://github.com/slnowak/pumba"
 
 TAG pumba/pumba:local
