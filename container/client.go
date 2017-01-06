@@ -15,7 +15,6 @@ import (
 	types "github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
-	"github.com/samalba/dockerclient"
 )
 
 const (
@@ -43,13 +42,12 @@ type Client interface {
 // NewClient returns a new Client instance which can be used to interact with
 // the Docker API.
 func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
-	docker, err := dockerclient.NewDockerClient(dockerHost, tlsConfig)
+	httpClient, err := HTTPClient(dockerHost, tlsConfig)
 	if err != nil {
 		log.Fatalf("Error instantiating Docker client: %s", err)
 	}
 
-	// Use HTTP Client used by dockerclient to create engine-api client
-	apiClient, err := dockerapi.NewClient(dockerHost, "", docker.HTTPClient, nil)
+	apiClient, err := dockerapi.NewClient(dockerHost, "", httpClient, nil)
 	if err != nil {
 		log.Fatalf("Error instantiating Docker engine-api: %s", err)
 	}

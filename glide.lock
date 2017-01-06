@@ -1,5 +1,5 @@
-hash: 8de96ec4435d40d233e8074f42ea1d9be56b736ac9db5eb248069f7fd7bc03a4
-updated: 2017-01-06T14:27:11.19000537+01:00
+hash: c1e7a7992105416ffc4a0948274d54b374072011055806839ea41af893bb4674
+updated: 2017-01-06T14:09:18.588497577Z
 imports:
 - name: github.com/davecgh/go-spew
   version: 2df174808ee097f90d259e432cc04442cf60be21
@@ -54,8 +54,6 @@ imports:
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
-- name: github.com/samalba/dockerclient
-  version: 52fe1c9d696f36d894d2319f1717a383ebc46f19
 - name: github.com/Sirupsen/logrus
   version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
 - name: github.com/stretchr/objx

@@ -1,7 +1,6 @@
 package: github.com/slnowak/pumba
 import:
 - package: github.com/Sirupsen/logrus
-- package: github.com/samalba/dockerclient
 - package: github.com/stretchr/testify
   subpackages:
   - mock
