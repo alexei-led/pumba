@@ -52,7 +52,7 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
 		log.Fatalf("Error instantiating Docker engine-api: %s", err)
 	}
 
-	return dockerClient{containerAPI: apiClient}
+	return dockerClient{containerAPI: apiClient, imageAPI: apiClient}
 }
 
 type dockerClient struct {
