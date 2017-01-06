@@ -348,7 +348,7 @@ cd $GOPATH
 mkdir github.com/slnowak && cd github.com/slnowak
 git clone git@github.com:slnowak/pumba.git
 cd pumba
-glide install
+glide install -v
 go build -v
 ```
 
@@ -386,7 +386,7 @@ docker run --rm -v "$PWD":/go/src/github.com/slnowak/pumba -w /go/src/github.com
 
 ## Used Libraries and Code
 
-- Official Docker Engine API for Go [docker/engine-api](https://github.com/docker/engine-api)
+- Official Docker API for Go [docker/docker](https://github.com/docker/docker)
 - Logging  [Sirupsen/logrus](https://github.com/Sirupsen/logrus)
 - Command line app lib [codegangsta/cli](https://github.com/codegangsta/cli)
 

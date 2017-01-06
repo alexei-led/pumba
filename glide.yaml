@@ -7,7 +7,7 @@ import:
   - mock
 - package: github.com/johntdyer/slackrus
 - package: github.com/johntdyer/slack-go
-- package: github.com/docker/engine-api
+- package: github.com/docker/docker
   subpackages:
   - client
-  - types
+  - api

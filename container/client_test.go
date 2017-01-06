@@ -5,12 +5,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"errors"
-	"github.com/docker/engine-api/types"
-	"time"
+	"github.com/docker/docker/api/types"
 	"net"
+	"time"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
-	"github.com/docker/engine-api/types/network"
-	"github.com/docker/engine-api/types/container"
+	"github.com/docker/docker/api/types/network"
 )
 
 func allContainers(Container) bool {
@@ -118,7 +118,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 		"ID", "abc123",
 		"Name", "foo",
 	))
-	container := Container{containerInfo: containerDetails}
+	c := Container{containerInfo: containerDetails}
 	notRunningContainer := ContainerDetailsResponse(AsMap("Running", false))
 
 	api := NewMockEngine()
@@ -128,14 +128,14 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(container, 1, false)
+	err := client.StopContainer(c, 1, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
 }
 
 func TestStopContainer_DryRun(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -151,7 +151,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(container, 1, true)
+	err := client.StopContainer(c, 1, true)
 
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
@@ -161,7 +161,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 }
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -172,14 +172,14 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.KillContainer(container, "SIGTERM", false)
+	err := client.KillContainer(c, "SIGTERM", false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
 }
 
 func TestKillContainer_DryRun(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -190,14 +190,14 @@ func TestKillContainer_DryRun(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.KillContainer(container, "SIGTERM", true)
+	err := client.KillContainer(c, "SIGTERM", true)
 
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
 }
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -214,14 +214,14 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(container, 1, false)
+	err := client.StopContainer(c, 1, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
 }
 
 func TestStopContainer_KillContainerError(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -232,7 +232,7 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(container, 1, false)
+	err := client.StopContainer(c, 1, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "oops")
@@ -261,7 +261,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 }
 
 func TestRemoveContainer_Success(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -270,14 +270,14 @@ func TestRemoveContainer_Success(t *testing.T) {
 	engineClient.On("ContainerRemove", mock.Anything, "abc123", removeOpts).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(container, true, true, true, false)
+	err := client.RemoveContainer(c, true, true, true, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
 }
 
 func TestRemoveContainer_DryRun(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -286,62 +286,62 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 	engineClient.On("ContainerRemove", mock.Anything, "abc123", removeOpts).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(container, true, true, true, true)
+	err := client.RemoveContainer(c, true, true, true, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerRemove", mock.Anything, "abc123", removeOpts)
 }
 
 func TestPauseContainer_Success(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.PauseContainer(container, false)
+	err := client.PauseContainer(c, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
 }
 
 func TestUnauseContainer_Success(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.UnpauseContainer(container, false)
+	err := client.UnpauseContainer(c, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
 }
 
 func TestPauseContainer_DryRun(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	engineClient := NewMockEngine()
 	client := dockerClient{containerAPI: engineClient}
-	err := client.PauseContainer(container, true)
+	err := client.PauseContainer(c, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerPause", mock.Anything, "abc123")
 }
 
 func TestPauseContainer_PauseError(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(errors.New("pause"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.PauseContainer(container, false)
+	err := client.PauseContainer(c, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "pause")
@@ -349,14 +349,14 @@ func TestPauseContainer_PauseError(t *testing.T) {
 }
 
 func TestPauseContainer_UnpauseError(t *testing.T) {
-	container := Container{
+	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(errors.New("unpause"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.UnpauseContainer(container, false)
+	err := client.UnpauseContainer(c, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "unpause")
@@ -371,12 +371,12 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", mock.Anything, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", mock.Anything, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", config).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", config).Return(types.IDResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", mock.Anything, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", mock.Anything, "testID").Return(types.ContainerExecInspect{}, nil)
 
@@ -396,12 +396,12 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.IDResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
@@ -435,23 +435,23 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	config1 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", config1).Return(types.ContainerExecCreateResponse{"cmd1"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config1).Return(types.IDResponse{"cmd1"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd1", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd1").Return(types.ContainerExecInspect{}, nil)
 
 	config2 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "netem", "delay", "500ms"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.ContainerExecCreateResponse{"cmd2"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.IDResponse{"cmd2"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd2", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd2").Return(types.ContainerExecInspect{}, nil)
 
 	config3 := types.ExecConfig{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
 		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dport", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.ContainerExecCreateResponse{"cmd3"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.IDResponse{"cmd3"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd3", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
 
@@ -491,7 +491,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
-	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(types.ContainerCreateResponse{ID: "tcID"}, nil)
+	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -510,12 +510,12 @@ func Test_execOnContainerSuccess(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.IDResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
@@ -538,7 +538,7 @@ func Test_execOnContainerNotFound(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
@@ -562,12 +562,12 @@ func Test_execOnContainerFailed(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.ContainerExecCreateResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.IDResponse{"testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
@@ -591,7 +591,7 @@ func Test_execOnContainerExecStartError(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
@@ -613,7 +613,7 @@ func Test_execOnContainerExecCreateError(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, errors.New("oops"))
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
 	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
@@ -634,7 +634,7 @@ func Test_execOnContainerExecInspectError(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.ContainerExecCreateResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, errors.New("oops"))
 

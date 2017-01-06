@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	egineapi "github.com/docker/engine-api/client"
+	egineapi "github.com/docker/docker/client"
 )
 
 func TestMockEngineInterface(t *testing.T) {

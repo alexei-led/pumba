@@ -11,9 +11,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	engineapi "github.com/docker/engine-api/client"
-	enginetypes "github.com/docker/engine-api/types"
-	ctypes "github.com/docker/engine-api/types/container"
+	dockerapi "github.com/docker/docker/client"
+	types "github.com/docker/docker/api/types"
+	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/samalba/dockerclient"
 )
@@ -49,7 +49,7 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
 	}
 
 	// Use HTTP Client used by dockerclient to create engine-api client
-	apiClient, err := engineapi.NewClient(dockerHost, "", docker.HTTPClient, nil)
+	apiClient, err := dockerapi.NewClient(dockerHost, "", docker.HTTPClient, nil)
 	if err != nil {
 		log.Fatalf("Error instantiating Docker engine-api: %s", err)
 	}
@@ -58,8 +58,8 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
 }
 
 type dockerClient struct {
-	containerAPI engineapi.ContainerAPIClient
-	imageAPI     engineapi.ImageAPIClient
+	containerAPI dockerapi.ContainerAPIClient
+	imageAPI     dockerapi.ImageAPIClient
 }
 
 func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
@@ -67,7 +67,7 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 
 	log.Debug("Retrieving running containers")
 
-	runningContainers, err := client.containerAPI.ContainerList(apiContext(), enginetypes.ContainerListOptions{})
+	runningContainers, err := client.containerAPI.ContainerList(apiContext(), types.ContainerListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 		}
 		log.Debugf("Running container: %s - (%s)", containerInfo.Name, containerInfo.ID)
 
-		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(apiContext(), containerInfo.Image, false)
+		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(apiContext(), containerInfo.Image)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func (client dockerClient) RemoveContainer(c Container, force bool, links bool, 
 	}
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
-		removeOpts := enginetypes.ContainerRemoveOptions{
+		removeOpts := types.ContainerRemoveOptions{
 			RemoveVolumes: links,
 			RemoveLinks:   volumes,
 			Force:         force,
@@ -338,7 +338,7 @@ func (client dockerClient) tcContainerCommand(target Container, args []string, t
 		return err
 	}
 	log.Debugf("tc container id: %s", createResponse.ID)
-	return client.containerAPI.ContainerStart(context.Background(), createResponse.ID, enginetypes.ContainerStartOptions{})
+	return client.containerAPI.ContainerStart(context.Background(), createResponse.ID, types.ContainerStartOptions{})
 }
 
 func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs []string, privileged bool) error {
@@ -346,7 +346,7 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 	execCmd = strings.Replace(execCmd, " ", "", -1)
 
 	// check if command exists inside target container
-	checkExists := enginetypes.ExecConfig{
+	checkExists := types.ExecConfig{
 		Cmd: []string{"which", execCmd},
 	}
 	exec, err := client.containerAPI.ContainerExecCreate(apiContext(), c.ID(), checkExists)
@@ -354,7 +354,7 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 		return err
 	}
 	log.Debugf("checking if command %s exists", execCmd)
-	err = client.containerAPI.ContainerExecStart(apiContext(), exec.ID, enginetypes.ExecStartCheck{})
+	err = client.containerAPI.ContainerExecStart(apiContext(), exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		return err
 	}
@@ -368,7 +368,7 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 	log.Debugf("command %s found: continue...", execCmd)
 
 	// prepare exec config
-	config := enginetypes.ExecConfig{
+	config := types.ExecConfig{
 		Privileged: privileged,
 		Cmd:        append([]string{execCmd}, execArgs...),
 	}
@@ -378,7 +378,7 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 		return err
 	}
 	log.Debugf("Starting Exec %s %s (%s)", execCmd, execArgs, exec.ID)
-	err = client.containerAPI.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
+	err = client.containerAPI.ContainerExecStart(context.Background(), exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		return err
 	}
