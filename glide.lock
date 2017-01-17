@@ -1,5 +1,5 @@
 hash: 0675f3ad945b7243c1a2ec97699e353d0214351a545054a6a2980134a6ea1f0f
-updated: 2016-07-24T17:01:50.843312945+03:00
+updated: 2017-01-17T18:38:35.86738898+02:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 2df174808ee097f90d259e432cc04442cf60be21
@@ -8,31 +8,31 @@ imports:
 - name: github.com/docker/distribution
   version: 4abae2ae560ba91db98779db2739eb97d7592fba
   subpackages:
-  - reference
   - digest
+  - reference
 - name: github.com/docker/engine-api
   version: 53b6b19ee622c8584c28fdde0e3893383b290da3
   subpackages:
   - client
+  - client/transport
+  - client/transport/cancellable
   - types
+  - types/blkiodev
   - types/container
   - types/filters
   - types/network
-  - types/registry
-  - client/transport
-  - client/transport/cancellable
   - types/reference
+  - types/registry
+  - types/strslice
   - types/swarm
   - types/time
   - types/versions
-  - types/blkiodev
-  - types/strslice
 - name: github.com/docker/go-connections
   version: 990a1a1a70b0da4c4cb70e117971a4f0babfbf1a
   subpackages:
+  - nat
   - sockets
   - tlsconfig
-  - nat
 - name: github.com/docker/go-units
   version: 5d2041e26a699eaca682e2ea41c8f891e1060444
 - name: github.com/johntdyer/slack-go
@@ -51,6 +51,8 @@ imports:
   - difflib
 - name: github.com/samalba/dockerclient
   version: 52fe1c9d696f36d894d2319f1717a383ebc46f19
+  subpackages:
+  - mockclient
 - name: github.com/Sirupsen/logrus
   version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
 - name: github.com/stretchr/objx
@@ -58,10 +60,10 @@ imports:
 - name: github.com/stretchr/testify
   version: f390dcf405f7b83c997eac1b06768bb9f44dec18
   subpackages:
-  - mock
   - assert
-  - suite
+  - mock
   - require
+  - suite
 - name: github.com/urfave/cli
   version: 1efa31f08b9333f1bd4882d61f9d668a70cd902e
 - name: golang.org/x/net

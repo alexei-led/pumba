@@ -16,14 +16,21 @@ image=builder:
     dockerfile: Build.Dockerfile
     pull: once
     args:
-      http_proxy: "{env.http_proxy}"
-      https_proxy: "{env.https_proxy}"
+      http_proxy: "{env.http_proxy:}"
+      https_proxy: "{env.https_proxy:}"
 
 job=binary:
     use: builder
     artifact: ./dist/pumba
     mounts: [glide, dist]
     description: "Build the static binary"
+
+job=xbinary:
+    use: builder
+    artifact: ./.dist/
+    mounts: [glide, dist]
+    command: "bash -c 'CGO_ENABLED=0 script/gox_build.sh'"
+    description: "Build the static binary for multiple platforms"
 
 image=dist-img:
     image: pumba/pumba
@@ -32,8 +39,8 @@ image=dist-img:
     depends: [binary]
     description: "Build the distribution image"
     args:
-      http_proxy: "{env.http_proxy}"
-      https_proxy: "{env.https_proxy}"
+      http_proxy: "{env.http_proxy:}"
+      https_proxy: "{env.https_proxy:}"
 
 job=run-dist:
     use: dist-img
