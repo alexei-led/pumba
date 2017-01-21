@@ -121,9 +121,9 @@ DESCRIPTION:
    remove target containers, with links and voluems
 
 OPTIONS:
-   --force, -f    force the removal of a running container (with SIGKILL)
-   --links, -l    remove container links
-   --volumes, -v  remove volumes associated with the container
+   --force, -f    force the removal of a running container (with SIGKILL, default: true)
+   --links, -l    remove container links (default: false)
+   --volumes, -v  remove volumes associated with the container (default: true)
 ```
 
 ### Network Emulation (netem) command
