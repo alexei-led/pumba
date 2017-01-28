@@ -74,7 +74,7 @@ job=integration-test:
     env:
       - 'DOCKER_API_VERSION={env.DOCKER_API_VERSION:1.21}'
     depends: [compile]
-    command: "bash -c 'PATH=dist/bin:$PATH bats -t tests > .cover/tests.output'"
+    command: "bash -c 'PATH=dist/bin:$PATH && test_res=\"$(bats -t tests)\" && echo \"$test_res\" && echo \"$test_res\" > .cover/tests.output'"
     description: "Run pumba integration tests"
 
 job=cross-compile:
