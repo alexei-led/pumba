@@ -14,7 +14,7 @@ steps:
     image: ${{go_builder}}
     working-directory: ${{main_clone}}
     commands:
-    - echo $PWD && mkdir -p .dist && export DIST=$PWD/.dist; echo $DIST && cd /go/src/github.com/slnowak/pumba && echo $PWD && echo $DIST && script/go_build.sh
+    - echo $PWD && mkdir -p .dist && export DIST=$PWD/.dist; echo $DIST && cd /go/src/github.com/gaia-adm/pumba && echo $PWD && echo $DIST && script/go_build.sh
 
   package-pumba:
     type: build

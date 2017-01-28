@@ -16,8 +16,8 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/slnowak/pumba/action"
-	"github.com/slnowak/pumba/container"
+	"github.com/gaia-adm/pumba/action"
+	"github.com/gaia-adm/pumba/container"
 
 	"github.com/urfave/cli"
 

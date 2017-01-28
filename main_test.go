@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/slnowak/pumba/action"
-	"github.com/slnowak/pumba/container"
+	"github.com/gaia-adm/pumba/action"
+	"github.com/gaia-adm/pumba/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"

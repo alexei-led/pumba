@@ -3,7 +3,7 @@ package action
 import (
 	"strconv"
 	"testing"
-	"github.com/slnowak/pumba/container"
+	"github.com/gaia-adm/pumba/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"time"

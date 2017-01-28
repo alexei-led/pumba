@@ -1,4 +1,4 @@
-package: github.com/slnowak/pumba
+package: github.com/gaia-adm/pumba
 import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/stretchr/testify
