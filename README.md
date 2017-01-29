@@ -345,7 +345,7 @@ Here is the approximate list of commands you will need to run:
 
 ```
 cd $GOPATH
-mkdir github.com/slnowak && cd github.com/slnowak
+mkdir github.com/gaia-adm && cd github.com/gaia-adm
 git clone git@github.com:gaia-adm/pumba.git
 cd pumba
 glide install -v
