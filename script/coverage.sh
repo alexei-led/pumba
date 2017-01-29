@@ -33,7 +33,7 @@ show_cover_report() {
 
 push_to_coveralls() {
   if [ -z "$COVERALLS_TOKEN" ]; then
-    echo "Need to set COVERALLS_TOKEN environment variable"; exit 1
+    echo "WARNING: Need to set COVERALLS_TOKEN environment variable"; exit 0
   fi
   echo "Pushing coverage statistics to coveralls.io"
   goveralls -coverprofile="$profile" -service=circle-ci -repotoken=$COVERALLS_TOKEN
