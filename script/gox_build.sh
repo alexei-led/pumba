@@ -13,10 +13,10 @@ gox_build() {
   [ -d "${DIST}" ] && rm -rf "${DIST}/*"
   [ -d "${DIST}" ] || mkdir -p "${DIST}"
   echo "Building" ${BUILD_VERSION} "on" ${BUILD_DATE}
-  glide install
+  glide install -v
   gox -os="${oslist}" -arch="${exarch}" -cgo=false \
     -ldflags "-X main.Version=${VERSION} -X main.GitCommit=${GITCOMMIT} -X main.GitBranch=${GITBRANCH} -X main.BuildTime=${BUILDTIME}" \
-    -verbose -output="${DIST}/pumba_{{.OS}}_{{.Arch}}"
+    -verbose -output="${DIST}/pumba_{{.OS}}_{{.Arch}}" .
 }
 
 gox_build

@@ -1,16 +1,17 @@
 package container
 
 import (
+	"errors"
+	"net"
 	"testing"
+	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"errors"
-	"github.com/docker/docker/api/types"
-	"net"
-	"time"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
-	"github.com/docker/docker/api/types/network"
 )
 
 func allContainers(Container) bool {
@@ -371,17 +372,17 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", mock.Anything, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", mock.Anything, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	config := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", config).Return(types.IDResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", mock.Anything, "abc123", config).Return(types.IDResponse{ID: "testID"}, nil)
 	engineClient.On("ContainerExecStart", mock.Anything, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", mock.Anything, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1 * time.Millisecond, "", false)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -396,12 +397,12 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	stopConfig := types.ExecConfig{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.IDResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", stopConfig).Return(types.IDResponse{ID: "testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
@@ -419,7 +420,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1 * time.Millisecond, "", true)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
@@ -435,28 +436,28 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "tc"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	config1 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", config1).Return(types.IDResponse{"cmd1"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config1).Return(types.IDResponse{ID: "cmd1"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd1", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd1").Return(types.ContainerExecInspect{}, nil)
 
 	config2 := types.ExecConfig{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "netem", "delay", "500ms"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.IDResponse{"cmd2"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config2).Return(types.IDResponse{ID: "cmd2"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd2", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd2").Return(types.ContainerExecInspect{}, nil)
 
 	config3 := types.ExecConfig{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
 		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dport", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.IDResponse{"cmd3"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.IDResponse{ID: "cmd3"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd3", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1 * time.Millisecond, "", false)
+	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -510,12 +511,12 @@ func Test_execOnContainerSuccess(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.IDResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.IDResponse{ID: "testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
@@ -538,7 +539,7 @@ func Test_execOnContainerNotFound(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
@@ -562,12 +563,12 @@ func Test_execOnContainerFailed(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, nil)
 
 	execConfig := types.ExecConfig{Cmd: []string{"testcmd", "arg1", "arg2", "arg3"}, Privileged: false}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.IDResponse{"testID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", execConfig).Return(types.IDResponse{ID: "testID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "testID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
@@ -591,7 +592,7 @@ func Test_execOnContainerExecStartError(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
@@ -613,7 +614,7 @@ func Test_execOnContainerExecCreateError(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, errors.New("oops"))
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
 	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
@@ -634,7 +635,7 @@ func Test_execOnContainerExecInspectError(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	checkConfig := types.ExecConfig{Cmd: []string{"which", "testcmd"}}
-	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{"checkID"}, nil)
+	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, errors.New("oops"))
 

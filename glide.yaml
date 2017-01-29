@@ -6,6 +6,7 @@ import:
   - mock
 - package: github.com/johntdyer/slackrus
 - package: github.com/johntdyer/slack-go
+- package: github.com/docker/go-connections
 - package: github.com/docker/docker
   subpackages:
   - client

@@ -6,10 +6,10 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 )
@@ -266,7 +266,7 @@ func (client *MockEngine) ImageImport(ctx context.Context, source types.ImageImp
 
 // ImageInspectWithRaw returns the image information and it's raw representation
 func (client *MockEngine) ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error) {
-	args := client.Mock.Called(ctx, image, )
+	args := client.Mock.Called(ctx, image)
 	return args.Get(0).(types.ImageInspect), args.Get(1).([]byte), args.Error(2)
 }
 
@@ -429,4 +429,3 @@ func (client *MockEngine) VolumesPrune(ctx context.Context, pruneFilters filters
 	args := client.Mock.Called(ctx, pruneFilters)
 	return args.Get(0).(types.VolumesPruneReport), args.Error(1)
 }
-

@@ -11,16 +11,16 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	dockerapi "github.com/docker/docker/client"
 	types "github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
+	dockerapi "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
 
 const (
 	defaultStopSignal = "SIGTERM"
 	defaultKillSignal = "SIGKILL"
-	dryRunPrefix = "DRY: "
+	dryRunPrefix      = "DRY: "
 )
 
 // A Filter is a prototype for a function that can be used to filter the
@@ -253,7 +253,7 @@ func (client dockerClient) stopNetemContainer(c Container, netInterface string, 
 }
 
 func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface string, netemCmd []string,
-targetIP string, tcimage string, dryrun bool) error {
+	targetIP string, tcimage string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
