@@ -10,18 +10,17 @@ import (
 	"golang.org/x/net/context"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/samalba/dockerclient"
 
-	engineapi "github.com/docker/engine-api/client"
-	enginetypes "github.com/docker/engine-api/types"
-	ctypes "github.com/docker/engine-api/types/container"
+	dockerapi "github.com/docker/docker/client"
+	types "github.com/docker/docker/api/types"
+	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 )
 
 const (
 	defaultStopSignal = "SIGTERM"
 	defaultKillSignal = "SIGKILL"
-	dryRunPrefix      = "DRY: "
+	dryRunPrefix = "DRY: "
 )
 
 // A Filter is a prototype for a function that can be used to filter the
@@ -33,9 +32,6 @@ type Client interface {
 	ListContainers(Filter) ([]Container, error)
 	StopContainer(Container, int, bool) error
 	KillContainer(Container, string, bool) error
-	StartContainer(Container) error
-	RenameContainer(Container, string) error
-	RemoveImage(Container, bool, bool) error
 	RemoveContainer(Container, bool, bool, bool, bool) error
 	NetemContainer(Container, string, []string, net.IP, time.Duration, string, bool) error
 	StopNetemContainer(Container, string, string, bool) error
@@ -46,24 +42,22 @@ type Client interface {
 // NewClient returns a new Client instance which can be used to interact with
 // the Docker API.
 func NewClient(dockerHost string, tlsConfig *tls.Config) Client {
-	docker, err := dockerclient.NewDockerClient(dockerHost, tlsConfig)
+	httpClient, err := HTTPClient(dockerHost, tlsConfig)
 	if err != nil {
 		log.Fatalf("Error instantiating Docker client: %s", err)
 	}
 
-	// Use HTTP Client used by dockerclient to create engine-api client
-	apiClient, err := engineapi.NewClient(dockerHost, "", docker.HTTPClient, nil)
+	apiClient, err := dockerapi.NewClient(dockerHost, "", httpClient, nil)
 	if err != nil {
 		log.Fatalf("Error instantiating Docker engine-api: %s", err)
 	}
 
-	return dockerClient{api: docker, apiClient: apiClient}
+	return dockerClient{containerAPI: apiClient, imageAPI: apiClient}
 }
 
 type dockerClient struct {
-	api dockerclient.Client
-	// NOTE: use official docker/engine-api instead of samalba/dockerclient; lazy refactoring
-	apiClient engineapi.ContainerAPIClient
+	containerAPI dockerapi.ContainerAPIClient
+	imageAPI     dockerapi.ImageAPIClient
 }
 
 func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
@@ -71,18 +65,18 @@ func (client dockerClient) ListContainers(fn Filter) ([]Container, error) {
 
 	log.Debug("Retrieving running containers")
 
-	runningContainers, err := client.api.ListContainers(false, false, "")
+	runningContainers, err := client.containerAPI.ContainerList(apiContext(), types.ContainerListOptions{})
 	if err != nil {
 		return nil, err
 	}
 	for _, runningContainer := range runningContainers {
-		containerInfo, err := client.api.InspectContainer(runningContainer.Id)
+		containerInfo, err := client.containerAPI.ContainerInspect(apiContext(), runningContainer.ID)
 		if err != nil {
 			return nil, err
 		}
-		log.Debugf("Running container: %s - (%s)", containerInfo.Name, containerInfo.Id)
+		log.Debugf("Running container: %s - (%s)", containerInfo.Name, containerInfo.ID)
 
-		imageInfo, err := client.api.InspectImage(containerInfo.Image)
+		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(apiContext(), containerInfo.Image)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +97,7 @@ func (client dockerClient) KillContainer(c Container, signal string, dryrun bool
 	}
 	log.Infof("%sKilling %s (%s) with signal %s", prefix, c.Name(), c.ID(), signal)
 	if !dryrun {
-		if err := client.api.KillContainer(c.ID(), signal); err != nil {
+		if err := client.containerAPI.ContainerKill(apiContext(), c.ID(), signal); err != nil {
 			return err
 		}
 	}
@@ -121,7 +115,7 @@ func (client dockerClient) StopContainer(c Container, timeout int, dryrun bool) 
 	}
 	log.Infof("%sStopping %s (%s) with %s", prefix, c.Name(), c.ID(), signal)
 	if !dryrun {
-		if err := client.api.KillContainer(c.ID(), signal); err != nil {
+		if err := client.containerAPI.ContainerKill(apiContext(), c.ID(), signal); err != nil {
 			return err
 		}
 
@@ -131,7 +125,7 @@ func (client dockerClient) StopContainer(c Container, timeout int, dryrun bool) 
 		}
 
 		log.Debugf("Killing container %s with %s", c.ID(), defaultKillSignal)
-		if err := client.api.KillContainer(c.ID(), defaultKillSignal); err != nil {
+		if err := client.containerAPI.ContainerKill(apiContext(), c.ID(), defaultKillSignal); err != nil {
 			return err
 		}
 
@@ -144,42 +138,6 @@ func (client dockerClient) StopContainer(c Container, timeout int, dryrun bool) 
 	return nil
 }
 
-func (client dockerClient) StartContainer(c Container) error {
-	config := c.runtimeConfig()
-	hostConfig := c.hostConfig()
-	name := c.Name()
-
-	log.Infof("Starting %s", name)
-
-	newContainerID, err := client.api.CreateContainer(config, name, nil)
-	if err != nil {
-		return err
-	}
-
-	log.Debugf("Starting container %s (%s)", name, newContainerID)
-
-	return client.api.StartContainer(newContainerID, hostConfig)
-}
-
-func (client dockerClient) RenameContainer(c Container, newName string) error {
-	log.Debugf("Renaming container %s (%s) to %s", c.Name(), c.ID(), newName)
-	return client.api.RenameContainer(c.ID(), newName)
-}
-
-func (client dockerClient) RemoveImage(c Container, force bool, dryrun bool) error {
-	imageID := c.ImageID()
-	prefix := ""
-	if dryrun {
-		prefix = dryRunPrefix
-	}
-	log.Infof("%sRemoving image %s", prefix, imageID)
-	if !dryrun {
-		_, err := client.api.RemoveImage(imageID, force)
-		return err
-	}
-	return nil
-}
-
 func (client dockerClient) RemoveContainer(c Container, force bool, links bool, volumes bool, dryrun bool) error {
 	prefix := ""
 	if dryrun {
@@ -187,12 +145,12 @@ func (client dockerClient) RemoveContainer(c Container, force bool, links bool, 
 	}
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
-		removeOpts := enginetypes.ContainerRemoveOptions{
+		removeOpts := types.ContainerRemoveOptions{
 			RemoveVolumes: links,
 			RemoveLinks:   volumes,
 			Force:         force,
 		}
-		return client.apiClient.ContainerRemove(context.Background(), c.ID(), removeOpts)
+		return client.containerAPI.ContainerRemove(apiContext(), c.ID(), removeOpts)
 	}
 	return nil
 }
@@ -236,7 +194,7 @@ func (client dockerClient) PauseContainer(c Container, dryrun bool) error {
 	}
 	log.Infof("%sPausing container %s", prefix, c.ID())
 	if !dryrun {
-		if err := client.apiClient.ContainerPause(context.Background(), c.ID()); err != nil {
+		if err := client.containerAPI.ContainerPause(context.Background(), c.ID()); err != nil {
 			return err
 		}
 		log.Debugf("Container %s paused", c.ID())
@@ -251,7 +209,7 @@ func (client dockerClient) UnpauseContainer(c Container, dryrun bool) error {
 	}
 	log.Infof("%sUnpausing container %s", prefix, c.ID())
 	if !dryrun {
-		if err := client.apiClient.ContainerUnpause(context.Background(), c.ID()); err != nil {
+		if err := client.containerAPI.ContainerUnpause(context.Background(), c.ID()); err != nil {
 			log.Error(err)
 			return err
 		}
@@ -295,7 +253,7 @@ func (client dockerClient) stopNetemContainer(c Container, netInterface string, 
 }
 
 func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface string, netemCmd []string,
-	targetIP string, tcimage string, dryrun bool) error {
+targetIP string, tcimage string, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
@@ -373,12 +331,12 @@ func (client dockerClient) tcContainerCommand(target Container, args []string, t
 		DNSSearch:    []string{},
 	}
 	log.Debugf("Host Config: %s", hconfig)
-	createResponse, err := client.apiClient.ContainerCreate(context.Background(), &config, &hconfig, nil, "")
+	createResponse, err := client.containerAPI.ContainerCreate(context.Background(), &config, &hconfig, nil, "")
 	if err != nil {
 		return err
 	}
 	log.Debugf("tc container id: %s", createResponse.ID)
-	return client.apiClient.ContainerStart(context.Background(), createResponse.ID, enginetypes.ContainerStartOptions{})
+	return client.containerAPI.ContainerStart(context.Background(), createResponse.ID, types.ContainerStartOptions{})
 }
 
 func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs []string, privileged bool) error {
@@ -386,19 +344,19 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 	execCmd = strings.Replace(execCmd, " ", "", -1)
 
 	// check if command exists inside target container
-	checkExists := enginetypes.ExecConfig{
+	checkExists := types.ExecConfig{
 		Cmd: []string{"which", execCmd},
 	}
-	exec, err := client.apiClient.ContainerExecCreate(context.Background(), c.ID(), checkExists)
+	exec, err := client.containerAPI.ContainerExecCreate(apiContext(), c.ID(), checkExists)
 	if err != nil {
 		return err
 	}
 	log.Debugf("checking if command %s exists", execCmd)
-	err = client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
+	err = client.containerAPI.ContainerExecStart(apiContext(), exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		return err
 	}
-	checkInspect, err := client.apiClient.ContainerExecInspect(context.Background(), exec.ID)
+	checkInspect, err := client.containerAPI.ContainerExecInspect(apiContext(), exec.ID)
 	if err != nil {
 		return err
 	}
@@ -408,21 +366,21 @@ func (client dockerClient) execOnContainer(c Container, execCmd string, execArgs
 	log.Debugf("command %s found: continue...", execCmd)
 
 	// prepare exec config
-	config := enginetypes.ExecConfig{
+	config := types.ExecConfig{
 		Privileged: privileged,
 		Cmd:        append([]string{execCmd}, execArgs...),
 	}
 	// execute the command
-	exec, err = client.apiClient.ContainerExecCreate(context.Background(), c.ID(), config)
+	exec, err = client.containerAPI.ContainerExecCreate(context.Background(), c.ID(), config)
 	if err != nil {
 		return err
 	}
 	log.Debugf("Starting Exec %s %s (%s)", execCmd, execArgs, exec.ID)
-	err = client.apiClient.ContainerExecStart(context.Background(), exec.ID, enginetypes.ExecStartCheck{})
+	err = client.containerAPI.ContainerExecStart(context.Background(), exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		return err
 	}
-	exitInspect, err := client.apiClient.ContainerExecInspect(context.Background(), exec.ID)
+	exitInspect, err := client.containerAPI.ContainerExecInspect(context.Background(), exec.ID)
 	if err != nil {
 		return err
 	}
@@ -440,7 +398,7 @@ func (client dockerClient) waitForStop(c Container, waitTime int) error {
 		case <-timeout:
 			return nil
 		default:
-			if ci, err := client.api.InspectContainer(c.ID()); err != nil {
+			if ci, err := client.containerAPI.ContainerInspect(apiContext(), c.ID()); err != nil {
 				return err
 			} else if !ci.State.Running {
 				return nil
@@ -449,4 +407,8 @@ func (client dockerClient) waitForStop(c Container, waitTime int) error {
 
 		time.Sleep(1 * time.Second)
 	}
+}
+
+func apiContext() context.Context {
+	return context.Background()
 }

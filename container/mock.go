@@ -12,8 +12,8 @@ type MockClient struct {
 	mock.Mock
 }
 
-// NewMockSamalbaClient creates a new mock client
-func NewMockSamalbaClient() *MockClient {
+// NewMockClient creates a new mock client
+func NewMockClient() *MockClient {
 	return &MockClient{}
 }
 
@@ -26,24 +26,6 @@ func (m *MockClient) ListContainers(cf Filter) ([]Container, error) {
 // StopContainer mock
 func (m *MockClient) StopContainer(c Container, timeout int, dryrun bool) error {
 	args := m.Called(c, timeout)
-	return args.Error(0)
-}
-
-// StartContainer mock
-func (m *MockClient) StartContainer(c Container) error {
-	args := m.Called(c)
-	return args.Error(0)
-}
-
-// RenameContainer mock
-func (m *MockClient) RenameContainer(c Container, name string) error {
-	args := m.Called(c, name)
-	return args.Error(0)
-}
-
-// RemoveImage mock
-func (m *MockClient) RemoveImage(c Container, b bool, dryrun bool) error {
-	args := m.Called(c, b)
 	return args.Error(0)
 }
 

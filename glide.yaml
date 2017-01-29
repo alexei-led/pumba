@@ -1,13 +1,12 @@
 package: github.com/gaia-adm/pumba
 import:
 - package: github.com/Sirupsen/logrus
-- package: github.com/samalba/dockerclient
 - package: github.com/stretchr/testify
   subpackages:
   - mock
 - package: github.com/johntdyer/slackrus
 - package: github.com/johntdyer/slack-go
-- package: github.com/docker/engine-api
+- package: github.com/docker/docker
   subpackages:
   - client
-  - types
+  - api

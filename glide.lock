@@ -1,5 +1,5 @@
-hash: 0675f3ad945b7243c1a2ec97699e353d0214351a545054a6a2980134a6ea1f0f
-updated: 2017-01-29T16:37:40.204217003+02:00
+hash: b4cdfac751c32725fd317cb8d118ed0e2f855206b3d8a353126dae5b9af4e851
+updated: 2017-01-28T13:49:52.064605668+01:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 2df174808ee097f90d259e432cc04442cf60be21
@@ -10,23 +10,26 @@ imports:
   subpackages:
   - digest
   - reference
-- name: github.com/docker/engine-api
-  version: 53b6b19ee622c8584c28fdde0e3893383b290da3
+- name: github.com/docker/docker
+  version: bf8cdb9172c3516eecb80974971b0b2da00afc11
   subpackages:
+  - api
+  - api/types
+  - api/types/blkiodev
+  - api/types/container
+  - api/types/events
+  - api/types/filters
+  - api/types/mount
+  - api/types/network
+  - api/types/reference
+  - api/types/registry
+  - api/types/strslice
+  - api/types/swarm
+  - api/types/time
+  - api/types/versions
+  - api/types/volume
   - client
-  - client/transport
-  - client/transport/cancellable
-  - types
-  - types/blkiodev
-  - types/container
-  - types/filters
-  - types/network
-  - types/reference
-  - types/registry
-  - types/strslice
-  - types/swarm
-  - types/time
-  - types/versions
+  - pkg/tlsconfig
 - name: github.com/docker/go-connections
   version: 990a1a1a70b0da4c4cb70e117971a4f0babfbf1a
   subpackages:
@@ -45,14 +48,12 @@ imports:
   version: fb221651e5120cd287a76c7c1b6c877520fbd034
   subpackages:
   - libcontainer/user
+- name: github.com/pkg/errors
+  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
-- name: github.com/samalba/dockerclient
-  version: 52fe1c9d696f36d894d2319f1717a383ebc46f19
-  subpackages:
-  - mockclient
 - name: github.com/Sirupsen/logrus
   version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
 - name: github.com/stretchr/objx
@@ -70,6 +71,7 @@ imports:
   version: 4876518f9e71663000c348837735820161a42df7
   subpackages:
   - context
+  - context/ctxhttp
   - proxy
 - name: golang.org/x/sys
   version: a60af9cbbc6ab800af4f2be864a31f423a0ae1f2

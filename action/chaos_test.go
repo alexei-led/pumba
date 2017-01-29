@@ -1,15 +1,13 @@
 package action
 
 import (
-	"net"
 	"strconv"
 	"testing"
-	"time"
-
 	"github.com/gaia-adm/pumba/container"
-	"github.com/samalba/dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"time"
+	"net"
 )
 
 func makeContainersN(n int) ([]string, []container.Container) {
@@ -17,10 +15,8 @@ func makeContainersN(n int) ([]string, []container.Container) {
 	cs := make([]container.Container, n)
 	for i := range cs {
 		cs[i] = *container.NewContainer(
-			&dockerclient.ContainerInfo{
-				Name: "c" + strconv.Itoa(i),
-			},
-			nil,
+			container.ContainerDetailsResponse(container.AsMap("Name", "c" + strconv.Itoa(i))),
+			container.ImageDetailsResponse(container.AsMap()),
 		)
 		names[i] = "c" + strconv.Itoa(i)
 	}
@@ -29,26 +25,18 @@ func makeContainersN(n int) ([]string, []container.Container) {
 
 func TestPattern_DotRe2Filter(t *testing.T) {
 	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "c1",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "c2",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c3 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "c3",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
+
 	cf := regexContainerFilter(".")
 	assert.True(t, cf(c1))
 	assert.True(t, cf(c2))
@@ -57,29 +45,21 @@ func TestPattern_DotRe2Filter(t *testing.T) {
 
 func TestPattern_Re2Filter(t *testing.T) {
 	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "AbcEFG",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "AbcEFG")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "AbcHKL",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "AbcHKL")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
-	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
-	}
 	c3 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "AbcPumba",
-			Config: cc,
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap(
+			"Name", "AbcPumba",
+			"Labels", map[string]string{"com.gaiaadm.pumba": "true"},
+		)),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
+
 	cf := regexContainerFilter("^Abc")
 	assert.True(t, cf(c1))
 	assert.True(t, cf(c2))
@@ -88,26 +68,18 @@ func TestPattern_Re2Filter(t *testing.T) {
 
 func TestPattern_Re2FilterEnds(t *testing.T) {
 	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "AbcEFG-result-1",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "AbcEFG-result-1")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "AbcHKL-ignore",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "AbcHKL-ignore")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c3 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "AbcPumba-result-2",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "AbcPumba-result-2")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
+
 	cf := regexContainerFilter("(.+)result")
 	assert.True(t, cf(c1))
 	assert.False(t, cf(c2))
@@ -116,28 +88,19 @@ func TestPattern_Re2FilterEnds(t *testing.T) {
 
 func TestNamesFilter(t *testing.T) {
 	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "ccc",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "ccc")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "ddd",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "ddd")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
-	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
-	}
 	c3 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "xxx",
-			Config: cc,
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap(
+			"Name", "xxx",
+			"Labels", map[string]string{"com.gaiaadm.pumba": "true"},
+		)),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	cf := containerFilter([]string{"ccc", "bbb", "xxx"})
 	assert.True(t, cf(c1))
@@ -147,28 +110,19 @@ func TestNamesFilter(t *testing.T) {
 
 func TestAllNamesFilter(t *testing.T) {
 	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "ccc",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "ccc")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "ddd",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "ddd")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
-	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
-	}
 	c3 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "xxx",
-			Config: cc,
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap(
+			"Name", "xxx",
+			"Labels", map[string]string{"com.gaiaadm.pumba": "true"},
+		)),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	cf := containerFilter([]string{})
 	assert.True(t, cf(c1))
@@ -178,29 +132,21 @@ func TestAllNamesFilter(t *testing.T) {
 
 func TestAllFilter(t *testing.T) {
 	c1 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "ccc",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "ccc")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
 	c2 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "ddd",
-			Config: &dockerclient.ContainerConfig{},
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap("Name", "ddd")),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
-	cc := &dockerclient.ContainerConfig{
-		Labels: map[string]string{"com.gaiaadm.pumba": "true"},
-	}
 	c3 := *container.NewContainer(
-		&dockerclient.ContainerInfo{
-			Name:   "xxx",
-			Config: cc,
-		},
-		nil,
+		container.ContainerDetailsResponse(container.AsMap(
+			"Name", "xxx",
+			"Labels", map[string]string{"com.gaiaadm.pumba": "true"},
+		)),
+		container.ImageDetailsResponse(container.AsMap()),
 	)
+
 	assert.True(t, allContainersFilter(c1))
 	assert.True(t, allContainersFilter(c2))
 	assert.False(t, allContainersFilter(c3))
@@ -210,8 +156,8 @@ func TestStopByName(t *testing.T) {
 	// prepare test data and mock
 	names, cs := makeContainersN(10)
 	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StopContainer", c, 10).Return(nil)
 	}
@@ -227,9 +173,9 @@ func TestStopByNameRandom(t *testing.T) {
 	// prepare test data and mock
 	names, cs := makeContainersN(10)
 	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("StopContainer", mock.AnythingOfType("container.Container"), 10).Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("StopContainer", mock.Anything, 10).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -244,8 +190,8 @@ func TestStopByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StopContainer", c, 10).Return(nil)
 	}
@@ -261,9 +207,9 @@ func TestStopByPatternRandom(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("StopContainer", mock.AnythingOfType("container.Container"), 10).Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("StopContainer", mock.Anything, 10).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -278,8 +224,8 @@ func TestKillByName(t *testing.T) {
 	// prepare test data and mock
 	names, cs := makeContainersN(10)
 	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("KillContainer", c, "SIGTEST").Return(nil)
 	}
@@ -295,9 +241,9 @@ func TestKillByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("KillContainer", mock.Anything, "SIGTEST").Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -312,8 +258,8 @@ func TestKillByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for i := range cs {
 		client.On("KillContainer", cs[i], "SIGTEST").Return(nil)
 	}
@@ -329,9 +275,9 @@ func TestKillByPatternRandom(t *testing.T) {
 	// prepare test data and mock
 	_, cs := makeContainersN(10)
 	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("KillContainer", mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("KillContainer", mock.Anything, "SIGTEST").Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -344,8 +290,8 @@ func TestKillByPatternRandom(t *testing.T) {
 
 func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	cmd := CommandRemove{Force: false, Links: false, Volumes: false}
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false, false, false).Return(nil)
@@ -359,10 +305,10 @@ func TestRemoveByName(t *testing.T) {
 func TestRemoveByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
-	client := container.NewMockSamalbaClient()
+	client := container.NewMockClient()
 	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, true, true).Return(nil)
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("RemoveContainer", mock.Anything, false, true, true).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -377,8 +323,8 @@ func TestRemoveByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("RemoveContainer", c, false, true, true).Return(nil)
 	}
@@ -394,9 +340,9 @@ func TestRemoveByPatternRandom(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("RemoveContainer", mock.AnythingOfType("container.Container"), false, true, true).Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("RemoveContainer", mock.Anything, false, true, true).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -411,8 +357,8 @@ func TestPauseByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("PauseContainer", c).Return(nil)
 		client.On("UnpauseContainer", c).Return(nil)
@@ -429,8 +375,8 @@ func TestPauseByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("PauseContainer", c).Return(nil)
 		client.On("UnpauseContainer", c).Return(nil)
@@ -447,10 +393,10 @@ func TestPauseByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("PauseContainer", mock.AnythingOfType("container.Container")).Return(nil)
-	client.On("UnpauseContainer", mock.AnythingOfType("container.Container")).Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("PauseContainer", mock.Anything).Return(nil)
+	client.On("UnpauseContainer", mock.Anything).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -472,10 +418,10 @@ func TestNetemDelayByName(t *testing.T) {
 		Jitter:       25,
 		Correlation:  0.23,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "0.23"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "0.23"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -498,10 +444,10 @@ func TestNetemDelayByNameRandom(t *testing.T) {
 		Correlation:  5.5,
 		Distribution: "uniform",
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", []string{"delay", "120ms", "25ms", "5.50", "distribution", "uniform"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
-	client.On("StopNetemContainer", mock.AnythingOfType("container.Container"), "eth1", "").Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("NetemContainer", mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "5.50", "distribution", "uniform"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
+	client.On("StopNetemContainer", mock.Anything, "eth1", "").Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -523,10 +469,10 @@ func TestNetemDelayByPattern(t *testing.T) {
 		Jitter:       25,
 		Correlation:  15,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "15.00"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "15.00"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -549,10 +495,10 @@ func TestNetemDelayByPatternIPFilter(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ip, 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ip, 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -574,10 +520,10 @@ func TestNetemDelayByPatternRandom(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10.2,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
-	client.On("NetemContainer", mock.AnythingOfType("container.Container"), "eth1", []string{"delay", "120ms", "25ms", "10.20"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
-	client.On("StopNetemContainer", mock.AnythingOfType("container.Container"), "eth1", "").Return(nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
+	client.On("NetemContainer", mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "10.20"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
+	client.On("StopNetemContainer", mock.Anything, "eth1", "").Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -598,10 +544,10 @@ func TestNetemLossByName(t *testing.T) {
 		Percent:      11.5,
 		Correlation:  25.53,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"loss", "11.50", "25.53"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"loss", "11.50", "25.53"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -618,7 +564,7 @@ func TestNetemLossBadCommand(t *testing.T) {
 	cmd := CommandKill{
 		Signal: "xuyak",
 	}
-	client := container.NewMockSamalbaClient()
+	client := container.NewMockClient()
 	// do action
 	pumba := pumbaChaos{}
 	err := pumba.NetemLossRandomContainers(client, names, "", cmd)
@@ -641,10 +587,10 @@ func TestNetemLossStateByName(t *testing.T) {
 		P23:          14.8,
 		P14:          15.9,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"loss", "state", "11.50", "12.60", "13.70", "14.80", "15.90"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"loss", "state", "11.50", "12.60", "13.70", "14.80", "15.90"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -661,7 +607,7 @@ func TestNetemLossStateBadCommand(t *testing.T) {
 	cmd := CommandKill{
 		Signal: "xuyak",
 	}
-	client := container.NewMockSamalbaClient()
+	client := container.NewMockClient()
 	// do action
 	pumba := pumbaChaos{}
 	err := pumba.NetemLossStateContainers(client, names, "", cmd)
@@ -683,10 +629,10 @@ func TestNetemLossGEmodelByName(t *testing.T) {
 		OneH:         13.7,
 		OneK:         14.8,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"loss", "gemodel", "11.50", "12.60", "13.70", "14.80"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"loss", "gemodel", "11.50", "12.60", "13.70", "14.80"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -703,7 +649,7 @@ func TestNetemLossGEmodelBadCommand(t *testing.T) {
 	cmd := CommandKill{
 		Signal: "xuyak",
 	}
-	client := container.NewMockSamalbaClient()
+	client := container.NewMockClient()
 	// do action
 	pumba := pumbaChaos{}
 	err := pumba.NetemLossGEmodelContainers(client, names, "", cmd)
@@ -725,10 +671,10 @@ func TestNetemRateByName(t *testing.T) {
 		CellSize:       20,
 		CellOverhead:   30,
 	}
-	client := container.NewMockSamalbaClient()
-	client.On("ListContainers", mock.AnythingOfType("container.Filter")).Return(cs, nil)
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", c, "eth1", []string{"rate", "300kbit", "10", "20", "30"}, net.ParseIP(""), 1*time.Millisecond, "").Return(nil)
+		client.On("NetemContainer", c, "eth1", []string{"rate", "300kbit", "10", "20", "30"}, net.ParseIP(""), 1 * time.Millisecond, "").Return(nil)
 		client.On("StopNetemContainer", c, "eth1", "").Return(nil)
 	}
 	// do action
@@ -745,7 +691,7 @@ func TestNetemRateBadCommand(t *testing.T) {
 	cmd := CommandKill{
 		Signal: "xuyak",
 	}
-	client := container.NewMockSamalbaClient()
+	client := container.NewMockClient()
 	// do action
 	pumba := pumbaChaos{}
 	err := pumba.NetemRateContainers(client, names, "", cmd)

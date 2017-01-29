@@ -4,11 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	egineapi "github.com/docker/engine-api/client"
+	egineapi "github.com/docker/docker/client"
 )
 
 func TestMockEngineInterface(t *testing.T) {
-	mock := &MockEngine{}
+	mock := NewMockEngine()
 
 	iface := reflect.TypeOf((*egineapi.ContainerAPIClient)(nil)).Elem()
 	if !reflect.TypeOf(mock).Implements(iface) {

@@ -15,7 +15,7 @@ mode=count
 generate_cover_data() {
   [ -d "${COVER}" ] && rm -rf "${COVER}/*"
   [ -d "${COVER}" ] || mkdir -p "${COVER}"
-  glide install
+  glide install -v
 
   for pkg in "$@"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"

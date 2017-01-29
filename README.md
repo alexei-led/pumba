@@ -345,10 +345,10 @@ Here is the approximate list of commands you will need to run:
 
 ```
 cd $GOPATH
-mkdir github.com/gaia-adm && cd github.com/gaia-adm
+mkdir github.com/slnowak && cd github.com/slnowak
 git clone git@github.com:gaia-adm/pumba.git
 cd pumba
-glide install
+glide install -v
 go build -v
 ```
 
@@ -386,8 +386,7 @@ docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.co
 
 ## Used Libraries and Code
 
-- Official Docker Engine API for Go [docker/engine-api](https://github.com/docker/engine-api)
-- Docker Client [samalba/dockerclient](https://github.com/samalba/dockerclient) - refactoring to Docker Engine API
+- Official Docker API for Go [docker/docker](https://github.com/docker/docker)
 - Logging  [Sirupsen/logrus](https://github.com/Sirupsen/logrus)
 - Command line app lib [codegangsta/cli](https://github.com/codegangsta/cli)
 
