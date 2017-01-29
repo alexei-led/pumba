@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.4.0] - 2017-01-29
+### Updated
+- Replace Docker samalba client with default Docker SDK for Go. Kudos to [Sławomir Nowak](https://github.com/slnowak) for contribution.
+- update glide dependency and versions
+
 ## [v0.3.1] - 2016-12-13
 ### Added
 - `netem rate` command, contributed by Ricardo Martins @meqif
