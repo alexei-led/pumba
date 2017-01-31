@@ -39,10 +39,10 @@ deployment:
     branch: [master, develop, /feature_.*/]
     commands:
       # tag image with CircleCi branch and build
-      - dobi dist-img:tag
+      - dobi -v dist-img:tag
       # deply image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-      - dobi dist-img:push
+      - dobi -v dist-img:push
   github-release:
     tag: /[0-9]+(\.[0-9]+)*/
     commands:
