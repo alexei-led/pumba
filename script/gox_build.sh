@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$DIST" ] && DIST=.dist
+[ -z "$DIST" ] && DIST=dist/bin
 
 [ -z "$VERSION" ] && VERSION=$(cat VERSION)
 [ -z "$BUILDTIME" ] && BUILDTIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
@@ -17,6 +17,8 @@ gox_build() {
   gox -os="${oslist}" -arch="${exarch}" -cgo=false \
     -ldflags "-X main.Version=${VERSION} -X main.GitCommit=${GITCOMMIT} -X main.GitBranch=${GITBRANCH} -X main.BuildTime=${BUILDTIME}" \
     -verbose -output="${DIST}/pumba_{{.OS}}_{{.Arch}}" .
+  # create timestamp for last cross compilation
+  touch ${DIST}/pumba_timestamp
 }
 
 gox_build

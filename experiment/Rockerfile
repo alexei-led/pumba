@@ -56,7 +56,7 @@ ENV GITBRANCH {{ .GitBranch }}
 {{ end }}
 
 # export Pumba binary
-EXPORT .dist/pumba
+EXPORT dist/bin/pumba
 
 # tag builder image
 TAG pumba/builder:local

@@ -12,15 +12,14 @@ machine:
 dependencies:
   cache_directories:
     - .glide
-    - .rocker_cache
   override:
     # create builder image
-    - docker build -t pumba/builder:ci -f Build.Dockerfile .
+    - docker build -t pumba/builder:ci -f Dockerfile.build .
     # compile Pumba binary (linux/amd64)
     - >
       docker run \
-        -v "$PWD/.dist":/.dist \
-        -v "$PWD/.glide":/go/src/app/.glide \
+        -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin \
+        -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
         -e CGO_ENABLE=0 \
         -e VERSION=$(cat VERSION) \
         -e BUILDTIME=${BUILDTIME} \
@@ -28,13 +27,13 @@ dependencies:
         -e GITBRANCH=${CIRCLE_BRANCH} \
         pumba/builder:ci script/go_build.sh
     # create Pumba Docker image too
-    - docker build --build-arg VCS_REF=${CIRCLE_SHA1} -t gaiaadm/pumba .
+    - docker build --build-arg GH_SHA=${CIRCLE_SHA1} -t gaiaadm/pumba -f dist/Dockerfile.dist dist
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
     - docker run -e "COVERALLS_TOKEN=${COVERALLS_TOKEN}" -v "$PWD/.cover":/.cover pumba/builder:ci script/coverage.sh --coveralls
     # run bats integration tests and produce TAP report
-    - PATH=.dist:$PATH bats -t tests > tests.output
+    - PATH=dist/bin:$PATH bats -t tests > tests.output
   post:
     # copy test results
     - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
@@ -56,13 +55,12 @@ deployment:
     tag: /[0-9]+(\.[0-9]+)*/
     commands:
       # cross compile Pumba for multiple platforms
-      - docker run -v "$PWD/.dist":/.dist -v "$PWD/.glide":/go/src/app/.glide -e VERSION=$(cat VERSION) -e BUILDTIME=${BUILDTIME} -e GITCOMMIT=${CIRCLE_SHA1} -e GITBRANCH=${CIRCLE_BRANCH} -e CGO_ENABLED=0 pumba/builder:ci script/gox_build.sh
+      - docker run -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide -e VERSION=$(cat VERSION) -e BUILDTIME=${BUILDTIME} -e GITCOMMIT=${CIRCLE_SHA1} -e GITBRANCH=${CIRCLE_BRANCH} -e CGO_ENABLED=0 pumba/builder:ci script/gox_build.sh
       # publish new release to GitHub
-      - docker run -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -e RELEASE_TAG=$(git describe --tags) -e TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') -v "$PWD/.dist":/.dist pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - docker run -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -e RELEASE_TAG=$(git describe --tags) -e TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
 notify:
   webhooks:
-    - url: https://webhook.master.gaiahub.io/wh/5a866f9b-98c9-438d-a8d4-53cf4ae9599c/4c310c8e220ee9bead74eece42ce0e109fd3535e
     - url: https://hooks.microbadger.com/images/gaiaadm/pumba/mFsG9N5E0frOdrOLTPjYKqqt-Iw=
 general:
   artifacts:
-    - .dist
+    - dist/bin

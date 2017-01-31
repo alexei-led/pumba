@@ -1,53 +1,102 @@
 meta:
     project: pumba
 
-mount=dist:
-    bind: ./.dist
-    path: /.dist
+#
+# Mounts
+#
 
-mount=glide:
-    bind: ./.glide
-    path: /go/src/app/.glide
+mount=dist:
+    bind: dist/bin
+    path: /go/src/github.com/gaia-adm/pumba/dist/bin
+
+mount=cover:
+    bind: .cover
+    path: /go/src/github.com/gaia-adm/pumba/.cover
+
+#
+# Images
+#
 
 image=builder:
     image: pumba/builder
-    tags: [ci]
-    context: .
-    dockerfile: Build.Dockerfile
-    pull: once
+    tags:
+      - '{git.branch}'
+      - '{env.BUILD:local}-{git.branch}'
+    dockerfile: Dockerfile.build
     args:
       http_proxy: "{env.http_proxy:}"
       https_proxy: "{env.https_proxy:}"
-
-job=binary:
-    use: builder
-    artifact: ./dist/pumba
-    mounts: [glide, dist]
-    description: "Build the static binary"
-
-job=xbinary:
-    use: builder
-    artifact: ./.dist/
-    mounts: [glide, dist]
-    command: "bash -c 'CGO_ENABLED=0 script/gox_build.sh'"
-    description: "Build the static binary for multiple platforms"
+      GH_SHA: "{git.sha}"
+      GH_USER: "gaia-adm"
+      GH_PROJECT: "pumba"
+    description: "Create pumba builder: go compile, test and release tools"
 
 image=dist-img:
     image: pumba/pumba
-    dockerfile: Dockerfile
-    tags: ['dev']
-    depends: [binary]
-    description: "Build the distribution image"
+    dockerfile: Dockerfile.dist
+    context: dist
+    tags:
+      - '{git.branch}'
+      - '{env.BUILD:local}-{git.branch}'
     args:
       http_proxy: "{env.http_proxy:}"
       https_proxy: "{env.https_proxy:}"
+      GH_SHA: "{git.sha}"
+    description: "Build pumba distribution Docker image"
+
+#
+# Jobs
+#
+
+job=compile:
+    use: builder
+    artifact: dist/bin/pumba
+    mounts: [dist]
+    env:
+      - 'GH_SHA={git.sha}'
+      - 'BUILDTIME={time.YYYY-MM-DDThh-mm:}'
+      - 'GITCOMMIT={git.sha}'
+      - 'GITBRANCH={git.branch}'
+    command: "bash -c 'VERSION=$(cat VERSION) script/go_build.sh'"
+    description: "Build pumba static binary"
+
+job=unit-test:
+    use: builder
+    mounts: [cover]
+    env:
+      - 'COVERALLS_TOKEN={env.COVERALLS_TOKEN:}'
+    command: "script/coverage.sh --coveralls"
+    description: "Run pumba unit tests and generate coverage reports"
+
+job=integration-test:
+    use: builder
+    mounts: [dist, cover]
+    provide-docker: true
+    depends: [compile]
+    command: "bash -c 'PATH=dist/bin:$PATH bats -t tests > .cover/tests.output'"
+    description: "Run pumba integration tests"
+
+job=cross-compile:
+    use: builder
+    artifact: dist/bin/pumba_timestamp
+    mounts: [dist]
+    env:
+      - 'GH_SHA={git.sha}'
+      - 'BUILDTIME={time.YYYY-MM-DDThh-mm:}'
+      - 'GITCOMMIT={git.sha}'
+      - 'GITBRANCH={git.branch}'
+    command: "bash -c 'VERSION=$(cat VERSION) script/gox_build.sh'"
+    description: "Build pumba static binary for multiple platforms"
 
 job=run-dist:
     use: dist-img
     interactive: true
-    description: "Run the distribution image"
+    description: "Run pumba distribution Docker image"
+
+#
+# Aliases
+#
 
 # alias used by dobi test suite to test this example
 alias=test:
-    tasks: [run-dist]
-
+    tasks: [unit-test, integration-test, run-dist]

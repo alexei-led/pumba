@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$DIST" ] && DIST=.dist
+[ -z "$DIST" ] && DIST=dist/bin
 user=${1}
 repo=${2}
 

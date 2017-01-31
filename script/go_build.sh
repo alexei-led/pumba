@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$DIST" ] && DIST=.dist
+[ -z "$DIST" ] && DIST=dist/bin
 
 [ -z "$VERSION" ] && VERSION=$(cat VERSION)
 [ -z "$BUILDTIME" ] && BUILDTIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")

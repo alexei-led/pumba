@@ -1,0 +1,22 @@
+version: 0.1
+
+phases:
+  pre_build:
+    commands:
+      - echo Buildig Environment ...
+      - export BUILDTIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
+      - export GITCOMMIT=$(git rev-parse HEAD --short 2>/dev/null)
+      - export GITBRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  build:
+    commands:
+      # create builder image
+      - docker build -t pumba/builder:ci -f Dockerfile.build .
+      # compile Pumba binary (linux/amd64)
+      - docker run -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide -e VERSION=$(cat VERSION) -e BUILDTIME=${BUILDTIME} -e GITCOMMIT=${GITCOMMIT} -e GITBRANCH=${GITBRANCH} pumba/builder:ci bash script/go_build.sh
+      # create Pumba Docker image too
+      - docker build --build-arg GH_SHA=${GITCOMMIT} -t gaiaadm/pumba .
+artifacts:
+  type: zip
+  files:
+    - dist/bin/pumba
+  discard-paths: yes

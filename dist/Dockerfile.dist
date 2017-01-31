@@ -1,4 +1,4 @@
-FROM alpine:3.4
+FROM alpine:3.5
 
 MAINTAINER Alexei Ledenev <alexei.led@gmail.com>
 
@@ -20,14 +20,14 @@ RUN apk add --no-cache --virtual .gosu-deps dpkg gnupg openssl ca-certificates w
     && gosu nobody true \
     && apk del .gosu-deps
 
-COPY .dist/pumba /usr/bin/pumba
+COPY bin/pumba /usr/bin/pumba
 COPY docker_entrypoint.sh /
 RUN chmod +x /docker_entrypoint.sh
 
 ENTRYPOINT ["/docker_entrypoint.sh"]
 CMD ["pumba", "--help"]
 
-ARG VCS_REF
+ARG GH_SHA
 
-LABEL org.label-schema.vcs-ref=$VCS_REF \
+LABEL org.label-schema.vcs-ref=$GH_SHA \
       org.label-schema.vcs-url="https://github.com/gaia-adm/pumba"

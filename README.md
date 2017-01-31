@@ -364,7 +364,7 @@ cd pumba
 
 Now create a Pumba builder Docker image.
 ```
-docker build -t pumba/builder -f Build.Dockerfile .
+docker build -t pumba/builder -f Dockerfile.build .
 ```
 
 Now you can use `pumba/builder` to build, test (with coverage) and deploy Pumba.
