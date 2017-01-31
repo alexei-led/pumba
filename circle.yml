@@ -14,7 +14,12 @@ dependencies:
     - .glide
   override:
     # create builder image
-    - docker build -t pumba/builder:ci -f Dockerfile.build .
+    - >
+      docker build -t pumba/builder:ci \
+        --build-arg "GH_USER=CIRCLE_PROJECT_USERNAME" \
+        --build-arg "GH_PROJECT=CIRCLE_PROJECT_REPONAME" \
+        --build-arg "GH_SHA=CIRCLE_SHA1" \
+        -f Dockerfile.build .
     # compile Pumba binary (linux/amd64)
     - >
       docker run \

@@ -8,6 +8,10 @@ steps:
     dockerfile: Dockerfile.build
     working-directory: ${{main_clone}}
     image-name: pumba/builder
+    build_arguments:
+      - GH_USER=gaia-adm
+      - GH_PROJECT=pumba
+      - GH_SHA=${{CF_REVISION}}
 
   go_pumba:
     description: compile Pumba binary, using builder image
