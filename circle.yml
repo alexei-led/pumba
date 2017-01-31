@@ -31,7 +31,7 @@ test:
     # copy test results
     - cp .cover/*_tests.xml ${CIRCLE_TEST_REPORTS}
     # copy integration test results
-    - cp tests.output ${CIRCLE_TEST_REPORTS}
+    - cp .cover/tests.output ${CIRCLE_TEST_REPORTS}
     # push coverage data to codecov
     - bash <(curl -s https://codecov.io/bash)
 deployment:
