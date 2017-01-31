@@ -20,7 +20,7 @@ mount=cover:
 image=builder:
     image: pumba/builder
     tags:
-      - '{env.BUILD:local}-{git.branch}'
+      - '{env.BUILD_NUM:local}-{git.branch}'
     dockerfile: Dockerfile.build
     args:
       http_proxy: "{env.http_proxy:}"
@@ -36,7 +36,7 @@ image=dist-img:
     context: dist
     tags:
       - '{git.branch}'
-      - '{env.BUILD:local}-{git.branch}'
+      - '{env.BUILD_NUM:local}-{git.branch}'
     args:
       http_proxy: "{env.http_proxy:}"
       https_proxy: "{env.https_proxy:}"

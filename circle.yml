@@ -2,6 +2,7 @@ machine:
   environment:
     BUILDTIME: $(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
     DOCKER_API_VERSION: 1.21
+    BUILD_NUM: ${CIRCLE_BUILD_NUM}
   pre:
     # install docker
     - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
@@ -20,7 +21,7 @@ dependencies:
     # compile Pumba binary (linux/amd64)
     - dobi compile
     # create Pumba Docker image too
-    - BUILD=${CIRCLE_BUILD_NUM} dobi dist-img
+    - dobi dist-img
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
