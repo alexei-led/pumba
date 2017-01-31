@@ -20,7 +20,6 @@ mount=cover:
 image=builder:
     image: pumba/builder
     tags:
-      - '{git.branch}'
       - '{env.BUILD:local}-{git.branch}'
     dockerfile: Dockerfile.build
     args:
@@ -32,7 +31,7 @@ image=builder:
     description: "Create pumba builder: go compile, test and release tools"
 
 image=dist-img:
-    image: pumba/pumba
+    image: gaiaadm/pumba
     dockerfile: Dockerfile.dist
     context: dist
     tags:
@@ -87,6 +86,18 @@ job=cross-compile:
       - 'GITBRANCH={git.branch}'
     command: "bash -c 'VERSION=$(cat VERSION) script/gox_build.sh'"
     description: "Build pumba static binary for multiple platforms"
+
+job=github-release:
+    use: builder
+    artifact: dist/bin/pumba_timestamp
+    mounts: [dist]
+    depends: [cross-compile]
+    env:
+      - 'GITHUB_TOKEN={env.GITHUB_TOKEN}'
+      - 'RELEASE_TAG={env.RELEASE_TAG}'
+      - 'TAG_MESSAGE={env.TAG_MESSAGE}'
+    command: "bash -c 'script/github_release.sh gaia-adm pumba'"
+    description: "Release pumba binaries to GitHub"
 
 job=run-dist:
     use: dist-img

@@ -2,11 +2,12 @@ machine:
   environment:
     BUILDTIME: $(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
   pre:
+    # install docker
     - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
     - sudo chmod 0755 /usr/bin/docker
-    - yes y | sudo add-apt-repository ppa:duggan/bats
-    - sudo apt-get update
-    - sudo apt-get install bats
+    # install dobi
+    - sudo curl -L -o /usr/bin/dobi 'https://github.com/dnephin/dobi/releases/download/v0.8/dobi-linux'
+    - sudo chmod 0755 /usr/bin/docker
   services:
     - docker
 dependencies:
@@ -14,36 +15,22 @@ dependencies:
     - .glide
   override:
     # create builder image
-    - >
-      docker build -t pumba/builder:ci \
-        --build-arg "GH_USER=${CIRCLE_PROJECT_USERNAME}" \
-        --build-arg "GH_PROJECT=${CIRCLE_PROJECT_REPONAME}" \
-        --build-arg "GH_SHA=${CIRCLE_SHA1}" \
-        -f Dockerfile.build .
+    - dobi builder
     # compile Pumba binary (linux/amd64)
-    - >
-      docker run \
-        -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin \
-        -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide \
-        -e CGO_ENABLE=0 \
-        -e VERSION=$(cat VERSION) \
-        -e BUILDTIME=${BUILDTIME} \
-        -e GITCOMMIT=${CIRCLE_SHA1} \
-        -e GITBRANCH=${CIRCLE_BRANCH} \
-        pumba/builder:ci script/go_build.sh
+    - dobi compile
     # create Pumba Docker image too
-    - docker build --build-arg GH_SHA=${CIRCLE_SHA1} -t gaiaadm/pumba -f dist/Dockerfile.dist dist
+    - BUILD=${CIRCLE_BUILD_NUM} dobi dist-img
 test:
   override:
     # run tests for all Pumba packages (exl. vendor), calculate coverage and generate junit.xml reports
-    - docker run -e "COVERALLS_TOKEN=${COVERALLS_TOKEN}" -v "$PWD/.cover":/.cover pumba/builder:ci script/coverage.sh --coveralls
+    - dobi unit-test
     # run bats integration tests and produce TAP report
-    - PATH=dist/bin:$PATH bats -t tests > tests.output
+    - dobi integration-test
   post:
     # copy test results
-    - cp .cover/*_tests.xml $CIRCLE_TEST_REPORTS
+    - cp .cover/*_tests.xml ${CIRCLE_TEST_REPORTS}
     # copy integration test results
-    - cp tests.output $CIRCLE_TEST_REPORTS
+    - cp tests.output ${CIRCLE_TEST_REPORTS}
     # push coverage data to codecov
     - bash <(curl -s https://codecov.io/bash)
 deployment:
@@ -51,18 +38,17 @@ deployment:
     branch: [master, develop, /feature_.*/]
     commands:
       # tag image with CircleCi branch and build
-      - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BUILD_NUM-$CIRCLE_BRANCH
-      - docker tag gaiaadm/pumba gaiaadm/pumba:$CIRCLE_BRANCH
+      - dobi dist-img:tag
       # deply image to DockerHub
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-      - docker push gaiaadm/pumba
+      - dobi dist-img:push
   github-release:
     tag: /[0-9]+(\.[0-9]+)*/
     commands:
       # cross compile Pumba for multiple platforms
-      - docker run -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin -v "$PWD/.glide":/go/src/github.com/gaia-adm/pumba/.glide -e VERSION=$(cat VERSION) -e BUILDTIME=${BUILDTIME} -e GITCOMMIT=${CIRCLE_SHA1} -e GITBRANCH=${CIRCLE_BRANCH} -e CGO_ENABLED=0 pumba/builder:ci script/gox_build.sh
+      - dobi cross-compile
       # publish new release to GitHub
-      - docker run -e "GITHUB_TOKEN=${GITHUB_TOKEN}" -e RELEASE_TAG=$(git describe --tags) -e TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') -v "$PWD/dist/bin":/go/src/github.com/gaia-adm/pumba/dist/bin pumba/builder:ci script/github_release.sh $CIRCLE_PROJECT_USERNAME $CIRCLE_PROJECT_REPONAME
+      - RELEASE_TAG=$(git describe --tags); TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}'); dobi github-release
 notify:
   webhooks:
     - url: https://hooks.microbadger.com/images/gaiaadm/pumba/mFsG9N5E0frOdrOLTPjYKqqt-Iw=
