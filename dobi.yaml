@@ -18,7 +18,7 @@ mount=cover:
 #
 
 image=builder:
-    image: pumba/builder
+    image: gaiaadm/pumba-builder
     tags:
       - '{env.BUILD_NUM:local}-{git.branch}'
     dockerfile: Dockerfile.build
