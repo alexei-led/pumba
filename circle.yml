@@ -41,6 +41,7 @@ deployment:
       # tag image with CircleCi branch and build
       - dobi -v dist-img:tag
       # deply image to DockerHub
+      - docker images
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - dobi -v dist-img:push
   github-release:
