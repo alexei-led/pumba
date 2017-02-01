@@ -49,6 +49,9 @@ deployment:
     commands:
       # cross compile Pumba for multiple platforms
       - dobi cross-compile
+      - RELEASE_TAG=$(git describe --tags) echo $RELEASE_TAG
+      - TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') echo $TAG_MESSAGE
+      - echo $GITHUB_TOKEN
       # publish new release to GitHub
       - RELEASE_TAG=$(git describe --tags) TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') dobi github-release
 notify:

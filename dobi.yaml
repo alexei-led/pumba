@@ -98,7 +98,8 @@ job=github-release:
       - 'GITHUB_TOKEN={env.GITHUB_TOKEN}'
       - 'RELEASE_TAG={env.RELEASE_TAG}'
       - 'TAG_MESSAGE={env.TAG_MESSAGE}'
-    command: "bash -c 'script/github_release.sh gaia-adm pumba'"
+    #command: "bash -c 'script/github_release.sh gaia-adm pumba'"
+    command: "bash -c 'echo $RELEASE_TAG'"
     description: "Release pumba binaries to GitHub"
 
 job=run-dist:
