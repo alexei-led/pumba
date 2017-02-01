@@ -36,7 +36,7 @@ test:
     - bash <(curl -s https://codecov.io/bash)
 deployment:
   continuous:
-    branch: [master, develop, /feature_.*/]
+    branch: [develop, /feature_.*/]
     commands:
       # tag image with CircleCi branch and build
       - dobi -v dist-img:tag
