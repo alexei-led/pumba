@@ -50,7 +50,7 @@ deployment:
       # cross compile Pumba for multiple platforms
       - dobi cross-compile
       # publish new release to GitHub
-      - RELEASE_TAG=$CIRCLE_TAG TAG_MESSAGE=$(rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') dobi github-release
+      - RELEASE_TAG=$CIRCLE_TAG TAG_MESSAGE=$(git tag -l $CIRCLE_TAG -n 20 | awk '{$1=""; print}') dobi github-release
 notify:
   webhooks:
     - url: https://hooks.microbadger.com/images/gaiaadm/pumba/mFsG9N5E0frOdrOLTPjYKqqt-Iw=
