@@ -91,7 +91,6 @@ job=cross-compile:
 
 job=github-release:
     use: builder
-    artifact: dist/bin/pumba_timestamp
     mounts: [dist]
     depends: [cross-compile]
     env:
