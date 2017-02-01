@@ -1,12 +1,11 @@
 machine:
   environment:
     BUILDTIME: $(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
-    DOCKER_API_VERSION: 1.21
+    DOCKER_API_VERSION: 1.22
     BUILD_NUM: ${CIRCLE_BUILD_NUM}
   pre:
     # install docker
-    - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
-    - sudo chmod +x /usr/bin/docker
+    - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
     # install dobi
     - sudo curl -L -o /usr/bin/dobi 'https://github.com/dnephin/dobi/releases/download/v0.8/dobi-linux'
     - sudo chmod +x /usr/bin/dobi
@@ -51,7 +50,7 @@ deployment:
       # cross compile Pumba for multiple platforms
       - dobi cross-compile
       # publish new release to GitHub
-      - RELEASE_TAG=$(git describe --tags); TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}'); dobi github-release
+      - RELEASE_TAG=$(git describe --tags) TAG_MESSAGE=$(local rel=`git describe --tags` && git tag -l $rel -n 20 | awk '{$1=""; print}') dobi github-release
 notify:
   webhooks:
     - url: https://hooks.microbadger.com/images/gaiaadm/pumba/mFsG9N5E0frOdrOLTPjYKqqt-Iw=
