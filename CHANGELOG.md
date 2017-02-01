@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.4.1] - 2017-02-01
+### Changed
+- adopt [dobi](https://dnephin.github.io/dobi/) for local and CircleCI builds
+
 ## [v0.4.0] - 2017-01-29
 ### Updated
 - Replace Docker samalba client with default Docker SDK for Go. Kudos to [Sławomir Nowak](https://github.com/slnowak) for contribution.
