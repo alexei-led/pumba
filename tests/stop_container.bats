@@ -15,5 +15,5 @@
     [[ $output == *"false"* ]]
 
     # cleanup
-    docker rm -f stopping_victim
+    docker rm -f stopping_victim || true
 }
