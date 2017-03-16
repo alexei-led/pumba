@@ -27,7 +27,7 @@ test:
     - dobi unit-test
     # run bats integration tests and produce TAP report 
     # Ugly workaround: ignore test failures, since Circle CI does not allow to remove btrfs volumes
-    - dobi integration-test || true
+    - SKIP_RM=true dobi integration-test 
   post:
     # copy test results
     - cp .cover/*_tests.xml ${CIRCLE_TEST_REPORTS}
