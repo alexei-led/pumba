@@ -33,18 +33,5 @@ show_cover_report() {
   go tool cover -${1}="$profile" -o "${COVER}/coverage.html"
 }
 
-push_to_coveralls() {
-  if [ -z "$COVERALLS_TOKEN" ]; then
-    echo "WARNING: Need to set COVERALLS_TOKEN environment variable"; exit 0
-  fi
-  echo "Pushing coverage statistics to coveralls.io"
-  goveralls -coverprofile="$profile" -service=circle-ci -repotoken="$COVERALLS_TOKEN"
-}
-
 generate_cover_data $(go list ./... | grep -v vendor)
-
-# if [ -z "$COVERALLS_TOKEN" ]; then
-#   show_cover_report html
-# else
-#   push_to_coveralls
-# fi
+show_cover_report html
