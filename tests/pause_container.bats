@@ -1,9 +1,9 @@
 @test "Should pause running container" {
     # given (started container)
-    docker run -dit --name pausing_victim alpine ping localhost
+    docker run -d --name pausing_victim alpine tail -f /dev/null
 
     # when (trying to pause container)
-    run pumba pause --duration 3s pausing_victim &
+    run pumba pause --duration 3s /pausing_victim &
     sleep 1
 
     # then (container has been paused)

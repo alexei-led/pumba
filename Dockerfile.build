@@ -12,3 +12,14 @@ RUN curl -o "/tmp/v${BATS_VERSION}.tar.gz" -LS "https://github.com/sstephenson/b
     tar -xvzf "/tmp/v${BATS_VERSION}.tar.gz" -C /tmp/ && \
     bash "/tmp/bats-${BATS_VERSION}/install.sh" /usr/local && \
     rm -rf /tmp/*
+
+# download and install Docker client
+ENV DOCKER_VERSION 1.13.0
+ENV DOCKER_SHA_256 fc194bb95640b1396283e5b23b5ff9d1b69a5e418b5b3d774f303a7642162ad6
+
+RUN curl -o "/tmp/docker-${DOCKER_VERSION}.tgz" -LS "https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION}.tgz" && \
+    echo "${DOCKER_SHA_256}  docker-${DOCKER_VERSION}.tgz" > /tmp/docker-${DOCKER_VERSION}.tgz.sha256 && \
+    cd /tmp && sha256sum -c docker-${DOCKER_VERSION}.tgz.sha256 && \
+    tar -xvzf "/tmp/docker-${DOCKER_VERSION}.tgz" -C /tmp/ && \
+    cp /tmp/docker/docker /usr/local/bin/ && \
+    rm -rf /tmp/*

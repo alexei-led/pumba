@@ -2,10 +2,10 @@
 
 @test "Should kill running container with default signal" {
     # given (started container)
-    docker run -dit --name killing_victim alpine ping localhost
+    docker run -dit --name killing_victim alpine tail -f /dev/null
 
     # when (trying to kill container)
-    run pumba kill killing_victim
+    run pumba kill /killing_victim
 
     # then (pumba exited successfully)
     [ $status -eq 0 ]

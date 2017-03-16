@@ -2,10 +2,10 @@
 
 @test "Should stop running container" {
     # given (started container)
-    docker run -dit --name stopping_victim alpine ping localhost
+    docker run -d --name stopping_victim alpine tail -f /dev/null
 
     # when (trying to stop container)
-    run pumba stop stopping_victim
+    run pumba stop /stopping_victim
 
     # then (pumba exited successfully)
     [ $status -eq 0 ]

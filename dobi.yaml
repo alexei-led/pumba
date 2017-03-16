@@ -72,8 +72,10 @@ job=integration-test:
     provide-docker: true
     env:
       - 'DOCKER_API_VERSION={env.DOCKER_API_VERSION:1.21}'
+      - 'SKIP_RM={env.SKIP_RM:false}'
     depends: [compile]
-    command: "bash -c 'PATH=dist/bin:$PATH && test_res=\"$(bats -t tests)\" && echo \"$test_res\" && echo \"$test_res\" > .cover/tests.output'"
+    # command: "bash -c 'PATH=dist/bin:$PATH && test_res=\"$(bats -t tests)\" && echo \"$test_res\" && echo \"$test_res\" > .cover/tests.output'"
+    command: bats -t tests
     description: "Run pumba integration tests"
 
 job=cross-compile:

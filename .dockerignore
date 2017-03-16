@@ -9,9 +9,10 @@
 .rocker_cache
 .ssh_debug
 *.md
+.vscode
 deploy
 dist/bin/*
 dist/bin
 dobi.yaml
 experiment
-.vscode
+
