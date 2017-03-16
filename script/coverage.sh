@@ -13,13 +13,16 @@ profile="$COVER/cover.out"
 mode=count
 
 generate_cover_data() {
-  [ -d "${COVER}" ] && rm -rf "${COVER:?}/*"
+  [ -d "${COVER}" ] && rm -rf "${COVER}/*"
   [ -d "${COVER}" ] || mkdir -p "${COVER}"
 
   for pkg in "$@"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"
     tf="${COVER}/$(echo $pkg | tr / -)_tests.xml"
-    go test -v -covermode="$mode" -coverprofile="$f" "$pkg" | go-junit-report | tee "$tf"
+    tout="${COVER}/$(echo $pkg | tr / -)_tests.out"
+    #go test -v -covermode="$mode" -coverprofile="$f" "$pkg" | go-junit-report > "$tf"
+    go test -v -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
+    cat "$tout" | go-junit-report > "$tf"
   done
 
   echo "mode: $mode" >"$profile"
@@ -38,17 +41,10 @@ push_to_coveralls() {
   goveralls -coverprofile="$profile" -service=circle-ci -repotoken="$COVERALLS_TOKEN"
 }
 
-generate_cover_data "$(go list ./... | grep -v vendor)"
+generate_cover_data $(go list ./... | grep -v vendor)
 
-case "$1" in
-  "")
-    ;;
-  --html)
-    show_cover_report html ;;
-  --coveralls)
-    push_to_coveralls ;;
-  --help)
-    echo >&2 "usage: $0 --coveralls|--html"; exit 0 ;;
-  *)
-    echo >&2 "error: invalid option: $1"; exit 1 ;;
-esac
+# if [ -z "$COVERALLS_TOKEN" ]; then
+#   show_cover_report html
+# else
+#   push_to_coveralls
+# fi

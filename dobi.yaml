@@ -63,7 +63,7 @@ job=unit-test:
     mounts: [cover]
     env:
       - 'COVERALLS_TOKEN={env.COVERALLS_TOKEN:}'
-    command: "script/coverage.sh --coveralls"
+    command: "script/coverage.sh"
     description: "Run pumba unit tests and generate coverage reports"
 
 job=integration-test:
