@@ -20,7 +20,7 @@ mount=cover:
 image=builder:
     image: gaiaadm/pumba-builder
     tags:
-      - '{env.BUILD_NUM:local}-{git.branch}'
+      - '{env.BUILD_NUM:local}-{git.sha}'
     dockerfile: Dockerfile.build
     args:
       http_proxy: "{env.http_proxy:}"
@@ -35,8 +35,7 @@ image=dist-img:
     dockerfile: Dockerfile.dist
     context: dist
     tags:
-      - '{git.branch}'
-      - '{env.BUILD_NUM:local}-{git.branch}'
+      - '{env.BUILD_NUM:local}-{git.sha}'
     args:
       http_proxy: "{env.http_proxy:}"
       https_proxy: "{env.https_proxy:}"
@@ -74,7 +73,7 @@ job=integration-test:
     env:
       - 'DOCKER_API_VERSION={env.DOCKER_API_VERSION:1.21}'
     depends: [compile]
-    command: "bash -c 'PATH=dist/bin:$PATH bats -t tests > .cover/tests.output'"
+    command: "bash -c 'PATH=dist/bin:$PATH && test_res=\"$(bats -t tests)\" && echo \"$test_res\" && echo \"$test_res\" > .cover/tests.output'"
     description: "Run pumba integration tests"
 
 job=cross-compile:
