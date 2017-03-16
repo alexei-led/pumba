@@ -146,8 +146,8 @@ func (client dockerClient) RemoveContainer(c Container, force bool, links bool, 
 	log.Infof("%sRemoving container %s", prefix, c.ID())
 	if !dryrun {
 		removeOpts := types.ContainerRemoveOptions{
-			RemoveVolumes: links,
-			RemoveLinks:   volumes,
+			RemoveVolumes: volumes,
+			RemoveLinks:   links,
 			Force:         force,
 		}
 		return client.containerAPI.ContainerRemove(apiContext(), c.ID(), removeOpts)
