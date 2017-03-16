@@ -2,10 +2,10 @@
 
 @test "Should remove running docker container without any parameters" {
     # given (started container)
-    docker run -dit --name victim alpine ping localhost
+    docker run -d --name victim alpine tail -f /dev/null
 
     # when (trying to remove container)
-    run pumba rm victim
+    run pumba rm /victim
 
     # then (pumba exited successfully)
     [ $status -eq 0 ]

@@ -14,4 +14,4 @@ dist/bin/*
 dist/bin
 dobi.yaml
 experiment
-vendor
+.vscode

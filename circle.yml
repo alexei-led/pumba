@@ -7,7 +7,7 @@ machine:
     # install docker
     - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
     # install dobi
-    - sudo curl -L -o /usr/bin/dobi 'https://github.com/dnephin/dobi/releases/download/v0.8/dobi-linux'
+    - sudo curl -L -o /usr/bin/dobi 'https://github.com/dnephin/dobi/releases/download/v0.9/dobi-linux'
     - sudo chmod +x /usr/bin/dobi
   services:
     - docker

@@ -7,4 +7,5 @@
 .rocker_cache
 .ssh_debug
 dist/bin
-vendor
+.vscode
+debug

@@ -13,9 +13,8 @@ profile="$COVER/cover.out"
 mode=count
 
 generate_cover_data() {
-  [ -d "${COVER}" ] && rm -rf "${COVER}/*"
+  [ -d "${COVER}" ] && rm -rf "${COVER:?}/*"
   [ -d "${COVER}" ] || mkdir -p "${COVER}"
-  glide install -v
 
   for pkg in "$@"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"
@@ -36,10 +35,10 @@ push_to_coveralls() {
     echo "WARNING: Need to set COVERALLS_TOKEN environment variable"; exit 0
   fi
   echo "Pushing coverage statistics to coveralls.io"
-  goveralls -coverprofile="$profile" -service=circle-ci -repotoken=$COVERALLS_TOKEN
+  goveralls -coverprofile="$profile" -service=circle-ci -repotoken="$COVERALLS_TOKEN"
 }
 
-generate_cover_data $(go list ./... | grep -v vendor)
+generate_cover_data "$(go list ./... | grep -v vendor)"
 
 case "$1" in
   "")

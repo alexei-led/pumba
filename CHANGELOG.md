@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.4.2] - 2017-03-16
+### Changed
+- minor bug fixes
+
 ## [v0.4.1] - 2017-02-01
 ### Changed
 - adopt [dobi](https://dnephin.github.io/dobi/) for local and CircleCI builds

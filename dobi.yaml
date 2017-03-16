@@ -20,7 +20,7 @@ mount=cover:
 image=builder:
     image: gaiaadm/pumba-builder
     tags:
-      - '{env.BUILD_NUM:local}-{git.sha}'
+      - "{env.BUILD_NUM}-{git.sha}"
     dockerfile: Dockerfile.build
     args:
       http_proxy: "{env.http_proxy:}"
@@ -35,7 +35,7 @@ image=dist-img:
     dockerfile: Dockerfile.dist
     context: dist
     tags:
-      - '{env.BUILD_NUM:local}-{git.sha}'
+      - "{env.BUILD_NUM}-{git.sha}"
     args:
       http_proxy: "{env.http_proxy:}"
       https_proxy: "{env.https_proxy:}"
