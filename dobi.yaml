@@ -74,7 +74,7 @@ job=integration-test:
       - 'DOCKER_API_VERSION={env.DOCKER_API_VERSION:1.21}'
       - 'SKIP_RM={env.SKIP_RM:false}'
     depends: [compile]
-    command: "bash -c 'PATH=dist/bin:$PATH && echo "skip_remove=$SKIP_RM"" && test_res=\"$(SKIP_RM=$SKIP_RM bats -t tests)\" && echo \"$test_res\" && echo \"$test_res\" > .cover/tests.output'"
+    command: "bash -c 'PATH=dist/bin:$PATH && echo \"skip_remove=$SKIP_RM\" && test_res=\"$(SKIP_RM=$SKIP_RM bats -t tests)\" && echo \"$test_res\" && echo \"$test_res\" > .cover/tests.output'"
     description: "Run pumba integration tests"
 
 job=cross-compile:
