@@ -2,28 +2,57 @@ version: '1.0'
 
 steps:
 
-  go_builder:
+  main-build:
     type: build
-    description: create Pumba Go builder image (Go, tools, and libraries)
-    dockerfile: Dockerfile.build
+    title: Build Pumba
+    description: create Pumba with multi-stage build
     working-directory: ${{main_clone}}
-    image-name: pumba/builder
+    image-name: gaiaadm/pumba
     build_arguments:
-      - GH_USER=gaia-adm
-      - GH_PROJECT=pumba
       - GH_SHA=${{CF_REVISION}}
+      - GITHUB_TOKEN=${{GITHUB_TOKEN}}
+      - CODECOV_TOKEN=${{CODECOV_TOKEN}}
 
-  go_pumba:
-    description: compile Pumba binary, using builder image
-    image: ${{go_builder}}
-    working-directory: ${{main_clone}}
-    commands:
-    - echo $PWD && mkdir -p dist/bin && export DIST=$PWD/dist/bin; echo $DIST && cd /go/src/github.com/gaia-adm/pumba && echo $PWD && echo $DIST && script/go_build.sh
-
-  package-pumba:
+  gox-build:
     type: build
-    description: build Pumba into Docker container
-    dockerfile: Dockerfile.dist
-    working-directory: ${{main_clone}}/dist
-    image-name: pumba/pumba
-    tag: cf
+    title: Release Pumba
+    description: Release Pumba to to the GitHub
+    working-directory: ${{main_clone}}
+    image-name: gaiaadm/pumba
+    build_arguments:
+      - RELEASE=true
+      - GH_SHA=${{CF_REVISION}}
+      - GITHUB_TOKEN=${{GITHUB_TOKEN}}
+      - CODECOV_TOKEN=${{CODECOV_TOKEN}}
+    when:
+      branch:
+        only:
+          - master
+
+  push-branch:
+    type: push
+    title: Push Pumba (branch)
+    description: Push Pumba image to DockerHub
+    candidate: ${{main-build}}
+    tag: ${{CF_BRANCH}}
+    image_name: gaiaadm/pumba
+
+  push-revision:
+    type: push
+    title: Push Pumba (branch-rev)
+    description: Push Pumba image to DockerHub
+    candidate: ${{main-build}}
+    tag: ${{CF_SHORT_REVISION}}
+    image_name: gaiaadm/pumba
+
+  push-latest:
+    type: push
+    title: Push Pumba (latest)
+    description: Push Pumba image to DockerHub
+    candidate: ${{main-build}}
+    tag: latest
+    image_name: gaiaadm/pumba
+    when:
+      branch:
+        only:
+          - master

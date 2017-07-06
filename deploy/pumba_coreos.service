@@ -30,9 +30,9 @@ ExecStartPre=-/usr/bin/docker rm pumba
 # Pumba command: modify it to suite your needs
 # Default: randomly try to kill some container every 5 minutes
 ExecStart=/usr/bin/docker run --name pumba -h %H \
-					-v /var/run/docker.sock:/var/run/docker.sock \
-					-e COREOS_PRIVATE_IPV4=${COREOS_PRIVATE_IPV4} \
-				  gaiaadm/pumba:master --interval "5m" --random kill --signal SIGTERM
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-e COREOS_PRIVATE_IPV4=${COREOS_PRIVATE_IPV4} \
+	gaiaadm/pumba:master pumba --debug --random --interval 3m kill --signal SIGKILL
 
 # Stop
 ExecStop=/usr/bin/docker stop pumba

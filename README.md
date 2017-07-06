@@ -325,14 +325,6 @@ $ kubectl create -f pumba_kube.yml
 
 If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos (see above)
 
-### Running Pumba on CoreOS cluster
-
-If you are running CoreOS cluster. You can use `fleetctl` command to deploy Pumba service file on every CoreOS cluster node.
-You'll then be able to deploy the Pumba service with the command
-```
-$ fleetctl start pumba_coreos.service
-```
-
 ## Build instructions
 
 You can build Pumba with or without Go installed on your machine.
@@ -343,18 +335,28 @@ In order to build Pumba, you need to have Go 1.6+ setup on your machine.
 
 Here is the approximate list of commands you will need to run:
 
-```
+```sh
+# create required folder
 cd $GOPATH
 mkdir github.com/gaia-adm && cd github.com/gaia-adm
+
+# clone pumba
 git clone git@github.com:gaia-adm/pumba.git
 cd pumba
-glide install -v
-go build -v
+
+# build pumba binary
+./script/go_build.sh
+
+# run tests and create HTML coverage report
+./script/coverage.sh --html
+
+# create pumba binaries for multiple platforms
+./script/gox_build.sh
 ```
 
-### Build using Docker builder image
+### Build using Docker
 
-You do not have to install and configure Go in order to build and test Pumba project. Pubma builder Docker image contains Go 1.6 and all tools required to build and test Pumba.
+You do not have to install and configure Go in order to build and test Pumba project. Pubma uses Docker multistage build to create final tiny Docker image.
 
 First of all clone Pumba git repository:
 ```
@@ -362,26 +364,9 @@ git clone git@github.com:gaia-adm/pumba.git
 cd pumba
 ```
 
-Now create a Pumba builder Docker image.
+Now create a new Pumba Docker image.
 ```
-docker build -t pumba/builder -f Dockerfile.build .
-```
-
-Now you can use `pumba/builder` to build, test (with coverage) and deploy Pumba.
-
-To build a new Pumba binary run the following command:
-```
-docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/go_build.sh
-```
-
-To build new Pumba binaries for multiple platforms run the following command (using `gox` tool):
-```
-docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/gox_build.sh
-```
-
-To run all Pumba tests and generate coverage report run the following command:
-```
-docker run --rm -v "$PWD":/go/src/github.com/gaia-adm/pumba -w /go/src/github.com/gaia-adm/pumba pumba/builder script/coverage.sh --html
+docker build -t pumba -f Dockerfile .
 ```
 
 ## Used Libraries and Code

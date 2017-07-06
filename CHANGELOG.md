@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.4.3] - 2017-07-06
+### Changed
+- multistage Docker build 
+- migrate to Codefresh.io CI/CD from CircleCI
+- new: homebrew formula for pumba
+
 ## [v0.4.2] - 2017-03-16
 ### Changed
 - minor bug fixes

@@ -5,7 +5,7 @@
 # `kubectl create -f pumba_kube.yaml`
 
 # If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos.
-# `docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --chaos "re2:^hp|10s|KILL:SIGTERM"`
+# `docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba --random --interval 3m kill --signal SIGKILL"`
 
 apiVersion: extensions/v1beta1
 kind: DaemonSet
