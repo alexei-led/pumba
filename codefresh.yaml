@@ -4,7 +4,7 @@ steps:
 
   main_build:
     type: build
-    title: Multi-stage Build - compile, test, coverage
+    title: "Multi-stage build is running: compile, test, coverage ..."
     description: compile for linux amd64, runt unit test, calculate coverage 
     working-directory: ${{main_clone}}
     image_name: gaiaadm/pumba
@@ -15,7 +15,7 @@ steps:
 
   gox_build:
     type: build
-    title: Build and Release to the GitHub
+    title: "Building and releasing to the GitHub ..."
     description: cross-platform compile, run unit tests, report coverage and release to the GitHub
     working-directory: ${{main_clone}}
     image_name: gaiaadm/pumba
@@ -31,7 +31,7 @@ steps:
 
   push_branch:
     type: push
-    title: Push Pumba (branch)
+    title: "Pushing pumba:branch ..."
     description: Push Pumba image to DockerHub
     candidate: ${{main_build}}
     tag: ${{CF_BRANCH}}
@@ -39,15 +39,15 @@ steps:
 
   push_revision:
     type: push
-    title: Push Pumba (branch-revision)
+    title: "Pushing pumba:branch-revision ..."
     description: Push Pumba image to the DockerHub
     candidate: ${{main_build}}
-    tag: ${{CF_SHORT_REVISION}}
+    tag: ${{CF_BRANCH}}-${{CF_SHORT_REVISION}}
     image_name: gaiaadm/pumba
 
   push_latest:
     type: push
-    title: Push Pumba (latest)
+    title: "Pushing pumba:latest ..."
     description: Push Pumba image to the DockerHub
     candidate: ${{main_build}}
     tag: latest
