@@ -15,25 +15,25 @@ RUN apk add --no-cache git bash curl && \
 RUN mkdir -p /go/src/github.com/gaia-adm/pumba
 WORKDIR /go/src/github.com/gaia-adm/pumba
 
-# copy sources
+# copy sources (including .git repo)
 COPY . .
 
 # set entrypoint to bash
 ENTRYPOINT ["/bin/bash"]
 
-# run test and calculate coverage
-RUN VERSION=$(cat VERSION) script/coverage.sh
-
-# upload coverage reports to Codecov.io: pass CODECOV_TOKEN as build-arg
-ARG CODECOV_TOKEN
-RUN bash -c "bash <(curl -s https://codecov.io/bash) -t ${CODECOV_TOKEN}"
-
-# build pumba binary for amd64 linux
-RUN VERSION=$(cat VERSION) script/go_build.sh
-
 # build argument to secify if to create a GitHub release
 ARG RELEASE=false
 ARG DEBUG=false
+
+# run test and calculate coverage: skip for RELEASE
+RUN if [[ "$RELEASE" == false ]]; then VERSION=$(cat VERSION) script/coverage.sh; fi
+
+# upload coverage reports to Codecov.io: pass CODECOV_TOKEN as build-arg: skip for RELEASE
+ARG CODECOV_TOKEN
+RUN if [[ "$RELEASE" == false ]]; then bash -c "bash <(curl -s https://codecov.io/bash) -t ${CODECOV_TOKEN}"; fi
+
+# build pumba binary for amd64 linux
+RUN VERSION=$(cat VERSION) script/go_build.sh
 
 # build pumba for all platforms
 RUN if [[ "$RELEASE" == true ]]; then VERSION=$(cat VERSION) script/gox_build.sh; fi

@@ -18,7 +18,7 @@ steps:
     title: "Building and releasing to the GitHub ..."
     description: cross-platform compile, run unit tests, report coverage and release to the GitHub
     working-directory: ${{main_clone}}
-    image_name: gaiaadm/pumba
+    image_name: pumba/github/release
     build_arguments:
       - RELEASE=true
       - GH_SHA=${{CF_REVISION}}

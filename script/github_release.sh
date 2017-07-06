@@ -26,7 +26,7 @@ fi
 
 function github-release-wrapper {
   if [[ "$DEBUG" == false ]]; then
-    command github-release "$@";
+    github-release $@
   else
     echo $@
   fi
