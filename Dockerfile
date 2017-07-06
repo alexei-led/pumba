@@ -40,7 +40,7 @@ RUN if [[ "$RELEASE" == true ]]; then VERSION=$(cat VERSION) script/gox_build.sh
 
 # release to GitHub; pass GITHUB_TOKEN as build-arg
 ARG GITHUB_TOKEN
-RUN if [[ "$RELEASE" == true ]]; then RELEASE_TAG=$(git describe --abbrev=0) TAG_MESSAGE=$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}') script/github_release.sh gaia-adm pumba; fi
+RUN if [[ "$RELEASE" == true ]]; then RELEASE_TAG=$(git describe --abbrev=0) TAG_MESSAGE="$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}')" script/github_release.sh gaia-adm pumba; fi
 
 #
 # ------ Pumba runtime image ------
