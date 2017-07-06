@@ -2,23 +2,23 @@ version: '1.0'
 
 steps:
 
-  main-build:
+  main_build:
     type: build
-    title: Build Pumba
-    description: create Pumba with multi-stage build
+    title: Multi-stage Build - compile, test, coverage
+    description: compile for linux amd64, runt unit test, calculate coverage 
     working-directory: ${{main_clone}}
-    image-name: gaiaadm/pumba
+    image_name: gaiaadm/pumba
     build_arguments:
       - GH_SHA=${{CF_REVISION}}
       - GITHUB_TOKEN=${{GITHUB_TOKEN}}
       - CODECOV_TOKEN=${{CODECOV_TOKEN}}
 
-  gox-build:
+  gox_build:
     type: build
-    title: Release Pumba
-    description: Release Pumba to to the GitHub
+    title: Build and Release to the GitHub
+    description: cross-platform compile, run unit tests, report coverage and release to the GitHub
     working-directory: ${{main_clone}}
-    image-name: gaiaadm/pumba
+    image_name: gaiaadm/pumba
     build_arguments:
       - RELEASE=true
       - GH_SHA=${{CF_REVISION}}
@@ -29,27 +29,27 @@ steps:
         only:
           - master
 
-  push-branch:
+  push_branch:
     type: push
     title: Push Pumba (branch)
     description: Push Pumba image to DockerHub
-    candidate: ${{main-build}}
+    candidate: ${{main_build}}
     tag: ${{CF_BRANCH}}
     image_name: gaiaadm/pumba
 
-  push-revision:
+  push_revision:
     type: push
-    title: Push Pumba (branch-rev)
-    description: Push Pumba image to DockerHub
-    candidate: ${{main-build}}
+    title: Push Pumba (branch-revision)
+    description: Push Pumba image to the DockerHub
+    candidate: ${{main_build}}
     tag: ${{CF_SHORT_REVISION}}
     image_name: gaiaadm/pumba
 
-  push-latest:
+  push_latest:
     type: push
     title: Push Pumba (latest)
-    description: Push Pumba image to DockerHub
-    candidate: ${{main-build}}
+    description: Push Pumba image to the DockerHub
+    candidate: ${{main_build}}
     tag: latest
     image_name: gaiaadm/pumba
     when:
