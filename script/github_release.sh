@@ -17,7 +17,7 @@ fi
 
 # get tag message (max 20 lines)
 if [ -z "$TAG_MESSAGE" ]; then
-  TAG_MESSAGE=$(git tag -l ${RELEASE_TAG} -n 20 | awk '{$1=""; print}')
+  TAG_MESSAGE=$(git tag -l ${RELEASE_TAG} -n 20 | awk '{$1=$2; print}')
   if [ $? -ne 0 ]
   then
     echo "Failed to setup TAG_MESSAGE from 'git tag -l'" >&2; exit 1
@@ -26,9 +26,9 @@ fi
 
 function github-release-wrapper {
   if [[ "$DEBUG" == false ]]; then
-    github-release $@
+    github-release "$@"
   else
-    echo $@
+    echo "$@"
   fi
 }
 
@@ -38,9 +38,9 @@ github-release-wrapper release \
   --security-token ${GITHUB_TOKEN} \
   --user ${user} \
   --repo ${repo} \
-  --name "v${RELEASE_TAG}" \
-  --tag "${RELEASE_TAG}" \
-  --description "${TAG_MESSAGE}" \
+  --name \"v${RELEASE_TAG}\" \
+  --tag \"${RELEASE_TAG}\" \
+  --description \"${TAG_MESSAGE}\" \
   --pre-release
 
 # upload files
