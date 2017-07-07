@@ -24,29 +24,26 @@ if [ -z "$TAG_MESSAGE" ]; then
   fi
 fi
 
-function github-release-wrapper {
-  if [[ "$DEBUG" == false ]]; then
-    github-release "$@"
-  else
-    echo "$@"
-  fi
-}
+if [[ "$DEBUG" = true ]]; then
+  echo "release --name \"v${RELEASE_TAG}\" --tag \"${RELEASE_TAG}\" --description \"${TAG_MESSAGE}\""
+  exit 0
+fi
 
 # see https://github.com/aktau/github-release for the tool commands
 # edit release details (release is automatically created for annotated tag by GitHub)
-github-release-wrapper release \
+github-release release \
   --security-token ${GITHUB_TOKEN} \
   --user ${user} \
   --repo ${repo} \
-  --name \"v${RELEASE_TAG}\" \
-  --tag \"${RELEASE_TAG}\" \
-  --description \"${TAG_MESSAGE}\" \
+  --name "v${RELEASE_TAG}" \
+  --tag "${RELEASE_TAG}" \
+  --description "${TAG_MESSAGE}" \
   --pre-release
 
 # upload files
 ( cd "${DIST}" || exit
 for f in *; do
-  github-release-wrapper upload \
+  github-release upload \
     --security-token ${GITHUB_TOKEN} \
     --user ${user} \
     --repo ${repo} \
