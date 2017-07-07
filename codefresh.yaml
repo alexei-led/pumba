@@ -27,7 +27,7 @@ steps:
     when:
       branch:
         only:
-          - /[0-9]+.[0-9]+.[0-9]+/g
+          - /[0-9]+[.][0-9]+[.][0-9]+/
 
   push_branch:
     type: push
@@ -47,7 +47,7 @@ steps:
     when:
       branch:
         ignore:
-          - /[0-9]+.[0-9]+.[0-9]+/g
+          - /[0-9]+[.][0-9]+[.][0-9]+/
 
   push_latest:
     type: push
