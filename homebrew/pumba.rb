@@ -12,7 +12,7 @@ class Pumba < Formula
     cellar :any_skip_relocation
     sha256 "8b39861136f99025c7fb9ea3ee4a8143c890ef982361152469b785a2dacb9534" => :sierra
   end
-  
+
   depends_on "go" => :build
   depends_on "glide" => :build
 
@@ -26,7 +26,7 @@ class Pumba < Formula
     pumbapath = buildpath/"src/github.com/gaia-adm/pumba"
     pumbapath.install Dir["{*,.git}"]
 
-    ldflags = "-X main.Version=#{version} -X main.GitCommit=02cc3fb3c5eb79adaa922799e346590495d6c35e -X main.GitBranch=master -X main.BuildTime=2017-07-08_09:05_GMTb"
+    ldflags = "-X main.Version=#{version} -X main.GitCommit=92d78a0 -X main.GitBranch=master -X main.BuildTime=2017-07-08_09:05_GMTb"
 
     cd pumbapath do
       system "glide", "install", "-v"

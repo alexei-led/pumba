@@ -3,7 +3,7 @@
 
 [ -z "$VERSION" ] && VERSION=$(cat VERSION)
 [ -z "$BUILDTIME" ] && BUILDTIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
-[ -z "$GITCOMMIT" ] && GITCOMMIT=$(git rev-parse HEAD --short 2>/dev/null)
+[ -z "$GITCOMMIT" ] && GITCOMMIT=$(git rev-parse --short HEAD 2>/dev/null)
 [ -z "$GITBRANCH" ] && GITBRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 
 go_build() {
