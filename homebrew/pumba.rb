@@ -3,8 +3,8 @@ require "language/go"
 class Pumba < Formula
   desc "Chaos testing tool for Docker"
   homepage "https://github.com/gaia-adm/pumba"
-  version "0.4.3"
-  url "https://github.com/gaia-adm/pumba/archive/0.4.3.tar.gz"
+  version "0.4.4"
+  url "https://github.com/gaia-adm/pumba/archive/0.4.4.tar.gz"
   sha256 "eba3d0d66944cd408348f52df5cc7c767414261a3104c6c868c5a1ac761c376d"
   head "https://github.com/gaia-adm/pumba.git"
 
