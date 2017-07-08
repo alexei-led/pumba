@@ -6,6 +6,6 @@
 .idea
 .rocker_cache
 .ssh_debug
-dist/bin
+dist
 .vscode
 debug
