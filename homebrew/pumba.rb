@@ -1,23 +1,37 @@
+require "language/go"
+
 class Pumba < Formula
   desc "Chaos testing tool for Docker"
   homepage "https://github.com/gaia-adm/pumba"
-  version "0.4.2"
+  version "0.4.3"
+  url "https://github.com/gaia-adm/pumba/archive/0.4.3.tar.gz"
+  sha256 "eba3d0d66944cd408348f52df5cc7c767414261a3104c6c868c5a1ac761c376d"
+  head "https://github.com/gaia-adm/pumba.git"
 
-  if Hardware::CPU.is_64_bit?
-    url "https://github.com/gaia-adm/pumba/releases/download/0.4.2/pumba_darwin_amd64"
-    sha256 "af4439a2e94dbc425b1fc13caed6be038d3591961a95ede3a60dfb5be2a6e9ab"
-  else
-    url "https://github.com/gaia-adm/pumba/releases/download/0.4.2/pumba_darwin_386"
-    sha256 "92c45beb2275ba0ee8d81c03eb46f3251fab4257999082ccfe19ab05e73760c7"
+  bottle do
+    cellar :any_skip_relocation
+    sha256 "8b39861136f99025c7fb9ea3ee4a8143c890ef982361152469b785a2dacb9534" => :sierra
   end
-
-  bottle :unneeded
+  
+  depends_on "go" => :build
+  depends_on "glide" => :build
 
   def install
-    if Hardware::CPU.is_64_bit?
-      bin.install "pumba_darwin_amd64" => "pumba"
-    else
-      bin.install "pumba_darwin_386" => "pumba"
+    ENV["GOPATH"] = buildpath
+    ENV["GLIDE_HOME"] = HOMEBREW_CACHE/"glide_home/#{name}"
+    ENV["CGO_ENABLED"] = "0"
+
+    ENV["GOPATH"] = buildpath
+    ENV["GLIDE_HOME"] = HOMEBREW_CACHE/"glide_home/#{name}"
+    pumbapath = buildpath/"src/github.com/gaia-adm/pumba"
+    pumbapath.install Dir["{*,.git}"]
+
+    ldflags = "-X main.Version=#{version} -X main.GitCommit=02cc3fb3c5eb79adaa922799e346590495d6c35e -X main.GitBranch=master -X main.BuildTime=2017-07-08_09:05_GMTb"
+
+    cd pumbapath do
+      system "glide", "install", "-v"
+      system "go", "build", "-v", "-o", "dist/pumba", "-ldflags", ldflags
+      bin.install "dist/pumba"
     end
   end
 
