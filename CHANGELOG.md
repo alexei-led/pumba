@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.4.5] - 2017-09-06
+### Fixed
+- issue [39](https://github.com/gaia-adm/pumba/issues/39) fixed, when all traffic blocked after applying `netem` `qdisc` with IP `filter` 
+
 ## [v0.4.3] - 2017-07-06
 ### Changed
 - multistage Docker build 

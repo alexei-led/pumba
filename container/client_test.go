@@ -407,7 +407,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.StopNetemContainer(c, "eth0", "", false)
+	err := client.StopNetemContainer(c, "eth0", nil, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -496,7 +496,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.tcContainerCommand(c, "tc", []string{"test", "me"}, "pumba/tcimage")
+	err := client.tcContainerCommand(c, []string{"test", "me"}, "pumba/tcimage")
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

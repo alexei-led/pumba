@@ -345,19 +345,19 @@ func netemContainers(client container.Client, containers []container.Container, 
 	select {
 	case <-stopChan:
 		log.Debugf("Stopping netem by stop event")
-		err = stopNetemContainers(client, netemContainers, netInterface, tcimage)
+		err = stopNetemContainers(client, netemContainers, netInterface, ip, tcimage)
 	case <-time.After(duration):
 		log.Debugf("Stopping netem after: %s", duration)
-		err = stopNetemContainers(client, netemContainers, netInterface, tcimage)
+		err = stopNetemContainers(client, netemContainers, netInterface, ip, tcimage)
 	}
 
 	return err
 }
 
-func stopNetemContainers(client container.Client, containers []container.Container, netInterface string, tcimage string) error {
+func stopNetemContainers(client container.Client, containers []container.Container, netInterface string, ip net.IP, tcimage string) error {
 	var err error
 	for _, container := range containers {
-		if e := client.StopNetemContainer(container, netInterface, tcimage, DryMode); e != nil {
+		if e := client.StopNetemContainer(container, netInterface, ip, tcimage, DryMode); e != nil {
 			err = e
 		}
 	}
