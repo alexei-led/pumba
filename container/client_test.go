@@ -451,7 +451,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd2").Return(types.ContainerExecInspect{}, nil)
 
 	config3 := types.ExecConfig{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
-		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dport", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
+		"parent", "1:0", "prio", "3", "u32", "match", "ip", "dst", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config3).Return(types.IDResponse{ID: "cmd3"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd3", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
@@ -496,7 +496,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.tcContainerCommand(c, []string{"test", "me"}, "pumba/tcimage")
+	err := client.tcContainerCommand(c, "tc", []string{"test", "me"}, "pumba/tcimage")
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

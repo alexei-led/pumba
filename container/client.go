@@ -290,7 +290,7 @@ func (client dockerClient) startNetemContainerIPFilter(c Container, netInterface
 		// 'tc filter add dev <netInterface> protocol ip parent 1:0 prio 3 u32 match ip dst <targetIP> flowid 1:3'
 		// See more: http://stuff.onse.fi/man?program=tc-u32
 		filterCommand := []string{"filter", "add", "dev", netInterface, "protocol", "ip", "parent", "1:0", "prio", "3",
-			"u32", "match", "ip", "dport", strings.ToLower(targetIP), "flowid", "1:3"}
+			"u32", "match", "ip", "dst", strings.ToLower(targetIP), "flowid", "1:3"}
 		log.Debugf("filterCommand %s", filterCommand)
 		return client.tcCommand(c, filterCommand, tcimage)
 	}
