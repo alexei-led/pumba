@@ -278,10 +278,13 @@ func main() {
 					Before:      beforeCommand,
 				},
 				{
-					Name: "duplicate",
+					Name:  "duplicate",
+					Usage: "TBD",
 				},
 				{
 					Name: "corrupt",
+
+					Usage: "TBD",
 				},
 				{
 					Name: "rate",
@@ -506,7 +509,7 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn func(container.Client, []string, string, interface{}) error) {
 	// channel for 'chaos' command
 	dc := make(chan interface{})
-	// create Time channel for specified intterval: for TestRun use Timer (one time call)
+	// create Time channel for specified interval: for TestRun use Timer (one time call)
 	var cmdTimeChan <-chan time.Time
 	if gInterval == 0 || gTestRun {
 		cmdTimeChan = time.NewTimer(gInterval).C
