@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"os"
@@ -21,48 +22,48 @@ type ChaosMock struct {
 	mock.Mock
 }
 
-func (m *ChaosMock) StopContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) StopContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) KillContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) KillContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) RemoveContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) RemoveContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) PauseContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) PauseContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) NetemDelayContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) NetemDelayContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) NetemLossRandomContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) NetemLossRandomContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) NetemLossStateContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) NetemLossStateContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) NetemLossGEmodelContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) NetemLossGEmodelContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
-func (m *ChaosMock) NetemRateContainers(c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(c, n, p, cmd)
+func (m *ChaosMock) NetemRateContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
 
@@ -74,6 +75,7 @@ type mainTestSuite struct {
 
 func (s *mainTestSuite) SetupSuite() {
 	gTestRun = true
+	topContext = context.TODO()
 }
 
 func (s *mainTestSuite) TearDownSuite() {
@@ -213,12 +215,10 @@ func (s *mainTestSuite) Test_beforeCommand_2Args() {
 }
 
 func (s *mainTestSuite) Test_handleSignals() {
-	gWG.Add(1)
 	handleSignals()
-	gWG.Done()
 }
 
-func (s *mainTestSuite) Test_killSucess() {
+func (s *mainTestSuite) Test_killSuccess() {
 	// prepare
 	set := flag.NewFlagSet("kill", 0)
 	set.String("signal", "SIGTERM", "doc")
@@ -231,7 +231,7 @@ func (s *mainTestSuite) Test_killSucess() {
 	command := action.CommandKill{
 		Signal: "SIGTERM",
 	}
-	chaosMock.On("KillContainers", nil, []string{}, "", command).Return(nil)
+	chaosMock.On("KillContainers", mock.Anything, nil, []string{}, "", command).Return(nil)
 	// invoke command
 	err := kill(c)
 	// asserts
@@ -265,7 +265,7 @@ func (s *mainTestSuite) Test_killError() {
 	command := action.CommandKill{
 		Signal: "SIGTERM",
 	}
-	chaosMock.On("KillContainers", nil, []string{}, "", command).Return(errors.New("ERROR"))
+	chaosMock.On("KillContainers", mock.Anything, nil, []string{}, "", command).Return(errors.New("ERROR"))
 	// invoke command
 	err := kill(c)
 	// asserts
@@ -275,7 +275,7 @@ func (s *mainTestSuite) Test_killError() {
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_pauseSucess() {
+func (s *mainTestSuite) Test_pauseSuccess() {
 	// prepare
 	set := flag.NewFlagSet("pause", 0)
 	set.String("duration", "10s", "doc")
@@ -287,9 +287,8 @@ func (s *mainTestSuite) Test_pauseSucess() {
 	chaos = chaosMock
 	cmd := action.CommandPause{
 		Duration: time.Duration(10 * time.Second),
-		StopChan: gStopChan,
 	}
-	chaosMock.On("PauseContainers", nil, []string{}, "", cmd).Return(nil)
+	chaosMock.On("PauseContainers", mock.Anything, nil, []string{}, "", cmd).Return(nil)
 	// invoke command
 	err := pause(c)
 	// asserts
@@ -299,7 +298,7 @@ func (s *mainTestSuite) Test_pauseSucess() {
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_pauseMissingDuraation() {
+func (s *mainTestSuite) Test_pauseMissingDuration() {
 	// prepare
 	set := flag.NewFlagSet("pause", 0)
 	c := cli.NewContext(nil, set, nil)
@@ -311,7 +310,7 @@ func (s *mainTestSuite) Test_pauseMissingDuraation() {
 	assert.EqualError(s.T(), err, "Undefined duration interval")
 }
 
-func (s *mainTestSuite) Test_pauseBadDuraation() {
+func (s *mainTestSuite) Test_pauseBadDuration() {
 	// prepare
 	set := flag.NewFlagSet("pause", 0)
 	set.String("duration", "BAD", "doc")
@@ -324,7 +323,7 @@ func (s *mainTestSuite) Test_pauseBadDuraation() {
 	assert.EqualError(s.T(), err, "time: invalid duration BAD")
 }
 
-func (s *mainTestSuite) Test_stopSucess() {
+func (s *mainTestSuite) Test_stopSuccess() {
 	// prepare
 	set := flag.NewFlagSet("stop", 0)
 	set.Int("time", 10, "doc")
@@ -335,7 +334,7 @@ func (s *mainTestSuite) Test_stopSucess() {
 	cmd := action.CommandStop{WaitTime: 10}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("StopContainers", nil, []string{}, "", cmd).Return(nil)
+	chaosMock.On("StopContainers", mock.Anything, nil, []string{}, "", cmd).Return(nil)
 	// invoke command
 	err := stop(c)
 	// asserts
@@ -356,7 +355,7 @@ func (s *mainTestSuite) Test_stopError() {
 	cmd := action.CommandStop{WaitTime: 10}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("StopContainers", nil, []string{}, "", cmd).Return(errors.New("ERROR"))
+	chaosMock.On("StopContainers", mock.Anything, nil, []string{}, "", cmd).Return(errors.New("ERROR"))
 	// invoke command
 	err := stop(c)
 	// asserts
@@ -366,7 +365,7 @@ func (s *mainTestSuite) Test_stopError() {
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_removeSucess() {
+func (s *mainTestSuite) Test_removeSuccess() {
 	// prepare
 	set := flag.NewFlagSet("stop", 0)
 	set.Bool("force", true, "doc")
@@ -379,7 +378,7 @@ func (s *mainTestSuite) Test_removeSucess() {
 	cmd := action.CommandRemove{Force: true, Links: true, Volumes: true}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("RemoveContainers", nil, []string{}, "", cmd).Return(nil)
+	chaosMock.On("RemoveContainers", mock.Anything, nil, []string{}, "", cmd).Return(nil)
 	// invoke command
 	err := remove(c)
 	// asserts
@@ -389,7 +388,7 @@ func (s *mainTestSuite) Test_removeSucess() {
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_netemDelaySucess() {
+func (s *mainTestSuite) Test_netemDelaySuccess() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -404,7 +403,7 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 	delaySet.String("distribution", "normal", "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
-	// set interval to 1ms
+	// set interval to 20ms
 	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemDelay{
@@ -414,16 +413,15 @@ func (s *mainTestSuite) Test_netemDelaySucess() {
 		Jitter:       20,
 		Correlation:  1.5,
 		Distribution: "normal",
-		StopChan:     gStopChan,
 	}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("NetemDelayContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	chaosMock.On("NetemDelayContainers", mock.Anything, nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
 	// invoke command
 	err := netemDelay(delayCtx)
 	// asserts
 	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -590,7 +588,7 @@ func (s *mainTestSuite) Test_netemDelayInvalidDistribution() {
 	assert.EqualError(s.T(), err, "Invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
 }
 
-func (s *mainTestSuite) Test_netemLossRandomSucess() {
+func (s *mainTestSuite) Test_netemLossRandomSuccess() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -611,21 +609,20 @@ func (s *mainTestSuite) Test_netemLossRandomSucess() {
 		Duration:     10 * time.Millisecond,
 		Percent:      20.0,
 		Correlation:  1.5,
-		StopChan:     gStopChan,
 	}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("NetemLossRandomContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	chaosMock.On("NetemLossRandomContainers", mock.Anything, nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
 	// invoke command
 	err := netemLossRandom(delayCtx)
 	// asserts
 	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_netemLossStateSucess() {
+func (s *mainTestSuite) Test_netemLossStateSuccess() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -652,21 +649,20 @@ func (s *mainTestSuite) Test_netemLossStateSucess() {
 		P32:          1.5,
 		P23:          7.5,
 		P14:          9.31,
-		StopChan:     gStopChan,
 	}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("NetemLossStateContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	chaosMock.On("NetemLossStateContainers", mock.Anything, nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
 	// invoke command
 	err := netemLossState(delayCtx)
 	// asserts
 	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_netemLossGEmodelSucess() {
+func (s *mainTestSuite) Test_netemLossGEmodelSuccess() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -691,21 +687,20 @@ func (s *mainTestSuite) Test_netemLossGEmodelSucess() {
 		PB:           92.1,
 		OneH:         82.34,
 		OneK:         8.32,
-		StopChan:     gStopChan,
 	}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("NetemLossGEmodelContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	chaosMock.On("NetemLossGEmodelContainers", mock.Anything, nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
 	// invoke command
 	err := netemLossGEmodel(delayCtx)
 	// asserts
 	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
 
-func (s *mainTestSuite) Test_netemRateSucess() {
+func (s *mainTestSuite) Test_netemRateSuccess() {
 	// prepare test data
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
@@ -730,16 +725,15 @@ func (s *mainTestSuite) Test_netemRateSucess() {
 		PacketOverhead: 10,
 		CellSize:       20,
 		CellOverhead:   30,
-		StopChan:       gStopChan,
 	}
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
-	chaosMock.On("NetemRateContainers", nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
+	chaosMock.On("NetemRateContainers", mock.Anything, nil, []string{"c1", "c2", "c3"}, "", cmd).Return(nil)
 	// invoke command
 	err := netemRate(rateCtx)
 	// asserts
 	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }

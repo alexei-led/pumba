@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -11,7 +12,6 @@ import (
 	"os/signal"
 	"regexp"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -25,12 +25,11 @@ import (
 )
 
 var (
-	gWG       sync.WaitGroup
-	client    container.Client
-	chaos     action.Chaos
-	gInterval time.Duration
-	gTestRun  bool
-	gStopChan chan bool
+	client     container.Client
+	chaos      action.Chaos
+	topContext context.Context
+	gInterval  time.Duration
+	gTestRun   bool
 )
 
 // LinuxSignals valid Linux signal table
@@ -365,7 +364,7 @@ func main() {
 			},
 			Usage:       "remove containers",
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
-			Description: "remove target containers, with links and voluems",
+			Description: "remove target containers, with links and volumes",
 			Action:      remove,
 			Before:      beforeCommand,
 		},
@@ -428,7 +427,7 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name:        "dry",
-			Usage:       "dry runl does not create chaos, only logs planned chaos commands",
+			Usage:       "dry run does not create chaos, only logs planned chaos commands",
 			Destination: &action.DryMode,
 		},
 	}
@@ -466,8 +465,8 @@ func before(c *cli.Context) error {
 	client = container.NewClient(c.GlobalString("host"), tls)
 	// create new Chaos instance
 	chaos = action.NewChaos()
-	// habdle termination signal
-	handleSignals()
+	// handle termination signal
+	topContext = handleSignals()
 	return nil
 }
 
@@ -506,35 +505,30 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 	return names, pattern
 }
 
-func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn func(container.Client, []string, string, interface{}) error) {
-	// channel for 'chaos' command
-	dc := make(chan interface{})
+func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn func(context.Context, container.Client, []string, string, interface{}) error) {
 	// create Time channel for specified interval: for TestRun use Timer (one time call)
-	var cmdTimeChan <-chan time.Time
+	var tick <-chan time.Time
 	if gInterval == 0 || gTestRun {
-		cmdTimeChan = time.NewTimer(gInterval).C
+		tick = time.NewTimer(gInterval).C
 	} else {
-		cmdTimeChan = time.NewTicker(gInterval).C
+		tick = time.NewTicker(gInterval).C
 	}
-	// handle interval timer event
-	go func(cmd interface{}) {
-		for range cmdTimeChan {
-			dc <- cmd
+
+	// handle the 'chaos' command
+	ctx, cancel := context.WithCancel(topContext)
+	go func() {
+		defer cancel()
+		for {
+			select {
+			case <-ctx.Done():
+				return // not to leak the goroutine
+			case <-tick:
+				if err := chaosFn(ctx, client, names, pattern, cmd); err != nil {
+					log.Error(err)
+				}
+			}
 		}
-	}(cmd)
-	// handle 'chaos' command
-	for cmd := range dc {
-		gWG.Add(1)
-		go func(cmd interface{}) {
-			defer gWG.Done()
-			if err := chaosFn(client, names, pattern, cmd); err != nil {
-				log.Error(err)
-			}
-			if gInterval == 0 || gTestRun {
-				close(dc)
-			}
-		}(cmd)
-	}
+	}()
 }
 
 // KILL Command
@@ -643,7 +637,6 @@ func netemDelay(c *cli.Context) error {
 		Jitter:       jitter,
 		Correlation:  correlation,
 		Distribution: distribution,
-		StopChan:     gStopChan,
 		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)
@@ -678,7 +671,6 @@ func netemLossRandom(c *cli.Context) error {
 		Duration:     duration,
 		Percent:      percent,
 		Correlation:  correlation,
-		StopChan:     gStopChan,
 		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossRandomContainers)
@@ -737,7 +729,6 @@ func netemLossState(c *cli.Context) error {
 		P32:          p32,
 		P23:          p23,
 		P14:          p14,
-		StopChan:     gStopChan,
 		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossStateContainers)
@@ -788,7 +779,6 @@ func netemLossGEmodel(c *cli.Context) error {
 		PB:           pb,
 		OneH:         oneH,
 		OneK:         oneK,
-		StopChan:     gStopChan,
 		Image:        image,
 	}
 	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossGEmodelContainers)
@@ -834,7 +824,6 @@ func netemRate(c *cli.Context) error {
 		PacketOverhead: packetOverhead,
 		CellSize:       cellSize,
 		CellOverhead:   cellOverhead,
-		StopChan:       gStopChan,
 		Image:          image,
 	}
 	runChaosCommand(rateCmd, names, pattern, chaos.NetemRateContainers)
@@ -859,7 +848,6 @@ func pause(c *cli.Context) error {
 	}
 	cmd := action.CommandPause{
 		Duration: duration,
-		StopChan: gStopChan,
 	}
 	runChaosCommand(cmd, names, pattern, chaos.PauseContainers)
 	return nil
@@ -892,24 +880,24 @@ func stop(c *cli.Context) error {
 	return nil
 }
 
-func handleSignals() {
+func handleSignals() context.Context {
 	// Graceful shut-down on SIGINT/SIGTERM
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	// channel to notify long running commands to stop and cleanup
-	// long running commands must listen to this channel and react
-	gStopChan = make(chan bool, 1)
+	// create cancelable context
+	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		sid := <-sigs
-		log.Debugf("Recieved signal: %d", sid)
-		gStopChan <- true
-		log.Debug("Sending stop signal to runnung chaos commands ...")
-		gWG.Wait()
+		defer cancel()
+		sid := <-sig
+		log.Debugf("Received signal: %d", sid)
+		log.Debug("Canceling running chaos commands ...")
 		log.Debug("Graceful exit :-)")
 		os.Exit(1)
 	}()
+
+	return ctx
 }
 
 // tlsConfig translates the command-line options into a tls.Config struct

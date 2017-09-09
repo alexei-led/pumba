@@ -1,17 +1,18 @@
 package container
 
 import (
-	"net/url"
 	"crypto/tls"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 const defaultTimeout = 30 * time.Second
 
-func HTTPClient(daemonUrl string, tlsConfig *tls.Config) (*http.Client, error) {
-	u, err := url.Parse(daemonUrl)
+// HTTPClient create new http client to connect to the docker daemon
+func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
+	u, err := url.Parse(daemonURL)
 	if err != nil {
 		return nil, err
 	}

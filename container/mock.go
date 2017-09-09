@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -18,49 +19,49 @@ func NewMockClient() *MockClient {
 }
 
 // ListContainers mock
-func (m *MockClient) ListContainers(cf Filter) ([]Container, error) {
-	args := m.Called(cf)
+func (m *MockClient) ListContainers(ctx context.Context, cf Filter) ([]Container, error) {
+	args := m.Called(ctx, cf)
 	return args.Get(0).([]Container), args.Error(1)
 }
 
 // StopContainer mock
-func (m *MockClient) StopContainer(c Container, timeout int, dryrun bool) error {
-	args := m.Called(c, timeout)
+func (m *MockClient) StopContainer(ctx context.Context, c Container, timeout int, dryrun bool) error {
+	args := m.Called(ctx, c, timeout)
 	return args.Error(0)
 }
 
 // KillContainer mock
-func (m *MockClient) KillContainer(c Container, s string, dryrun bool) error {
-	args := m.Called(c, s)
+func (m *MockClient) KillContainer(ctx context.Context, c Container, s string, dryrun bool) error {
+	args := m.Called(ctx, c, s)
 	return args.Error(0)
 }
 
 // RemoveContainer mock
-func (m *MockClient) RemoveContainer(c Container, f bool, l bool, v bool, dryrun bool) error {
-	args := m.Called(c, f, l, v)
+func (m *MockClient) RemoveContainer(ctx context.Context, c Container, f bool, l bool, v bool, dryrun bool) error {
+	args := m.Called(ctx, c, f, l, v)
 	return args.Error(0)
 }
 
 // PauseContainer mock
-func (m *MockClient) PauseContainer(c Container, dryrun bool) error {
-	args := m.Called(c)
+func (m *MockClient) PauseContainer(ctx context.Context, c Container, dryrun bool) error {
+	args := m.Called(ctx, c)
 	return args.Error(0)
 }
 
 // UnpauseContainer mock
-func (m *MockClient) UnpauseContainer(c Container, dryrun bool) error {
-	args := m.Called(c)
+func (m *MockClient) UnpauseContainer(ctx context.Context, c Container, dryrun bool) error {
+	args := m.Called(ctx, c)
 	return args.Error(0)
 }
 
 // NetemContainer mock
-func (m *MockClient) NetemContainer(c Container, n string, s []string, ip net.IP, d time.Duration, image string, dryrun bool) error {
-	args := m.Called(c, n, s, ip, d, image)
+func (m *MockClient) NetemContainer(ctx context.Context, c Container, n string, s []string, ip net.IP, d time.Duration, image string, dryrun bool) error {
+	args := m.Called(ctx, c, n, s, ip, d, image)
 	return args.Error(0)
 }
 
 // StopNetemContainer mock
-func (m *MockClient) StopNetemContainer(c Container, n string, image string, dryrun bool) error {
-	args := m.Called(c, n, image)
+func (m *MockClient) StopNetemContainer(ctx context.Context, c Container, n string, ip net.IP, image string, dryrun bool) error {
+	args := m.Called(ctx, c, n, ip, image)
 	return args.Error(0)
 }

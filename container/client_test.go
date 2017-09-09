@@ -12,6 +12,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/net/context"
 )
 
 func allContainers(Container) bool {
@@ -35,7 +36,7 @@ func TestListContainers_Success(t *testing.T) {
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetails, []byte{}, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	containers, err := client.ListContainers(allContainers)
+	containers, err := client.ListContainers(context.TODO(), allContainers)
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 1)
@@ -58,7 +59,7 @@ func TestListContainers_Filter(t *testing.T) {
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetails, []byte{}, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	containers, err := client.ListContainers(noContainers)
+	containers, err := client.ListContainers(context.TODO(), noContainers)
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 0)
@@ -70,7 +71,7 @@ func TestListContainers_ListError(t *testing.T) {
 	api.On("ContainerList", mock.Anything, mock.Anything).Return(Containers(), errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(allContainers)
+	_, err := client.ListContainers(context.TODO(), allContainers)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "oops")
@@ -87,7 +88,7 @@ func TestListContainers_InspectContainerError(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "foo").Return(ContainerDetailsResponse(AsMap()), errors.New("uh-oh"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(allContainers)
+	_, err := client.ListContainers(context.TODO(), allContainers)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "uh-oh")
@@ -107,7 +108,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetailsResponse, []byte{}, errors.New("whoops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(allContainers)
+	_, err := client.ListContainers(context.TODO(), allContainers)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "whoops")
@@ -129,7 +130,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(c, 1, false)
+	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
@@ -152,7 +153,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(c, 1, true)
+	err := client.StopContainer(context.TODO(), c, 1, true)
 
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
@@ -173,7 +174,7 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.KillContainer(c, "SIGTERM", false)
+	err := client.KillContainer(context.TODO(), c, "SIGTERM", false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
@@ -191,7 +192,7 @@ func TestKillContainer_DryRun(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.KillContainer(c, "SIGTERM", true)
+	err := client.KillContainer(context.TODO(), c, "SIGTERM", true)
 
 	assert.NoError(t, err)
 	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
@@ -215,7 +216,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(c, 1, false)
+	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.NoError(t, err)
 	api.AssertExpectations(t)
@@ -233,7 +234,7 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(c, 1, false)
+	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "oops")
@@ -254,7 +255,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(errors.New("whoops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	err := client.StopContainer(c, 1, false)
+	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "whoops")
@@ -271,7 +272,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 	engineClient.On("ContainerRemove", mock.Anything, "abc123", removeOpts).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(c, true, true, true, false)
+	err := client.RemoveContainer(context.TODO(), c, true, true, true, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -287,7 +288,7 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 	engineClient.On("ContainerRemove", mock.Anything, "abc123", removeOpts).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(c, true, true, true, true)
+	err := client.RemoveContainer(context.TODO(), c, true, true, true, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerRemove", mock.Anything, "abc123", removeOpts)
@@ -301,13 +302,13 @@ func TestPauseContainer_Success(t *testing.T) {
 	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.PauseContainer(c, false)
+	err := client.PauseContainer(context.TODO(), c, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
 }
 
-func TestUnauseContainer_Success(t *testing.T) {
+func TestUnpauseContainer_Success(t *testing.T) {
 	c := Container{
 		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
 	}
@@ -315,7 +316,7 @@ func TestUnauseContainer_Success(t *testing.T) {
 	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.UnpauseContainer(c, false)
+	err := client.UnpauseContainer(context.TODO(), c, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -328,7 +329,7 @@ func TestPauseContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{containerAPI: engineClient}
-	err := client.PauseContainer(c, true)
+	err := client.PauseContainer(context.TODO(), c, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerPause", mock.Anything, "abc123")
@@ -342,7 +343,7 @@ func TestPauseContainer_PauseError(t *testing.T) {
 	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(errors.New("pause"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.PauseContainer(c, false)
+	err := client.PauseContainer(context.TODO(), c, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "pause")
@@ -357,7 +358,7 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(errors.New("unpause"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.UnpauseContainer(c, false)
+	err := client.UnpauseContainer(context.TODO(), c, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "unpause")
@@ -382,7 +383,7 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", mock.Anything, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -407,7 +408,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.StopNetemContainer(c, "eth0", nil, "", false)
+	err := client.StopNetemContainer(context.TODO(), c, "eth0", nil, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -420,7 +421,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", true)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
@@ -457,7 +458,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd3").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, "", false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -496,7 +497,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.tcContainerCommand(c, []string{"test", "me"}, "pumba/tcimage")
+	err := client.tcContainerCommand(context.TODO(), c, []string{"test", "me"}, "pumba/tcimage")
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -521,7 +522,7 @@ func Test_execOnContainerSuccess(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+	err := client.execOnContainer(context.TODO(), c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -544,7 +545,7 @@ func Test_execOnContainerNotFound(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+	err := client.execOnContainer(context.TODO(), c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "command 'testcmd' not found inside the abcName (abc123) container")
@@ -573,7 +574,7 @@ func Test_execOnContainerFailed(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{ExitCode: 1}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+	err := client.execOnContainer(context.TODO(), c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "command 'testcmd' failed in abcName (abc123) container; run it in manually to debug")
@@ -596,7 +597,7 @@ func Test_execOnContainerExecStartError(t *testing.T) {
 	engineClient.On("ContainerExecStart", ctx, "checkID", types.ExecStartCheck{}).Return(errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+	err := client.execOnContainer(context.TODO(), c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)
@@ -617,7 +618,7 @@ func Test_execOnContainerExecCreateError(t *testing.T) {
 	engineClient.On("ContainerExecCreate", ctx, "abc123", checkConfig).Return(types.IDResponse{ID: "checkID"}, errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+	err := client.execOnContainer(context.TODO(), c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)
@@ -640,7 +641,7 @@ func Test_execOnContainerExecInspectError(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "checkID").Return(types.ContainerExecInspect{}, errors.New("oops"))
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.execOnContainer(c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
+	err := client.execOnContainer(context.TODO(), c, "testcmd", []string{"arg1", "arg2", "arg3"}, false)
 
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)
