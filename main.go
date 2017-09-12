@@ -517,6 +517,7 @@ func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn fu
 	// handle the 'chaos' command
 	ctx, cancel := context.WithCancel(topContext)
 	for {
+		defer cancel()
 		select {
 		case <-ctx.Done():
 			cancel()
@@ -524,6 +525,10 @@ func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn fu
 		case <-tick:
 			if err := chaosFn(ctx, client, names, pattern, cmd); err != nil {
 				log.Error(err)
+			}
+			if gInterval == 0 || gTestRun {
+				log.Debug("Completed command, exiting ...")
+				return
 			}
 		}
 	}
