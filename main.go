@@ -516,19 +516,17 @@ func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn fu
 
 	// handle the 'chaos' command
 	ctx, cancel := context.WithCancel(topContext)
-	go func() {
-		defer cancel()
-		for {
-			select {
-			case <-ctx.Done():
-				return // not to leak the goroutine
-			case <-tick:
-				if err := chaosFn(ctx, client, names, pattern, cmd); err != nil {
-					log.Error(err)
-				}
+	for {
+		select {
+		case <-ctx.Done():
+			cancel()
+			return // not to leak the goroutine
+		case <-tick:
+			if err := chaosFn(ctx, client, names, pattern, cmd); err != nil {
+				log.Error(err)
 			}
 		}
-	}()
+	}
 }
 
 // KILL Command
