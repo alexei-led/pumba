@@ -74,7 +74,6 @@ type mainTestSuite struct {
 }
 
 func (s *mainTestSuite) SetupSuite() {
-	gTestRun = true
 	topContext = context.TODO()
 }
 
@@ -129,7 +128,7 @@ func (s *mainTestSuite) Test_getPattern2() {
 	assert.True(s.T(), pattern == "(.+)test")
 }
 
-func (s *mainTestSuite) Test_beforeCommand_NoInterval() {
+func (s *mainTestSuite) Test_getIntervalValue_NoInterval() {
 	// prepare
 	set := flag.NewFlagSet("test", 0)
 	globalSet := flag.NewFlagSet("test", 0)
@@ -138,8 +137,9 @@ func (s *mainTestSuite) Test_beforeCommand_NoInterval() {
 	globalCtx := cli.NewContext(nil, globalSet, nil)
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
-	err := beforeCommand(c)
+	interval, err := getIntervalValue(c)
 	// asserts
+	assert.NotEqual(s.T(), interval, 0)
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
 }
@@ -153,8 +153,9 @@ func (s *mainTestSuite) Test_beforeCommand_BadInterval() {
 	globalCtx := cli.NewContext(nil, globalSet, nil)
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
-	err := beforeCommand(c)
+	interval, err := getIntervalValue(c)
 	// asserts
+	assert.NotEqual(s.T(), interval, 0)
 	assert.NoError(s.T(), parseErr)
 	assert.Error(s.T(), err)
 	assert.EqualError(s.T(), err, "time: invalid duration BAD")
@@ -169,9 +170,10 @@ func (s *mainTestSuite) Test_beforeCommand_EmptyArgs() {
 	globalCtx := cli.NewContext(nil, globalSet, nil)
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
-	err := beforeCommand(c)
+	interval, err := getIntervalValue(c)
 	names, pattern := getNamesOrPattern(c)
 	// asserts
+	assert.Equal(s.T(), interval, 10*time.Second)
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
 	assert.True(s.T(), len(names) == 0)
@@ -187,9 +189,10 @@ func (s *mainTestSuite) Test_beforeCommand_Re2Args() {
 	globalCtx := cli.NewContext(nil, globalSet, nil)
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
-	err := beforeCommand(c)
+	interval, err := getIntervalValue(c)
 	names, pattern := getNamesOrPattern(c)
 	// asserts
+	assert.Equal(s.T(), interval, 10*time.Second)
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
 	assert.True(s.T(), len(names) == 0)
@@ -205,9 +208,10 @@ func (s *mainTestSuite) Test_beforeCommand_2Args() {
 	globalCtx := cli.NewContext(nil, globalSet, nil)
 	c := cli.NewContext(nil, set, globalCtx)
 	// invoke command
-	err := beforeCommand(c)
+	interval, err := getIntervalValue(c)
 	names, pattern := getNamesOrPattern(c)
 	// asserts
+	assert.Equal(s.T(), interval, 10*time.Second)
 	assert.NoError(s.T(), parseErr)
 	assert.NoError(s.T(), err)
 	assert.True(s.T(), len(names) == 2)
@@ -223,8 +227,6 @@ func (s *mainTestSuite) Test_killSuccess() {
 	set := flag.NewFlagSet("kill", 0)
 	set.String("signal", "SIGTERM", "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// setup mock
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
@@ -235,8 +237,6 @@ func (s *mainTestSuite) Test_killSuccess() {
 	// invoke command
 	err := kill(c)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -257,8 +257,6 @@ func (s *mainTestSuite) Test_killError() {
 	set := flag.NewFlagSet("kill", 0)
 	set.String("signal", "SIGTERM", "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// setup mock
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
@@ -269,8 +267,6 @@ func (s *mainTestSuite) Test_killError() {
 	// invoke command
 	err := kill(c)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -280,8 +276,6 @@ func (s *mainTestSuite) Test_pauseSuccess() {
 	set := flag.NewFlagSet("pause", 0)
 	set.String("duration", "10s", "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// setup mock
 	chaosMock := &ChaosMock{}
 	chaos = chaosMock
@@ -292,8 +286,6 @@ func (s *mainTestSuite) Test_pauseSuccess() {
 	// invoke command
 	err := pause(c)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -302,8 +294,6 @@ func (s *mainTestSuite) Test_pauseMissingDuration() {
 	// prepare
 	set := flag.NewFlagSet("pause", 0)
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// invoke command
 	err := pause(c)
 	// asserts
@@ -315,8 +305,6 @@ func (s *mainTestSuite) Test_pauseBadDuration() {
 	set := flag.NewFlagSet("pause", 0)
 	set.String("duration", "BAD", "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// invoke command
 	err := pause(c)
 	// asserts
@@ -328,8 +316,6 @@ func (s *mainTestSuite) Test_stopSuccess() {
 	set := flag.NewFlagSet("stop", 0)
 	set.Int("time", 10, "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// setup mock
 	cmd := action.CommandStop{WaitTime: 10}
 	chaosMock := &ChaosMock{}
@@ -338,8 +324,6 @@ func (s *mainTestSuite) Test_stopSuccess() {
 	// invoke command
 	err := stop(c)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -349,8 +333,6 @@ func (s *mainTestSuite) Test_stopError() {
 	set := flag.NewFlagSet("stop", 0)
 	set.Int("time", 10, "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// setup mock
 	cmd := action.CommandStop{WaitTime: 10}
 	chaosMock := &ChaosMock{}
@@ -359,8 +341,6 @@ func (s *mainTestSuite) Test_stopError() {
 	// invoke command
 	err := stop(c)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -372,8 +352,6 @@ func (s *mainTestSuite) Test_removeSuccess() {
 	set.Bool("links", true, "doc")
 	set.Bool("volumes", true, "doc")
 	c := cli.NewContext(nil, set, nil)
-	// set interval to 1ms
-	gInterval = 1 * time.Millisecond
 	// setup mock
 	cmd := action.CommandRemove{Force: true, Links: true, Volumes: true}
 	chaosMock := &ChaosMock{}
@@ -382,8 +360,6 @@ func (s *mainTestSuite) Test_removeSuccess() {
 	// invoke command
 	err := remove(c)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(2 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -403,8 +379,6 @@ func (s *mainTestSuite) Test_netemDelaySuccess() {
 	delaySet.String("distribution", "normal", "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
-	// set interval to 20ms
-	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemDelay{
 		NetInterface: "test0",
@@ -420,8 +394,6 @@ func (s *mainTestSuite) Test_netemDelaySuccess() {
 	// invoke command
 	err := netemDelay(delayCtx)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -466,13 +438,15 @@ func (s *mainTestSuite) Test_netemDelayBadDuration() {
 }
 
 func (s *mainTestSuite) Test_netemDelayBigDuration() {
-	// prepare test data
-	gInterval = 1 * time.Second
+	// set global interval to 5s
+	globalSet := flag.NewFlagSet("test", 0)
+	globalSet.String("interval", "5s", "doc")
+	globalCtx := cli.NewContext(nil, globalSet, nil)
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
 	netemSet.String("interface", "test0", "doc")
 	netemSet.String("duration", "10s", "doc")
-	netemCtx := cli.NewContext(nil, netemSet, nil)
+	netemCtx := cli.NewContext(nil, netemSet, globalCtx)
 	// delay flags
 	delaySet := flag.NewFlagSet("delay", 0)
 	delaySet.Int("time", 200, "doc")
@@ -487,8 +461,6 @@ func (s *mainTestSuite) Test_netemDelayBigDuration() {
 }
 
 func (s *mainTestSuite) Test_netemDelayBadNetInterface() {
-	// prepare test data
-	gInterval = 1 * time.Second
 	// netem flags
 	netemSet := flag.NewFlagSet("netem", 0)
 	netemSet.String("interface", "hello test", "doc")
@@ -601,8 +573,6 @@ func (s *mainTestSuite) Test_netemLossRandomSuccess() {
 	delaySet.Float64("correlation", 1.5, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
-	// set interval to 20ms
-	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemLossRandom{
 		NetInterface: "test0",
@@ -616,8 +586,6 @@ func (s *mainTestSuite) Test_netemLossRandomSuccess() {
 	// invoke command
 	err := netemLossRandom(delayCtx)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -638,8 +606,6 @@ func (s *mainTestSuite) Test_netemLossStateSuccess() {
 	delaySet.Float64("p14", 9.31, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
-	// set interval to 20ms
-	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemLossState{
 		NetInterface: "test0",
@@ -656,8 +622,6 @@ func (s *mainTestSuite) Test_netemLossStateSuccess() {
 	// invoke command
 	err := netemLossState(delayCtx)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -677,8 +641,6 @@ func (s *mainTestSuite) Test_netemLossGEmodelSuccess() {
 	delaySet.Float64("one-k", 8.32, "doc")
 	delaySet.Parse([]string{"c1", "c2", "c3"})
 	delayCtx := cli.NewContext(nil, delaySet, netemCtx)
-	// set interval to 20ms
-	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemLossGEmodel{
 		NetInterface: "test0",
@@ -694,8 +656,6 @@ func (s *mainTestSuite) Test_netemLossGEmodelSuccess() {
 	// invoke command
 	err := netemLossGEmodel(delayCtx)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }
@@ -715,8 +675,6 @@ func (s *mainTestSuite) Test_netemRateSuccess() {
 	rateSet.Int("celloverhead", 30, "doc")
 	rateSet.Parse([]string{"c1", "c2", "c3"})
 	rateCtx := cli.NewContext(nil, rateSet, netemCtx)
-	// set interval to 1ms
-	gInterval = 20 * time.Millisecond
 	// setup mock
 	cmd := action.CommandNetemRate{
 		NetInterface:   "test0",
@@ -732,8 +690,6 @@ func (s *mainTestSuite) Test_netemRateSuccess() {
 	// invoke command
 	err := netemRate(rateCtx)
 	// asserts
-	// (!)WAIT till called action is completed (Sleep > Timer), it's executed in separate go routine
-	time.Sleep(30 * time.Millisecond)
 	assert.NoError(s.T(), err)
 	chaosMock.AssertExpectations(s.T())
 }

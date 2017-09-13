@@ -296,7 +296,8 @@ func pauseContainers(ctx context.Context, client container.Client, containers []
 	select {
 	case <-ctx.Done():
 		log.Debugf("Unpause containers by stop event")
-		err = unpauseContainers(ctx, client, pausedContainers)
+		// use different context to stop netem since parent context is canceled
+		err = unpauseContainers(context.Background(), client, pausedContainers)
 	case <-time.After(duration):
 		log.Debugf("Unpause containers after: %s", duration)
 		err = unpauseContainers(ctx, client, pausedContainers)
@@ -340,7 +341,8 @@ func netemContainers(ctx context.Context, client container.Client, containers []
 	select {
 	case <-ctx.Done():
 		log.Debugf("Stopping netem by stop event")
-		err = stopNetemContainers(ctx, client, netemContainers, netInterface, ip, tcimage)
+		// use different context to stop netem since parent context is canceled
+		err = stopNetemContainers(context.Background(), client, netemContainers, netInterface, ip, tcimage)
 	case <-time.After(duration):
 		log.Debugf("Stopping netem after: %s", duration)
 		err = stopNetemContainers(ctx, client, netemContainers, netInterface, ip, tcimage)

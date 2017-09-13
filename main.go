@@ -28,8 +28,6 @@ var (
 	client     container.Client
 	chaos      action.Chaos
 	topContext context.Context
-	gInterval  time.Duration
-	gTestRun   bool
 )
 
 // LinuxSignals valid Linux signal table
@@ -134,7 +132,6 @@ func main() {
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
 			Description: "send termination signal to the main process inside target container(s)",
 			Action:      kill,
-			Before:      beforeCommand,
 		},
 		{
 			Name: "netem",
@@ -189,7 +186,6 @@ func main() {
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "delay egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation",
 					Action:      netemDelay,
-					Before:      beforeCommand,
 				},
 				{
 					Name: "loss",
@@ -209,7 +205,6 @@ func main() {
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "adds packet losses, based on independent (Bernoulli) probability model\n \tsee:  http://www.voiptroubleshooter.com/indepth/burstloss.html",
 					Action:      netemLossRandom,
-					Before:      beforeCommand,
 				},
 				{
 					Name: "loss-state",
@@ -244,7 +239,6 @@ func main() {
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "adds a packet losses, based on 4-state Markov probability model\n \t\tstate (1) – packet received successfully\n \t\tstate (2) – packet received within a burst\n \t\tstate (3) – packet lost within a burst\n \t\tstate (4) – isolated packet lost within a gap\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
 					Action:      netemLossState,
-					Before:      beforeCommand,
 				},
 				{
 					Name: "loss-gemodel",
@@ -274,7 +268,6 @@ func main() {
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "adds packet losses, according to the Gilbert-Elliot loss model\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
 					Action:      netemLossGEmodel,
-					Before:      beforeCommand,
 				},
 				{
 					Name:  "duplicate",
@@ -313,7 +306,6 @@ func main() {
 					ArgsUsage:   "containers (name, list of names, RE2 regex)",
 					Description: "rate limit egress traffic for specified containers",
 					Action:      netemRate,
-					Before:      beforeCommand,
 				},
 			},
 		},
@@ -329,7 +321,6 @@ func main() {
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
 			Description: "pause all running processes within target containers",
 			Action:      pause,
-			Before:      beforeCommand,
 		},
 		{
 			Name: "stop",
@@ -344,7 +335,6 @@ func main() {
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
 			Description: "stop the main process inside target containers, sending  SIGTERM, and then SIGKILL after a grace period",
 			Action:      stop,
-			Before:      beforeCommand,
 		},
 		{
 			Name: "rm",
@@ -366,7 +356,6 @@ func main() {
 			ArgsUsage:   "containers (name, list of names, RE2 regex)",
 			Description: "remove target containers, with links and volumes",
 			Action:      remove,
-			Before:      beforeCommand,
 		},
 	}
 	app.Flags = []cli.Flag{
@@ -470,17 +459,16 @@ func before(c *cli.Context) error {
 	return nil
 }
 
-// beforeCommand run before each chaos command
-func beforeCommand(c *cli.Context) error {
+func getIntervalValue(c *cli.Context) (time.Duration, error) {
 	// get recurrent time interval
 	if intervalString := c.GlobalString("interval"); intervalString == "" {
 		log.Debug("No interval, running only once")
-	} else if interval, err := time.ParseDuration(intervalString); err != nil {
-		return err
+		return 0, nil
+	} else if interval, err := time.ParseDuration(intervalString); err == nil {
+		return interval, nil
 	} else {
-		gInterval = interval
+		return 0, err
 	}
-	return nil
 }
 
 func getNamesOrPattern(c *cli.Context) ([]string, string) {
@@ -505,37 +493,46 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 	return names, pattern
 }
 
-func runChaosCommand(cmd interface{}, names []string, pattern string, chaosFn func(context.Context, container.Client, []string, string, interface{}) error) {
-	// create Time channel for specified interval: for TestRun use Timer (one time call)
+func runChaosCommand(cmd interface{}, interval time.Duration, names []string, pattern string, chaosFn func(context.Context, container.Client, []string, string, interface{}) error) {
+	// create Time channel for specified interval
 	var tick <-chan time.Time
-	if gInterval == 0 || gTestRun {
-		tick = time.NewTimer(gInterval).C
+	if interval == 0 {
+		tick = time.NewTimer(interval).C
 	} else {
-		tick = time.NewTicker(gInterval).C
+		fmt.Println("HERE!!!!")
+		tick = time.NewTicker(interval).C
 	}
 
 	// handle the 'chaos' command
 	ctx, cancel := context.WithCancel(topContext)
 	for {
+		// cancel current context on exit
 		defer cancel()
+		// run chaos function
+		if err := chaosFn(ctx, client, names, pattern, cmd); err != nil {
+			log.Error(err)
+		}
+		// wait for next timer tick or cancel
 		select {
-		case <-ctx.Done():
-			cancel()
+		case <-topContext.Done():
 			return // not to leak the goroutine
 		case <-tick:
-			if err := chaosFn(ctx, client, names, pattern, cmd); err != nil {
-				log.Error(err)
+			if interval == 0 {
+				return // not to leak the goroutine
 			}
-			if gInterval == 0 || gTestRun {
-				log.Debug("Completed command, exiting ...")
-				return
-			}
+			log.Debug("Next chaos execution (tick) ...")
 		}
 	}
 }
 
 // KILL Command
 func kill(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get signal
@@ -545,13 +542,19 @@ func kill(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	runChaosCommand(action.CommandKill{Signal: signal}, names, pattern, chaos.KillContainers)
+	runChaosCommand(action.CommandKill{Signal: signal}, interval, names, pattern, chaos.KillContainers)
 	return nil
 }
 
 func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, net.IP, string, error) {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		log.Error(err)
+		return names, pattern, 0, "", nil, "", err
+	}
 	// get duration
 	var durationString string
 	if c.Parent() != nil {
@@ -567,7 +570,7 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		log.Error(err)
 		return names, pattern, 0, "", nil, "", err
 	}
-	if gInterval != 0 && duration >= gInterval {
+	if interval != 0 && duration >= interval {
 		err = errors.New("Duration cannot be bigger than interval")
 		log.Error(err)
 		return names, pattern, 0, "", nil, "", err
@@ -598,6 +601,11 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 
 // NETEM DELAY command
 func netemDelay(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// parse common netem options
 	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
@@ -642,12 +650,17 @@ func netemDelay(c *cli.Context) error {
 		Distribution: distribution,
 		Image:        image,
 	}
-	runChaosCommand(delayCmd, names, pattern, chaos.NetemDelayContainers)
+	runChaosCommand(delayCmd, interval, names, pattern, chaos.NetemDelayContainers)
 	return nil
 }
 
 // NETEM LOSS random command
 func netemLossRandom(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// parse common netem options
 	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
@@ -676,12 +689,17 @@ func netemLossRandom(c *cli.Context) error {
 		Correlation:  correlation,
 		Image:        image,
 	}
-	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossRandomContainers)
+	runChaosCommand(delayCmd, interval, names, pattern, chaos.NetemLossRandomContainers)
 	return nil
 }
 
 // NETEM LOSS state command
 func netemLossState(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// parse common netem options
 	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
@@ -734,12 +752,17 @@ func netemLossState(c *cli.Context) error {
 		P14:          p14,
 		Image:        image,
 	}
-	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossStateContainers)
+	runChaosCommand(delayCmd, interval, names, pattern, chaos.NetemLossStateContainers)
 	return nil
 }
 
 // NETEM Gilbert-Elliot command
 func netemLossGEmodel(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// parse common netem options
 	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
@@ -784,12 +807,17 @@ func netemLossGEmodel(c *cli.Context) error {
 		OneK:         oneK,
 		Image:        image,
 	}
-	runChaosCommand(delayCmd, names, pattern, chaos.NetemLossGEmodelContainers)
+	runChaosCommand(delayCmd, interval, names, pattern, chaos.NetemLossGEmodelContainers)
 	return nil
 }
 
 // NETEM RATE command
 func netemRate(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// parse common netem options
 	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
 	if err != nil {
@@ -829,12 +857,17 @@ func netemRate(c *cli.Context) error {
 		CellOverhead:   cellOverhead,
 		Image:          image,
 	}
-	runChaosCommand(rateCmd, names, pattern, chaos.NetemRateContainers)
+	runChaosCommand(rateCmd, interval, names, pattern, chaos.NetemRateContainers)
 	return nil
 }
 
 // PAUSE command
 func pause(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get duration
@@ -852,12 +885,17 @@ func pause(c *cli.Context) error {
 	cmd := action.CommandPause{
 		Duration: duration,
 	}
-	runChaosCommand(cmd, names, pattern, chaos.PauseContainers)
+	runChaosCommand(cmd, interval, names, pattern, chaos.PauseContainers)
 	return nil
 }
 
 // REMOVE Command
 func remove(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get force flag
@@ -869,17 +907,22 @@ func remove(c *cli.Context) error {
 
 	// run chaos command
 	cmd := action.CommandRemove{Force: force, Links: links, Volumes: volumes}
-	runChaosCommand(cmd, names, pattern, chaos.RemoveContainers)
+	runChaosCommand(cmd, interval, names, pattern, chaos.RemoveContainers)
 	return nil
 }
 
 // STOP Command
 func stop(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// run chaos command
 	cmd := action.CommandStop{WaitTime: c.Int("time")}
-	runChaosCommand(cmd, names, pattern, chaos.StopContainers)
+	runChaosCommand(cmd, interval, names, pattern, chaos.StopContainers)
 	return nil
 }
 
@@ -896,8 +939,7 @@ func handleSignals() context.Context {
 		sid := <-sig
 		log.Debugf("Received signal: %d", sid)
 		log.Debug("Canceling running chaos commands ...")
-		log.Debug("Graceful exit :-)")
-		os.Exit(1)
+		log.Debug("Gracefully exiting after some cleanup ...")
 	}()
 
 	return ctx
