@@ -1,5 +1,7 @@
 # Pumba: Chaos testing tool for Docker
 
+[![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 #### Build
 [![Codefresh build status]( https://g.codefresh.io/api/badges/build?repoOwner=gaia-adm&repoName=pumba&branch=master&pipelineName=pumba&accountName=alexei-led&type=cf-2)]( https://g.codefresh.io/repositories/gaia-adm/pumba/builds?filter=trigger:build;branch:master;service:5811d26793aeec010086e59e~pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.2.5)
 
