@@ -1,14 +1,12 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.8-alpine AS builder
+FROM golang:1.9-alpine AS builder
 
-# gox - Go cross compile tool
 # github-release - Github Release and upload artifacts
 # go-junit-report - convert Go test into junit.xml format
 RUN apk add --no-cache git bash curl || apk update && apk upgrade
-RUN go get -v github.com/mitchellh/gox && \
-    go get -v github.com/aktau/github-release && \
+RUN go get -v github.com/aktau/github-release && \
     go get -v github.com/jstemmer/go-junit-report
 
 # set working directory
