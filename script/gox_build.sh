@@ -6,18 +6,28 @@
 [ -z "$GITCOMMIT" ] && GITCOMMIT=$(git rev-parse HEAD --short 2>/dev/null)
 [ -z "$GITBRANCH" ] && GITBRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 
-exarch="amd64 386"
-oslist="linux windows darwin"
+[ -d "${DIST}" ] && rm -rf "${DIST:?}/*"
+[ -d "${DIST}" ] || mkdir -p "${DIST}"
+echo "Building ${BUILD_VERSION} on ${BUILD_DATE}"
 
-gox_build() {
-  [ -d "${DIST}" ] && rm -rf "${DIST:?}/*"
-  [ -d "${DIST}" ] || mkdir -p "${DIST}"
-  echo "Building ${BUILD_VERSION} on ${BUILD_DATE}"
-  gox -os="${oslist}" -arch="${exarch}" -cgo=false \
+platforms=("windows/amd64" "linux/amd64" "darwin/amd64" "linux/386")
+
+for platform in "${platforms[@]}"
+do
+    platform_split=(${platform//\// })
+    GOOS=${platform_split[0]}
+    GOARCH=${platform_split[1]}
+    output_name="pumba_${GOOS}_${GOARCH}"
+    if [ $GOOS = "windows" ]; then
+        output_name+='.exe'
+    fi  
+
+    echo "Building pumba for ${GOOS}/${GOARCH}..."
+    CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
     -ldflags "-X main.Version=${VERSION} -X main.GitCommit=${GITCOMMIT} -X main.GitBranch=${GITBRANCH} -X main.BuildTime=${BUILDTIME}" \
-    -verbose -output="${DIST}/pumba_{{.OS}}_{{.Arch}}" .
-  # create timestamp for last cross compilation
-  touch ${DIST}/pumba_timestamp
-}
-
-gox_build
+    -o "${DIST}/${output_name}"
+    if [ $? -ne 0 ]; then
+        echo 'An error has occurred! Aborting the script execution...'
+        exit 1
+    fi
+done
