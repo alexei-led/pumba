@@ -487,6 +487,7 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 				log.Debugf("Pattern: '%s'", pattern)
 			} else {
 				names = append(names, first)
+				log.Debugf("Names: '%s'", names)
 			}
 		}
 	}

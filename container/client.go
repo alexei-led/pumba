@@ -120,7 +120,7 @@ func (client dockerClient) StopContainer(ctx context.Context, c Container, timeo
 
 		// Wait for container to exit, but proceed anyway after the timeout elapses
 		if err := client.waitForStop(ctx, c, timeout); err != nil {
-			log.Debugf("Error waiting for container %s (%s) to stop: ''%s'", c.Name(), c.ID(), err.Error())
+			log.Debugf("Error waiting for container %s (%s) to stop: '%s'", c.Name(), c.ID(), err.Error())
 		}
 
 		log.Debugf("Killing container %s with %s", c.ID(), defaultKillSignal)
