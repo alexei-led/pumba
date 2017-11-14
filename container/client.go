@@ -244,10 +244,26 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 	log.Infof("%sStop netem for container %s on '%s'", prefix, c.ID(), netInterface)
 	if !dryrun {
 		if ip != nil {
-			// delete qdisc 'parent 1:3 netem'
+			// delete qdisc 'parent 1:1 handle 10:'
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-			netemCommand := []string{"qdisc", "del", "dev", netInterface, "parent", "1:3", "netem"}
-			log.Debugf("netem command '%s'", strings.Join(netemCommand, " "))
+			netemCommand := []string{"qdisc", "del", "dev", netInterface, "parent", "1:1", "handle", "10:"}
+			log.Debugf("qdisc delete '%s'", strings.Join(netemCommand, " "))
+			err = client.tcCommand(ctx, c, netemCommand, tcimage)
+			if err != nil {
+				return err
+			}
+			// delete qdisc 'parent 1:2 handle 20:'
+			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+			netemCommand = []string{"qdisc", "del", "dev", netInterface, "parent", "1:2", "handle", "20:"}
+			log.Debugf("qdisc delete '%s'", strings.Join(netemCommand, " "))
+			err = client.tcCommand(ctx, c, netemCommand, tcimage)
+			if err != nil {
+				return err
+			}
+			// delete qdisc 'parent 1:3 handle 30:'
+			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+			netemCommand = []string{"qdisc", "del", "dev", netInterface, "parent", "1:3", "handle", "30:"}
+			log.Debugf("qdisc delete '%s'", strings.Join(netemCommand, " "))
 			err = client.tcCommand(ctx, c, netemCommand, tcimage)
 			if err != nil {
 				return err
@@ -255,13 +271,13 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 			// delete qdisc 'root handle 1: prio'
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand = []string{"qdisc", "del", "dev", netInterface, "root", "handle", "1:", "prio"}
-			log.Debugf("netem command '%s'", strings.Join(netemCommand, " "))
+			log.Debugf("qdisc delete '%s'", strings.Join(netemCommand, " "))
 			err = client.tcCommand(ctx, c, netemCommand, tcimage)
 		} else {
 			// stop netem command
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand := []string{"qdisc", "del", "dev", netInterface, "root", "netem"}
-			log.Debugf("netem command '%s'", strings.Join(netemCommand, " "))
+			log.Debugf("qdisc delete '%s'", strings.Join(netemCommand, " "))
 			err = client.tcCommand(ctx, c, netemCommand, tcimage)
 		}
 	}
@@ -282,7 +298,17 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 		// queue, apply netem command on that queue only, then route IP traffic to the low priority queue
 		// See more: http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 
-		//  Create a priority-based queue.
+		//            1:   root qdisc
+		//           / | \
+		//          /  |  \
+		//         /   |   \
+		//       1:1  1:2  1:3    classes
+		//        |    |    |
+		//       10:  20:  30:    qdiscs    qdiscs
+		//      sfq  sfq  netem
+		// band  0    1     2
+
+		// Create a priority-based queue. This *instantly* creates classes 1:1, 1:2, 1:3
 		// 'tc qdisc add dev <netInterface> root handle 1: prio'
 		// See more: http://man7.org/linux/man-pages/man8/tc-netem.8.html
 		handleCommand := []string{"qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"}
@@ -292,20 +318,40 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 			return err
 		}
 
-		//  Delay everything in band 3
-		// 'tc qdisc add dev <netInterface> parent 1:3 netem <netemCmd>'
-		// See more: http://man7.org/linux/man-pages/man8/tc-netem.8.html
-		netemCommand := append([]string{"qdisc", "add", "dev", netInterface, "parent", "1:3", "netem"}, netemCmd...)
+		// Create Stochastic Fairness Queueing (sfq) queueing discipline for 1:1 class.
+		// 'tc qdisc add dev <netInterface> parent 1:1 handle 10: sfq'
+		// See more: https://linux.die.net/man/8/tc-sfq
+		netemCommand := append([]string{"qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"})
 		log.Debugf("netemCommand %s", netemCommand)
 		err = client.tcCommand(ctx, c, netemCommand, tcimage)
 		if err != nil {
 			return err
 		}
 
-		// # say traffic to $PORT is band 3
-		// 'tc filter add dev <netInterface> protocol ip parent 1:0 prio 3 u32 match ip dst <targetIP> flowid 1:3'
+		// Create Stochastic Fairness Queueing (sfq) queueing discipline for 1:2 class
+		// 'tc qdisc add dev <netInterface> parent 1:2 handle 20: sfq'
+		// See more: https://linux.die.net/man/8/tc-sfq
+		netemCommand = append([]string{"qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"})
+		log.Debugf("netemCommand %s", netemCommand)
+		err = client.tcCommand(ctx, c, netemCommand, tcimage)
+		if err != nil {
+			return err
+		}
+
+		// Add queueing discipline for 1:3 class. No traffic is going through 1:3 yet
+		// 'tc qdisc add dev <netInterface> parent 1:3 handle 30: netem <netemCmd>'
 		// See more: http://man7.org/linux/man-pages/man8/tc-netem.8.html
-		filterCommand := []string{"filter", "add", "dev", netInterface, "protocol", "ip", "parent", "1:0", "prio", "3",
+		netemCommand = append([]string{"qdisc", "add", "dev", netInterface, "parent", "1:3", "handle", "30:", "netem"}, netemCmd...)
+		log.Debugf("netemCommand %s", netemCommand)
+		err = client.tcCommand(ctx, c, netemCommand, tcimage)
+		if err != nil {
+			return err
+		}
+
+		// # redirect traffic to specific IP through band 3
+		// 'tc filter add dev <netInterface> protocol ip parent 1:0 prio 1 u32 match ip dst <targetIP> flowid 1:3'
+		// See more: http://man7.org/linux/man-pages/man8/tc-netem.8.html
+		filterCommand := []string{"filter", "add", "dev", netInterface, "protocol", "ip", "parent", "1:0", "prio", "1",
 			"u32", "match", "ip", "dst", strings.ToLower(targetIP), "flowid", "1:3"}
 		log.Debugf("filterCommand %s", filterCommand)
 		return client.tcCommand(ctx, c, filterCommand, tcimage)
