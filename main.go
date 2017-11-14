@@ -116,7 +116,7 @@ func main() {
 	app.Name = "Pumba"
 	app.Version = HumanVersion
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
-	app.ArgsUsage = "containers (name, list of names, RE2 regex)"
+	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
 	app.Before = before
 	app.Commands = []cli.Command{
 		{
@@ -129,7 +129,7 @@ func main() {
 				},
 			},
 			Usage:       "kill specified containers",
-			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "send termination signal to the main process inside target container(s)",
 			Action:      kill,
 		},
@@ -155,7 +155,7 @@ func main() {
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",
-			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
 				{
@@ -183,7 +183,7 @@ func main() {
 						},
 					},
 					Usage:       "delay egress traffic",
-					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 					Description: "delay egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation",
 					Action:      netemDelay,
 				},
@@ -202,7 +202,7 @@ func main() {
 						},
 					},
 					Usage:       "adds packet losses",
-					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 					Description: "adds packet losses, based on independent (Bernoulli) probability model\n \tsee:  http://www.voiptroubleshooter.com/indepth/burstloss.html",
 					Action:      netemLossRandom,
 				},
@@ -236,7 +236,7 @@ func main() {
 						},
 					},
 					Usage:       "adds packet losses, based on 4-state Markov probability model",
-					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 					Description: "adds a packet losses, based on 4-state Markov probability model\n \t\tstate (1) – packet received successfully\n \t\tstate (2) – packet received within a burst\n \t\tstate (3) – packet lost within a burst\n \t\tstate (4) – isolated packet lost within a gap\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
 					Action:      netemLossState,
 				},
@@ -265,7 +265,7 @@ func main() {
 						},
 					},
 					Usage:       "adds packet losses, according to the Gilbert-Elliot loss model",
-					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 					Description: "adds packet losses, according to the Gilbert-Elliot loss model\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
 					Action:      netemLossGEmodel,
 				},
@@ -303,7 +303,7 @@ func main() {
 						},
 					},
 					Usage:       "rate limit egress traffic",
-					ArgsUsage:   "containers (name, list of names, RE2 regex)",
+					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 					Description: "rate limit egress traffic for specified containers",
 					Action:      netemRate,
 				},
@@ -318,7 +318,7 @@ func main() {
 				},
 			},
 			Usage:       "pause all processes",
-			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "pause all running processes within target containers",
 			Action:      pause,
 		},
@@ -332,7 +332,7 @@ func main() {
 				},
 			},
 			Usage:       "stop containers",
-			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "stop the main process inside target containers, sending  SIGTERM, and then SIGKILL after a grace period",
 			Action:      stop,
 		},
@@ -353,7 +353,7 @@ func main() {
 				},
 			},
 			Usage:       "remove containers",
-			ArgsUsage:   "containers (name, list of names, RE2 regex)",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "remove target containers, with links and volumes",
 			Action:      remove,
 		},
@@ -487,6 +487,7 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 				log.Debugf("Pattern: '%s'", pattern)
 			} else {
 				names = append(names, first)
+				log.Debugf("Names: '%s'", names)
 			}
 		}
 	}
