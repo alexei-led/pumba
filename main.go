@@ -500,7 +500,6 @@ func runChaosCommand(cmd interface{}, interval time.Duration, names []string, pa
 	if interval == 0 {
 		tick = time.NewTimer(interval).C
 	} else {
-		fmt.Println("HERE!!!!")
 		tick = time.NewTicker(interval).C
 	}
 
