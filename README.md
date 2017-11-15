@@ -149,7 +149,7 @@ COMMANDS:
 OPTIONS:
    --duration value, -d value   network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
    --interface value, -i value  network interface to apply delay on (default: "eth0")
-   --target value, -t value     target IP filter; netem will impact only on traffic to target IP
+   --target value, -t value     target IP filter; comma separated. netem will impact only on traffic to target IP(s)
    --tc-image value             Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'
    --help, -h                   show help
 ```

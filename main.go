@@ -147,7 +147,7 @@ func main() {
 				},
 				cli.StringFlag{
 					Name:  "target, t",
-					Usage: "target IP filter; netem will impact only on traffic to target IP",
+					Usage: "target IP filter; comma separated. netem will impact only on traffic to target IP(s)",
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
@@ -547,7 +547,7 @@ func kill(c *cli.Context) error {
 	return nil
 }
 
-func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, net.IP, string, error) {
+func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, []net.IP, string, error) {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get interval
@@ -576,9 +576,9 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		log.Error(err)
 		return names, pattern, 0, "", nil, "", err
 	}
-	// get network interface and target ip
+	// get network interface and target ip(s)
 	netInterface := DefaultInterface
-	var ip net.IP
+	var ips []net.IP
 	if c.Parent() != nil {
 		netInterface = c.Parent().String("interface")
 		// protect from Command Injection, using Regexp
@@ -590,14 +590,22 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 			return names, pattern, duration, "", nil, "", err
 		}
 		// get target IP Filter
-		ip = net.ParseIP(c.Parent().String("target"))
+		for _, str := range strings.Split(c.Parent().String("target"), ",") {
+			ip := net.ParseIP(str)
+			if ip == nil {
+				err = fmt.Errorf("Bad target specification. could not parse '%s' as an ip", str)
+				log.Error(err)
+				return names, pattern, duration, "", ips, "", err
+			}
+			ips = append(ips, ip)
+		}
 	}
 	// get Docker image with tc (iproute2 package)
 	var image string
 	if c.Parent() != nil {
 		image = c.Parent().String("tc-image")
 	}
-	return names, pattern, duration, netInterface, ip, image, nil
+	return names, pattern, duration, netInterface, ips, image, nil
 }
 
 // NETEM DELAY command
@@ -608,7 +616,7 @@ func netemDelay(c *cli.Context) error {
 		return err
 	}
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ips, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -643,7 +651,7 @@ func netemDelay(c *cli.Context) error {
 	// pepare netem delay command
 	delayCmd := action.CommandNetemDelay{
 		NetInterface: netInterface,
-		IP:           ip,
+		IPs:          ips,
 		Duration:     duration,
 		Time:         time,
 		Jitter:       jitter,
@@ -663,7 +671,7 @@ func netemLossRandom(c *cli.Context) error {
 		return err
 	}
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ips, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -684,7 +692,7 @@ func netemLossRandom(c *cli.Context) error {
 	// pepare netem loss command
 	delayCmd := action.CommandNetemLossRandom{
 		NetInterface: netInterface,
-		IP:           ip,
+		IPs:          ips,
 		Duration:     duration,
 		Percent:      percent,
 		Correlation:  correlation,
@@ -702,7 +710,7 @@ func netemLossState(c *cli.Context) error {
 		return err
 	}
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ips, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -744,7 +752,7 @@ func netemLossState(c *cli.Context) error {
 	// pepare netem loss command
 	delayCmd := action.CommandNetemLossState{
 		NetInterface: netInterface,
-		IP:           ip,
+		IPs:          ips,
 		Duration:     duration,
 		P13:          p13,
 		P31:          p31,
@@ -765,7 +773,7 @@ func netemLossGEmodel(c *cli.Context) error {
 		return err
 	}
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ips, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -800,7 +808,7 @@ func netemLossGEmodel(c *cli.Context) error {
 	// pepare netem loss command
 	delayCmd := action.CommandNetemLossGEmodel{
 		NetInterface: netInterface,
-		IP:           ip,
+		IPs:          ips,
 		Duration:     duration,
 		PG:           pg,
 		PB:           pb,
@@ -820,7 +828,7 @@ func netemRate(c *cli.Context) error {
 		return err
 	}
 	// parse common netem options
-	names, pattern, duration, netInterface, ip, image, err := parseNetemOptions(c)
+	names, pattern, duration, netInterface, ips, image, err := parseNetemOptions(c)
 	if err != nil {
 		return err
 	}
@@ -850,7 +858,7 @@ func netemRate(c *cli.Context) error {
 	// pepare netem rate command
 	rateCmd := action.CommandNetemRate{
 		NetInterface:   netInterface,
-		IP:             ip,
+		IPs:            ips,
 		Duration:       duration,
 		Rate:           rate,
 		PacketOverhead: packetOverhead,
