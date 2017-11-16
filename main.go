@@ -589,14 +589,17 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 			return names, pattern, duration, "", nil, "", err
 		}
 		// get target IP Filter
-		for _, str := range strings.Split(c.Parent().String("target"), ",") {
-			ip := net.ParseIP(str)
-			if ip == nil {
-				err = fmt.Errorf("Bad target specification. could not parse '%s' as an ip", str)
-				log.Error(err)
-				return names, pattern, duration, "", ips, "", err
+		target := c.Parent().String("target")
+		if target != "" {
+			for _, str := range strings.Split(target, ",") {
+				ip := net.ParseIP(str)
+				if ip == nil {
+					err = fmt.Errorf("Bad target specification. could not parse '%s' as an ip", str)
+					log.Error(err)
+					return names, pattern, duration, "", ips, "", err
+				}
+				ips = append(ips, ip)
 			}
-			ips = append(ips, ip)
 		}
 	}
 	// get Docker image with tc (iproute2 package)
