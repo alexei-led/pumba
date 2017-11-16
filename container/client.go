@@ -377,7 +377,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 		Cmd:        args,
 		Image:      tcimage,
 	}
-	log.Debugf("Container Config: %s", config)
+	log.Debugf("Container Config: %+v", config)
 	// host config
 	hconfig := ctypes.HostConfig{
 		// auto remove container on tc command exit
@@ -392,7 +392,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 		DNSOptions:   []string{},
 		DNSSearch:    []string{},
 	}
-	log.Debugf("Host Config: %s", hconfig)
+	log.Debugf("Host Config: %+v", hconfig)
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
 	if err != nil {
 		return err
