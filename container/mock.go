@@ -55,13 +55,13 @@ func (m *MockClient) UnpauseContainer(ctx context.Context, c Container, dryrun b
 }
 
 // NetemContainer mock
-func (m *MockClient) NetemContainer(ctx context.Context, c Container, n string, s []string, ip net.IP, d time.Duration, image string, dryrun bool) error {
-	args := m.Called(ctx, c, n, s, ip, d, image)
+func (m *MockClient) NetemContainer(ctx context.Context, c Container, n string, s []string, ips []net.IP, d time.Duration, image string, dryrun bool) error {
+	args := m.Called(ctx, c, n, s, ips, d, image)
 	return args.Error(0)
 }
 
 // StopNetemContainer mock
-func (m *MockClient) StopNetemContainer(ctx context.Context, c Container, n string, ip net.IP, image string, dryrun bool) error {
-	args := m.Called(ctx, c, n, ip, image)
+func (m *MockClient) StopNetemContainer(ctx context.Context, c Container, n string, ips []net.IP, image string, dryrun bool) error {
+	args := m.Called(ctx, c, n, ips, image)
 	return args.Error(0)
 }
