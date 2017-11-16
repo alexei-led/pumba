@@ -485,10 +485,36 @@ func TestNetemDelayByPattern(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemDelayByPatternIPFilter(t *testing.T) {
+func TestNetemDelayByPatternIPFilterOne(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	ips := []net.IP{net.ParseIP("10.10.0.1")}
+	cmd := CommandNetemDelay{
+		NetInterface: "eth1",
+		IPs:          ips,
+		Duration:     1 * time.Millisecond,
+		Time:         120,
+		Jitter:       25,
+		Correlation:  10,
+	}
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
+	for _, c := range cs {
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "").Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", ips, "").Return(nil)
+	}
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.NetemDelayContainers(context.TODO(), client, []string{}, "^c", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
+func TestNetemDelayByPatternIPFilterMany(t *testing.T) {
+	// prepare test data and mocks
+	_, cs := makeContainersN(10)
+	ips := []net.IP{net.ParseIP("10.10.0.1"), net.ParseIP("10.10.0.3")}
 	cmd := CommandNetemDelay{
 		NetInterface: "eth1",
 		IPs:          ips,
