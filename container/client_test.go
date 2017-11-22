@@ -468,7 +468,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd5").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, net.ParseIP("10.10.0.1"), 1*time.Millisecond, "", false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []net.IP{net.ParseIP("10.10.0.1")}, 1*time.Millisecond, "", false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
