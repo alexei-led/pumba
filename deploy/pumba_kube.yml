@@ -34,6 +34,9 @@ spec:
           limits:
             cpu: 100m
             memory: 20M
+        # run on regular nodes and not api nodes where the critical infrastucure like kube-scheduler lives
+        nodeSelector:
+          node-type: node
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock
