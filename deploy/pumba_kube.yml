@@ -23,10 +23,9 @@ spec:
       - image: gaiaadm/pumba:master
         imagePullPolicy: Always
         name: pumba
-# Pumba command: modify it to suite your needs
-# Currently: randomly try to kill some container every 3 minutes
-        command:
-          - "pumba --debug --random --interval 3m kill --signal SIGKILL"
+        # Pumba command: modify it to suite your needs
+        # Currently: randomly try to kill some container every 3 minutes
+        command: ["pumba", "--debug", "--random", "--interval", "3m", "kill", "--signal", "SIGTERM"]
         resources:
           requests:
             cpu: 10m
