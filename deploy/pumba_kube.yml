@@ -26,6 +26,13 @@ spec:
 # Currently: randomly try to kill some container every 3 minutes
         command:
           - "pumba --debug --random --interval 3m kill --signal SIGKILL"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 5M
+          limits:
+            cpu: 100m
+            memory: 20M
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock
