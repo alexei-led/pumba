@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         app: pumba
+        com.gaiaadm.pumba: "true" # prevent pumba from killing itself
       name: pumba
     spec:
       containers:
