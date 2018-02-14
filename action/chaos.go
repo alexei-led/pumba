@@ -103,6 +103,9 @@ type CommandStop struct {
 	WaitTime int
 }
 
+// CommandStart arguments for start command
+type CommandStart struct{}
+
 // CommandRemove arguments for remove command
 type CommandRemove struct {
 	Force   bool
@@ -121,6 +124,7 @@ type Chaos interface {
 	NetemLossStateContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossGEmodelContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemRateContainers(context.Context, container.Client, []string, string, interface{}) error
+	StartContainers(context.Context, container.Client, []string, string, interface{}) error
 }
 
 // NewChaos create new Pumba Chaos instance
@@ -178,19 +182,37 @@ func regexContainerFilter(pattern string) container.Filter {
 	}
 }
 
-func listContainers(ctx context.Context, client container.Client, names []string, pattern string) ([]container.Container, error) {
+func listRunningContainers(ctx context.Context, client container.Client, names []string, pattern string) ([]container.Container, error) {
+	return listContainers(ctx, client, names, pattern, false)
+}
+
+func listAllContainers(ctx context.Context, client container.Client, names []string, pattern string) ([]container.Container, error) {
+	return listContainers(ctx, client, names, pattern, true)
+}
+
+func listContainers(ctx context.Context, client container.Client, names []string, pattern string, all bool) ([]container.Container, error) {
 	var err error
 	var containers []container.Container
+	var filter container.Filter
+
 	if pattern != "" {
-		if containers, err = client.ListContainers(ctx, regexContainerFilter(pattern)); err != nil {
-			return nil, err
-		}
+		filter = regexContainerFilter(pattern)
 	} else {
-		if containers, err = client.ListContainers(ctx, containerFilter(names)); err != nil {
-			return nil, err
-		}
+		filter = containerFilter(names)
 	}
+
+	if all {
+		containers, err = client.ListAllContainers(ctx, filter)
+	} else {
+		containers, err = client.ListContainers(ctx, filter)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	return containers, nil
+
 }
 
 func randomContainer(containers []container.Container) *container.Container {
@@ -221,6 +243,16 @@ func stopContainers(ctx context.Context, client container.Client, containers []c
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func startContainers(ctx context.Context, client container.Client, containers []container.Container) error {
+	for _, container := range containers {
+		err := client.StartContainer(ctx, container, DryMode)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -373,10 +405,26 @@ func (p pumbaChaos) StopContainers(ctx context.Context, client container.Client,
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	return stopContainers(ctx, client, containers, command.WaitTime)
+}
+
+// StartContainers start containers matching pattern
+func (p pumbaChaos) StartContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
+	log.Info("Start containers")
+	// get command details
+	_, ok := cmd.(CommandStart)
+	if !ok {
+		return errors.New("Unexpected cmd type; should be CommandStart")
+	}
+	var err error
+	var containers []container.Container
+	if containers, err = listAllContainers(ctx, client, names, pattern); err != nil {
+		return err
+	}
+	return startContainers(ctx, client, containers)
 }
 
 // KillContainers - kill containers either by RE2 pattern (if specified) or by names
@@ -389,7 +437,7 @@ func (p pumbaChaos) KillContainers(ctx context.Context, client container.Client,
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	return killContainers(ctx, client, containers, command.Signal)
@@ -405,7 +453,7 @@ func (p pumbaChaos) RemoveContainers(ctx context.Context, client container.Clien
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	return removeContainers(ctx, client, containers, command.Force, command.Links, command.Volumes)
@@ -421,7 +469,7 @@ func (p pumbaChaos) NetemDelayContainers(ctx context.Context, client container.C
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	netemCmd := []string{"delay", strconv.Itoa(command.Time) + "ms"}
@@ -447,7 +495,7 @@ func (p pumbaChaos) NetemLossRandomContainers(ctx context.Context, client contai
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	// prepare netem loss command
@@ -468,7 +516,7 @@ func (p pumbaChaos) NetemLossStateContainers(ctx context.Context, client contain
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	// prepare netem loss state command
@@ -490,7 +538,7 @@ func (p pumbaChaos) NetemLossGEmodelContainers(ctx context.Context, client conta
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	// prepare netem loss gemodel command
@@ -512,7 +560,7 @@ func (p pumbaChaos) NetemRateContainers(ctx context.Context, client container.Cl
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	netemCmd := []string{"rate", command.Rate}
@@ -539,7 +587,7 @@ func (p pumbaChaos) PauseContainers(ctx context.Context, client container.Client
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
 		return err
 	}
 	return pauseContainers(ctx, client, containers, command.Duration)

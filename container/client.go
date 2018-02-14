@@ -29,6 +29,7 @@ type Filter func(Container) bool
 // Client interface
 type Client interface {
 	ListContainers(context.Context, Filter) ([]Container, error)
+	ListAllContainers(context.Context, Filter) ([]Container, error)
 	StopContainer(context.Context, Container, int, bool) error
 	KillContainer(context.Context, Container, string, bool) error
 	RemoveContainer(context.Context, Container, bool, bool, bool, bool) error
@@ -36,6 +37,7 @@ type Client interface {
 	StopNetemContainer(context.Context, Container, string, []net.IP, string, bool) error
 	PauseContainer(context.Context, Container, bool) error
 	UnpauseContainer(context.Context, Container, bool) error
+	StartContainer(context.Context, Container, bool) error
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -60,20 +62,28 @@ type dockerClient struct {
 }
 
 func (client dockerClient) ListContainers(ctx context.Context, fn Filter) ([]Container, error) {
+	return client.listContainers(ctx, fn, types.ContainerListOptions{})
+}
+
+func (client dockerClient) ListAllContainers(ctx context.Context, fn Filter) ([]Container, error) {
+	return client.listContainers(ctx, fn, types.ContainerListOptions{All: true})
+}
+
+func (client dockerClient) listContainers(ctx context.Context, fn Filter, opts types.ContainerListOptions) ([]Container, error) {
 	cs := []Container{}
 
-	log.Debug("Retrieving running containers")
+	log.Debug("Retrieving containers")
 
-	runningContainers, err := client.containerAPI.ContainerList(ctx, types.ContainerListOptions{})
+	containers, err := client.containerAPI.ContainerList(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	for _, runningContainer := range runningContainers {
-		containerInfo, err := client.containerAPI.ContainerInspect(ctx, runningContainer.ID)
+	for _, container := range containers {
+		containerInfo, err := client.containerAPI.ContainerInspect(ctx, container.ID)
 		if err != nil {
 			return nil, err
 		}
-		log.Debugf("Running container: %s - (%s)", containerInfo.Name, containerInfo.ID)
+		log.Debugf("Container: %s - (%s)", containerInfo.Name, containerInfo.ID)
 
 		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(ctx, containerInfo.Image)
 		if err != nil {
@@ -131,6 +141,21 @@ func (client dockerClient) StopContainer(ctx context.Context, c Container, timeo
 		// Wait for container to be removed. In this case an error is a good thing
 		if err := client.waitForStop(ctx, c, timeout); err == nil {
 			return fmt.Errorf("Container %s (%s) could not be stopped", c.Name(), c.ID())
+		}
+	}
+
+	return nil
+}
+
+func (client dockerClient) StartContainer(ctx context.Context, c Container, dryrun bool) error {
+	prefix := ""
+	if dryrun {
+		prefix = dryRunPrefix
+	}
+	log.Infof("%sStarting %s (%s)", prefix, c.Name(), c.ID())
+	if !dryrun {
+		if err := client.containerAPI.ContainerStart(ctx, c.ID(), types.ContainerStartOptions{}); err != nil {
+			return err
 		}
 	}
 
