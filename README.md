@@ -270,7 +270,7 @@ $ pumba netem --duration 5m delay --time 3000 mydb
 ```
 # add a delay of 3000ms ± 30ms, with the next random element depending 20% on the last one,
 # for all outgoing packets on device `eth1` of all Docker container, with name start with `hp`
-# for 10 minutes
+# for 5 minutes
 
 $ pumba netem --duration 5m --interface eth1 delay \
       --time 3000 \
@@ -282,7 +282,7 @@ $ pumba netem --duration 5m --interface eth1 delay \
 ```
 # add a delay of 3000ms ± 40ms, where variation in delay is described by `normal` distribution,
 # for all outgoing packets on device `eth0` of randomly chosen Docker container from the list
-# for 10 minutes
+# for 5 minutes
 
 $ pumba --random netem --duration 5m \
     delay \
