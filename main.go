@@ -127,6 +127,11 @@ func main() {
 					Usage: "termination signal, that will be sent by Pumba to the main process inside target container(s)",
 					Value: DefaultSignal,
 				},
+				cli.IntFlag{
+					Name:  "number, n",
+					Usage: "number of container to kill. To kill all the containers matching the pattern use default value: 0",
+					Value: 0,
+				},
 			},
 			Usage:       "kill specified containers",
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
@@ -542,7 +547,9 @@ func kill(c *cli.Context) error {
 		log.Error(err)
 		return err
 	}
-	runChaosCommand(action.CommandKill{Signal: signal}, interval, names, pattern, chaos.KillContainers)
+	// get number of container to kill
+	number := c.Int("number")
+	runChaosCommand(action.CommandKill{Signal: signal, Maximum: number}, interval, names, pattern, chaos.KillContainers)
 	return nil
 }
 

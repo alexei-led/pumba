@@ -290,6 +290,25 @@ func TestKillByPatternRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
+func TestKillByPatternAndLimit(t *testing.T) {
+	// prepare test data and mocks
+	_, cs := makeContainersN(10)
+	cmd := CommandKill{Signal: "SIGTEST", Maximum: 3}
+	client := container.NewMockClient()
+	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
+
+	client.On("KillContainer", mock.Anything, mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	client.On("KillContainer", mock.Anything, mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+	client.On("KillContainer", mock.Anything, mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
+
+	// do action
+	pumba := pumbaChaos{}
+	err := pumba.KillContainers(context.TODO(), client, []string{}, "^c", cmd)
+	// asserts
+	assert.NoError(t, err)
+	client.AssertExpectations(t)
+}
+
 func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := container.NewMockClient()
