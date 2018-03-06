@@ -595,7 +595,7 @@ func (p pumbaChaos) PauseContainers(ctx context.Context, client container.Client
 }
 
 func listNContainers(ctx context.Context, client container.Client, names []string, pattern string, n int) ([]container.Container, error) {
-	containers, err := listContainers(ctx, client, names, pattern)
+	containers, err := listRunningContainers(ctx, client, names, pattern)
 	if err != nil {
 		return nil, err
 	}
