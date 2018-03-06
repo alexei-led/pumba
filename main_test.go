@@ -67,6 +67,11 @@ func (m *ChaosMock) NetemRateContainers(ctx context.Context, c container.Client,
 	return args.Error(0)
 }
 
+func (m *ChaosMock) StartContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
+	args := m.Called(ctx, c, n, p, cmd)
+	return args.Error(0)
+}
+
 //---- TESTS
 
 type mainTestSuite struct {

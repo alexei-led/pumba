@@ -3,9 +3,11 @@
 [![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 #### Build
-[![Codefresh build status]( https://g.codefresh.io/api/badges/build?repoOwner=gaia-adm&repoName=pumba&branch=master&pipelineName=pumba&accountName=alexei-led&type=cf-2)]( https://g.codefresh.io/repositories/gaia-adm/pumba/builds?filter=trigger:build;branch:master;service:5811d26793aeec010086e59e~pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.2.5)
+
+[![Build Status](https://travis-ci.org/alexei-led/pumba.svg?branch=master)](https://travis-ci.org/alexei-led/pumba) [![Codefresh build status]( https://g.codefresh.io/api/badges/build?repoOwner=alexei-led&repoName=pumba&branch=master&pipelineName=pumba&accountName=codefresh-inc&type=cf-1)]( https://g.codefresh.io/repositories/alexei-led/pumba/builds?filter=trigger:build;branch:master;service:5a9d1dac81caf90001f95f9d~pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.2.5)
 
 #### Image
+
 [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master)  [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![Docker badge](https://img.shields.io/docker/pulls/gaiaadm/pumba.svg)](https://hub.docker.com/r/gaiaadm/pumba/) [![Anchore Image Overview](https://anchore.io/service/badges/image/77101bee4abccf2db02413002f25930b73bc6f5fea187b1b5ab1f0b538c1ba7a)](https://anchore.io/image/dockerhub/77101bee4abccf2db02413002f25930b73bc6f5fea187b1b5ab1f0b538c1ba7a?repo=gaiaadm%2Fpumba&tag=latest#overview)
 
 ## Demo
@@ -16,7 +18,7 @@
 
 You can download Pumba binary for your OS from [release](https://github.com/gaia-adm/pumba/releases) page.
 
-```
+```text
 $ pumba help
 
 Pumba version [VERSION](./blob/master/VERSION)
@@ -57,7 +59,7 @@ GLOBAL OPTIONS:
 
 ### Kill Container command
 
-```
+```text
 $ pumba kill -h
 
 NAME:
@@ -75,7 +77,7 @@ OPTIONS:
 
 ### Pause Container command
 
-```
+```text
 $ pumba pause -h
 
 NAME:
@@ -93,7 +95,7 @@ OPTIONS:
 
 ### Stop Container command
 
-```
+```text
 $ pumba stop -h
 NAME:
    pumba stop - stop containers
@@ -110,7 +112,7 @@ OPTIONS:
 
 ### Remove (rm) Container command
 
-```
+```text
 $ pumba rm -h
 
 NAME:
@@ -130,7 +132,7 @@ OPTIONS:
 
 ### Network Emulation (netem) command
 
-```
+```text
 $ pumba netem -h
 
 NAME:
@@ -156,7 +158,7 @@ OPTIONS:
 
 #### Network Emulation Delay sub-command
 
-```
+```text
 $ pumba netem delay -h
 
 NAME:
@@ -177,7 +179,7 @@ OPTIONS:
 
 #### Network Emulation Loss sub-commands
 
-```
+```text
 $ pumba netem loss -h
 
 NAME:
@@ -195,7 +197,7 @@ OPTIONS:
    --correlation value, -c value  loss correlation; in percentage (default: 0)
 ```
 
-```
+```text
 $ pumba netem loss-state -h
 
 NAME:
@@ -220,7 +222,7 @@ OPTIONS:
    --p14 value  probability to go from state (1) to state (4) (default: 0)
 ```
 
-```
+```text
 $ pumba netem loss-gemodel -h
 
 NAME:
@@ -240,7 +242,7 @@ OPTIONS:
    --one-k value         loss probability in the good state (default: 0)
 ```
 
-```
+```text
 $ pumba netem rate -h
 
 NAME:
@@ -261,13 +263,13 @@ OPTIONS:
 
 ##### Examples
 
-```
+```text
 # add 3 seconds delay for all outgoing packets on device `eth0` (default) of `mydb` Docker container for 5 minutes
 
 $ pumba netem --duration 5m delay --time 3000 mydb
 ```
 
-```
+```text
 # add a delay of 3000ms ± 30ms, with the next random element depending 20% on the last one,
 # for all outgoing packets on device `eth1` of all Docker container, with name start with `hp`
 # for 5 minutes
@@ -279,7 +281,7 @@ $ pumba netem --duration 5m --interface eth1 delay \
     re2:^hp
 ```
 
-```
+```text
 # add a delay of 3000ms ± 40ms, where variation in delay is described by `normal` distribution,
 # for all outgoing packets on device `eth0` of randomly chosen Docker container from the list
 # for 5 minutes
@@ -293,6 +295,7 @@ $ pumba --random netem --duration 5m \
 ```
 
 ##### `tc` tool
+
 Pumba uses `tc` Linux tool for network emulation. You have two options:
 
 1. Make sure that container, you want to disturb, has `tc` tool available and properly installed (install `iproute2` package)
@@ -300,12 +303,11 @@ Pumba uses `tc` Linux tool for network emulation. You have two options:
 
 **Note:** For Alpine Linux based image, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
 
-
 ### Running inside Docker container
 
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
 
-```
+```text
 # once in a 10 seconds, try to kill (with `SIGTERM` signal) all containers named **hp(something)**
 # on same Docker host, where Pumba container is running
 
@@ -314,15 +316,15 @@ $ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba
 
 **Note:** For Windows and OS X you will need to use `--host` argument, since there is no unix socket `/var/run/docker.sock` to mount.
 
-
 ### Running Pumba on Kubernetes cluster
 
 If you are running Kubernetes >= 1.1.0. You can take advantage of DaemonSets to automatically deploy the Pumba on all your nodes.
-On 1.1.x you'll need to explicitly enable the DaemonSets extension, see http://kubernetes.io/v1.1/docs/admin/daemons.html#caveats.
+On 1.1.x you'll need to explicitly enable the DaemonSets extension, see [documentation](http://kubernetes.io/v1.1/docs/admin/daemons.html#caveats).
 
 You'll then be able to deploy the DaemonSet with the command
-```
-$ kubectl create -f pumba_kube.yml
+
+```sh
+kubectl create -f pumba_kube.yml
 ```
 
 If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos (see above)
@@ -361,13 +363,15 @@ cd pumba
 You do not have to install and configure Go in order to build and test Pumba project. Pumba uses Docker multistage build to create final tiny Docker image.
 
 First of all clone Pumba git repository:
-```
+
+```sh
 git clone git@github.com:gaia-adm/pumba.git
 cd pumba
 ```
 
 Now create a new Pumba Docker image.
-```
+
+```sh
 docker build -t pumba -f Dockerfile .
 ```
 

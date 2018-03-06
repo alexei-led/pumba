@@ -15,9 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gaia-adm/pumba/action"
 	"github.com/gaia-adm/pumba/container"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/urfave/cli"
 
@@ -361,6 +362,13 @@ func main() {
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "remove target containers, with links and volumes",
 			Action:      remove,
+		},
+		{
+			Name:        "start",
+			Usage:       "start containers",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+			Description: "start the main process inside target containers",
+			Action:      start,
 		},
 	}
 	app.Flags = []cli.Flag{
@@ -941,6 +949,21 @@ func stop(c *cli.Context) error {
 	// run chaos command
 	cmd := action.CommandStop{WaitTime: c.Int("time")}
 	runChaosCommand(cmd, interval, names, pattern, chaos.StopContainers)
+	return nil
+}
+
+// START Command
+func start(c *cli.Context) error {
+	// get interval
+	interval, err := getIntervalValue(c)
+	if err != nil {
+		return err
+	}
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
+	// run chaos command
+	cmd := action.CommandStart{}
+	runChaosCommand(cmd, interval, names, pattern, chaos.StartContainers)
 	return nil
 }
 

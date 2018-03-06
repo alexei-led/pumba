@@ -24,6 +24,12 @@ func (m *MockClient) ListContainers(ctx context.Context, cf Filter) ([]Container
 	return args.Get(0).([]Container), args.Error(1)
 }
 
+// ListAllContainers mock
+func (m *MockClient) ListAllContainers(ctx context.Context, cf Filter) ([]Container, error) {
+	args := m.Called(ctx, cf)
+	return args.Get(0).([]Container), args.Error(1)
+}
+
 // StopContainer mock
 func (m *MockClient) StopContainer(ctx context.Context, c Container, timeout int, dryrun bool) error {
 	args := m.Called(ctx, c, timeout)
@@ -63,5 +69,11 @@ func (m *MockClient) NetemContainer(ctx context.Context, c Container, n string, 
 // StopNetemContainer mock
 func (m *MockClient) StopNetemContainer(ctx context.Context, c Container, n string, ips []net.IP, image string, dryrun bool) error {
 	args := m.Called(ctx, c, n, ips, image)
+	return args.Error(0)
+}
+
+// StartContainer mock
+func (m *MockClient) StartContainer(ctx context.Context, c Container, dryrun bool) error {
+	args := m.Called(ctx, c)
 	return args.Error(0)
 }
