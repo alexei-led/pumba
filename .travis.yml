@@ -1,18 +1,12 @@
 sudo: required
 services:
 - docker
-addons:
-  apt:
-    packages:
-    - docker-ce
+
 env:
   global:
   - SHORT_SHA=${TRAVIS_COMMIT:0:7}
   - BRANCH=${TRAVIS_BRANCH}
   - secure: "VvbxQkATQggqRu1XBH0ERO0+xYZg5sa6kY94SbL2oaAW20/wPGR4VMq1EP/ryPfrEr+b9OB02IxqmHEdQ19tglWRo+ChR2vxPQJ6vZGogi0c8u8g44YPt/f9duxUfOvIeQzOXekygMeYtI7ZyXgbLhwe/imte/EU8F2kUiY8M7CeqhssdkdM25fQ+M1ulxxfbMIRnvkILYheLtL1/UKs0/AcNnqtNBdasIJtu4SnvvBB2fttvGFZsE4zReOP6d5AH81tRo4j0gJlGoTe9kE72+yds1kDoPOP6N3/lH5m/Gc/nUxSJieGo126f2kS6NcSUUYr7LQmwYgUhRe35PZd7/7lmOG8ePTQhM8FnFPrJqgSsEXVH0H/nd5L0QswsJR+jbUYMeqvZ51mHFG0Un9LhA4Ch8oQ5BO2raxMQSsZApKvmRxnECiJFzdYmzmAL0Yi2jhyG2AqkE6LJ4QmQvBfj0GQbjYCXDTpG8jLZFT521yHcVNBQN2QbwHAdRaXm4C4Jl2XCpJetkppGufjWsbftKy5bOzgyJhm8EVxX4lmIn3SF6gl0j9PFSJWeS9qFiG70OlWxQD6hr8oMHHwKKreBEZsy3hQvs6/VGPqTaRGMDyfC4SMO+OHcfonRPAsKB/bWbqO+ocagTcw/n8oATle6ooTm63n1qiCZF5aOR7YTmk="
-
-# before_script: 
-#   - docker login -u=${DOCKER_USERNAME} -p=${DOCKER_PASSWORD}
 
 jobs:
   include:
@@ -21,27 +15,4 @@ jobs:
     script:
     - docker build \
         -e GH_SHA= ${SHORT_SHA} \
-        -e CODECOV_TOKEN=${{CODECOV_TOKEN}} -t build/pumba .
-
-  # - stage: release
-  #   if:  type != pull_request AND tag =~ ^[0-9]+[.][0-9]+[.][0-9]+$ AND type=push
-  #   name: release to github 
-  #     - docker build \ 
-  #         -e RELEASE=true \
-  #         -e GH_SHA=${SHORT_SHA} \
-  #         -e GITHUB_TOKEN=${GITHUB_TOKEN} \
-  #         -e CODECOV_TOKEN=${{CODECOV_TOKEN}} -t release/pumba .
-
-  # - name: docker push branch tag
-  #   if: type != pull_request AND (NOT tag =~ ^[0-9]+[.][0-9]+[.][0-9]+$)
-  #   script:
-  #   - docker tag build/pumba gaiaadm/pumba:${BRANCH}
-  #   - docker push gaiaadm/pumba:${BRANCH}
-  #   - docker tag build/pumba gaiaadm/pumba:${BRANCH}-${SHORT_SHA}
-  #   - docker push gaiaadm/pumba:${BRANCH}-${SHORT_SHA}
-
-  # - name: docker push latest
-  #   if:  type != pull_request AND branch = master
-  #   script:
-  #   - docker tag build/pumba gaiaadm/pumba:latest
-  #   - docker push gaiaadm/pumba:latest
+        -e CODECOV_TOKEN=${CODECOV_TOKEN} -t build/pumba .
