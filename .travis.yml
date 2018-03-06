@@ -7,15 +7,12 @@ addons:
     - docker-ce
 env:
   global:
-  - DOCKER_USERNAME=alexeiled
   - SHORT_SHA=${TRAVIS_COMMIT:0:7}
   - BRANCH=${TRAVIS_BRANCH}
-  - secure: ZTdA4fBetfW7bCQiLh7zhODGE8uib253ZzD/215UTk/D8kEVjWmGNly+AREu9O2AlHeIf7qc/vjMbXwvLaAZ/dU80HDKUgxSYlf117xMxvtz5/fH35FNr13lIPvdefQ/ZjDo/6eDw1buXxRV0/t4qF0mib9M/sep7I2GPic1F217kYJ34RM2xuuKwGBF1q36aLZuDVGKHEYrN3M63DrhkkhqPktRLKzh9opJQouLb2KJ4uwKXjKDAH954Dny9oZrGSYrdB9wPAbb3Dt+TreW6GJRcSmlHui1j8U6+y1/zoPw6pUFgxGkQHm4sXV2DiHf1+caCc91IRKA2RyGBWhsdTomzCEW/GjmR1uzmLfAJsts0Y3TwqbbbrQH7xMbPCApBrMvvLAf/BLcTCBPxGYgjv7SAi4s3jT2bxnbq5m4gq0VlC2KcvT//zaMKYuWs5s6aq3Hyewa7vsC56uIlXOhLT/0b7Bi8wPANHcdTWygzpbojkBmwKRXY8xItRWaQHdtSZKStKEH3su02yh9C8ePcE3WCIaeq9yIyMvX4jUwycsf3MfS2tLSxYyBKGSzPL2x7lAZG00XJ4Sof/MF4c5rYSDp0WtlBgbzFYaaj6T3wiarJSGkljb6xKaPVfo/z8aVgnqO5SFjLwvbTDUW4r2Pm4K0YuV3VxCAovnNY3AqDrc=
-  - secure: Cz+JU811uPtdPhRzewFoZxGhs+zOHHBH2CyLHoCgAoWKOxfZiUzrV0rn6Jdho6ejYbGnKWCvndONga2dZfx+TG9HZWal37AdrSY4PjzqWgk2gcMqcgao1tzgatpYlKM599nh/Vj+ptKt4xRte3J2/YzkgJZo1e7k/I4Bo5NtPdscxC4ESe88HPS7KqZeP8jLExC2ogqtINZkIQSwFQQFB6KufNR7JPjTGb1VVqCbn4A1LXNJKqGSJL6b/UG7BEK1Iy/V+Nt6VqqWCKcZvQmjA4+IwvkJyzlNIXPLLllMaK8ysxksZk2QHraBUVs6XnJ0P7B2IGqqUvGxp2QG/rZSDsuop+09t8l19IvXV5PaYVO7neblMF2/8y0+9I4yphmWjVEZfe9nB92VDg+PVMPsJYfGBuTzL/ro5wPWe7gf+9UaYrfSniRzTHRlA8gicoWvJpkye4/vwNIOClpkjwQ7gYM+Dok9ktXQdl2iggiG9oRK2LUD175NVwXdpRflsZgEGr9lcP259K6W1Ncrjg0487R6yr4nxWJPk5efiheuYhKItqWAskMCUY02Mn/9iisItQSPhcM1d5RB2VsA78NJoEWsqu1gcdbcdt99DaMDUAoL0z4Caczh2qmBclselqdHFk+rz5yyGwbbE8KxAAosoKjqkk0FDLxjfZHbe5G5rf8=
-  - secure: LRvWmaANbTycu3QpkrDxxW0JT3lpMNGXEuKqm0azlXN4kbkgpFkemQSR7JiDa31CIrGE8Z4XPThHHLGTGSNYWjfjfK9jAIVieGijXoc5DOmHKS2JefErBCPrtiNpgXKiwKgOPFXAkla3uSVcL6qT2+3JCGl3rdSXSII17xwqMu50X/JAm61hYuDzb34+XmgS4TEwOfrR2/jPX7DFc4mnE9mwRsrI+BnpOiw6LJRfCkamOIubUX/PWzKA9pznAAr3f5LgPl7nF0Ya4spoup+LgoSnx+lHZ7l3MvTtk4xmBKKjr7LIic/jPghavUOH0s3UGN7UiI7FweV9zBK9/q2m9xA7EnfwRrwOjZEB36/hr3F1f6gFCKf5b3U6Z/a9xMkMdPVsNq6l8jTD+OyNDC8VcmpW3TMpu6/fEVzrAIGunZZam8sU++0TvW53Kxeo0yWTSdDJB/LHrYhlxCMNGc2ysKd5TqrLhdO+4r9m2ObCqsU2/h7x5qUSQH+8QawAiNrdzvhD7CE4IN15d/wODVeOxR6qdID0PGhdj0CMs4lUwzDBvvDvtNoLBX3j5hD9C0XLnkmqhp17Jz1p7V8IG9Y8AIvLmceuX46tFB89OZLxeIqpkYq7viDwuG8iuPA1ZUdZwN6wWy7Dgk1MRUntgLTnbUzQVyQ441h51bT7SNBBUrs=
+  - secure: "VvbxQkATQggqRu1XBH0ERO0+xYZg5sa6kY94SbL2oaAW20/wPGR4VMq1EP/ryPfrEr+b9OB02IxqmHEdQ19tglWRo+ChR2vxPQJ6vZGogi0c8u8g44YPt/f9duxUfOvIeQzOXekygMeYtI7ZyXgbLhwe/imte/EU8F2kUiY8M7CeqhssdkdM25fQ+M1ulxxfbMIRnvkILYheLtL1/UKs0/AcNnqtNBdasIJtu4SnvvBB2fttvGFZsE4zReOP6d5AH81tRo4j0gJlGoTe9kE72+yds1kDoPOP6N3/lH5m/Gc/nUxSJieGo126f2kS6NcSUUYr7LQmwYgUhRe35PZd7/7lmOG8ePTQhM8FnFPrJqgSsEXVH0H/nd5L0QswsJR+jbUYMeqvZ51mHFG0Un9LhA4Ch8oQ5BO2raxMQSsZApKvmRxnECiJFzdYmzmAL0Yi2jhyG2AqkE6LJ4QmQvBfj0GQbjYCXDTpG8jLZFT521yHcVNBQN2QbwHAdRaXm4C4Jl2XCpJetkppGufjWsbftKy5bOzgyJhm8EVxX4lmIn3SF6gl0j9PFSJWeS9qFiG70OlWxQD6hr8oMHHwKKreBEZsy3hQvs6/VGPqTaRGMDyfC4SMO+OHcfonRPAsKB/bWbqO+ocagTcw/n8oATle6ooTm63n1qiCZF5aOR7YTmk="
 
-before_script: 
-  - docker login -u=${DOCKER_USERNAME} -p=${DOCKER_PASSWORD}
+# before_script: 
+#   - docker login -u=${DOCKER_USERNAME} -p=${DOCKER_PASSWORD}
 
 jobs:
   include:
@@ -24,28 +21,27 @@ jobs:
     script:
     - docker build \
         -e GH_SHA= ${SHORT_SHA} \
-        -e GITHUB_TOKEN=${GITHUB_TOKEN} \
         -e CODECOV_TOKEN=${{CODECOV_TOKEN}} -t build/pumba .
 
-  - stage: release
-    if:  type != pull_request AND tag =~ ^[0-9]+[.][0-9]+[.][0-9]+$ AND type=push
-    name: release to github 
-      - docker build \ 
-          -e RELEASE=true \
-          -e GH_SHA=${SHORT_SHA} \
-          -e GITHUB_TOKEN=${GITHUB_TOKEN} \
-          -e CODECOV_TOKEN=${{CODECOV_TOKEN}} -t release/pumba .
+  # - stage: release
+  #   if:  type != pull_request AND tag =~ ^[0-9]+[.][0-9]+[.][0-9]+$ AND type=push
+  #   name: release to github 
+  #     - docker build \ 
+  #         -e RELEASE=true \
+  #         -e GH_SHA=${SHORT_SHA} \
+  #         -e GITHUB_TOKEN=${GITHUB_TOKEN} \
+  #         -e CODECOV_TOKEN=${{CODECOV_TOKEN}} -t release/pumba .
 
-  - name: docker push branch tag
-    if: type != pull_request AND (NOT tag =~ ^[0-9]+[.][0-9]+[.][0-9]+$)
-    script:
-    - docker tag build/pumba gaiaadm/pumba:${BRANCH}
-    - docker push gaiaadm/pumba:${BRANCH}
-    - docker tag build/pumba gaiaadm/pumba:${BRANCH}-${SHORT_SHA}
-    - docker push gaiaadm/pumba:${BRANCH}-${SHORT_SHA}
+  # - name: docker push branch tag
+  #   if: type != pull_request AND (NOT tag =~ ^[0-9]+[.][0-9]+[.][0-9]+$)
+  #   script:
+  #   - docker tag build/pumba gaiaadm/pumba:${BRANCH}
+  #   - docker push gaiaadm/pumba:${BRANCH}
+  #   - docker tag build/pumba gaiaadm/pumba:${BRANCH}-${SHORT_SHA}
+  #   - docker push gaiaadm/pumba:${BRANCH}-${SHORT_SHA}
 
-  - name: docker push latest
-    if:  type != pull_request AND branch = master
-    script:
-    - docker tag build/pumba gaiaadm/pumba:latest
-    - docker push gaiaadm/pumba:latest
+  # - name: docker push latest
+  #   if:  type != pull_request AND branch = master
+  #   script:
+  #   - docker tag build/pumba gaiaadm/pumba:latest
+  #   - docker push gaiaadm/pumba:latest
