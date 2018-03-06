@@ -13,6 +13,4 @@ jobs:
 
   - stage: build
     script:
-    - docker build \
-        -e GH_SHA= ${SHORT_SHA} \
-        -e CODECOV_TOKEN=${CODECOV_TOKEN} -t build/pumba .
+    - docker build -e GH_SHA= ${SHORT_SHA} -e CODECOV_TOKEN=${CODECOV_TOKEN} -t build/pumba .
