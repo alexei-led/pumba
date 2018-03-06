@@ -656,3 +656,38 @@ func Test_execOnContainerExecInspectError(t *testing.T) {
 	assert.Error(t, err)
 	engineClient.AssertExpectations(t)
 }
+
+func TestStartContainer_DefaultSuccess(t *testing.T) {
+	containerDetails := ContainerDetailsResponse(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+	c := Container{containerInfo: containerDetails}
+
+	api := NewMockEngine()
+	api.On("ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{}).Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StartContainer(context.TODO(), c, false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStartContainer_DryRun(t *testing.T) {
+	c := Container{
+		containerInfo: ContainerDetailsResponse(AsMap(
+			"ID", "abc123",
+			"Name", "foo",
+		)),
+	}
+
+	api := NewMockEngine()
+	api.On("ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{}).Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StartContainer(context.TODO(), c, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{})
+}
