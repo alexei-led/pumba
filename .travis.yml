@@ -11,4 +11,4 @@ jobs:
 
   - stage: build
     script:
-    - docker build -e GH_SHA=${TRAVIS_COMMIT:0:7} -e CODECOV_TOKEN=${CODECOV_TOKEN} -t build/pumba .
+    - docker build --build-arg GH_SHA=${TRAVIS_COMMIT:0:7} --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} -t build/pumba .
