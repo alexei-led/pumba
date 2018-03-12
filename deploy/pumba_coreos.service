@@ -1,6 +1,6 @@
 [Unit]
 Description=Pumba for CoreOS
-Documentation=https://github.com/gaia-adm/pumba
+Documentation=https://github.com/alexei-led/pumba
 
 After=docker.service
 Requires=docker.service

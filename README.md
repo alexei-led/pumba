@@ -4,7 +4,7 @@
 
 #### Build
 
-[![Build Status](https://travis-ci.org/alexei-led/pumba.svg?branch=master)](https://travis-ci.org/alexei-led/pumba) [![Codefresh build status]( https://g.codefresh.io/api/badges/build?repoOwner=alexei-led&repoName=pumba&branch=master&pipelineName=pumba&accountName=codefresh-inc&type=cf-1)]( https://g.codefresh.io/repositories/alexei-led/pumba/builds?filter=trigger:build;branch:master;service:5a9d1dac81caf90001f95f9d~pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/gaia-adm/pumba)](https://goreportcard.com/report/github.com/gaia-adm/pumba) [![codecov](https://codecov.io/gh/gaia-adm/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/gaia-adm/pumba) [![GitHub release](https://img.shields.io/github/release/gaia-adm/pumba.svg?no-cache)](https://github.com/gaia-adm/pumba/releases/tag/0.2.5)
+[![Build Status](https://travis-ci.org/alexei-led/pumba.svg?branch=master)](https://travis-ci.org/alexei-led/pumba) [![Codefresh build status]( https://g.codefresh.io/api/badges/build?repoOwner=alexei-led&repoName=pumba&branch=master&pipelineName=pumba&accountName=codefresh-inc&type=cf-1)]( https://g.codefresh.io/repositories/alexei-led/pumba/builds?filter=trigger:build;branch:master;service:5a9d1dac81caf90001f95f9d~pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba) [![GitHub release](https://img.shields.io/github/release/alexei-led/pumba.svg?no-cache)](https://github.com/alexei-led/pumba/releases/tag/0.2.5)
 
 #### Image
 
@@ -16,7 +16,7 @@
 
 ## Usage
 
-You can download Pumba binary for your OS from [release](https://github.com/gaia-adm/pumba/releases) page.
+You can download Pumba binary for your OS from [release](https://github.com/alexei-led/pumba/releases) page.
 
 ```text
 $ pumba help
@@ -342,10 +342,10 @@ Here is the approximate list of commands you will need to run:
 ```sh
 # create required folder
 cd $GOPATH
-mkdir github.com/gaia-adm && cd github.com/gaia-adm
+mkdir github.com/alexei-led && cd github.com/alexei-led
 
 # clone pumba
-git clone git@github.com:gaia-adm/pumba.git
+git clone git@github.com:alexei-led/pumba.git
 cd pumba
 
 # build pumba binary
@@ -365,7 +365,7 @@ You do not have to install and configure Go in order to build and test Pumba pro
 First of all clone Pumba git repository:
 
 ```sh
-git clone git@github.com:gaia-adm/pumba.git
+git clone git@github.com:alexei-led/pumba.git
 cd pumba
 ```
 

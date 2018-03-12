@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gaia-adm/pumba/action"
-	"github.com/gaia-adm/pumba/container"
+	"github.com/alexei-led/pumba/action"
+	"github.com/alexei-led/pumba/container"
 
 	log "github.com/Sirupsen/logrus"
 
