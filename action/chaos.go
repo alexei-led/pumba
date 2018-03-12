@@ -31,7 +31,8 @@ const (
 
 // CommandKill arguments for kill command
 type CommandKill struct {
-	Signal string
+	Signal  string
+	Maximum int
 }
 
 // CommandPause arguments for pause command
@@ -437,7 +438,7 @@ func (p pumbaChaos) KillContainers(ctx context.Context, client container.Client,
 	}
 	var err error
 	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
+	if containers, err = listNContainers(ctx, client, names, pattern, command.Maximum); err != nil {
 		return err
 	}
 	return killContainers(ctx, client, containers, command.Signal)
@@ -591,4 +592,21 @@ func (p pumbaChaos) PauseContainers(ctx context.Context, client container.Client
 		return err
 	}
 	return pauseContainers(ctx, client, containers, command.Duration)
+}
+
+func listNContainers(ctx context.Context, client container.Client, names []string, pattern string, n int) ([]container.Container, error) {
+	containers, err := listRunningContainers(ctx, client, names, pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(containers) > n && n > 0 {
+		for i, _ := range containers {
+			j := rand.Intn(i + 1)
+			containers[i], containers[j] = containers[j], containers[i]
+		}
+		return containers[0:n], nil
+	}
+
+	return containers, nil
 }
