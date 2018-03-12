@@ -10,7 +10,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/gaia-adm/pumba/container"
+	"github.com/alexei-led/pumba/container"
 )
 
 var (

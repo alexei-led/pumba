@@ -10,8 +10,8 @@ RUN go get -v github.com/aktau/github-release && \
     go get -v github.com/jstemmer/go-junit-report
 
 # set working directory
-RUN mkdir -p /go/src/github.com/gaia-adm/pumba
-WORKDIR /go/src/github.com/gaia-adm/pumba
+RUN mkdir -p /go/src/github.com/alexei-led/pumba
+WORKDIR /go/src/github.com/alexei-led/pumba
 
 # copy sources (including .git repo)
 COPY . .
@@ -38,7 +38,7 @@ RUN if [[ "$RELEASE" == true ]]; then VERSION=$(cat VERSION) script/gox_build.sh
 
 # release to GitHub; pass GITHUB_TOKEN as build-arg
 ARG GITHUB_TOKEN
-RUN if [[ "$RELEASE" == true ]]; then RELEASE_TAG=$(git describe --abbrev=0) TAG_MESSAGE="$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}')" script/github_release.sh gaia-adm pumba; fi
+RUN if [[ "$RELEASE" == true ]]; then RELEASE_TAG=$(git describe --abbrev=0) TAG_MESSAGE="$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}')" script/github_release.sh alexei-led pumba; fi
 
 #
 # ------ Pumba runtime image ------
@@ -51,7 +51,7 @@ RUN addgroup pumba && adduser -s /bin/bash -D -G pumba pumba
 
 RUN apk add --no-cache dumb-init su-exec
 
-COPY --from=builder /go/src/github.com/gaia-adm/pumba/dist/bin/pumba /usr/bin/pumba
+COPY --from=builder /go/src/github.com/alexei-led/pumba/dist/bin/pumba /usr/bin/pumba
 COPY docker_entrypoint.sh /
 
 ENTRYPOINT ["dumb-init", "/docker_entrypoint.sh"]
@@ -59,4 +59,4 @@ CMD ["pumba", "--help"]
 
 ARG GH_SHA=dev
 LABEL org.label-schema.vcs-ref=$GH_SHA \
-      org.label-schema.vcs-url="https://github.com/gaia-adm/pumba"
+      org.label-schema.vcs-url="https://github.com/alexei-led/pumba"
