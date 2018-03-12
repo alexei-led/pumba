@@ -1,173 +1,256 @@
 # Change Log
 
-All notable changes to this project will be documented in this file.
-This project adheres to [Semantic Versioning](http://semver.org/).
+## [0.4.8](https://github.com/alexei-led/pumba/tree/0.4.8) (2018-03-12)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.7...0.4.8)
 
-## [0.4.7] - 2017-11-14
+**Implemented enhancements:**
 
-### Fixed
+- Fix `netem` when destination IP filter is defined [\#52](https://github.com/alexei-led/pumba/issues/52)
 
-- issue [52](https://github.com/alexei-led/pumba/issues/52) fixed `netem` qdisc, when using with IP filter
-- documentation fix
+**Fixed bugs:**
 
-### Changed
+- Fix `netem` when destination IP filter is defined [\#52](https://github.com/alexei-led/pumba/issues/52)
+- netem command fails on images where user != root [\#43](https://github.com/alexei-led/pumba/issues/43)
 
-- multi-platform build is not using `gox` tool anymore
+**Closed issues:**
 
-## [v0.4.5] - 2017-09-06
+- use dumb-init [\#69](https://github.com/alexei-led/pumba/issues/69)
+- use su-exec instead of gosu [\#68](https://github.com/alexei-led/pumba/issues/68)
+- kubernetes command should be an array and not a string [\#63](https://github.com/alexei-led/pumba/issues/63)
+- custom built container kills itself [\#62](https://github.com/alexei-led/pumba/issues/62)
+- suggest kubernetes limits and requests [\#61](https://github.com/alexei-led/pumba/issues/61)
+- allow targetting multiple specific ip's [\#57](https://github.com/alexei-led/pumba/issues/57)
 
-### Fixed
+**Merged pull requests:**
 
-- issue [39](https://github.com/alexei-led/pumba/issues/39) fixed, when all traffic blocked after applying `netem` `qdisc` with IP `filter` 
+- moving git repo to alexei-led [\#78](https://github.com/alexei-led/pumba/pull/78) ([alexei-led](https://github.com/alexei-led))
+- Limit the number of container to kill \#46 [\#77](https://github.com/alexei-led/pumba/pull/77) ([camilocot](https://github.com/camilocot))
+- Add Start command. \#59 [\#76](https://github.com/alexei-led/pumba/pull/76) ([camilocot](https://github.com/camilocot))
+- very minor min corrections [\#74](https://github.com/alexei-led/pumba/pull/74) ([lazerion](https://github.com/lazerion))
+- use dumb-init and su-exec [\#71](https://github.com/alexei-led/pumba/pull/71) ([grosser](https://github.com/grosser))
+- add requests/limits so container does not be come too greedy [\#67](https://github.com/alexei-led/pumba/pull/67) ([grosser](https://github.com/grosser))
+- avoid self-killing on kubernetes [\#66](https://github.com/alexei-led/pumba/pull/66) ([grosser](https://github.com/grosser))
+- prefer regular nodes by default [\#65](https://github.com/alexei-led/pumba/pull/65) ([grosser](https://github.com/grosser))
+- do not spam extra shell / make killing soft by default [\#64](https://github.com/alexei-led/pumba/pull/64) ([grosser](https://github.com/grosser))
+- support specifying multiple target IP's [\#58](https://github.com/alexei-led/pumba/pull/58) ([Dieterbe](https://github.com/Dieterbe))
+- fix logging of configs [\#56](https://github.com/alexei-led/pumba/pull/56) ([Dieterbe](https://github.com/Dieterbe))
 
-## [v0.4.3] - 2017-07-06
+## [0.4.7](https://github.com/alexei-led/pumba/tree/0.4.7) (2017-11-14)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.6...0.4.7)
 
-### Changed
+**Fixed bugs:**
 
-- multistage Docker build 
-- migrate to Codefresh.io CI/CD from CircleCI
-- new: homebrew formula for pumba
+- Pumba does not seem to work in my environment [\#33](https://github.com/alexei-led/pumba/issues/33)
 
-## [v0.4.2] - 2017-03-16
+**Merged pull requests:**
 
-### Changed
+- Fixes [\#55](https://github.com/alexei-led/pumba/pull/55) ([Dieterbe](https://github.com/Dieterbe))
+- fix typo's [\#54](https://github.com/alexei-led/pumba/pull/54) ([Dieterbe](https://github.com/Dieterbe))
 
-- minor bug fixes
+## [0.4.6](https://github.com/alexei-led/pumba/tree/0.4.6) (2017-10-26)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.5...0.4.6)
 
-## [v0.4.1] - 2017-02-01
+**Implemented enhancements:**
 
-### Changed
+- Pumba interact with all containers inside docker [\#41](https://github.com/alexei-led/pumba/issues/41)
 
-- adopt [dobi](https://dnephin.github.io/dobi/) for local and CircleCI builds
+**Fixed bugs:**
 
-## [v0.4.0] - 2017-01-29
+- Target IP filter blocking all traffic [\#39](https://github.com/alexei-led/pumba/issues/39)
 
-### Updated
+**Closed issues:**
 
-- Replace Docker samalba client with default Docker SDK for Go. Kudos to [Sławomir Nowak](https://github.com/slnowak) for contribution.
-- update glide dependency and versions
+- Regex not working [\#47](https://github.com/alexei-led/pumba/issues/47)
+- Building Error - "golang:1.8-alpine AS builder" [\#45](https://github.com/alexei-led/pumba/issues/45)
 
-## [v0.3.1] - 2016-12-13
+**Merged pull requests:**
 
-### Added
+- Add a Gitter chat badge to README.md [\#49](https://github.com/alexei-led/pumba/pull/49) ([gitter-badger](https://github.com/gitter-badger))
+- Creates a deploy file for OpenShift [\#48](https://github.com/alexei-led/pumba/pull/48) ([lordofthejars](https://github.com/lordofthejars))
 
-- `netem rate` command, contributed by Ricardo Martins @meqif
+## [0.4.5](https://github.com/alexei-led/pumba/tree/0.4.5) (2017-09-06)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.4...0.4.5)
 
-## [v0.3.0] - 2016-11-6
+**Fixed bugs:**
 
-### Added
+- not work in k8s ver 1.3 [\#19](https://github.com/alexei-led/pumba/issues/19)
 
-- build label is calculated based on major build (VERSION file), git branch and commit
-- `rocker` build support - Rockerfile added
-- speedup build time - improve cache management
+## [0.4.4](https://github.com/alexei-led/pumba/tree/0.4.4) (2017-07-08)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.3...0.4.4)
 
-## [v0.2.4] - 2016-09-07
+## [0.4.3](https://github.com/alexei-led/pumba/tree/0.4.3) (2017-07-07)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.2...0.4.3)
 
-### Added
+**Implemented enhancements:**
 
-- `netem --tc-image` flag to specify external Docker image with `tc` tool (try `gaiadocker/iproute2` image)
-- integration tests, run with `bats ./tests/`
+- tc command check [\#35](https://github.com/alexei-led/pumba/issues/35)
 
-## [v0.2.4] - 2016-08-10
+**Fixed bugs:**
 
-### Added
+- tc command check [\#35](https://github.com/alexei-led/pumba/issues/35)
+- Cannot remove running container [\#31](https://github.com/alexei-led/pumba/issues/31)
+- "pumba rm" without "--force" flag is useless [\#30](https://github.com/alexei-led/pumba/issues/30)
 
-- `netem loss` network emulation packer loss, based on independent (Bernoulli) probability model
-- `netem loss-state` network emulation packer loss, based on 4-Markov state probability model
-- `netem loss-gemodel` network emulation packer loss, according to the Gilbert-Elliot loss model
+**Closed issues:**
 
-## [v0.2.3] - 2016-08-07
+- Replace `samalba/dockerclient` library [\#14](https://github.com/alexei-led/pumba/issues/14)
 
-### Fixed
+## [0.4.2](https://github.com/alexei-led/pumba/tree/0.4.2) (2017-03-16)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.1...0.4.2)
 
-- `pause` command now can be interrupted with `Ctrl-C`; all paused processes will be unpaused
-- BUG: when using single container name, pumba disturbs all containers
+**Merged pull requests:**
 
-## [v0.2.2] - 2016-08-04
+- Added basic e2e tests [\#37](https://github.com/alexei-led/pumba/pull/37) ([slnowak](https://github.com/slnowak))
+- Pumba is now able to remove container [\#34](https://github.com/alexei-led/pumba/pull/34) ([slnowak](https://github.com/slnowak))
 
-### Changed
+## [0.4.1](https://github.com/alexei-led/pumba/tree/0.4.1) (2017-02-01)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.0-2-gdf5e4a3...0.4.1)
 
-- `--interval` flag is optional now; if missing Pumba will do single chaos action and exit
-- `netem delay --distribution` new option to define optional delay distribution, can be: {uniform | normal | pareto |  paretonormal}
-- check added to verify `tc` tool existence in container (`tc` is required for network emulation; part of `iproute2` package)
-- Use `Ctrl-C` to abort Pumba execution at any time
+## [0.4.0-2-gdf5e4a3](https://github.com/alexei-led/pumba/tree/0.4.0-2-gdf5e4a3) (2017-01-29)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.3.2...0.4.0-2-gdf5e4a3)
 
-## [v0.2.0] - 2016-07-20
+**Merged pull requests:**
 
-### Added
+- Get rid of samalba client [\#32](https://github.com/alexei-led/pumba/pull/32) ([slnowak](https://github.com/slnowak))
 
-- Network emulation for egress container traffic, powered by [netem](http://www.linuxfoundation.org/collaborate/workgroups/networking/netem)
+## [0.3.2](https://github.com/alexei-led/pumba/tree/0.3.2) (2017-01-17)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.3.1...0.3.2)
 
-### Updated
+## [0.3.1](https://github.com/alexei-led/pumba/tree/0.3.1) (2016-12-13)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.3.0...0.3.1)
 
-- **Breaking Change** command line simplification ...
-- `chaos` command had been replaced by multiple standalone commands: `kill`, `netem`, `pause`, `rm`, `stop`
-- now it's possible to run multiple Pumba Docker containers (do not prevent)
-- **Only ONE** command per single Pumba run is supported, but it's possible to run multiple Pumba processes and containers
+**Implemented enhancements:**
 
-## [v0.1.11] - 2016-06-27
+- Implement `rate` bandwidth limit [\#25](https://github.com/alexei-led/pumba/issues/25)
 
-### Added
+**Closed issues:**
 
-- pause container processes for specified interval
+- Debug messages problem [\#28](https://github.com/alexei-led/pumba/issues/28)
 
-## [v0.1.10] - 2016-06-05
+**Merged pull requests:**
 
-### Fixed
+- Implement rate bandwidth limit [\#29](https://github.com/alexei-led/pumba/pull/29) ([meqif](https://github.com/meqif))
 
-- set proper release tag in GitHub
+## [0.3.0](https://github.com/alexei-led/pumba/tree/0.3.0) (2016-11-24)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.9-4257dcf...0.3.0)
 
-## [0.1.9] - 2016-05-22
+**Closed issues:**
 
-### Fixed
+- Unable to start the pumba container [\#27](https://github.com/alexei-led/pumba/issues/27)
 
-- speed up build
+## [0.2.9-4257dcf](https://github.com/alexei-led/pumba/tree/0.2.9-4257dcf) (2016-10-28)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.9...0.2.9-4257dcf)
 
-## [0.1.8] - 2016-05-22
+## [0.2.9](https://github.com/alexei-led/pumba/tree/0.2.9) (2016-10-28)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.8...0.2.9)
 
-### Fixed
+## [0.2.8](https://github.com/alexei-led/pumba/tree/0.2.8) (2016-10-28)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.7...0.2.8)
 
-- Added CA ca-certificates to Docker image: required for HTTPS
+## [0.2.7](https://github.com/alexei-led/pumba/tree/0.2.7) (2016-10-27)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.6-3-g705f13b...0.2.7)
 
-## [0.1.7] - 2016-05-21
+## [0.2.6-3-g705f13b](https://github.com/alexei-led/pumba/tree/0.2.6-3-g705f13b) (2016-10-25)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.6...0.2.6-3-g705f13b)
 
-### Fixed
+**Implemented enhancements:**
 
-- Report Pumba events to Slack
+- One time run w/o interval [\#20](https://github.com/alexei-led/pumba/issues/20)
+- Run first action before interval [\#17](https://github.com/alexei-led/pumba/issues/17)
+- Can't rely on the Docker restart policy [\#11](https://github.com/alexei-led/pumba/issues/11)
 
-## [0.1.6] - 2016-04-25
+**Fixed bugs:**
 
-### Added
+- netem: add check for `iptools2` install [\#21](https://github.com/alexei-led/pumba/issues/21)
 
-- added `gosu` to Pumba Docker image
-- Use Docker Label `com.gaiaadm.pumba.skip` to make Pumba ignoring the container. Avoid abusing it though.
+**Closed issues:**
 
-### Fixed
+- Chaos state [\#18](https://github.com/alexei-led/pumba/issues/18)
 
-- Pumba runs as `pumba:pumba` user, instead of `root`
+**Merged pull requests:**
 
-## [0.1.5] - 2016-04-13
+- Fix typo: dealy -\> delay [\#26](https://github.com/alexei-led/pumba/pull/26) ([kane-c](https://github.com/kane-c))
 
-### Added
+## [0.2.6](https://github.com/alexei-led/pumba/tree/0.2.6) (2016-09-25)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.5...0.2.6)
 
-- File: `pumba_kube.yml` Kubernetes (1.1.x) deployment manifest
-- File: `pumba_coreos.service` CoreOS `fleet` service file
-- Flag: `--json` flag. When specified log will be generated in JSON format (Logstash and Splunk friendly)
-- Flag: `--slackhook` Slack web hook URL. Now Pumba can report log events to specified Slack channel.
-- Flag: `--slackchannel` Slack channel to report Pumba events in.
-- Flag: `--dry` enable 'dry run' mode: do not 'kill' containers, just log intention
-### Changed
+## [0.2.5](https://github.com/alexei-led/pumba/tree/0.2.5) (2016-09-08)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.4...0.2.5)
 
-- by default produce colarful log to TTY
+## [0.2.4](https://github.com/alexei-led/pumba/tree/0.2.4) (2016-08-10)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.3...0.2.4)
 
-### Fixed
+## [0.2.3](https://github.com/alexei-led/pumba/tree/0.2.3) (2016-08-07)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.2...0.2.3)
 
-- fix failure when container name is empty (all containers)
+## [0.2.2](https://github.com/alexei-led/pumba/tree/0.2.2) (2016-08-06)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.1...0.2.2)
 
-## [0.1.4] - 2016-04-08
+**Implemented enhancements:**
 
-This is initial release of Pumba Docker Chaos Testing
-### Added
+- Disconnect container from Docker network [\#13](https://github.com/alexei-led/pumba/issues/13)
+- Pause running container [\#12](https://github.com/alexei-led/pumba/issues/12)
 
-- `run` command
-- `--random` option: randomly select matching image to "kill"
+**Closed issues:**
+
+- Support recovery "validation" scripts [\#5](https://github.com/alexei-led/pumba/issues/5)
+- Support additional Docker commands [\#4](https://github.com/alexei-led/pumba/issues/4)
+
+## [0.2.1](https://github.com/alexei-led/pumba/tree/0.2.1) (2016-07-28)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.2.0...0.2.1)
+
+## [0.2.0](https://github.com/alexei-led/pumba/tree/0.2.0) (2016-07-27)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.11...0.2.0)
+
+**Merged pull requests:**
+
+- Add basic capability to disrupt container network [\#16](https://github.com/alexei-led/pumba/pull/16) ([inbarshani](https://github.com/inbarshani))
+
+## [0.1.11](https://github.com/alexei-led/pumba/tree/0.1.11) (2016-07-16)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.10...0.1.11)
+
+**Closed issues:**
+
+- Replace Gox [\#10](https://github.com/alexei-led/pumba/issues/10)
+- Add a pkg installer for Mac OS X [\#9](https://github.com/alexei-led/pumba/issues/9)
+- Collect container "lifecycle" activities from Docker host, Pumba is running on [\#3](https://github.com/alexei-led/pumba/issues/3)
+
+## [0.1.10](https://github.com/alexei-led/pumba/tree/0.1.10) (2016-06-05)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.9...0.1.10)
+
+## [0.1.9](https://github.com/alexei-led/pumba/tree/0.1.9) (2016-05-22)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.8...0.1.9)
+
+## [0.1.8](https://github.com/alexei-led/pumba/tree/0.1.8) (2016-05-22)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.7...0.1.8)
+
+## [0.1.7](https://github.com/alexei-led/pumba/tree/0.1.7) (2016-05-21)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.6...0.1.7)
+
+**Closed issues:**
+
+- Add label to skip Pumba eyes [\#8](https://github.com/alexei-led/pumba/issues/8)
+- Post to Slack does not work [\#7](https://github.com/alexei-led/pumba/issues/7)
+
+## [0.1.6](https://github.com/alexei-led/pumba/tree/0.1.6) (2016-04-25)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.5...0.1.6)
+
+**Closed issues:**
+
+- Are you planning to support Kubernetes or OpenSHift ? [\#6](https://github.com/alexei-led/pumba/issues/6)
+- Log Pumba "kill" activities with more details about affected containers [\#2](https://github.com/alexei-led/pumba/issues/2)
+
+## [0.1.5](https://github.com/alexei-led/pumba/tree/0.1.5) (2016-04-13)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.4...0.1.5)
+
+**Merged pull requests:**
+
+- Add a Bitdeli Badge to README [\#1](https://github.com/alexei-led/pumba/pull/1) ([bitdeli-chef](https://github.com/bitdeli-chef))
+
+## [0.1.4](https://github.com/alexei-led/pumba/tree/0.1.4) (2016-04-08)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.1.3...0.1.4)
+
+## [0.1.3](https://github.com/alexei-led/pumba/tree/0.1.3) (2016-04-04)
+
+
+\* *This Change Log was automatically generated by [github_changelog_generator](https://github.com/skywinder/Github-Changelog-Generator)*
