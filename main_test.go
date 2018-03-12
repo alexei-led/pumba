@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gaia-adm/pumba/action"
-	"github.com/gaia-adm/pumba/container"
+	"github.com/alexei-led/pumba/action"
+	"github.com/alexei-led/pumba/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"

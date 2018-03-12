@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- issue [52](https://github.com/gaia-adm/pumba/issues/52) fixed `netem` qdisc, when using with IP filter
+- issue [52](https://github.com/alexei-led/pumba/issues/52) fixed `netem` qdisc, when using with IP filter
 - documentation fix
 
 ### Changed
@@ -18,7 +18,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- issue [39](https://github.com/gaia-adm/pumba/issues/39) fixed, when all traffic blocked after applying `netem` `qdisc` with IP `filter` 
+- issue [39](https://github.com/alexei-led/pumba/issues/39) fixed, when all traffic blocked after applying `netem` `qdisc` with IP `filter` 
 
 ## [v0.4.3] - 2017-07-06
 
