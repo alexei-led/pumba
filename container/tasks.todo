@@ -1,0 +1,33 @@
+Refactoring:
+    ☐ refactor `cmd` - move all commands into `cmd` folder and `main` package
+    ☐ move other packages under `pkg`
+    ☐ review current packages
+    ☐ use `WithField/WithError` for logging
+    ☐ review current logging
+    ☐ implement Pumba API (REST or gRPC with client)
+    ☐ move mocks to `mocks` package/folder and auto-generate them
+    ☐ consider moving tests to `tests` folder
+    ☐ use matrix tests for better coverage
+
+Distributed:
+    ☐ get chaos command through Redis PubSub
+    ☐ report command progress to dedicated Redis queue
+    ☐ run pumba in agent mode (listen to PubSub)
+    ☐ run pumba in controller mode (sends command to PubSub, get progress from queue)
+
+Kubernetes:
+    ☐ filter Docker containers by Label, Pod, Namespace
+    ☐ ignore Docker containers on Nodes, Namespaces
+    ☐ consider Kubernetes specific chaos
+    ☐ discover network interface for Pods automatically
+    ☐ consider Pumba CRD
+    
+CI:
+    ☐ rename `script` to `hack`
+    ☐ reduce go binary size
+    ☐ skip packages without tests
+    ☐ add redis PubSub to integration tests
+
+CD:
+    ☐ prepare Helm Chart: Pumba daemon set, RBAC, Reids PubSub, Controller
+    ☐ remove CodeOS service
