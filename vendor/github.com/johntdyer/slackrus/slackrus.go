@@ -2,17 +2,15 @@
 package slackrus
 
 import (
-	"github.com/Sirupsen/logrus"
+	"fmt"
+
 	"github.com/johntdyer/slack-go"
+	"github.com/sirupsen/logrus"
 )
 
 // Project version
 const (
-	VERISON = "0.0.2"
-)
-
-var (
-	client *slack.Client
+	VERISON = "0.0.3"
 )
 
 // SlackrusHook is a logrus Hook for dispatching messages to the specified
@@ -26,7 +24,8 @@ type SlackrusHook struct {
 	Channel        string
 	IconEmoji      string
 	Username       string
-	c              *slack.Client
+	Asynchronous   bool
+	Extra          map[string]interface{}
 }
 
 // Levels sets which levels to sent to slack
@@ -39,12 +38,6 @@ func (sh *SlackrusHook) Levels() []logrus.Level {
 
 // Fire -  Sent event to slack
 func (sh *SlackrusHook) Fire(e *logrus.Entry) error {
-	if sh.c == nil {
-		if err := sh.initClient(); err != nil {
-			return err
-		}
-	}
-
 	color := ""
 	switch e.Level {
 	case logrus.DebugLevel:
@@ -58,52 +51,67 @@ func (sh *SlackrusHook) Fire(e *logrus.Entry) error {
 	}
 
 	msg := &slack.Message{
-		Username: sh.Username,
-		Channel:  sh.Channel,
+		Username:  sh.Username,
+		Channel:   sh.Channel,
+		IconEmoji: sh.IconEmoji,
+		IconUrl:   sh.IconURL,
 	}
-
-	msg.IconEmoji = sh.IconEmoji
-	msg.IconUrl = sh.IconURL
 
 	attach := msg.NewAttachment()
 
+	newEntry := sh.newEntry(e)
 	// If there are fields we need to render them at attachments
-	if len(e.Data) > 0 {
+	if len(newEntry.Data) > 0 {
 
 		// Add a header above field data
 		attach.Text = "Message fields"
 
-		for k, v := range e.Data {
+		for k, v := range newEntry.Data {
 			slackField := &slack.Field{}
 
-			if str, ok := v.(string); ok {
-				slackField.Title = k
-				slackField.Value = str
-				// If the field is <= 20 then we'll set it to short
-				if len(str) <= 20 {
-					slackField.Short = true
-				}
+			slackField.Title = k
+			slackField.Value = fmt.Sprint(v)
+			// If the field is <= 20 then we'll set it to short
+			if len(slackField.Value) <= 20 {
+				slackField.Short = true
 			}
-			attach.AddField(slackField)
 
+			attach.AddField(slackField)
 		}
-		attach.Pretext = e.Message
+		attach.Pretext = newEntry.Message
 	} else {
-		attach.Text = e.Message
+		attach.Text = newEntry.Message
 	}
-	attach.Fallback = e.Message
+	attach.Fallback = newEntry.Message
 	attach.Color = color
 
-	return sh.c.SendMessage(msg)
+	c := slack.NewClient(sh.HookURL)
 
-}
-
-func (sh *SlackrusHook) initClient() error {
-	sh.c = &slack.Client{sh.HookURL}
-
-	if sh.Username == "" {
-		sh.Username = "SlackRus"
+	if sh.Asynchronous {
+		go c.SendMessage(msg)
+		return nil
 	}
 
-	return nil
+	return c.SendMessage(msg)
+}
+
+func (sh *SlackrusHook) newEntry(entry *logrus.Entry) *logrus.Entry {
+	data := map[string]interface{}{}
+
+	for k, v := range sh.Extra {
+		data[k] = v
+	}
+	for k, v := range entry.Data {
+		data[k] = v
+	}
+
+	newEntry := &logrus.Entry{
+		Logger:  entry.Logger,
+		Data:    data,
+		Time:    entry.Time,
+		Level:   entry.Level,
+		Message: entry.Message,
+	}
+
+	return newEntry
 }

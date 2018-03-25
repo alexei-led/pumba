@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/docker/integration-cli/checker"
+	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
+	"github.com/opencontainers/go-digest"
 )
 
 // testPullImageWithAliases pulls a specific image tag and verifies that any aliases (i.e., other
@@ -65,14 +65,13 @@ func testConcurrentPullWholeRepo(c *check.C) {
 	repos := []string{}
 	for _, tag := range []string{"recent", "fresh", "todays"} {
 		repo := fmt.Sprintf("%v:%v", repoName, tag)
-		_, err := buildImage(repo, fmt.Sprintf(`
+		buildImageSuccessfully(c, repo, withDockerfile(fmt.Sprintf(`
 		    FROM busybox
 		    ENTRYPOINT ["/bin/echo"]
 		    ENV FOO foo
 		    ENV BAR bar
 		    CMD echo %s
-		`, repo), true)
-		c.Assert(err, checker.IsNil)
+		`, repo)))
 		dockerCmd(c, "push", repo)
 		repos = append(repos, repo)
 	}
@@ -87,8 +86,8 @@ func testConcurrentPullWholeRepo(c *check.C) {
 
 	for i := 0; i != numPulls; i++ {
 		go func() {
-			_, _, err := runCommandWithOutput(exec.Command(dockerBinary, "pull", "-a", repoName))
-			results <- err
+			result := icmd.RunCommand(dockerBinary, "pull", "-a", repoName)
+			results <- result.Error
 		}()
 	}
 
@@ -125,8 +124,8 @@ func testConcurrentFailingPull(c *check.C) {
 
 	for i := 0; i != numPulls; i++ {
 		go func() {
-			_, _, err := runCommandWithOutput(exec.Command(dockerBinary, "pull", repoName+":asdfasdf"))
-			results <- err
+			result := icmd.RunCommand(dockerBinary, "pull", repoName+":asdfasdf")
+			results <- result.Error
 		}()
 	}
 
@@ -154,14 +153,13 @@ func testConcurrentPullMultipleTags(c *check.C) {
 	repos := []string{}
 	for _, tag := range []string{"recent", "fresh", "todays"} {
 		repo := fmt.Sprintf("%v:%v", repoName, tag)
-		_, err := buildImage(repo, fmt.Sprintf(`
+		buildImageSuccessfully(c, repo, withDockerfile(fmt.Sprintf(`
 		    FROM busybox
 		    ENTRYPOINT ["/bin/echo"]
 		    ENV FOO foo
 		    ENV BAR bar
 		    CMD echo %s
-		`, repo), true)
-		c.Assert(err, checker.IsNil)
+		`, repo)))
 		dockerCmd(c, "push", repo)
 		repos = append(repos, repo)
 	}
@@ -175,8 +173,8 @@ func testConcurrentPullMultipleTags(c *check.C) {
 
 	for _, repo := range repos {
 		go func(repo string) {
-			_, _, err := runCommandWithOutput(exec.Command(dockerBinary, "pull", repo))
-			results <- err
+			result := icmd.RunCommand(dockerBinary, "pull", repo)
+			results <- result.Error
 		}(repo)
 	}
 
@@ -209,21 +207,15 @@ func testPullIDStability(c *check.C) {
 	derivedImage := privateRegistryURL + "/dockercli/id-stability"
 	baseImage := "busybox"
 
-	_, err := buildImage(derivedImage, fmt.Sprintf(`
+	buildImageSuccessfully(c, derivedImage, withDockerfile(fmt.Sprintf(`
 	    FROM %s
 	    ENV derived true
 	    ENV asdf true
 	    RUN dd if=/dev/zero of=/file bs=1024 count=1024
 	    CMD echo %s
-	`, baseImage, derivedImage), true)
-	if err != nil {
-		c.Fatal(err)
-	}
+	`, baseImage, derivedImage)))
 
-	originalID, err := getIDByName(derivedImage)
-	if err != nil {
-		c.Fatalf("error inspecting: %v", err)
-	}
+	originalID := getIDByName(c, derivedImage)
 	dockerCmd(c, "push", derivedImage)
 
 	// Pull
@@ -232,10 +224,7 @@ func testPullIDStability(c *check.C) {
 		c.Fatalf("repull redownloaded a layer: %s", out)
 	}
 
-	derivedIDAfterPull, err := getIDByName(derivedImage)
-	if err != nil {
-		c.Fatalf("error inspecting: %v", err)
-	}
+	derivedIDAfterPull := getIDByName(c, derivedImage)
 
 	if derivedIDAfterPull != originalID {
 		c.Fatal("image's ID unexpectedly changed after a repush/repull")
@@ -252,16 +241,10 @@ func testPullIDStability(c *check.C) {
 	dockerCmd(c, "rmi", derivedImage)
 	dockerCmd(c, "pull", derivedImage)
 
-	derivedIDAfterPull, err = getIDByName(derivedImage)
-	if err != nil {
-		c.Fatalf("error inspecting: %v", err)
-	}
+	derivedIDAfterPull = getIDByName(c, derivedImage)
 
 	if derivedIDAfterPull != originalID {
 		c.Fatal("image's ID unexpectedly changed after a repush/repull")
-	}
-	if err != nil {
-		c.Fatalf("error inspecting: %v", err)
 	}
 
 	// Make sure the image still runs
@@ -283,14 +266,9 @@ func (s *DockerSchema1RegistrySuite) TestPullIDStability(c *check.C) {
 func testPullNoLayers(c *check.C) {
 	repoName := fmt.Sprintf("%v/dockercli/scratch", privateRegistryURL)
 
-	_, err := buildImage(repoName, `
+	buildImageSuccessfully(c, repoName, withDockerfile(`
 	FROM scratch
-	ENV foo bar`,
-		true)
-	if err != nil {
-		c.Fatal(err)
-	}
-
+	ENV foo bar`))
 	dockerCmd(c, "push", repoName)
 	dockerCmd(c, "rmi", repoName)
 	dockerCmd(c, "pull", repoName)
@@ -481,12 +459,11 @@ func (s *DockerRegistrySuite) TestRunImplicitPullWithNoTag(c *check.C) {
 	dockerCmd(c, "rmi", repoTag1)
 	dockerCmd(c, "rmi", repoTag2)
 
-	out, _, err := dockerCmdWithError("run", repo)
-	c.Assert(err, check.IsNil)
+	out, _ := dockerCmd(c, "run", repo)
 	c.Assert(out, checker.Contains, fmt.Sprintf("Unable to find image '%s:latest' locally", repo))
 
 	// There should be only one line for repo, the one with repo:latest
-	outImageCmd, _, err := dockerCmdWithError("images", repo)
+	outImageCmd, _ := dockerCmd(c, "images", repo)
 	splitOutImageCmd := strings.Split(strings.TrimSpace(outImageCmd), "\n")
 	c.Assert(splitOutImageCmd, checker.HasLen, 2)
 }

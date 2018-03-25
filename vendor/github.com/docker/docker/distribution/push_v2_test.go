@@ -7,13 +7,13 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest/schema2"
 	distreference "github.com/docker/distribution/reference"
 	"github.com/docker/docker/distribution/metadata"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/progress"
 	"github.com/docker/docker/reference"
+	"github.com/opencontainers/go-digest"
 )
 
 func TestGetRepositoryMountCandidates(t *testing.T) {
@@ -202,7 +202,7 @@ func TestLayerAlreadyExists(t *testing.T) {
 			checkOtherRepositories: true,
 			metadata: []metadata.V2Metadata{
 				{Digest: digest.Digest("apple"), SourceRepository: "docker.io/library/hello-world"},
-				{Digest: digest.Digest("orange"), SourceRepository: "docker.io/library/busybox/subapp"},
+				{Digest: digest.Digest("orange"), SourceRepository: "docker.io/busybox/subapp"},
 				{Digest: digest.Digest("pear"), SourceRepository: "docker.io/busybox"},
 				{Digest: digest.Digest("plum"), SourceRepository: "busybox"},
 				{Digest: digest.Digest("banana"), SourceRepository: "127.0.0.1/busybox"},

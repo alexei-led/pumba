@@ -204,10 +204,7 @@ func from(b *Builder, args []string, attributes map[string]bool, original string
 
 	name := args[0]
 
-	var (
-		image builder.Image
-		err   error
-	)
+	var image builder.Image
 
 	// Windows cannot support a container with no base image.
 	if name == api.NoBaseImageSpecifier {
@@ -219,10 +216,11 @@ func from(b *Builder, args []string, attributes map[string]bool, original string
 	} else {
 		// TODO: don't use `name`, instead resolve it to a digest
 		if !b.options.PullParent {
-			image, err = b.docker.GetImageOnBuild(name)
+			image, _ = b.docker.GetImageOnBuild(name)
 			// TODO: shouldn't we error out if error is different from "not found" ?
 		}
 		if image == nil {
+			var err error
 			image, err = b.docker.PullOnBuild(b.clientCtx, name, b.options.AuthConfigs, b.Output)
 			if err != nil {
 				return err
@@ -298,17 +296,19 @@ func workdir(b *Builder, args []string, attributes map[string]bool, original str
 	}
 	b.runConfig.Image = b.image
 
+	cmd := b.runConfig.Cmd
+	comment := "WORKDIR " + b.runConfig.WorkingDir
+	// reset the command for cache detection
+	b.runConfig.Cmd = strslice.StrSlice(append(getShell(b.runConfig), "#(nop) "+comment))
+	defer func(cmd strslice.StrSlice) { b.runConfig.Cmd = cmd }(cmd)
+
 	if hit, err := b.probeCache(); err != nil {
 		return err
 	} else if hit {
 		return nil
 	}
 
-	// Actually copy the struct
-	workdirConfig := *b.runConfig
-	workdirConfig.Cmd = strslice.StrSlice(append(getShell(b.runConfig), fmt.Sprintf("#(nop) WORKDIR %s", b.runConfig.WorkingDir)))
-
-	container, err := b.docker.ContainerCreate(types.ContainerCreateConfig{Config: &workdirConfig})
+	container, err := b.docker.ContainerCreate(types.ContainerCreateConfig{Config: b.runConfig})
 	if err != nil {
 		return err
 	}
@@ -317,7 +317,7 @@ func workdir(b *Builder, args []string, attributes map[string]bool, original str
 		return err
 	}
 
-	return b.commit(container.ID, b.runConfig.Cmd, "WORKDIR "+b.runConfig.WorkingDir)
+	return b.commit(container.ID, cmd, comment)
 }
 
 // RUN some command yo

@@ -23,6 +23,7 @@ type Message struct {
 }
 
 type Attachment struct {
+	Title    string   `json:"title"`
 	Fallback string   `json:"fallback"`
 	Text     string   `json:"text"`
 	Pretext  string   `json:"pretext"`
@@ -59,6 +60,7 @@ func (c *Client) SendMessage(msg *Message) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		t, _ := ioutil.ReadAll(resp.Body)

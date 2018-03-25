@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
 	containertypes "github.com/docker/docker/api/types/container"
@@ -23,7 +22,8 @@ import (
 	"github.com/docker/swarmkit/agent/exec"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/log"
-	"github.com/docker/swarmkit/protobuf/ptypes"
+	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/opencontainers/go-digest"
 	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
@@ -54,7 +54,7 @@ func (c *containerAdapter) pullImage(ctx context.Context) error {
 	spec := c.container.spec()
 
 	// Skip pulling if the image is referenced by image ID.
-	if _, err := digest.ParseDigest(spec.Image); err == nil {
+	if _, err := digest.Parse(spec.Image); err == nil {
 		return nil
 	}
 
@@ -391,7 +391,7 @@ func (c *containerAdapter) logs(ctx context.Context, options api.LogSubscription
 	}
 
 	if options.Since != nil {
-		since, err := ptypes.Timestamp(options.Since)
+		since, err := gogotypes.TimestampFromProto(options.Since)
 		if err != nil {
 			return nil, err
 		}

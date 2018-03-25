@@ -342,20 +342,3 @@ func TestLoggingRace(t *testing.T) {
 	}
 	wg.Wait()
 }
-
-// Compile test
-func TestLogrusInterface(t *testing.T) {
-	var buffer bytes.Buffer
-	fn := func(l FieldLogger) {
-		b := l.WithField("key", "value")
-		b.Debug("Test")
-	}
-	// test logger
-	logger := New()
-	logger.Out = &buffer
-	fn(logger)
-
-	// test Entry
-	e := logger.WithField("another", "value")
-	fn(e)
-}

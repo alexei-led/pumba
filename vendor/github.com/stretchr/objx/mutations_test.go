@@ -1,12 +1,12 @@
 package objx
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestExclude(t *testing.T) {
-
 	d := make(Map)
 	d["name"] = "Mat"
 	d["age"] = 29
@@ -17,11 +17,9 @@ func TestExclude(t *testing.T) {
 	assert.Equal(t, d["name"], excluded["name"])
 	assert.Equal(t, d["age"], excluded["age"])
 	assert.False(t, excluded.Has("secret"), "secret should be excluded")
-
 }
 
 func TestCopy(t *testing.T) {
-
 	d1 := make(map[string]interface{})
 	d1["name"] = "Tyler"
 	d1["location"] = "UT"
@@ -37,7 +35,6 @@ func TestCopy(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-
 	d := make(map[string]interface{})
 	d["name"] = "Mat"
 
@@ -53,11 +50,9 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, merged.Get("name").Str(), d1Obj.Get("name").Str())
 	assert.Equal(t, merged.Get("location").Str(), d1Obj.Get("location").Str())
 	assert.Empty(t, dObj.Get("location").Str())
-
 }
 
 func TestMergeHere(t *testing.T) {
-
 	d := make(map[string]interface{})
 	d["name"] = "Mat"
 

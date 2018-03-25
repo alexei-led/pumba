@@ -1,6 +1,4 @@
-FROM alpine:3.5
-
-MAINTAINER Alexei Ledenev <alexei.led@gmail.com>
+FROM alpine:3.7
 
 LABEL com.gaiaadm.pumba.skip=true
 

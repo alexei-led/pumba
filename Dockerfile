@@ -1,7 +1,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.9-alpine AS builder
+FROM golang:1.10-alpine AS builder
 
 # github-release - Github Release and upload artifacts
 # go-junit-report - convert Go test into junit.xml format
@@ -24,7 +24,7 @@ ARG RELEASE=false
 ARG DEBUG=false
 
 # run test and calculate coverage: skip for RELEASE
-RUN if [[ "$RELEASE" == false ]]; then VERSION=$(cat VERSION) script/coverage.sh; fi
+RUN if [[ "$RELEASE" == false ]]; then VERSION=$(cat VERSION) script/test.sh; fi
 
 # upload coverage reports to Codecov.io: pass CODECOV_TOKEN as build-arg: skip for RELEASE
 ARG CODECOV_TOKEN

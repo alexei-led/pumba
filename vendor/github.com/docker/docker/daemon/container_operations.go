@@ -382,7 +382,7 @@ func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrN
 			}
 
 			// Retry network attach again if we failed to
-			// find the network after successfull
+			// find the network after successful
 			// attachment because the only reason that
 			// would happen is if some other container
 			// attached to the swarm scope network went down
@@ -410,7 +410,7 @@ func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrN
 	return n, config, nil
 }
 
-// updateContainerNetworkSettings update the network settings
+// updateContainerNetworkSettings updates the network settings
 func (daemon *Daemon) updateContainerNetworkSettings(container *container.Container, endpointsConfig map[string]*networktypes.EndpointSettings) {
 	var n libnetwork.Network
 
@@ -1035,7 +1035,7 @@ func (daemon *Daemon) ActivateContainerServiceBinding(containerName string) erro
 	return sb.EnableService()
 }
 
-// DeactivateContainerServiceBinding remove this container fromload balancer active rotation, and DNS response
+// DeactivateContainerServiceBinding removes this container from load balancer active rotation, and DNS response
 func (daemon *Daemon) DeactivateContainerServiceBinding(containerName string) error {
 	container, err := daemon.GetContainer(containerName)
 	if err != nil {

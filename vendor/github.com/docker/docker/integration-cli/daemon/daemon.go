@@ -2,15 +2,11 @@ package daemon
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +16,7 @@ import (
 
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/integration-cli/checker"
+	"github.com/docker/docker/integration-cli/request"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/stringid"
@@ -183,6 +180,7 @@ func (d *Daemon) getClientConfig() (*clientConfig, error) {
 	if err := sockets.ConfigureTransport(transport, proto, addr); err != nil {
 		return nil, err
 	}
+	transport.DisableKeepAlives = true
 
 	return &clientConfig{
 		transport: transport,
@@ -304,6 +302,7 @@ func (d *Daemon) StartWithLogFile(out *os.File, providedArgs ...string) error {
 			if err != nil {
 				continue
 			}
+			resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				d.log.Logf("[%s] received status != 200 OK: %s\n", d.id, resp.Status)
 			}
@@ -584,14 +583,15 @@ func (d *Daemon) GetBaseDeviceSize(c *check.C) int64 {
 	return basesizeBytes
 }
 
-// Cmd will execute a docker CLI command against this Daemon.
+// Cmd executes a docker CLI command against this daemon.
 // Example: d.Cmd("version") will run docker -H unix://path/to/unix.sock version
 func (d *Daemon) Cmd(args ...string) (string, error) {
 	b, err := d.Command(args...).CombinedOutput()
 	return string(b), err
 }
 
-// Command will create a docker CLI command against this Daeomn.
+// Command creates a docker CLI command against this daemon, to be executed later.
+// Example: d.Command("version") creates a command to run "docker -H unix://path/to/unix.sock version"
 func (d *Daemon) Command(args ...string) *exec.Cmd {
 	return exec.Command(d.dockerBinary, d.PrependHostArg(args)...)
 }
@@ -624,7 +624,7 @@ func (d *Daemon) SockRequest(method, endpoint string, data interface{}) (int, []
 // SockRequestRaw executes a socket request on a daemon and returns an http
 // response and a reader for the output data.
 func (d *Daemon) SockRequestRaw(method, endpoint string, data io.Reader, ct string) (*http.Response, io.ReadCloser, error) {
-	return SockRequestRawToDaemon(method, endpoint, data, ct, d.Sock())
+	return request.SockRequestRaw(method, endpoint, data, ct, d.Sock())
 }
 
 // LogFileName returns the path the daemon's log file
@@ -714,7 +714,7 @@ func (d *Daemon) ReloadConfig() error {
 	errCh := make(chan error)
 	started := make(chan struct{})
 	go func() {
-		_, body, err := SockRequestRawToDaemon("GET", "/events", nil, "", d.Sock())
+		_, body, err := request.SockRequestRaw("GET", "/events", nil, "", d.Sock())
 		close(started)
 		if err != nil {
 			errCh <- err
@@ -762,7 +762,7 @@ func WaitInspectWithArgs(dockerBinary, name, expr, expected string, timeout time
 	for {
 		result := icmd.RunCommand(dockerBinary, args...)
 		if result.Error != nil {
-			if !strings.Contains(result.Stderr(), "No such") {
+			if !strings.Contains(strings.ToLower(result.Stderr()), "no such") {
 				return errors.Errorf("error executing docker inspect: %v\n%s",
 					result.Stderr(), result.Stdout())
 			}
@@ -791,97 +791,8 @@ func WaitInspectWithArgs(dockerBinary, name, expr, expected string, timeout time
 	return nil
 }
 
-// SockRequestRawToDaemon creates an http request against the specified daemon socket
-// FIXME(vdemeester) attach this to daemon ?
-func SockRequestRawToDaemon(method, endpoint string, data io.Reader, ct, daemon string) (*http.Response, io.ReadCloser, error) {
-	req, client, err := newRequestClient(method, endpoint, data, ct, daemon)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		client.Close()
-		return nil, nil, err
-	}
-	body := ioutils.NewReadCloserWrapper(resp.Body, func() error {
-		defer resp.Body.Close()
-		return client.Close()
-	})
-
-	return resp, body, nil
-}
-
-func getTLSConfig() (*tls.Config, error) {
-	dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
-
-	if dockerCertPath == "" {
-		return nil, errors.New("DOCKER_TLS_VERIFY specified, but no DOCKER_CERT_PATH environment variable")
-	}
-
-	option := &tlsconfig.Options{
-		CAFile:   filepath.Join(dockerCertPath, "ca.pem"),
-		CertFile: filepath.Join(dockerCertPath, "cert.pem"),
-		KeyFile:  filepath.Join(dockerCertPath, "key.pem"),
-	}
-	tlsConfig, err := tlsconfig.Client(*option)
-	if err != nil {
-		return nil, err
-	}
-
-	return tlsConfig, nil
-}
-
-// SockConn opens a connection on the specified socket
-func SockConn(timeout time.Duration, daemon string) (net.Conn, error) {
-	daemonURL, err := url.Parse(daemon)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse url %q", daemon)
-	}
-
-	var c net.Conn
-	switch daemonURL.Scheme {
-	case "npipe":
-		return npipeDial(daemonURL.Path, timeout)
-	case "unix":
-		return net.DialTimeout(daemonURL.Scheme, daemonURL.Path, timeout)
-	case "tcp":
-		if os.Getenv("DOCKER_TLS_VERIFY") != "" {
-			// Setup the socket TLS configuration.
-			tlsConfig, err := getTLSConfig()
-			if err != nil {
-				return nil, err
-			}
-			dialer := &net.Dialer{Timeout: timeout}
-			return tls.DialWithDialer(dialer, daemonURL.Scheme, daemonURL.Host, tlsConfig)
-		}
-		return net.DialTimeout(daemonURL.Scheme, daemonURL.Host, timeout)
-	default:
-		return c, errors.Errorf("unknown scheme %v (%s)", daemonURL.Scheme, daemon)
-	}
-}
-
-func newRequestClient(method, endpoint string, data io.Reader, ct, daemon string) (*http.Request, *httputil.ClientConn, error) {
-	c, err := SockConn(time.Duration(10*time.Second), daemon)
-	if err != nil {
-		return nil, nil, errors.Errorf("could not dial docker daemon: %v", err)
-	}
-
-	client := httputil.NewClientConn(c, nil)
-
-	req, err := http.NewRequest(method, endpoint, data)
-	if err != nil {
-		client.Close()
-		return nil, nil, errors.Errorf("could not create new request: %v", err)
-	}
-
-	if ct != "" {
-		req.Header.Set("Content-Type", ct)
-	}
-	return req, client, nil
-}
-
 // BuildImageCmdWithHost create a build command with the specified arguments.
+// Deprecated
 // FIXME(vdemeester) move this away
 func BuildImageCmdWithHost(dockerBinary, name, dockerfile, host string, useCache bool, buildFlags ...string) *exec.Cmd {
 	args := []string{}

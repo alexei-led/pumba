@@ -13,7 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
+
+	"github.com/alexei-led/pumba/container/mocks"
 )
+
+func NewMockEngine() *mocks.APIClient {
+	return new(mocks.APIClient)
+}
 
 func allContainers(Container) bool {
 	return true

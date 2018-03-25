@@ -41,6 +41,8 @@ docker-run - Run a command in a new container
 [**--group-add**[=*[]*]]
 [**-h**|**--hostname**[=*HOSTNAME*]]
 [**--help**]
+[**--init**]
+[**--init-path**[=*[]*]]
 [**-i**|**--interactive**]
 [**--ip**[=*IPv4-ADDRESS*]]
 [**--ip6**[=*IPv6-ADDRESS*]]
@@ -309,7 +311,13 @@ redirection on the host system.
    Sets the container host name that is available inside the container.
 
 **--help**
-  Print usage statement
+   Print usage statement
+
+**--init**
+   Run an init inside the container that forwards signals and reaps processes
+
+**--init-path**=""
+   Path to the docker-init binary
 
 **-i**, **--interactive**=*true*|*false*
    Keep STDIN open even if not attached. The default is *false*.
@@ -317,12 +325,12 @@ redirection on the host system.
    When set to true, keep stdin open even if not attached. The default is false.
 
 **--ip**=""
-   Sets the container's interface IPv4 address (e.g. 172.23.0.9)
+   Sets the container's interface IPv4 address (e.g., 172.23.0.9)
 
    It can only be used in conjunction with **--network** for user-defined networks
 
 **--ip6**=""
-   Sets the container's interface IPv6 address (e.g. 2001:db8::1b99)
+   Sets the container's interface IPv6 address (e.g., 2001:db8::1b99)
 
    It can only be used in conjunction with **--network** for user-defined networks
 
@@ -401,7 +409,7 @@ the value of --memory.
 unit, `b` is used. Set LIMIT to `-1` to enable unlimited swap.
 
 **--mac-address**=""
-   Container MAC address (e.g. 92:d0:c6:0a:29:33)
+   Container MAC address (e.g., 92:d0:c6:0a:29:33)
 
    Remember that the MAC address in an Ethernet network must be unique.
 The IPv6 link-local address will be based on the device's MAC address

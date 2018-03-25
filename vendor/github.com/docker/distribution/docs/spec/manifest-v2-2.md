@@ -1,12 +1,8 @@
-<!--[metadata]>
-+++
-title = "Image Manifest V 2, Schema 2 "
-description = "image manifest for the Registry."
-keywords = ["registry, on-prem, images, tags, repository, distribution, api, advanced, manifest"]
-[menu.main]
-parent="smn_registry_ref"
-+++
-<![end-metadata]-->
+---
+title: "Image Manifest V 2, Schema 2 "
+description: "image manifest for the Registry."
+keywords: ["registry, on-prem, images, tags, repository, distribution, api, advanced, manifest"]
+---
 
 # Image Manifest Version 2, Schema 2
 
@@ -31,8 +27,10 @@ the resources they reference:
 - `application/vnd.docker.distribution.manifest.v1+json`: schema1 (existing manifest format)
 - `application/vnd.docker.distribution.manifest.v2+json`: New image manifest format (schemaVersion = 2)
 - `application/vnd.docker.distribution.manifest.list.v2+json`: Manifest list, aka "fat manifest"
-- `application/vnd.docker.image.rootfs.diff.tar.gzip`: "Layer", as a gzipped tar
 - `application/vnd.docker.container.image.v1+json`: Container config JSON
+- `application/vnd.docker.image.rootfs.diff.tar.gzip`: "Layer", as a gzipped tar
+- `application/vnd.docker.image.rootfs.foreign.diff.tar.gzip`: "Layer", as a gzipped tar that should never be pushed
+- `application/vnd.docker.plugin.v1+json`: Plugin config JSON
 
 ## Manifest List
 
@@ -203,6 +201,9 @@ image. It's the direct replacement for the schema-1 manifest.
 
         The MIME type of the referenced object. This should
         generally be `application/vnd.docker.image.rootfs.diff.tar.gzip`.
+        Layers of type
+        `application/vnd.docker.image.rootfs.foreign.diff.tar.gzip` may be
+        pulled from a remote location but they should never be pushed.
 
     - **`size`** *int*
 
@@ -218,11 +219,9 @@ image. It's the direct replacement for the schema-1 manifest.
 
     - **`urls`** *array*
 
-        For an ordinary layer, this is empty, and the layer contents can be
-        retrieved directly from the registry. For a layer with *`mediatype`* of
-        `application/vnd.docker.image.rootfs.foreign.diff.tar.gzip`, this
-        contains a non-empty list of URLs from which this object can be
-        downloaded.
+        Provides a list of URLs from which the content may be fetched. Content
+        should be verified against the `digest` and `size`. This field is
+        optional and uncommon.
 
 ## Example Image Manifest
 
@@ -252,7 +251,7 @@ image. It's the direct replacement for the schema-1 manifest.
             "size": 73109,
             "digest": "sha256:ec4b8955958665577945c89419d1af06b5f7636b4ac3da7f12184802ad867736"
         }
-    ],
+    ]
 }
 ```
 

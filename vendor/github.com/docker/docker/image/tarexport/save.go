@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/image/v1"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/reference"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
@@ -234,7 +234,9 @@ func (s *saveSession) saveImage(id image.ID) (map[layer.DiffID]distribution.Desc
 	var foreignSrcs map[layer.DiffID]distribution.Descriptor
 	for i := range img.RootFS.DiffIDs {
 		v1Img := image.V1Image{
-			Created: img.Created,
+			// This is for backward compatibility used for
+			// pre v1.9 docker.
+			Created: time.Unix(0, 0),
 		}
 		if i == len(img.RootFS.DiffIDs)-1 {
 			v1Img = img.V1Image

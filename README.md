@@ -352,7 +352,7 @@ cd pumba
 ./script/go_build.sh
 
 # run tests and create HTML coverage report
-./script/coverage.sh --html
+./script/test.sh --html
 
 # create pumba binaries for multiple platforms
 ./script/gox_build.sh
@@ -374,14 +374,6 @@ Now create a new Pumba Docker image.
 ```sh
 docker build -t pumba -f Dockerfile .
 ```
-
-## Used Libraries and Code
-
-- Official Docker API for Go [docker/docker](https://github.com/docker/docker)
-- Logging  [Sirupsen/logrus](https://github.com/Sirupsen/logrus)
-- Command line app lib [codegangsta/cli](https://github.com/codegangsta/cli)
-
-I've also borrowed some code from very good [CenturyLinkLabs/watchtower](https://github.com/CenturyLinkLabs/watchtower) project.
 
 ## License
 

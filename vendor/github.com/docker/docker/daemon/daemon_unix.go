@@ -29,6 +29,7 @@ import (
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/runconfig"
+	"github.com/docker/docker/volume"
 	"github.com/docker/libnetwork"
 	nwconfig "github.com/docker/libnetwork/config"
 	"github.com/docker/libnetwork/drivers/bridge"
@@ -497,7 +498,7 @@ func UsingSystemd(config *Config) bool {
 // verifyPlatformContainerSettings performs platform-specific validation of the
 // hostconfig and config structures.
 func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.HostConfig, config *containertypes.Config, update bool) ([]string, error) {
-	warnings := []string{}
+	var warnings []string
 	sysInfo := sysinfo.New(true)
 
 	warnings, err := daemon.verifyExperimentalContainerSettings(hostConfig, config)
@@ -551,6 +552,12 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 
 	if rt := daemon.configStore.GetRuntime(hostConfig.Runtime); rt == nil {
 		return warnings, fmt.Errorf("Unknown runtime specified %s", hostConfig.Runtime)
+	}
+
+	for dest := range hostConfig.Tmpfs {
+		if err := volume.ValidateTmpfsMountDestination(dest); err != nil {
+			return warnings, err
+		}
 	}
 
 	return warnings, nil
@@ -925,7 +932,6 @@ func parseRemappedRoot(usergrp string) (string, string, error) {
 			if err != nil {
 				return "", "", fmt.Errorf("Error during gid lookup for %q: %v", lookupName, err)
 			}
-			groupID = group.Gid
 			groupname = group.Name
 		}
 	}
@@ -1125,8 +1131,8 @@ func (daemon *Daemon) stats(c *container.Container) (*types.StatsJSON, error) {
 			Limit:    mem.Limit,
 		}
 		// if the container does not set memory limit, use the machineMemory
-		if mem.Limit > daemon.statsCollector.machineMemory && daemon.statsCollector.machineMemory > 0 {
-			s.MemoryStats.Limit = daemon.statsCollector.machineMemory
+		if mem.Limit > daemon.machineMemory && daemon.machineMemory > 0 {
+			s.MemoryStats.Limit = daemon.machineMemory
 		}
 		if cgs.PidsStats != nil {
 			s.PidsStats = types.PidsStats{
@@ -1190,6 +1196,12 @@ func (daemon *Daemon) initCgroupsPath(path string) error {
 		return nil
 	}
 
+	if daemon.configStore.CPURealtimePeriod == 0 && daemon.configStore.CPURealtimeRuntime == 0 {
+		return nil
+	}
+
+	// Recursively create cgroup to ensure that the system and all parent cgroups have values set
+	// for the period and runtime as this limits what the children can be set to.
 	daemon.initCgroupsPath(filepath.Dir(path))
 
 	_, root, err := cgroups.FindCgroupMountpointAndRoot("cpu")
@@ -1199,15 +1211,18 @@ func (daemon *Daemon) initCgroupsPath(path string) error {
 
 	path = filepath.Join(root, path)
 	sysinfo := sysinfo.New(true)
-	if err := os.MkdirAll(path, 0755); err != nil && !os.IsExist(err) {
-		return err
-	}
 	if sysinfo.CPURealtimePeriod && daemon.configStore.CPURealtimePeriod != 0 {
+		if err := os.MkdirAll(path, 0755); err != nil && !os.IsExist(err) {
+			return err
+		}
 		if err := ioutil.WriteFile(filepath.Join(path, "cpu.rt_period_us"), []byte(strconv.FormatInt(daemon.configStore.CPURealtimePeriod, 10)), 0700); err != nil {
 			return err
 		}
 	}
 	if sysinfo.CPURealtimeRuntime && daemon.configStore.CPURealtimeRuntime != 0 {
+		if err := os.MkdirAll(path, 0755); err != nil && !os.IsExist(err) {
+			return err
+		}
 		if err := ioutil.WriteFile(filepath.Join(path, "cpu.rt_runtime_us"), []byte(strconv.FormatInt(daemon.configStore.CPURealtimeRuntime, 10)), 0700); err != nil {
 			return err
 		}

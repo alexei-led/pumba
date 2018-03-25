@@ -3,6 +3,11 @@
 **ATTN**: This project uses [semantic versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Flag type code generation via `go generate`
+
+### Changed
+- Raise minimum tested/supported Go version to 1.2+
 
 ## [1.18.0] - 2016-06-27
 ### Added
