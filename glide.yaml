@@ -1,6 +1,6 @@
 package: github.com/alexei-led/pumba
 import:
-- package: github.com/Sirupsen/logrus
+- package: github.com/sirupsen/logrus
 - package: github.com/stretchr/testify
   subpackages:
   - mock

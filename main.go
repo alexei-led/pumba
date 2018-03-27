@@ -18,7 +18,7 @@ import (
 	"github.com/alexei-led/pumba/action"
 	"github.com/alexei-led/pumba/container"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/urfave/cli"
 

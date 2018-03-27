@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	types "github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"

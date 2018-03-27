@@ -11,8 +11,8 @@ import (
 
 	"rsc.io/letsencrypt"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/formatters/logstash"
+	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/formatters/logstash"
 	"github.com/bugsnag/bugsnag-go"
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/context"
