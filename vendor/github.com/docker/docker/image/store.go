@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/distribution/digest"
 	"github.com/docker/docker/layer"
 )

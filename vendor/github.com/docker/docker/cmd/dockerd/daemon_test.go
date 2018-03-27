@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	cliflags "github.com/docker/docker/cli/flags"
 	"github.com/docker/docker/daemon"
 	"github.com/docker/docker/pkg/testutil/assert"

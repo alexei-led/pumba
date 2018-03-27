@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/cli/command"
 	"github.com/docker/docker/cli/debug"
 	"github.com/docker/docker/pkg/testutil/assert"

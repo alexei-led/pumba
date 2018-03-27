@@ -378,7 +378,7 @@ docker build -t pumba -f Dockerfile .
 ## Used Libraries and Code
 
 - Official Docker API for Go [docker/docker](https://github.com/docker/docker)
-- Logging  [Sirupsen/logrus](https://github.com/Sirupsen/logrus)
+- Logging  [sirupsen/logrus](https://github.com/sirupsen/logrus)
 - Command line app lib [codegangsta/cli](https://github.com/codegangsta/cli)
 
 I've also borrowed some code from very good [CenturyLinkLabs/watchtower](https://github.com/CenturyLinkLabs/watchtower) project.

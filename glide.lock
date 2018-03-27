@@ -54,7 +54,7 @@ imports:
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
-- name: github.com/Sirupsen/logrus
+- name: github.com/sirupsen/logrus
   version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672

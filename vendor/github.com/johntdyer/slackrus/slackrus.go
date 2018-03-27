@@ -2,7 +2,7 @@
 package slackrus
 
 import (
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/johntdyer/slack-go"
 )
 

@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/distribution/digest"
 	distreference "github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types/swarm"

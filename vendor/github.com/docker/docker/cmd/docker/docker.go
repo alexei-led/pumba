@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/cli/command"
