@@ -476,7 +476,7 @@ Line: 1 Col: 44 Unexpected end of file. Expected end tag (script).
 |   <body>
 
 #data
-<!doctype html><script><!--<script </hack/
+<!doctype html><script><!--<script </script/
 #errors
 Line: 1 Col: 44 Unexpected end of file. Expected end tag (script).
 #document
@@ -484,7 +484,7 @@ Line: 1 Col: 44 Unexpected end of file. Expected end tag (script).
 | <html>
 |   <head>
 |     <script>
-|       "<!--<script </hack/"
+|       "<!--<script </script/"
 |   <body>
 
 #data
@@ -548,7 +548,7 @@ Line: 1 Col: 53 Unexpected end of file. Expected end tag (script).
 |   <body>
 
 #data
-<!doctype html><script><!--<script </script </hack/
+<!doctype html><script><!--<script </script </script/
 #errors
 Line: 1 Col: 53 Unexpected end of file. Expected end tag (script).
 #document
@@ -703,7 +703,7 @@ Line: 1 Col: 47 Unexpected end of file. Expected end tag (script).
 |   <body>
 
 #data
-<!doctype html><script><!--<script --></hack/
+<!doctype html><script><!--<script --></script/
 #errors
 Line: 1 Col: 47 Unexpected end of file. Expected end tag (script).
 #document
@@ -1625,7 +1625,7 @@ Line: 1 Col: 29 Unexpected end of file. Expected end tag (script).
 |   <body>
 
 #data
-<script><!--<script </hack/
+<script><!--<script </script/
 #errors
 Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
 Line: 1 Col: 29 Unexpected end of file. Expected end tag (script).
@@ -1633,7 +1633,7 @@ Line: 1 Col: 29 Unexpected end of file. Expected end tag (script).
 | <html>
 |   <head>
 |     <script>
-|       "<!--<script </hack/"
+|       "<!--<script </script/"
 |   <body>
 
 #data
@@ -1697,7 +1697,7 @@ Line: 1 Col: 38 Unexpected end of file. Expected end tag (script).
 |   <body>
 
 #data
-<script><!--<script </script </hack/
+<script><!--<script </script </script/
 #errors
 Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
 Line: 1 Col: 38 Unexpected end of file. Expected end tag (script).
@@ -1828,7 +1828,7 @@ Line: 1 Col: 32 Unexpected end of file. Expected end tag (script).
 |   <body>
 
 #data
-<script><!--<script --></hack/
+<script><!--<script --></script/
 #errors
 Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
 Line: 1 Col: 32 Unexpected end of file. Expected end tag (script).

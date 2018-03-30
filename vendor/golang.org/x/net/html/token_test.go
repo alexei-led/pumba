@@ -225,7 +225,7 @@ var tokenTests = []tokenTest{
 	},
 	{
 		"self-closing script end tag",
-		"<SCRIPT>a</hack/>",
+		"<SCRIPT>a</SCRipt/>",
 		"<script>$a$</script>",
 	},
 	{
@@ -239,7 +239,7 @@ var tokenTests = []tokenTest{
 		"<script>$a&lt;/SCRipt$</script>",
 	},
 	{
-		"hack/style mismatched tags",
+		"script/style mismatched tags",
 		"<script>a</style>",
 		"<script>$a&lt;/style&gt;",
 	},
