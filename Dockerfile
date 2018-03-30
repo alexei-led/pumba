@@ -24,21 +24,21 @@ ARG RELEASE=false
 ARG DEBUG=false
 
 # run test and calculate coverage: skip for RELEASE
-RUN if [[ "$RELEASE" == false ]]; then VERSION=$(cat VERSION) script/test.sh; fi
+RUN if [[ "$RELEASE" == false ]]; then VERSION=$(cat VERSION) hack/test.sh; fi
 
 # upload coverage reports to Codecov.io: pass CODECOV_TOKEN as build-arg: skip for RELEASE
 ARG CODECOV_TOKEN
 RUN if [[ "$RELEASE" == false ]]; then bash -c "bash <(curl -s https://codecov.io/bash) -t ${CODECOV_TOKEN}"; fi
 
 # build pumba binary for amd64 linux
-RUN VERSION=$(cat VERSION) script/go_build.sh
+RUN VERSION=$(cat VERSION) hack/build.sh
 
 # build pumba for all platforms
-RUN if [[ "$RELEASE" == true ]]; then VERSION=$(cat VERSION) script/gox_build.sh; fi
+RUN if [[ "$RELEASE" == true ]]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
 
 # release to GitHub; pass GITHUB_TOKEN as build-arg
 ARG GITHUB_TOKEN
-RUN if [[ "$RELEASE" == true ]]; then RELEASE_TAG=$(git describe --abbrev=0) TAG_MESSAGE="$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}')" script/github_release.sh alexei-led pumba; fi
+RUN if [[ "$RELEASE" == true ]]; then RELEASE_TAG=$(git describe --abbrev=0) TAG_MESSAGE="$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}')" hack/github_release.sh alexei-led pumba; fi
 
 #
 # ------ Pumba runtime image ------

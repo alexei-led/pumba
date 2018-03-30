@@ -299,7 +299,7 @@ EOF
 release_index() {
 	echo "Releasing index"
 	url="$(s3_url)/" hack/make.sh install-script
-	write_to_s3 "s3://$BUCKET_PATH/index" < "bundles/$VERSION/install-script/install.sh"
+	write_to_s3 "s3://$BUCKET_PATH/index" < "bundles/$VERSION/install-hack/install.sh"
 }
 
 main() {

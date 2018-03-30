@@ -33,7 +33,7 @@ FOO<script></script >BAR
 |     "BAR"
 
 #data
-FOO<script></script/>BAR
+FOO<script></hack/>BAR
 #errors
 #document
 | <html>
@@ -44,7 +44,7 @@ FOO<script></script/>BAR
 |     "BAR"
 
 #data
-FOO<script></script/ >BAR
+FOO<script></hack/ >BAR
 #errors
 #document
 | <html>
@@ -270,7 +270,7 @@ FOO<script type="text/plain">'<!-- <sCrIpt '</script>BAR
 |       "'<!-- <sCrIpt '</script>BAR"
 
 #data
-FOO<script type="text/plain">'<!-- <sCrIpt/'</script>BAR
+FOO<script type="text/plain">'<!-- <hack/'</script>BAR
 #errors
 #document
 | <html>
@@ -279,7 +279,7 @@ FOO<script type="text/plain">'<!-- <sCrIpt/'</script>BAR
 |     "FOO"
 |     <script>
 |       type="text/plain"
-|       "'<!-- <sCrIpt/'</script>BAR"
+|       "'<!-- <hack/'</script>BAR"
 
 #data
 FOO<script type="text/plain">'<!-- <sCrIpt\'</script>BAR
@@ -295,7 +295,7 @@ FOO<script type="text/plain">'<!-- <sCrIpt\'</script>BAR
 |     "BAR"
 
 #data
-FOO<script type="text/plain">'<!-- <sCrIpt/'</script>BAR</script>QUX
+FOO<script type="text/plain">'<!-- <hack/'</script>BAR</script>QUX
 #errors
 #document
 | <html>
@@ -304,5 +304,5 @@ FOO<script type="text/plain">'<!-- <sCrIpt/'</script>BAR</script>QUX
 |     "FOO"
 |     <script>
 |       type="text/plain"
-|       "'<!-- <sCrIpt/'</script>BAR"
+|       "'<!-- <hack/'</script>BAR"
 |     "QUX"

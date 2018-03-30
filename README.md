@@ -349,13 +349,13 @@ git clone git@github.com:alexei-led/pumba.git
 cd pumba
 
 # build pumba binary
-./script/go_build.sh
+./hack/build.sh
 
 # run tests and create HTML coverage report
-./script/test.sh --html
+./hack/test.sh --html
 
 # create pumba binaries for multiple platforms
-./script/gox_build.sh
+./hack/xbuild.sh
 ```
 
 ### Build using Docker
