@@ -17,7 +17,7 @@ WORKDIR /go/src/github.com/alexei-led/pumba
 COPY . .
 
 # set entrypoint to bash
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT "/bin/bash"
 
 # build argument to secify if to create a GitHub release
 ARG RELEASE=false
@@ -51,8 +51,8 @@ RUN addgroup pumba && adduser -s /bin/bash -D -G pumba pumba
 
 RUN apk add --no-cache dumb-init su-exec
 
-COPY --from=builder /go/src/github.com/alexei-led/pumba/dist/bin/pumba /usr/bin/pumba
-COPY docker_entrypoint.sh /
+COPY --from=builder /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/bin/pumba
+COPY docker/docker_entrypoint.sh /
 
 ENTRYPOINT ["dumb-init", "/docker_entrypoint.sh"]
 CMD ["pumba", "--help"]

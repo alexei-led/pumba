@@ -1,11 +1,8 @@
 .cover
-.dobi
 .git
-.glide
 .gtm
 .idea
-.rocker_cache
-.ssh_debug
-dist
 .vscode
+.bin
+.env
 debug
