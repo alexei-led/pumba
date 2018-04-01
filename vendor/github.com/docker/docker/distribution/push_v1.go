@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/docker/distribution/metadata"
 	"github.com/docker/docker/dockerversion"
@@ -17,6 +16,7 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
+	"github.com/opencontainers/go-digest"
 	"golang.org/x/net/context"
 )
 
@@ -121,7 +121,7 @@ type v1DependencyImage struct {
 func newV1DependencyImage(l layer.Layer, parent *v1DependencyImage) *v1DependencyImage {
 	v1ID := digest.Digest(l.ChainID()).Hex()
 
-	config := ""
+	var config string
 	if parent != nil {
 		config = fmt.Sprintf(`{"id":"%s","parent":"%s"}`, v1ID, parent.V1ID())
 	} else {

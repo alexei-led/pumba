@@ -1,9 +1,10 @@
 package main
 
 import (
-	logrus "github.com/Sirupsen/logrus"
-	"github.com/johntdyer/slackrus"
 	"os"
+
+	"github.com/johntdyer/slackrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 		Username:       "foobot",
 	})
 
-	logrus.WithFields(logrus.Fields{"foo": "bar", "foo2": "bar2"}).Warn("this is a warn level message")
+	logrus.WithFields(logrus.Fields{"foo": "bar", "foo2": 42}).Warn("this is a warn level message")
 	logrus.Info("this is an info level message")
 	logrus.Debug("this is a debug level message")
 }

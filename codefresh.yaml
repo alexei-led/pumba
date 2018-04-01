@@ -4,9 +4,9 @@ steps:
 
   main_build:
     type: build
+    dockerfile: docker/Dockerfile
     title: "Multi-stage build is running: compile, test, coverage ..."
     description: compile for linux amd64, runt unit test, calculate coverage 
-    working-directory: ${{main_clone}}
     image_name: gaiaadm/pumba
     build_arguments:
       - GH_SHA=${{CF_REVISION}}
@@ -15,9 +15,9 @@ steps:
 
   gox_build:
     type: build
+    dockerfile: docker/Dockerfile
     title: "Building and releasing to the GitHub ..."
     description: cross-platform compile, run unit tests, report coverage and release to the GitHub
-    working-directory: ${{main_clone}}
     image_name: pumba/github/release
     build_arguments:
       - RELEASE=true

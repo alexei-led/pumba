@@ -2,11 +2,7 @@
 
 [![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-#### Build
-
 [![Build Status](https://travis-ci.org/alexei-led/pumba.svg?branch=master)](https://travis-ci.org/alexei-led/pumba) [![Codefresh build status]( https://g.codefresh.io/api/badges/build?repoOwner=alexei-led&repoName=pumba&branch=master&pipelineName=pumba&accountName=codefresh-inc&type=cf-1)]( https://g.codefresh.io/repositories/alexei-led/pumba/builds?filter=trigger:build;branch:master;service:5a9d1dac81caf90001f95f9d~pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba) [![GitHub release](https://img.shields.io/github/release/alexei-led/pumba.svg?no-cache)](https://github.com/alexei-led/pumba/releases/tag/0.2.5)
-
-#### Image
 
 [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master)  [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![Docker badge](https://img.shields.io/docker/pulls/gaiaadm/pumba.svg)](https://hub.docker.com/r/gaiaadm/pumba/) [![Anchore Image Overview](https://anchore.io/service/badges/image/77101bee4abccf2db02413002f25930b73bc6f5fea187b1b5ab1f0b538c1ba7a)](https://anchore.io/image/dockerhub/77101bee4abccf2db02413002f25930b73bc6f5fea187b1b5ab1f0b538c1ba7a?repo=gaiaadm%2Fpumba&tag=latest#overview)
 
@@ -349,13 +345,13 @@ git clone git@github.com:alexei-led/pumba.git
 cd pumba
 
 # build pumba binary
-./script/go_build.sh
+./hack/build.sh
 
 # run tests and create HTML coverage report
-./script/coverage.sh --html
+./hack/test.sh --html
 
 # create pumba binaries for multiple platforms
-./script/gox_build.sh
+./hack/xbuild.sh
 ```
 
 ### Build using Docker
@@ -374,14 +370,6 @@ Now create a new Pumba Docker image.
 ```sh
 docker build -t pumba -f Dockerfile .
 ```
-
-## Used Libraries and Code
-
-- Official Docker API for Go [docker/docker](https://github.com/docker/docker)
-- Logging  [Sirupsen/logrus](https://github.com/Sirupsen/logrus)
-- Command line app lib [codegangsta/cli](https://github.com/codegangsta/cli)
-
-I've also borrowed some code from very good [CenturyLinkLabs/watchtower](https://github.com/CenturyLinkLabs/watchtower) project.
 
 ## License
 

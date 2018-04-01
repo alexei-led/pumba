@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/digest"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
@@ -20,8 +20,8 @@ import (
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/plugin/v2"
-	"github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 

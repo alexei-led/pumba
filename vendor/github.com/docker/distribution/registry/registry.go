@@ -91,7 +91,9 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 	handler = alive("/", handler)
 	handler = health.Handler(handler)
 	handler = panicHandler(handler)
-	handler = gorhandlers.CombinedLoggingHandler(os.Stdout, handler)
+	if !config.Log.AccessLog.Disabled {
+		handler = gorhandlers.CombinedLoggingHandler(os.Stdout, handler)
+	}
 
 	server := &http.Server{
 		Handler: handler,
@@ -116,7 +118,7 @@ func (registry *Registry) ListenAndServe() error {
 	if config.HTTP.TLS.Certificate != "" || config.HTTP.TLS.LetsEncrypt.CacheFile != "" {
 		tlsConf := &tls.Config{
 			ClientAuth:               tls.NoClientCert,
-			NextProtos:               []string{"http/1.1"},
+			NextProtos:               nextProtos(config),
 			MinVersion:               tls.VersionTLS10,
 			PreferServerCipherSuites: true,
 			CipherSuites: []uint16{
@@ -342,4 +344,13 @@ func resolveConfiguration(args []string) (*configuration.Configuration, error) {
 	}
 
 	return config, nil
+}
+
+func nextProtos(config *configuration.Configuration) []string {
+	switch config.HTTP.HTTP2.Disabled {
+	case true:
+		return []string{"http/1.1"}
+	default:
+		return []string{"h2", "http/1.1"}
+	}
 }

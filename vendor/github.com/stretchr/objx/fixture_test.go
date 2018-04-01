@@ -1,8 +1,9 @@
 package objx
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var fixtures = []struct {
@@ -79,9 +80,7 @@ var fixtures = []struct {
 }
 
 func TestFixtures(t *testing.T) {
-
 	for _, fixture := range fixtures {
-
 		m := MustFromJSON(fixture.data)
 
 		// get the value
@@ -92,7 +91,5 @@ func TestFixtures(t *testing.T) {
 		assert.Equal(t, fixture.output, value.data,
 			"Get fixture \"%s\" failed: %v", fixture.name, fixture,
 		)
-
 	}
-
 }

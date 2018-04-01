@@ -49,7 +49,7 @@ type DockerNetworkSuite struct {
 
 func (s *DockerNetworkSuite) SetUpTest(c *check.C) {
 	s.d = daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
-		Experimental: experimentalDaemon,
+		Experimental: testEnv.ExperimentalDaemon(),
 	})
 }
 
@@ -497,6 +497,7 @@ func (s *DockerSuite) TestDockerInspectMultipleNetwork(c *check.C) {
 
 	networkResources = []types.NetworkResource{}
 	err = json.Unmarshal([]byte(result.Stdout()), &networkResources)
+	c.Assert(err, check.IsNil)
 	c.Assert(networkResources, checker.HasLen, 1)
 
 	// Should print an error and return an exitCode, nothing else
@@ -803,15 +804,14 @@ func (s *DockerDaemonSuite) TestDockerNetworkNoDiscoveryDefaultBridgeNetwork(c *
 	hostsFile := "/etc/hosts"
 	bridgeName := "external-bridge"
 	bridgeIP := "192.169.255.254/24"
-	out, err := createInterface(c, "bridge", bridgeName, bridgeIP)
-	c.Assert(err, check.IsNil, check.Commentf(out))
+	createInterface(c, "bridge", bridgeName, bridgeIP)
 	defer deleteInterface(c, bridgeName)
 
 	s.d.StartWithBusybox(c, "--bridge", bridgeName)
 	defer s.d.Restart(c)
 
 	// run two containers and store first container's etc/hosts content
-	out, err = s.d.Cmd("run", "-d", "busybox", "top")
+	out, err := s.d.Cmd("run", "-d", "busybox", "top")
 	c.Assert(err, check.IsNil)
 	cid1 := strings.TrimSpace(out)
 	defer s.d.Cmd("stop", cid1)
@@ -1413,7 +1413,7 @@ func verifyIPAddresses(c *check.C, cName, nwname, ipv4, ipv6 string) {
 
 func (s *DockerNetworkSuite) TestDockerNetworkConnectLinkLocalIP(c *check.C) {
 	// create one test network
-	dockerCmd(c, "network", "create", "n0")
+	dockerCmd(c, "network", "create", "--ipv6", "--subnet=2001:db8:1234::/64", "n0")
 	assertNwIsAvailable(c, "n0")
 
 	// run a container with incorrect link-local address

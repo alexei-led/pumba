@@ -52,7 +52,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/digest"
 	distreference "github.com/docker/distribution/reference"
 	apierrors "github.com/docker/docker/api/errors"
 	apitypes "github.com/docker/docker/api/types"
@@ -72,7 +71,8 @@ import (
 	swarmapi "github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/manager/encryption"
 	swarmnode "github.com/docker/swarmkit/node"
-	"github.com/docker/swarmkit/protobuf/ptypes"
+	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 )
@@ -244,7 +244,7 @@ func (c *Cluster) newNodeRunner(conf nodeStartConfig) (*nodeRunner, error) {
 		return nil, err
 	}
 
-	c.config.Backend.SetClusterProvider(c)
+	c.config.Backend.DaemonJoinsCluster(c)
 
 	return nr, nil
 }
@@ -320,6 +320,7 @@ func (c *Cluster) Init(req types.InitRequest) (string, error) {
 		LocalAddr:       localAddr,
 		ListenAddr:      net.JoinHostPort(listenHost, listenPort),
 		AdvertiseAddr:   net.JoinHostPort(advertiseHost, advertisePort),
+		availability:    req.Availability,
 	})
 	if err != nil {
 		return "", err
@@ -389,6 +390,7 @@ func (c *Cluster) Join(req types.JoinRequest) error {
 		AdvertiseAddr: advertiseAddr,
 		joinAddr:      req.RemoteAddrs[0],
 		joinToken:     req.JoinToken,
+		availability:  req.Availability,
 	})
 	if err != nil {
 		return err
@@ -560,7 +562,7 @@ func (c *Cluster) Leave(force bool) error {
 	if err := clearPersistentState(c.root); err != nil {
 		return err
 	}
-	c.config.Backend.SetClusterProvider(nil)
+	c.config.Backend.DaemonLeavesCluster()
 	return nil
 }
 
@@ -748,7 +750,9 @@ func (c *Cluster) Info() types.Info {
 		// Strip JoinTokens
 		info.Cluster = swarm.ClusterInfo
 
-		if r, err := state.controlClient.ListNodes(ctx, &swarmapi.ListNodesRequest{}); err == nil {
+		if r, err := state.controlClient.ListNodes(ctx, &swarmapi.ListNodesRequest{}); err != nil {
+			info.Error = err.Error()
+		} else {
 			info.Nodes = len(r.Nodes)
 			for _, n := range r.Nodes {
 				if n.ManagerStatus != nil {
@@ -832,7 +836,7 @@ func (c *Cluster) GetServices(options apitypes.ServiceListOptions) ([]types.Serv
 // TODO(nishanttotla): After the packages converge, the function must
 // convert distreference.Named -> distreference.Canonical, and the logic simplified.
 func (c *Cluster) imageWithDigestString(ctx context.Context, image string, authConfig *apitypes.AuthConfig) (string, error) {
-	if _, err := digest.ParseDigest(image); err == nil {
+	if _, err := digest.Parse(image); err == nil {
 		return "", errors.New("image reference is an image ID")
 	}
 	ref, err := distreference.ParseNamed(image)
@@ -1072,10 +1076,8 @@ func (c *Cluster) RemoveService(input string) error {
 		return err
 	}
 
-	if _, err := state.controlClient.RemoveService(ctx, &swarmapi.RemoveServiceRequest{ServiceID: service.ID}); err != nil {
-		return err
-	}
-	return nil
+	_, err = state.controlClient.RemoveService(ctx, &swarmapi.RemoveServiceRequest{ServiceID: service.ID})
+	return err
 }
 
 // ServiceLogs collects service logs and writes them back to `config.OutStream`
@@ -1136,7 +1138,7 @@ func (c *Cluster) ServiceLogs(ctx context.Context, input string, config *backend
 			data := []byte{}
 
 			if config.Timestamps {
-				ts, err := ptypes.Timestamp(msg.Timestamp)
+				ts, err := gogotypes.TimestampFromProto(msg.Timestamp)
 				if err != nil {
 					return err
 				}
@@ -1268,10 +1270,8 @@ func (c *Cluster) RemoveNode(input string, force bool) error {
 		return err
 	}
 
-	if _, err := state.controlClient.RemoveNode(ctx, &swarmapi.RemoveNodeRequest{NodeID: node.ID, Force: force}); err != nil {
-		return err
-	}
-	return nil
+	_, err = state.controlClient.RemoveNode(ctx, &swarmapi.RemoveNodeRequest{NodeID: node.ID, Force: force})
+	return err
 }
 
 // GetTasks returns a list of tasks matching the filter options.
@@ -1594,10 +1594,8 @@ func (c *Cluster) RemoveNetwork(input string) error {
 		return err
 	}
 
-	if _, err := state.controlClient.RemoveNetwork(ctx, &swarmapi.RemoveNetworkRequest{NetworkID: network.ID}); err != nil {
-		return err
-	}
-	return nil
+	_, err = state.controlClient.RemoveNetwork(ctx, &swarmapi.RemoveNetworkRequest{NetworkID: network.ID})
+	return err
 }
 
 func (c *Cluster) populateNetworkID(ctx context.Context, client swarmapi.ControlClient, s *types.ServiceSpec) error {

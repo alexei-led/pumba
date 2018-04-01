@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/distribution/metadata"
@@ -18,6 +17,7 @@ import (
 	"github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
 	"github.com/docker/libtrust"
+	"github.com/opencontainers/go-digest"
 	"golang.org/x/net/context"
 )
 
@@ -198,10 +198,18 @@ func (l *storeLayer) Parent() PushLayer {
 	if p == nil {
 		return nil
 	}
-	return &storeLayer{
+	sl := storeLayer{
 		Layer: p,
 		ls:    l.ls,
 	}
+	if d, ok := p.(distribution.Describable); ok {
+		return &describableStoreLayer{
+			storeLayer:  sl,
+			describable: d,
+		}
+	}
+
+	return &sl
 }
 
 func (l *storeLayer) Open() (io.ReadCloser, error) {

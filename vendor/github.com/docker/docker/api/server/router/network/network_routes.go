@@ -178,7 +178,7 @@ func (n *networkRouter) buildNetworkResource(nw libnetwork.Network) *types.Netwo
 	r.Created = info.Created()
 	r.Scope = info.Scope()
 	if n.cluster.IsManager() {
-		if _, err := n.cluster.GetNetwork(nw.Name()); err == nil {
+		if _, err := n.cluster.GetNetwork(nw.ID()); err == nil {
 			r.Scope = "swarm"
 		}
 	} else if info.Dynamic() {
@@ -312,7 +312,12 @@ func (n *networkRouter) postNetworksPrune(ctx context.Context, w http.ResponseWr
 		return err
 	}
 
-	pruneReport, err := n.backend.NetworksPrune(filters.Args{})
+	pruneFilters, err := filters.FromParam(r.Form.Get("filters"))
+	if err != nil {
+		return err
+	}
+
+	pruneReport, err := n.backend.NetworksPrune(pruneFilters)
 	if err != nil {
 		return err
 	}

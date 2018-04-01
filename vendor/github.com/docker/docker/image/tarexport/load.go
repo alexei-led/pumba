@@ -11,7 +11,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/image/v1"
 	"github.com/docker/docker/layer"
@@ -23,6 +22,7 @@ import (
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/reference"
+	"github.com/opencontainers/go-digest"
 )
 
 func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool) error {
@@ -85,7 +85,7 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool)
 		rootFS.DiffIDs = nil
 
 		if expected, actual := len(m.Layers), len(img.RootFS.DiffIDs); expected != actual {
-			return fmt.Errorf("invalid manifest, layers length mismatch: expected %q, got %q", expected, actual)
+			return fmt.Errorf("invalid manifest, layers length mismatch: expected %d, got %d", expected, actual)
 		}
 
 		for i, diffID := range img.RootFS.DiffIDs {
