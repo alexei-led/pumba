@@ -66,9 +66,8 @@ func listContainers(ctx context.Context, client container.Client, names []string
 
 	if all {
 		return client.ListAllContainers(ctx, filter)
-	} else {
-		return client.ListContainers(ctx, filter)
 	}
+	return client.ListContainers(ctx, filter)
 }
 
 func randomContainer(containers []container.Container) *container.Container {
