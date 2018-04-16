@@ -70,14 +70,13 @@ func (client dockerClient) ListAllContainers(ctx context.Context, fn Filter) ([]
 }
 
 func (client dockerClient) listContainers(ctx context.Context, fn Filter, opts types.ContainerListOptions) ([]Container, error) {
-	cs := []Container{}
-
 	log.Debug("Retrieving containers")
 
 	containers, err := client.containerAPI.ContainerList(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
+	cs := []Container{}
 	for _, container := range containers {
 		containerInfo, err := client.containerAPI.ContainerInspect(ctx, container.ID)
 		if err != nil {

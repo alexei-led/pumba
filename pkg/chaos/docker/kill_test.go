@@ -1,0 +1,238 @@
+package docker
+
+import (
+	"context"
+	"errors"
+	"reflect"
+	"testing"
+
+	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/mock"
+)
+
+func TestKillCommand_Run(t *testing.T) {
+	type wantErrors struct {
+		listError bool
+		killError bool
+	}
+	type fields struct {
+		names   []string
+		pattern string
+		signal  string
+		limit   int
+		dryRun  bool
+	}
+	type args struct {
+		ctx    context.Context
+		random bool
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		args     args
+		expected []container.Container
+		wantErr  bool
+		errs     wantErrors
+	}{
+		{
+			name: "kill matching containers by names",
+			fields: fields{
+				names:  []string{"c1", "c2", "c3"},
+				signal: "SIGKILL",
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			expected: []container.Container{
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+			},
+		},
+		{
+			name: "kill random matching container by names",
+			fields: fields{
+				names:  []string{"c1", "c2", "c3"},
+				signal: "SIGKILL",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				random: true,
+			},
+			expected: []container.Container{
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+			},
+		},
+		{
+			name: "no matching containers by names",
+			fields: fields{
+				names:  []string{"c1", "c2", "c3"},
+				signal: "SIGKILL",
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+		},
+		{
+			name: "error listing containers",
+			fields: fields{
+				names:  []string{"c1", "c2", "c3"},
+				signal: "SIGKILL",
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			wantErr: true,
+			errs:    wantErrors{listError: true},
+		},
+		{
+			name: "error killing container",
+			fields: fields{
+				names:  []string{"c1", "c2", "c3"},
+				signal: "SIGKILL",
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			expected: []container.Container{
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				*container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+			},
+			wantErr: true,
+			errs:    wantErrors{killError: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient()
+			k := &KillCommand{
+				client:  mockClient,
+				names:   tt.fields.names,
+				pattern: tt.fields.pattern,
+				signal:  tt.fields.signal,
+				limit:   tt.fields.limit,
+				dryRun:  tt.fields.dryRun,
+			}
+			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.Filter"))
+			if tt.errs.listError {
+				call.Return(tt.expected, errors.New("ERROR"))
+				goto Invoke
+			} else {
+				call.Return(tt.expected, nil)
+				if tt.expected == nil {
+					goto Invoke
+				}
+			}
+			if tt.args.random {
+				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal).Return(nil)
+			} else {
+				for _, c := range tt.expected {
+					call = mockClient.On("KillContainer", tt.args.ctx, c, tt.fields.signal)
+					if tt.errs.killError {
+						call.Return(errors.New("ERROR"))
+						goto Invoke
+					} else {
+						call.Return(nil)
+					}
+				}
+			}
+		Invoke:
+			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
+				t.Errorf("KillCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestNewKillCommand(t *testing.T) {
+	type args struct {
+		client  container.Client
+		names   []string
+		pattern string
+		signal  string
+		limit   int
+		dryRun  bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    ChaosCommand
+		wantErr bool
+	}{
+		{
+			name: "create new kill command",
+			args: args{
+				names:  []string{"c1", "c2"},
+				signal: "SIGTERM",
+				limit:  10,
+			},
+			want: &KillCommand{
+				names:  []string{"c1", "c2"},
+				signal: "SIGTERM",
+				limit:  10,
+			},
+		},
+		{
+			name: "invalid signal",
+			args: args{
+				names:  []string{"c1", "c2"},
+				signal: "SIGNONE",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty signal",
+			args: args{
+				names:  []string{"c1", "c2"},
+				signal: "",
+			},
+			want: &KillCommand{
+				names:  []string{"c1", "c2"},
+				signal: DefaultKillSignal,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewKillCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.signal, tt.args.limit, tt.args.dryRun)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewKillCommand() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewKillCommand() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

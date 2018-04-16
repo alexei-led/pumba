@@ -18,6 +18,8 @@ import (
 	"github.com/alexei-led/pumba/pkg/action"
 	"github.com/alexei-led/pumba/pkg/container"
 
+	"github.com/alexei-led/pumba/pkg/chaos/docker"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/urfave/cli"
@@ -129,8 +131,8 @@ func main() {
 					Value: DefaultSignal,
 				},
 				cli.IntFlag{
-					Name:  "number, n",
-					Usage: "number of container to kill. To kill all the containers matching the pattern use default value: 0",
+					Name:  "limit, l",
+					Usage: "limit to number of container to kill (0: kill all matching)",
 					Value: 0,
 				},
 			},
@@ -241,10 +243,17 @@ func main() {
 							Value: 0.0,
 						},
 					},
-					Usage:       "adds packet losses, based on 4-state Markov probability model",
-					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-					Description: "adds a packet losses, based on 4-state Markov probability model\n \t\tstate (1) – packet received successfully\n \t\tstate (2) – packet received within a burst\n \t\tstate (3) – packet lost within a burst\n \t\tstate (4) – isolated packet lost within a gap\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
-					Action:      netemLossState,
+					Usage:     "adds packet losses, based on 4-state Markov probability model",
+					ArgsUsage: fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+					Description: `adds a packet losses, based on 4-state Markov probability model:
+
+		state (1) – packet received successfully
+		state (2) – packet received within a burst
+		state (3) – packet lost within a burst
+		tstate (4) – isolated packet lost within a gap
+
+	 see detailed description: http://www.voiptroubleshooter.com/indepth/burstloss.html`,
+					Action: netemLossState,
 				},
 				{
 					Name: "loss-gemodel",
@@ -270,10 +279,11 @@ func main() {
 							Value: 0.0,
 						},
 					},
-					Usage:       "adds packet losses, according to the Gilbert-Elliot loss model",
-					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-					Description: "adds packet losses, according to the Gilbert-Elliot loss model\n \tsee: http://www.voiptroubleshooter.com/indepth/burstloss.html",
-					Action:      netemLossGEmodel,
+					Usage:     "adds packet losses, according to the Gilbert-Elliot loss model",
+					ArgsUsage: fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+					Description: `adds packet losses, according to the Gilbert-Elliot loss model
+	 see detailed description: http://www.voiptroubleshooter.com/indepth/burstloss.html`,
+					Action: netemLossGEmodel,
 				},
 				{
 					Name:  "duplicate",
@@ -475,7 +485,7 @@ func before(c *cli.Context) error {
 func getIntervalValue(c *cli.Context) (time.Duration, error) {
 	// get recurrent time interval
 	if intervalString := c.GlobalString("interval"); intervalString == "" {
-		log.Debug("No interval, running only once")
+		log.Debug("no interval specified, running only once")
 		return 0, nil
 	} else if interval, err := time.ParseDuration(intervalString); err == nil {
 		return interval, nil
@@ -538,26 +548,58 @@ func runChaosCommand(cmd interface{}, interval time.Duration, names []string, pa
 	}
 }
 
+func runChaosCommandX(command docker.ChaosCommand, interval time.Duration) {
+	// create Time channel for specified interval
+	var tick <-chan time.Time
+	if interval == 0 {
+		tick = time.NewTimer(interval).C
+	} else {
+		tick = time.NewTicker(interval).C
+	}
+
+	// handle the 'chaos' command
+	ctx, cancel := context.WithCancel(topContext)
+	for {
+		// cancel current context on exit
+		defer cancel()
+		// run chaos function
+		if err := command.Run(ctx, action.RandomMode); err != nil {
+			log.WithError(err).Error("failed to run chaos command")
+		}
+		// wait for next timer tick or cancel
+		select {
+		case <-topContext.Done():
+			return // not to leak the goroutine
+		case <-tick:
+			if interval == 0 {
+				return // not to leak the goroutine
+			}
+			log.Debug("next chaos execution (tick) ...")
+		}
+	}
+}
+
 // KILL Command
 func kill(c *cli.Context) error {
 	// get interval
 	interval, err := getIntervalValue(c)
 	if err != nil {
-		log.Error(err)
+		log.WithError(err).Error("failed to get command interval")
 		return err
 	}
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get signal
 	signal := c.String("signal")
-	if _, ok := LinuxSignals[signal]; !ok {
-		err := errors.New("Unexpected signal: " + signal)
-		log.Error(err)
-		return err
+	// get limit for number of containers to kill
+	limit := c.Int("limit")
+	// init kill command
+	killCommand, err := docker.NewKillCommand(client, names, pattern, signal, limit, action.DryMode)
+	if err != nil {
+		return nil
 	}
-	// get number of container to kill
-	number := c.Int("number")
-	runChaosCommand(action.CommandKill{Signal: signal, Maximum: number}, interval, names, pattern, chaos.KillContainers)
+	// run kill command
+	runChaosCommandX(killCommand, interval)
 	return nil
 }
 
