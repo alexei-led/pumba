@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/alexei-led/pumba/mocks"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -107,7 +108,7 @@ func TestKillCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := container.NewMockClient()
+			mockClient := new(mocks.Client)
 			k := &KillCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
@@ -127,11 +128,11 @@ func TestKillCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal).Return(nil)
+				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal)
+						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal, tt.fields.dryRun)
 						if tt.errs.killError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

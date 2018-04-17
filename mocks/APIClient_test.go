@@ -1,29 +1,28 @@
-package container
+package mocks
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/alexei-led/pumba/pkg/container/mocks"
-	egineapi "github.com/docker/docker/client"
+	"github.com/docker/docker/client"
 )
 
-func TestMockEngineInterface(t *testing.T) {
-	mock := new(mocks.APIClient)
+func TestMockAPIClient(t *testing.T) {
+	mock := new(APIClient)
 
-	iface := reflect.TypeOf((*egineapi.ContainerAPIClient)(nil)).Elem()
+	iface := reflect.TypeOf((*client.ContainerAPIClient)(nil)).Elem()
 	if !reflect.TypeOf(mock).Implements(iface) {
 		t.Fatalf("Mock does not implement the ContainerAPIClient interface")
 	}
-	iface = reflect.TypeOf((*egineapi.ImageAPIClient)(nil)).Elem()
+	iface = reflect.TypeOf((*client.ImageAPIClient)(nil)).Elem()
 	if !reflect.TypeOf(mock).Implements(iface) {
 		t.Fatalf("Mock does not implement the ImageAPIClient interface")
 	}
-	iface = reflect.TypeOf((*egineapi.NetworkAPIClient)(nil)).Elem()
+	iface = reflect.TypeOf((*client.NetworkAPIClient)(nil)).Elem()
 	if !reflect.TypeOf(mock).Implements(iface) {
 		t.Fatalf("Mock does not implement the NetworkAPIClient interface")
 	}
-	iface = reflect.TypeOf((*egineapi.VolumeAPIClient)(nil)).Elem()
+	iface = reflect.TypeOf((*client.VolumeAPIClient)(nil)).Elem()
 	if !reflect.TypeOf(mock).Implements(iface) {
 		t.Fatalf("Mock does not implement the VolumeAPIClient interface")
 	}

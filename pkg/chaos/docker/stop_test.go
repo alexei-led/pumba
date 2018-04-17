@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/alexei-led/pumba/mocks"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -161,7 +162,7 @@ func TestStopCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := container.NewMockClient()
+			mockClient := new(mocks.Client)
 			s := &StopCommand{
 				client:   mockClient,
 				names:    tt.fields.names,
@@ -181,11 +182,11 @@ func TestStopCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.waitTime).Return(nil)
+				mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.waitTime, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.waitTime)
+						call = mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.waitTime, tt.fields.dryRun)
 						if tt.errs.stopError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

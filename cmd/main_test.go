@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/action"
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,7 +15,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-//---- MOCK: Chaos Iterface
+//---- MOCK: Chaos Interface
 
 type ChaosMock struct {
 	mock.Mock
@@ -223,21 +221,6 @@ func (s *mainTestSuite) Test_handleSignals() {
 	handleSignals()
 }
 
-func (s *mainTestSuite) Test_killSuccess() {
-	// prepare
-	set := flag.NewFlagSet("kill", 0)
-	set.String("signal", "SIGTERM", "doc")
-	c := cli.NewContext(nil, set, nil)
-	// setup mock
-	chaosMock := new(docker.MockChaosCommand)
-	chaosMock.On("Run", mock.AnythingOfType("context.Context"), false).Return(nil)
-	// invoke command
-	err := kill(c)
-	// asserts
-	assert.NoError(s.T(), err)
-	chaosMock.AssertExpectations(s.T())
-}
-
 func (s *mainTestSuite) Test_pauseSuccess() {
 	// prepare
 	set := flag.NewFlagSet("pause", 0)
@@ -276,40 +259,6 @@ func (s *mainTestSuite) Test_pauseBadDuration() {
 	err := pause(c)
 	// asserts
 	assert.EqualError(s.T(), err, "time: invalid duration BAD")
-}
-
-func (s *mainTestSuite) Test_stopSuccess() {
-	// prepare
-	set := flag.NewFlagSet("stop", 0)
-	set.Int("time", 10, "doc")
-	c := cli.NewContext(nil, set, nil)
-	// setup mock
-	cmd := action.CommandStop{WaitTime: 10}
-	chaosMock := &ChaosMock{}
-	chaos = chaosMock
-	chaosMock.On("StopContainers", mock.Anything, nil, []string{}, "", cmd).Return(nil)
-	// invoke command
-	err := stop(c)
-	// asserts
-	assert.NoError(s.T(), err)
-	chaosMock.AssertExpectations(s.T())
-}
-
-func (s *mainTestSuite) Test_stopError() {
-	// prepare
-	set := flag.NewFlagSet("stop", 0)
-	set.Int("time", 10, "doc")
-	c := cli.NewContext(nil, set, nil)
-	// setup mock
-	cmd := action.CommandStop{WaitTime: 10}
-	chaosMock := &ChaosMock{}
-	chaos = chaosMock
-	chaosMock.On("StopContainers", mock.Anything, nil, []string{}, "", cmd).Return(errors.New("ERROR"))
-	// invoke command
-	err := stop(c)
-	// asserts
-	assert.NoError(s.T(), err)
-	chaosMock.AssertExpectations(s.T())
 }
 
 func (s *mainTestSuite) Test_removeSuccess() {

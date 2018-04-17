@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/mocks"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -156,7 +157,7 @@ func TestAllFilter(t *testing.T) {
 
 func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	cmd := CommandRemove{Force: false, Links: false, Volumes: false}
 	for _, c := range cs {
@@ -171,7 +172,7 @@ func TestRemoveByName(t *testing.T) {
 func TestRemoveByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	client.On("RemoveContainer", mock.Anything, mock.Anything, false, true, true).Return(nil)
@@ -189,7 +190,7 @@ func TestRemoveByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("RemoveContainer", mock.Anything, c, false, true, true).Return(nil)
@@ -206,7 +207,7 @@ func TestRemoveByPatternRandom(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	client.On("RemoveContainer", mock.Anything, mock.Anything, false, true, true).Return(nil)
 	// do action
@@ -223,7 +224,7 @@ func TestPauseByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("PauseContainer", mock.Anything, c).Return(nil)
@@ -241,7 +242,7 @@ func TestPauseByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("PauseContainer", mock.Anything, c).Return(nil)
@@ -259,7 +260,7 @@ func TestPauseByNameRandom(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
 	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	client.On("PauseContainer", mock.Anything, mock.Anything).Return(nil)
 	client.On("UnpauseContainer", mock.Anything, mock.Anything).Return(nil)
@@ -284,7 +285,7 @@ func TestNetemDelayByName(t *testing.T) {
 		Jitter:       25,
 		Correlation:  0.23,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "0.23"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
@@ -310,7 +311,7 @@ func TestNetemDelayByNameRandom(t *testing.T) {
 		Correlation:  5.5,
 		Distribution: "uniform",
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	client.On("NetemContainer", mock.Anything, mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "5.50", "distribution", "uniform"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
 	client.On("StopNetemContainer", mock.Anything, mock.Anything, "eth1", []net.IP(nil), "").Return(nil)
@@ -335,7 +336,7 @@ func TestNetemDelayByPattern(t *testing.T) {
 		Jitter:       25,
 		Correlation:  15,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "15.00"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
@@ -361,7 +362,7 @@ func TestNetemDelayByPatternIPFilterOne(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "").Return(nil)
@@ -387,7 +388,7 @@ func TestNetemDelayByPatternIPFilterMany(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "").Return(nil)
@@ -412,7 +413,7 @@ func TestNetemDelayByPatternRandom(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10.2,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	client.On("NetemContainer", mock.Anything, mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "10.20"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
 	client.On("StopNetemContainer", mock.Anything, mock.Anything, "eth1", []net.IP(nil), "").Return(nil)
@@ -436,7 +437,7 @@ func TestNetemLossByName(t *testing.T) {
 		Percent:      11.5,
 		Correlation:  25.53,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "11.50", "25.53"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
@@ -463,7 +464,7 @@ func TestNetemLossStateByName(t *testing.T) {
 		P23:          14.8,
 		P14:          15.9,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "state", "11.50", "12.60", "13.70", "14.80", "15.90"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
@@ -489,7 +490,7 @@ func TestNetemLossGEmodelByName(t *testing.T) {
 		OneH:         13.7,
 		OneK:         14.8,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "gemodel", "11.50", "12.60", "13.70", "14.80"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
@@ -515,7 +516,7 @@ func TestNetemRateByName(t *testing.T) {
 		CellSize:       20,
 		CellOverhead:   30,
 	}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"rate", "300kbit", "10", "20", "30"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
@@ -543,7 +544,7 @@ func TestStartByName(t *testing.T) {
 	// prepare test data and mock
 	names, cs := makeContainersN(10)
 	cmd := CommandStart{}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListAllContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
 		client.On("StartContainer", mock.Anything, c).Return(nil)
@@ -560,7 +561,7 @@ func TestStartByPattern(t *testing.T) {
 	// prepare test data and mocks
 	_, cs := makeContainersN(10)
 	cmd := CommandStart{}
-	client := container.NewMockClient()
+	client := new(mocks.Client)
 	client.On("ListAllContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	client.On("StartContainer", mock.Anything, mock.Anything).Return(nil)
 	// do action

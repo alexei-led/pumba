@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 
-	"github.com/alexei-led/pumba/pkg/container/mocks"
+	"github.com/alexei-led/pumba/mocks"
 )
 
 func NewMockEngine() *mocks.APIClient {
