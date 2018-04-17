@@ -22,19 +22,6 @@ var (
 	DelayDistribution = []string{"", "uniform", "normal", "pareto", "paretonormal"}
 )
 
-const (
-	// DeafultWaitTime time to wait before stopping container (in seconds)
-	DeafultWaitTime = 10
-	// DefaultKillSignal default kill signal
-	DefaultKillSignal = "SIGKILL"
-)
-
-// CommandKill arguments for kill command
-type CommandKill struct {
-	Signal  string
-	Maximum int
-}
-
 // CommandPause arguments for pause command
 type CommandPause struct {
 	Duration time.Duration
@@ -99,11 +86,6 @@ type CommandNetemRate struct {
 	Image          string
 }
 
-// CommandStop arguments for stop command
-type CommandStop struct {
-	WaitTime int
-}
-
 // CommandStart arguments for start command
 type CommandStart struct{}
 
@@ -116,8 +98,6 @@ type CommandRemove struct {
 
 // A Chaos is the interface with different methods to stop running containers.
 type Chaos interface {
-	StopContainers(context.Context, container.Client, []string, string, interface{}) error
-	KillContainers(context.Context, container.Client, []string, string, interface{}) error
 	RemoveContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemDelayContainers(context.Context, container.Client, []string, string, interface{}) error
 	PauseContainers(context.Context, container.Client, []string, string, interface{}) error
@@ -217,34 +197,11 @@ func listContainers(ctx context.Context, client container.Client, names []string
 }
 
 func randomContainer(containers []container.Container) *container.Container {
-	if containers != nil && len(containers) > 0 {
+	if len(containers) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		i := r.Intn(len(containers))
 		log.Debug(i, "  ", containers[i])
 		return &containers[i]
-	}
-	return nil
-}
-
-func stopContainers(ctx context.Context, client container.Client, containers []container.Container, waitTime int) error {
-	if waitTime == 0 {
-		waitTime = DeafultWaitTime
-	}
-	if RandomMode {
-		container := randomContainer(containers)
-		if container != nil {
-			err := client.StopContainer(ctx, *container, waitTime, DryMode)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		for _, container := range containers {
-			err := client.StopContainer(ctx, container, waitTime, DryMode)
-			if err != nil {
-				return err
-			}
-		}
 	}
 	return nil
 }
@@ -254,30 +211,6 @@ func startContainers(ctx context.Context, client container.Client, containers []
 		err := client.StartContainer(ctx, container, DryMode)
 		if err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-func killContainers(ctx context.Context, client container.Client, containers []container.Container, signal string) error {
-	if signal == "" {
-		signal = DefaultKillSignal
-	}
-	if RandomMode {
-		container := randomContainer(containers)
-		if container != nil {
-			log.Debug("Container", container)
-			err := client.KillContainer(ctx, *container, signal, DryMode)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		for _, container := range containers {
-			err := client.KillContainer(ctx, container, signal, DryMode)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -396,22 +329,6 @@ func stopNetemContainers(ctx context.Context, client container.Client, container
 
 //---------------------------------------------------------------------------------------------------
 
-// StopContainers stop containers matching pattern
-func (p pumbaChaos) StopContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("Stop containers")
-	// get command details
-	command, ok := cmd.(CommandStop)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandStop")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	return stopContainers(ctx, client, containers, command.WaitTime)
-}
-
 // StartContainers start containers matching pattern
 func (p pumbaChaos) StartContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("Start containers")
@@ -426,22 +343,6 @@ func (p pumbaChaos) StartContainers(ctx context.Context, client container.Client
 		return err
 	}
 	return startContainers(ctx, client, containers)
-}
-
-// KillContainers - kill containers either by RE2 pattern (if specified) or by names
-func (p pumbaChaos) KillContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("Kill containers")
-	// get command details
-	command, ok := cmd.(CommandKill)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandKill")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listNContainers(ctx, client, names, pattern, command.Maximum); err != nil {
-		return err
-	}
-	return killContainers(ctx, client, containers, command.Signal)
 }
 
 // RemoveContainers - remove container either by RE2 pattern (if specified) or by names
@@ -592,21 +493,4 @@ func (p pumbaChaos) PauseContainers(ctx context.Context, client container.Client
 		return err
 	}
 	return pauseContainers(ctx, client, containers, command.Duration)
-}
-
-func listNContainers(ctx context.Context, client container.Client, names []string, pattern string, n int) ([]container.Container, error) {
-	containers, err := listRunningContainers(ctx, client, names, pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(containers) > n && n > 0 {
-		for i, _ := range containers {
-			j := rand.Intn(i + 1)
-			containers[i], containers[j] = containers[j], containers[i]
-		}
-		return containers[0:n], nil
-	}
-
-	return containers, nil
 }

@@ -83,18 +83,18 @@ func listRunningContainers(ctx context.Context, client container.Client, names [
 	return listContainers(ctx, client, names, pattern, false)
 }
 
-func listNContainers(ctx context.Context, client container.Client, names []string, pattern string, n int) ([]container.Container, error) {
+func listNContainers(ctx context.Context, client container.Client, names []string, pattern string, limit int) ([]container.Container, error) {
 	containers, err := listRunningContainers(ctx, client, names, pattern)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(containers) > n && n > 0 {
+	if len(containers) > limit && limit > 0 {
 		for i := range containers {
 			j := rand.Intn(i + 1)
 			containers[i], containers[j] = containers[j], containers[i]
 		}
-		return containers[0:n], nil
+		return containers[0:limit], nil
 	}
 
 	return containers, nil

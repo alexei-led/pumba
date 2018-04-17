@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/action"
+	"github.com/alexei-led/pumba/pkg/chaos/docker"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -23,11 +24,6 @@ type ChaosMock struct {
 }
 
 func (m *ChaosMock) StopContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(ctx, c, n, p, cmd)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) KillContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
 	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
@@ -233,42 +229,8 @@ func (s *mainTestSuite) Test_killSuccess() {
 	set.String("signal", "SIGTERM", "doc")
 	c := cli.NewContext(nil, set, nil)
 	// setup mock
-	chaosMock := &ChaosMock{}
-	chaos = chaosMock
-	command := action.CommandKill{
-		Signal: "SIGTERM",
-	}
-	chaosMock.On("KillContainers", mock.Anything, nil, []string{}, "", command).Return(nil)
-	// invoke command
-	err := kill(c)
-	// asserts
-	assert.NoError(s.T(), err)
-	chaosMock.AssertExpectations(s.T())
-}
-
-func (s *mainTestSuite) Test_killBadSignal() {
-	// prepare
-	set := flag.NewFlagSet("kill", 0)
-	set.String("signal", "UNKNOWN", "doc")
-	c := cli.NewContext(nil, set, nil)
-	// invoke command
-	err := kill(c)
-	// asserts
-	assert.EqualError(s.T(), err, "Unexpected signal: UNKNOWN")
-}
-
-func (s *mainTestSuite) Test_killError() {
-	// prepare
-	set := flag.NewFlagSet("kill", 0)
-	set.String("signal", "SIGTERM", "doc")
-	c := cli.NewContext(nil, set, nil)
-	// setup mock
-	chaosMock := &ChaosMock{}
-	chaos = chaosMock
-	command := action.CommandKill{
-		Signal: "SIGTERM",
-	}
-	chaosMock.On("KillContainers", mock.Anything, nil, []string{}, "", command).Return(errors.New("ERROR"))
+	chaosMock := new(docker.MockChaosCommand)
+	chaosMock.On("Run", mock.AnythingOfType("context.Context"), false).Return(nil)
 	// invoke command
 	err := kill(c)
 	// asserts

@@ -43,20 +43,7 @@ func TestKillCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: []container.Container{
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-			},
+			expected: testContainer3,
 		},
 		{
 			name: "kill matching containers by filter with limit",
@@ -68,20 +55,7 @@ func TestKillCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: []container.Container{
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-			},
+			expected: testContainer3,
 		},
 		{
 			name: "kill random matching container by names",
@@ -93,20 +67,7 @@ func TestKillCommand_Run(t *testing.T) {
 				ctx:    context.TODO(),
 				random: true,
 			},
-			expected: []container.Container{
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-			},
+			expected: testContainer3,
 		},
 		{
 			name: "no matching containers by names",
@@ -139,22 +100,9 @@ func TestKillCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: []container.Container{
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c2")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-				*container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c3")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
-			},
-			wantErr: true,
-			errs:    wantErrors{killError: true},
+			expected: testContainer3,
+			wantErr:  true,
+			errs:     wantErrors{killError: true},
 		},
 	}
 	for _, tt := range tests {
@@ -181,9 +129,9 @@ func TestKillCommand_Run(t *testing.T) {
 			if tt.args.random {
 				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal).Return(nil)
 			} else {
-				for i, c := range tt.expected {
+				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("KillContainer", tt.args.ctx, c, tt.fields.signal)
+						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal)
 						if tt.errs.killError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

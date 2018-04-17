@@ -154,161 +154,6 @@ func TestAllFilter(t *testing.T) {
 	assert.False(t, allContainersFilter(c3))
 }
 
-func TestStopByName(t *testing.T) {
-	// prepare test data and mock
-	names, cs := makeContainersN(10)
-	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("StopContainer", mock.Anything, c, 10).Return(nil)
-	}
-	// doc action
-	pumba := pumbaChaos{}
-	err := pumba.StopContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestStopByNameRandom(t *testing.T) {
-	// prepare test data and mock
-	names, cs := makeContainersN(10)
-	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("StopContainer", mock.Anything, mock.Anything, 10).Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.StopContainers(context.TODO(), client, names, "", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestStopByPattern(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("StopContainer", mock.Anything, c, 10).Return(nil)
-	}
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.StopContainers(context.TODO(), client, []string{}, "^c", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestStopByPatternRandom(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandStop{WaitTime: 10}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("StopContainer", mock.Anything, mock.Anything, 10).Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.StopContainers(context.TODO(), client, []string{}, "^c", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestKillByName(t *testing.T) {
-	// prepare test data and mock
-	names, cs := makeContainersN(10)
-	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("KillContainer", mock.Anything, c, "SIGTEST").Return(nil)
-	}
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.KillContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestKillByNameRandom(t *testing.T) {
-	// prepare test data and mocks
-	names, cs := makeContainersN(10)
-	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("KillContainer", mock.Anything, mock.Anything, "SIGTEST").Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.KillContainers(context.TODO(), client, names, "", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestKillByPattern(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for i := range cs {
-		client.On("KillContainer", mock.Anything, cs[i], "SIGTEST").Return(nil)
-	}
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.KillContainers(context.TODO(), client, []string{}, "^c", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestKillByPatternRandom(t *testing.T) {
-	// prepare test data and mock
-	_, cs := makeContainersN(10)
-	cmd := CommandKill{Signal: "SIGTEST"}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("KillContainer", mock.Anything, mock.Anything, "SIGTEST").Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.KillContainers(context.TODO(), client, []string{}, "^c", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestKillByPatternAndLimit(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandKill{Signal: "SIGTEST", Maximum: 3}
-	client := container.NewMockClient()
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-
-	client.On("KillContainer", mock.Anything, mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
-	client.On("KillContainer", mock.Anything, mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
-	client.On("KillContainer", mock.Anything, mock.AnythingOfType("container.Container"), "SIGTEST").Return(nil)
-
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.KillContainers(context.TODO(), client, []string{}, "^c", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
 func TestRemoveByName(t *testing.T) {
 	names, cs := makeContainersN(10)
 	client := container.NewMockClient()
@@ -605,22 +450,6 @@ func TestNetemLossByName(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemLossBadCommand(t *testing.T) {
-	// prepare test data and mocks
-	names, _ := makeContainersN(10)
-	cmd := CommandKill{
-		Signal: "xuyak",
-	}
-	client := container.NewMockClient()
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.NetemLossRandomContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.Error(t, err)
-	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemLossRandom")
-	client.AssertExpectations(t)
-}
-
 func TestNetemLossStateByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
@@ -645,22 +474,6 @@ func TestNetemLossStateByName(t *testing.T) {
 	err := pumba.NetemLossStateContainers(context.TODO(), client, names, "", cmd)
 	// asserts
 	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestNetemLossStateBadCommand(t *testing.T) {
-	// prepare test data and mocks
-	names, _ := makeContainersN(10)
-	cmd := CommandKill{
-		Signal: "xuyak",
-	}
-	client := container.NewMockClient()
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.NetemLossStateContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.Error(t, err)
-	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemLossState")
 	client.AssertExpectations(t)
 }
 
@@ -690,22 +503,6 @@ func TestNetemLossGEmodelByName(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestNetemLossGEmodelBadCommand(t *testing.T) {
-	// prepare test data and mocks
-	names, _ := makeContainersN(10)
-	cmd := CommandKill{
-		Signal: "xuyak",
-	}
-	client := container.NewMockClient()
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.NetemLossGEmodelContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.Error(t, err)
-	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemLossGEmodel")
-	client.AssertExpectations(t)
-}
-
 func TestNetemRateByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
@@ -729,22 +526,6 @@ func TestNetemRateByName(t *testing.T) {
 	err := pumba.NetemRateContainers(context.TODO(), client, names, "", cmd)
 	// asserts
 	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestNetemRateBadCommand(t *testing.T) {
-	// prepare test data and mocks
-	names, _ := makeContainersN(10)
-	cmd := CommandKill{
-		Signal: "xuyak",
-	}
-	client := container.NewMockClient()
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.NetemRateContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.Error(t, err)
-	assert.EqualError(t, err, "Unexpected cmd type; should be CommandNetemRate")
 	client.AssertExpectations(t)
 }
 

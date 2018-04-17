@@ -18,7 +18,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/action"
 	"github.com/alexei-led/pumba/pkg/container"
 
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
 
 	log "github.com/sirupsen/logrus"
 
@@ -32,41 +32,6 @@ var (
 	chaos      action.Chaos
 	topContext context.Context
 )
-
-// LinuxSignals valid Linux signal table
-// http://www.comptechdoc.org/os/linux/programming/linux_pgsignals.html
-var LinuxSignals = map[string]int{
-	"SIGHUP":    1,
-	"SIGINT":    2,
-	"SIGQUIT":   3,
-	"SIGILL":    4,
-	"SIGTRAP":   5,
-	"SIGIOT":    6,
-	"SIGBUS":    7,
-	"SIGFPE":    8,
-	"SIGKILL":   9,
-	"SIGUSR1":   10,
-	"SIGSEGV":   11,
-	"SIGUSR2":   12,
-	"SIGPIPE":   13,
-	"SIGALRM":   14,
-	"SIGTERM":   15,
-	"SIGSTKFLT": 16,
-	"SIGCHLD":   17,
-	"SIGCONT":   18,
-	"SIGSTOP":   19,
-	"SIGTSTP":   20,
-	"SIGTTIN":   21,
-	"SIGTTOU":   22,
-	"SIGURG":    23,
-	"SIGXCPU":   24,
-	"SIGXFSZ":   25,
-	"SIGVTALRM": 26,
-	"SIGPROF":   27,
-	"SIGWINCH":  28,
-	"SIGIO":     29,
-	"SIGPWR":    30,
-}
 
 var (
 	// Version that is passed on compile time through -ldflags
@@ -86,8 +51,6 @@ var (
 )
 
 const (
-	// DefaultSignal default kill signal
-	DefaultSignal = "SIGKILL"
 	// Re2Prefix re2 regexp string prefix
 	Re2Prefix = "re2:"
 	// DefaultInterface default network interface
@@ -104,8 +67,11 @@ func contains(slice []string, item string) bool {
 }
 
 func init() {
-	log.SetLevel(log.InfoLevel)
+	// set log level
+	log.SetLevel(log.WarnLevel)
 	log.SetFormatter(&log.TextFormatter{})
+	// handle termination signal
+	topContext = handleSignals()
 }
 
 func main() {
@@ -118,29 +84,20 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Pumba"
 	app.Version = HumanVersion
+	app.Compiled = time.Now()
+	app.Authors = []cli.Author{
+		{
+			Name:  "Alexei Ledenev",
+			Email: "alexei.led@gmail.com",
+		},
+	}
+	app.EnableBashCompletion = true
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
 	app.Before = before
 	app.Commands = []cli.Command{
-		{
-			Name: "kill",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "signal, s",
-					Usage: "termination signal, that will be sent by Pumba to the main process inside target container(s)",
-					Value: DefaultSignal,
-				},
-				cli.IntFlag{
-					Name:  "limit, l",
-					Usage: "limit to number of container to kill (0: kill all matching)",
-					Value: 0,
-				},
-			},
-			Usage:       "kill specified containers",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-			Description: "send termination signal to the main process inside target container(s)",
-			Action:      kill,
-		},
+		*cmd.NewKillCommand(topContext, client),
+		*cmd.NewStopCommand(topContext, client),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
@@ -339,20 +296,6 @@ func main() {
 			Action:      pause,
 		},
 		{
-			Name: "stop",
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "time, t",
-					Usage: "seconds to wait for stop before killing container (default 10)",
-					Value: 10,
-				},
-			},
-			Usage:       "stop containers",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-			Description: "stop the main process inside target containers, sending  SIGTERM, and then SIGKILL after a grace period",
-			Action:      stop,
-		},
-		{
 			Name: "rm",
 			Flags: []cli.Flag{
 				cli.BoolTFlag{
@@ -412,13 +355,17 @@ func main() {
 			Usage: "client key for TLS authentication",
 			Value: fmt.Sprintf("%s/key.pem", rootCertPath),
 		},
-		cli.BoolFlag{
-			Name:  "debug",
-			Usage: "enable debug mode with verbose logging",
+		cli.StringFlag{
+			Name:   "log-level, l",
+			Usage:  "set log level (debug, info, warning(*), error, fatal, panic)",
+			Value:  "warning",
+			EnvVar: "LOG_LEVEL",
 		},
 		cli.BoolFlag{
-			Name:  "json",
-			Usage: "produce log in JSON format: Logstash and Splunk friendly"},
+			Name:   "json, j",
+			Usage:  "produce log in JSON format: Logstash and Splunk friendly",
+			EnvVar: "LOG_JSON",
+		},
 		cli.StringFlag{
 			Name:  "slackhook",
 			Usage: "web hook url; send Pumba log events to Slack",
@@ -438,9 +385,10 @@ func main() {
 			Destination: &action.RandomMode,
 		},
 		cli.BoolFlag{
-			Name:        "dry",
+			Name:        "dry-run",
 			Usage:       "dry run does not create chaos, only logs planned chaos commands",
 			Destination: &action.DryMode,
+			EnvVar:      "DRY-RUN",
 		},
 	}
 
@@ -451,8 +399,21 @@ func main() {
 
 func before(c *cli.Context) error {
 	// set debug log level
-	if c.GlobalBool("debug") {
+	switch level := c.GlobalString("log-level"); level {
+	case "debug", "DEBUG":
 		log.SetLevel(log.DebugLevel)
+	case "info", "INFO":
+		log.SetLevel(log.InfoLevel)
+	case "warning", "WARNING":
+		log.SetLevel(log.WarnLevel)
+	case "error", "ERROR":
+		log.SetLevel(log.ErrorLevel)
+	case "fatal", "FATAL":
+		log.SetLevel(log.FatalLevel)
+	case "panic", "PANIC":
+		log.SetLevel(log.PanicLevel)
+	default:
+		log.SetLevel(log.WarnLevel)
 	}
 	// set log formatter to JSON
 	if c.GlobalBool("json") {
@@ -477,8 +438,6 @@ func before(c *cli.Context) error {
 	client = container.NewClient(c.GlobalString("host"), tls)
 	// create new Chaos instance
 	chaos = action.NewChaos()
-	// handle termination signal
-	topContext = handleSignals()
 	return nil
 }
 
@@ -546,61 +505,6 @@ func runChaosCommand(cmd interface{}, interval time.Duration, names []string, pa
 			log.Debug("Next chaos execution (tick) ...")
 		}
 	}
-}
-
-func runChaosCommandX(command docker.ChaosCommand, interval time.Duration) {
-	// create Time channel for specified interval
-	var tick <-chan time.Time
-	if interval == 0 {
-		tick = time.NewTimer(interval).C
-	} else {
-		tick = time.NewTicker(interval).C
-	}
-
-	// handle the 'chaos' command
-	ctx, cancel := context.WithCancel(topContext)
-	for {
-		// cancel current context on exit
-		defer cancel()
-		// run chaos function
-		if err := command.Run(ctx, action.RandomMode); err != nil {
-			log.WithError(err).Error("failed to run chaos command")
-		}
-		// wait for next timer tick or cancel
-		select {
-		case <-topContext.Done():
-			return // not to leak the goroutine
-		case <-tick:
-			if interval == 0 {
-				return // not to leak the goroutine
-			}
-			log.Debug("next chaos execution (tick) ...")
-		}
-	}
-}
-
-// KILL Command
-func kill(c *cli.Context) error {
-	// get interval
-	interval, err := getIntervalValue(c)
-	if err != nil {
-		log.WithError(err).Error("failed to get command interval")
-		return err
-	}
-	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
-	// get signal
-	signal := c.String("signal")
-	// get limit for number of containers to kill
-	limit := c.Int("limit")
-	// init kill command
-	killCommand, err := docker.NewKillCommand(client, names, pattern, signal, limit, action.DryMode)
-	if err != nil {
-		return nil
-	}
-	// run kill command
-	runChaosCommandX(killCommand, interval)
-	return nil
 }
 
 func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string, []net.IP, string, error) {
@@ -976,21 +880,6 @@ func remove(c *cli.Context) error {
 	// run chaos command
 	cmd := action.CommandRemove{Force: force, Links: links, Volumes: volumes}
 	runChaosCommand(cmd, interval, names, pattern, chaos.RemoveContainers)
-	return nil
-}
-
-// STOP Command
-func stop(c *cli.Context) error {
-	// get interval
-	interval, err := getIntervalValue(c)
-	if err != nil {
-		return err
-	}
-	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
-	// run chaos command
-	cmd := action.CommandStop{WaitTime: c.Int("time")}
-	runChaosCommand(cmd, interval, names, pattern, chaos.StopContainers)
 	return nil
 }
 
