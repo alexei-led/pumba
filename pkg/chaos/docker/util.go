@@ -7,7 +7,21 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	log "github.com/sirupsen/logrus"
 )
+
+// get interval value from string duration
+func getIntervalValue(interval string) (time.Duration, error) {
+	// get recurrent time interval
+	if interval == "" {
+		log.Debug("no interval specified, running only once")
+		return 0, nil
+	} else if i, err := time.ParseDuration(interval); err == nil {
+		return i, nil
+	} else {
+		return 0, err
+	}
+}
 
 // all containers beside Pumba and PumbaSkip
 func allContainersFilter(c container.Container) bool {

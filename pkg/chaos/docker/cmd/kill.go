@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
@@ -42,11 +41,7 @@ func (cmd *commandContext) kill(c *cli.Context) error {
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get interval
-	interval, err := getIntervalValue(c)
-	if err != nil {
-		log.WithError(err).Error("failed to get command interval")
-		return err
-	}
+	interval := c.GlobalString("interval")
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get signal
@@ -59,6 +54,5 @@ func (cmd *commandContext) kill(c *cli.Context) error {
 		return nil
 	}
 	// run kill command
-	runChaosCommandX(cmd.context, killCommand, interval, random)
-	return nil
+	return runChaosCommandX(cmd.context, killCommand, interval, random)
 }

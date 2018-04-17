@@ -22,18 +22,6 @@ type commandContext struct {
 	context context.Context
 }
 
-func getIntervalValue(c *cli.Context) (time.Duration, error) {
-	// get recurrent time interval
-	if intervalString := c.GlobalString("interval"); intervalString == "" {
-		log.Debug("no interval specified, running only once")
-		return 0, nil
-	} else if interval, err := time.ParseDuration(intervalString); err == nil {
-		return interval, nil
-	} else {
-		return 0, err
-	}
-}
-
 func getNamesOrPattern(c *cli.Context) ([]string, string) {
 	names := []string{}
 	pattern := ""
@@ -57,7 +45,14 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 	return names, pattern
 }
 
-func runChaosCommandX(topContext context.Context, command docker.ChaosCommand, interval time.Duration, random bool) {
+func runChaosCommandX(topContext context.Context, command docker.ChaosCommand, intervalStr string, random bool) error {
+	// parse interval
+	interval, err := time.ParseDuration(intervalStr)
+	if err != nil {
+		log.WithError(err).Error("failed to parse interval")
+		return err
+	}
+
 	// create Time channel for specified interval
 	var tick <-chan time.Time
 	if interval == 0 {
@@ -74,14 +69,15 @@ func runChaosCommandX(topContext context.Context, command docker.ChaosCommand, i
 		// run chaos function
 		if err := command.Run(ctx, random); err != nil {
 			log.WithError(err).Error("failed to run chaos command")
+			return err
 		}
 		// wait for next timer tick or cancel
 		select {
 		case <-topContext.Done():
-			return // not to leak the goroutine
+			return nil // not to leak the goroutine
 		case <-tick:
 			if interval == 0 {
-				return // not to leak the goroutine
+				return nil // not to leak the goroutine
 			}
 			log.Debug("next chaos execution (tick) ...")
 		}
