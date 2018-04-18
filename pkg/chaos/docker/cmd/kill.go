@@ -6,13 +6,19 @@ import (
 
 	"github.com/urfave/cli"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
 	"github.com/alexei-led/pumba/pkg/container"
 )
 
+type killContext struct {
+	client  container.Client
+	context context.Context
+}
+
 // NewKillCommand initialize CLI kill command and bind it to the killContext
 func NewKillCommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &commandContext{client: client, context: ctx}
+	cmdContext := &killContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "kill",
 		Flags: []cli.Flag{
@@ -28,14 +34,14 @@ func NewKillCommand(ctx context.Context, client container.Client) *cli.Command {
 			},
 		},
 		Usage:       "kill specified containers",
-		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "send termination signal to the main process inside target container(s)",
 		Action:      cmdContext.kill,
 	}
 }
 
 // KILL Command
-func (cmd *commandContext) kill(c *cli.Context) error {
+func (cmd *killContext) kill(c *cli.Context) error {
 	// get random
 	random := c.GlobalBool("random")
 	// get dry-run mode
@@ -43,7 +49,7 @@ func (cmd *commandContext) kill(c *cli.Context) error {
 	// get interval
 	interval := c.GlobalString("interval")
 	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
+	names, pattern := chaos.GetNamesOrPattern(c)
 	// get signal
 	signal := c.String("signal")
 	// get limit for number of containers to kill
@@ -54,5 +60,5 @@ func (cmd *commandContext) kill(c *cli.Context) error {
 		return nil
 	}
 	// run kill command
-	return runChaosCommandX(cmd.context, killCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, killCommand, interval, random)
 }

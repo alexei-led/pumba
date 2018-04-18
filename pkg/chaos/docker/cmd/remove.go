@@ -6,13 +6,19 @@ import (
 
 	"github.com/urfave/cli"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
 	"github.com/alexei-led/pumba/pkg/container"
 )
 
+type removeContext struct {
+	client  container.Client
+	context context.Context
+}
+
 // NewRemoveCommand initialize CLI remove command and bind it to the remove4Context
 func NewRemoveCommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &commandContext{client: client, context: ctx}
+	cmdContext := &removeContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "rm",
 		Flags: []cli.Flag{
@@ -35,14 +41,14 @@ func NewRemoveCommand(ctx context.Context, client container.Client) *cli.Command
 			},
 		},
 		Usage:       "remove containers",
-		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "remove target containers, with links and volumes",
 		Action:      cmdContext.remove,
 	}
 }
 
 // REMOVE Command
-func (cmd *commandContext) remove(c *cli.Context) error {
+func (cmd *removeContext) remove(c *cli.Context) error {
 	// get random
 	random := c.GlobalBool("random")
 	// get dry-run mode
@@ -50,7 +56,7 @@ func (cmd *commandContext) remove(c *cli.Context) error {
 	// get interval
 	interval := c.GlobalString("interval")
 	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
+	names, pattern := chaos.GetNamesOrPattern(c)
 	// get force flag
 	force := c.BoolT("force")
 	// get links flag
@@ -65,5 +71,5 @@ func (cmd *commandContext) remove(c *cli.Context) error {
 		return nil
 	}
 	// run remove command
-	return runChaosCommandX(cmd.context, removeCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, removeCommand, interval, random)
 }

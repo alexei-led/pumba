@@ -1,4 +1,4 @@
-package cmd
+package chaos
 
 import (
 	"context"
@@ -7,9 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 const (
@@ -17,12 +14,11 @@ const (
 	Re2Prefix = "re2:"
 )
 
-type commandContext struct {
-	client  container.Client
-	context context.Context
+type ChaosCommand interface {
+	Run(ctx context.Context, random bool) error
 }
 
-func getNamesOrPattern(c *cli.Context) ([]string, string) {
+func GetNamesOrPattern(c *cli.Context) ([]string, string) {
 	names := []string{}
 	pattern := ""
 	// get container names or pattern: no Args means ALL containers
@@ -45,7 +41,7 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 	return names, pattern
 }
 
-func runChaosCommandX(topContext context.Context, command docker.ChaosCommand, intervalStr string, random bool) error {
+func RunChaosCommand(topContext context.Context, command ChaosCommand, intervalStr string, random bool) error {
 	// parse interval
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {

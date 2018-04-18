@@ -6,13 +6,19 @@ import (
 
 	"github.com/urfave/cli"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
 	"github.com/alexei-led/pumba/pkg/container"
 )
 
-// NewStopCommand initialize CLI stop command and bind it to the commandContext
+type stopContext struct {
+	client  container.Client
+	context context.Context
+}
+
+// NewStopCommand initialize CLI stop command and bind it to the CommandContext
 func NewStopCommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &commandContext{client: client, context: ctx}
+	cmdContext := &stopContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "stop",
 		Flags: []cli.Flag{
@@ -37,14 +43,14 @@ func NewStopCommand(ctx context.Context, client container.Client) *cli.Command {
 			},
 		},
 		Usage:       "stop containers",
-		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "stop the main process inside target containers, sending  SIGTERM, and then SIGKILL after a grace period",
 		Action:      cmdContext.stop,
 	}
 }
 
 // STOP Command
-func (cmd *commandContext) stop(c *cli.Context) error {
+func (cmd *stopContext) stop(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
 	// get dry-run mode
@@ -56,7 +62,7 @@ func (cmd *commandContext) stop(c *cli.Context) error {
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
+	names, pattern := chaos.GetNamesOrPattern(c)
 	// get restart flag
 	restart := c.Bool("restart")
 	// get chaos command duration
@@ -67,5 +73,5 @@ func (cmd *commandContext) stop(c *cli.Context) error {
 		return err
 	}
 	// run stop command
-	return runChaosCommandX(cmd.context, stopCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, stopCommand, interval, random)
 }
