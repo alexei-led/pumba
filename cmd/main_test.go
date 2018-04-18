@@ -21,11 +21,6 @@ type ChaosMock struct {
 	mock.Mock
 }
 
-func (m *ChaosMock) RemoveContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(ctx, c, n, p, cmd)
-	return args.Error(0)
-}
-
 func (m *ChaosMock) NetemDelayContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
 	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
@@ -204,25 +199,6 @@ func (s *mainTestSuite) Test_beforeCommand_2Args() {
 
 func (s *mainTestSuite) Test_handleSignals() {
 	handleSignals()
-}
-
-func (s *mainTestSuite) Test_removeSuccess() {
-	// prepare
-	set := flag.NewFlagSet("stop", 0)
-	set.Bool("force", true, "doc")
-	set.Bool("links", true, "doc")
-	set.Bool("volumes", true, "doc")
-	c := cli.NewContext(nil, set, nil)
-	// setup mock
-	cmd := action.CommandRemove{Force: true, Links: true, Volumes: true}
-	chaosMock := &ChaosMock{}
-	chaos = chaosMock
-	chaosMock.On("RemoveContainers", mock.Anything, nil, []string{}, "", cmd).Return(nil)
-	// invoke command
-	err := remove(c)
-	// asserts
-	assert.NoError(s.T(), err)
-	chaosMock.AssertExpectations(s.T())
 }
 
 func (s *mainTestSuite) Test_netemDelaySuccess() {

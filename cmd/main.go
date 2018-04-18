@@ -283,27 +283,6 @@ func main() {
 				},
 			},
 		},
-		{
-			Name: "rm",
-			Flags: []cli.Flag{
-				cli.BoolTFlag{
-					Name:  "force, f",
-					Usage: "force the removal of a running container (with SIGKILL)",
-				},
-				cli.BoolFlag{
-					Name:  "links, l",
-					Usage: "remove container links",
-				},
-				cli.BoolTFlag{
-					Name:  "volumes, v",
-					Usage: "remove volumes associated with the container",
-				},
-			},
-			Usage:       "remove containers",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-			Description: "remove target containers, with links and volumes",
-			Action:      remove,
-		},
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -811,28 +790,6 @@ func netemRate(c *cli.Context) error {
 		Image:          image,
 	}
 	runChaosCommand(rateCmd, interval, names, pattern, chaos.NetemRateContainers)
-	return nil
-}
-
-// REMOVE Command
-func remove(c *cli.Context) error {
-	// get interval
-	interval, err := getIntervalValue(c)
-	if err != nil {
-		return err
-	}
-	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
-	// get force flag
-	force := c.BoolT("force")
-	// get link flag
-	links := c.BoolT("links")
-	// get link flag
-	volumes := c.BoolT("volumes")
-
-	// run chaos command
-	cmd := action.CommandRemove{Force: force, Links: links, Volumes: volumes}
-	runChaosCommand(cmd, interval, names, pattern, chaos.RemoveContainers)
 	return nil
 }
 

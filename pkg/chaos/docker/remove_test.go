@@ -10,15 +10,17 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestKillCommand_Run(t *testing.T) {
+func TestRemoveCommand_Run(t *testing.T) {
 	type wantErrors struct {
-		listError bool
-		killError bool
+		listError   bool
+		removeError bool
 	}
 	type fields struct {
 		names   []string
 		pattern string
-		signal  string
+		force   bool
+		links   bool
+		volumes bool
 		limit   int
 		dryRun  bool
 	}
@@ -35,10 +37,10 @@ func TestKillCommand_Run(t *testing.T) {
 		errs     wantErrors
 	}{
 		{
-			name: "kill matching containers by names",
+			name: "remove matching containers by names",
 			fields: fields{
-				names:  []string{"c1", "c2", "c3"},
-				signal: "SIGKILL",
+				names: []string{"c1", "c2", "c3"},
+				force: true,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -46,10 +48,11 @@ func TestKillCommand_Run(t *testing.T) {
 			expected: testContainer3,
 		},
 		{
-			name: "kill matching containers by filter with limit",
+			name: "remove matching containers by filter with limit",
 			fields: fields{
 				pattern: "^c?",
-				signal:  "SIGSTOP",
+				force:   true,
+				links:   true,
 				limit:   2,
 			},
 			args: args{
@@ -58,10 +61,12 @@ func TestKillCommand_Run(t *testing.T) {
 			expected: testContainer3,
 		},
 		{
-			name: "kill random matching container by names",
+			name: "remove random matching container by names",
 			fields: fields{
-				names:  []string{"c1", "c2", "c3"},
-				signal: "SIGKILL",
+				names:   []string{"c1", "c2", "c3"},
+				force:   true,
+				links:   true,
+				volumes: true,
 			},
 			args: args{
 				ctx:    context.TODO(),
@@ -72,8 +77,7 @@ func TestKillCommand_Run(t *testing.T) {
 		{
 			name: "no matching containers by names",
 			fields: fields{
-				names:  []string{"c1", "c2", "c3"},
-				signal: "SIGKILL",
+				names: []string{"c1", "c2", "c3"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -82,8 +86,7 @@ func TestKillCommand_Run(t *testing.T) {
 		{
 			name: "error listing containers",
 			fields: fields{
-				names:  []string{"c1", "c2", "c3"},
-				signal: "SIGKILL",
+				names: []string{"c1", "c2", "c3"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -92,27 +95,28 @@ func TestKillCommand_Run(t *testing.T) {
 			errs:    wantErrors{listError: true},
 		},
 		{
-			name: "error killing container",
+			name: "error removing container",
 			fields: fields{
-				names:  []string{"c1", "c2", "c3"},
-				signal: "SIGKILL",
+				names: []string{"c1", "c2", "c3"},
 			},
 			args: args{
 				ctx: context.TODO(),
 			},
 			expected: testContainer3,
 			wantErr:  true,
-			errs:     wantErrors{killError: true},
+			errs:     wantErrors{removeError: true},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := new(container.MockClient)
-			k := &KillCommand{
+			k := &RemoveCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
-				signal:  tt.fields.signal,
+				force:   tt.fields.force,
+				links:   tt.fields.links,
+				volumes: tt.fields.volumes,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
@@ -127,12 +131,12 @@ func TestKillCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal, tt.fields.dryRun).Return(nil)
+				mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal, tt.fields.dryRun)
-						if tt.errs.killError {
+						call = mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
+						if tt.errs.removeError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
 						} else {
@@ -143,19 +147,21 @@ func TestKillCommand_Run(t *testing.T) {
 			}
 		Invoke:
 			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("KillCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("RemoveCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
 		})
 	}
 }
 
-func TestNewKillCommand(t *testing.T) {
+func TestNewRemoveCommand(t *testing.T) {
 	type args struct {
 		client  container.Client
 		names   []string
 		pattern string
-		signal  string
+		force   bool
+		links   bool
+		volumes bool
 		limit   int
 		dryRun  bool
 	}
@@ -166,47 +172,32 @@ func TestNewKillCommand(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "create new kill command",
+			name: "create new remove command",
 			args: args{
-				names:  []string{"c1", "c2"},
-				signal: "SIGTERM",
-				limit:  10,
+				names:   []string{"c1", "c2"},
+				force:   true,
+				links:   true,
+				volumes: false,
+				limit:   10,
 			},
-			want: &KillCommand{
-				names:  []string{"c1", "c2"},
-				signal: "SIGTERM",
-				limit:  10,
-			},
-		},
-		{
-			name: "invalid signal",
-			args: args{
-				names:  []string{"c1", "c2"},
-				signal: "SIGNONE",
-			},
-			wantErr: true,
-		},
-		{
-			name: "empty signal",
-			args: args{
-				names:  []string{"c1", "c2"},
-				signal: "",
-			},
-			want: &KillCommand{
-				names:  []string{"c1", "c2"},
-				signal: DefaultKillSignal,
+			want: &RemoveCommand{
+				names:   []string{"c1", "c2"},
+				force:   true,
+				links:   true,
+				volumes: false,
+				limit:   10,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewKillCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.signal, tt.args.limit, tt.args.dryRun)
+			got, err := NewRemoveCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.force, tt.args.links, tt.args.volumes, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewKillCommand() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewRemoveCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewKillCommand() = %v, want %v", got, tt.want)
+				t.Errorf("NewRemoveCommand() = %v, want %v", got, tt.want)
 			}
 		})
 	}

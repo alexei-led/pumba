@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexei-led/pumba/mocks"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -155,71 +154,6 @@ func TestAllFilter(t *testing.T) {
 	assert.False(t, allContainersFilter(c3))
 }
 
-func TestRemoveByName(t *testing.T) {
-	names, cs := makeContainersN(10)
-	client := new(mocks.Client)
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	cmd := CommandRemove{Force: false, Links: false, Volumes: false}
-	for _, c := range cs {
-		client.On("RemoveContainer", mock.Anything, c, false, false, false).Return(nil)
-	}
-	pumba := pumbaChaos{}
-	err := pumba.RemoveContainers(context.TODO(), client, names, "", cmd)
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestRemoveByNameRandom(t *testing.T) {
-	// prepare test data and mocks
-	names, cs := makeContainersN(10)
-	client := new(mocks.Client)
-	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("RemoveContainer", mock.Anything, mock.Anything, false, true, true).Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.RemoveContainers(context.TODO(), client, names, "", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestRemoveByPattern(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client := new(mocks.Client)
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("RemoveContainer", mock.Anything, c, false, true, true).Return(nil)
-	}
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.RemoveContainers(context.TODO(), client, []string{}, "^c", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestRemoveByPatternRandom(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandRemove{Force: false, Links: true, Volumes: true}
-	client := new(mocks.Client)
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("RemoveContainer", mock.Anything, mock.Anything, false, true, true).Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.RemoveContainers(context.TODO(), client, []string{}, "^c", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
 func TestNetemDelayByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)
@@ -231,11 +165,11 @@ func TestNetemDelayByName(t *testing.T) {
 		Jitter:       25,
 		Correlation:  0.23,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "0.23"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "0.23"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -257,10 +191,10 @@ func TestNetemDelayByNameRandom(t *testing.T) {
 		Correlation:  5.5,
 		Distribution: "uniform",
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("NetemContainer", mock.Anything, mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "5.50", "distribution", "uniform"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-	client.On("StopNetemContainer", mock.Anything, mock.Anything, "eth1", []net.IP(nil), "").Return(nil)
+	client.On("NetemContainer", mock.Anything, mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "5.50", "distribution", "uniform"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+	client.On("StopNetemContainer", mock.Anything, mock.Anything, "eth1", []net.IP(nil), "", false).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -282,11 +216,11 @@ func TestNetemDelayByPattern(t *testing.T) {
 		Jitter:       25,
 		Correlation:  15,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "15.00"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "15.00"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -308,11 +242,11 @@ func TestNetemDelayByPatternIPFilterOne(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", ips, "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", ips, "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -334,11 +268,11 @@ func TestNetemDelayByPatternIPFilterMany(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", ips, "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"delay", "120ms", "25ms", "10.00"}, ips, 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", ips, "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -359,10 +293,10 @@ func TestNetemDelayByPatternRandom(t *testing.T) {
 		Jitter:       25,
 		Correlation:  10.2,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("NetemContainer", mock.Anything, mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "10.20"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-	client.On("StopNetemContainer", mock.Anything, mock.Anything, "eth1", []net.IP(nil), "").Return(nil)
+	client.On("NetemContainer", mock.Anything, mock.Anything, "eth1", []string{"delay", "120ms", "25ms", "10.20"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+	client.On("StopNetemContainer", mock.Anything, mock.Anything, "eth1", []net.IP(nil), "", false).Return(nil)
 	// do action
 	RandomMode = true
 	pumba := pumbaChaos{}
@@ -383,11 +317,11 @@ func TestNetemLossByName(t *testing.T) {
 		Percent:      11.5,
 		Correlation:  25.53,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "11.50", "25.53"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "11.50", "25.53"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -410,11 +344,11 @@ func TestNetemLossStateByName(t *testing.T) {
 		P23:          14.8,
 		P14:          15.9,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "state", "11.50", "12.60", "13.70", "14.80", "15.90"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "state", "11.50", "12.60", "13.70", "14.80", "15.90"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -436,11 +370,11 @@ func TestNetemLossGEmodelByName(t *testing.T) {
 		OneH:         13.7,
 		OneK:         14.8,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "gemodel", "11.50", "12.60", "13.70", "14.80"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"loss", "gemodel", "11.50", "12.60", "13.70", "14.80"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}
@@ -462,11 +396,11 @@ func TestNetemRateByName(t *testing.T) {
 		CellSize:       20,
 		CellOverhead:   30,
 	}
-	client := new(mocks.Client)
+	client := new(container.MockClient)
 	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
 	for _, c := range cs {
-		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"rate", "300kbit", "10", "20", "30"}, []net.IP(nil), 1*time.Millisecond, "").Return(nil)
-		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "").Return(nil)
+		client.On("NetemContainer", mock.Anything, c, "eth1", []string{"rate", "300kbit", "10", "20", "30"}, []net.IP(nil), 1*time.Millisecond, "", false).Return(nil)
+		client.On("StopNetemContainer", mock.Anything, c, "eth1", []net.IP(nil), "", false).Return(nil)
 	}
 	// do action
 	pumba := pumbaChaos{}

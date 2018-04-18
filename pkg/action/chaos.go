@@ -81,16 +81,8 @@ type CommandNetemRate struct {
 	Image          string
 }
 
-// CommandRemove arguments for remove command
-type CommandRemove struct {
-	Force   bool
-	Links   bool
-	Volumes bool
-}
-
 // A Chaos is the interface with different methods to stop running containers.
 type Chaos interface {
-	RemoveContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemDelayContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossRandomContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossStateContainers(context.Context, container.Client, []string, string, interface{}) error
@@ -196,26 +188,6 @@ func randomContainer(containers []container.Container) *container.Container {
 	return nil
 }
 
-func removeContainers(ctx context.Context, client container.Client, containers []container.Container, force bool, links bool, volumes bool) error {
-	if RandomMode {
-		container := randomContainer(containers)
-		if container != nil {
-			err := client.RemoveContainer(ctx, *container, force, links, volumes, DryMode)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		for _, container := range containers {
-			err := client.RemoveContainer(ctx, container, force, links, volumes, DryMode)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func netemContainers(ctx context.Context, client container.Client, containers []container.Container, netInterface string, netemCmd []string, ips []net.IP, duration time.Duration, tcimage string) error {
 	var err error
 	netemContainers := []container.Container{}
@@ -263,22 +235,6 @@ func stopNetemContainers(ctx context.Context, client container.Client, container
 }
 
 //---------------------------------------------------------------------------------------------------
-
-// RemoveContainers - remove container either by RE2 pattern (if specified) or by names
-func (p pumbaChaos) RemoveContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("Remove containers")
-	// get command details
-	command, ok := cmd.(CommandRemove)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandRemove")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	return removeContainers(ctx, client, containers, command.Force, command.Links, command.Volumes)
-}
 
 // NetemDelayContainers delay network traffic with optional Jitter and correlation
 func (p pumbaChaos) NetemDelayContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexei-led/pumba/mocks"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -162,7 +161,7 @@ func TestPauseCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(mocks.Client)
+			mockClient := new(container.MockClient)
 			s := &PauseCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
@@ -205,7 +204,7 @@ func TestPauseCommand_Run(t *testing.T) {
 			}
 		Invoke:
 			if err := s.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("StopCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PauseCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
 		})

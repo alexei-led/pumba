@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexei-led/pumba/mocks"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -218,7 +217,7 @@ func TestStopCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(mocks.Client)
+			mockClient := new(container.MockClient)
 			s := &StopCommand{
 				client:   mockClient,
 				names:    tt.fields.names,
