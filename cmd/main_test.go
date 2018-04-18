@@ -21,17 +21,7 @@ type ChaosMock struct {
 	mock.Mock
 }
 
-func (m *ChaosMock) StopContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(ctx, c, n, p, cmd)
-	return args.Error(0)
-}
-
 func (m *ChaosMock) RemoveContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(ctx, c, n, p, cmd)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) PauseContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
 	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
@@ -57,11 +47,6 @@ func (m *ChaosMock) NetemLossGEmodelContainers(ctx context.Context, c container.
 }
 
 func (m *ChaosMock) NetemRateContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
-	args := m.Called(ctx, c, n, p, cmd)
-	return args.Error(0)
-}
-
-func (m *ChaosMock) StartContainers(ctx context.Context, c container.Client, n []string, p string, cmd interface{}) error {
 	args := m.Called(ctx, c, n, p, cmd)
 	return args.Error(0)
 }
@@ -219,46 +204,6 @@ func (s *mainTestSuite) Test_beforeCommand_2Args() {
 
 func (s *mainTestSuite) Test_handleSignals() {
 	handleSignals()
-}
-
-func (s *mainTestSuite) Test_pauseSuccess() {
-	// prepare
-	set := flag.NewFlagSet("pause", 0)
-	set.String("duration", "10s", "doc")
-	c := cli.NewContext(nil, set, nil)
-	// setup mock
-	chaosMock := &ChaosMock{}
-	chaos = chaosMock
-	cmd := action.CommandPause{
-		Duration: time.Duration(10 * time.Second),
-	}
-	chaosMock.On("PauseContainers", mock.Anything, nil, []string{}, "", cmd).Return(nil)
-	// invoke command
-	err := pause(c)
-	// asserts
-	assert.NoError(s.T(), err)
-	chaosMock.AssertExpectations(s.T())
-}
-
-func (s *mainTestSuite) Test_pauseMissingDuration() {
-	// prepare
-	set := flag.NewFlagSet("pause", 0)
-	c := cli.NewContext(nil, set, nil)
-	// invoke command
-	err := pause(c)
-	// asserts
-	assert.EqualError(s.T(), err, "Undefined duration interval")
-}
-
-func (s *mainTestSuite) Test_pauseBadDuration() {
-	// prepare
-	set := flag.NewFlagSet("pause", 0)
-	set.String("duration", "BAD", "doc")
-	c := cli.NewContext(nil, set, nil)
-	// invoke command
-	err := pause(c)
-	// asserts
-	assert.EqualError(s.T(), err, "time: invalid duration BAD")
 }
 
 func (s *mainTestSuite) Test_removeSuccess() {

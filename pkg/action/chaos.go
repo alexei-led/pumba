@@ -96,7 +96,6 @@ type Chaos interface {
 	NetemLossStateContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossGEmodelContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemRateContainers(context.Context, container.Client, []string, string, interface{}) error
-	StartContainers(context.Context, container.Client, []string, string, interface{}) error
 }
 
 // NewChaos create new Pumba Chaos instance
