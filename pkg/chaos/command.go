@@ -14,10 +14,12 @@ const (
 	Re2Prefix = "re2:"
 )
 
-type ChaosCommand interface {
+// Command chaos command
+type Command interface {
 	Run(ctx context.Context, random bool) error
 }
 
+// GetNamesOrPattern get names list of filter pattern from command line
 func GetNamesOrPattern(c *cli.Context) ([]string, string) {
 	names := []string{}
 	pattern := ""
@@ -41,7 +43,8 @@ func GetNamesOrPattern(c *cli.Context) ([]string, string) {
 	return names, pattern
 }
 
-func RunChaosCommand(topContext context.Context, command ChaosCommand, intervalStr string, random bool) error {
+// RunChaosCommand run chaos command in go routine
+func RunChaosCommand(topContext context.Context, command Command, intervalStr string, random bool) error {
 	// parse interval
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {

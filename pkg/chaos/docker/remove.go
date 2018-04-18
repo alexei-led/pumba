@@ -2,6 +2,8 @@ package docker
 
 import (
 	"context"
+
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,7 +21,7 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, names []string, pattern string, force bool, links bool, volumes bool, limit int, dryRun bool) (ChaosCommand, error) {
+func NewRemoveCommand(client container.Client, names []string, pattern string, force bool, links bool, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
 	remove := &RemoveCommand{client, names, pattern, force, links, volumes, limit, dryRun}
 	return remove, nil
 }

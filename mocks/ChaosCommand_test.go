@@ -4,14 +4,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos"
 )
 
 func TestMockChaosCommand(t *testing.T) {
-	mock := new(ChaosCommand)
-	iface := reflect.TypeOf((*docker.ChaosCommand)(nil)).Elem()
+	mock := new(Command)
+	iface := reflect.TypeOf((*chaos.Command)(nil)).Elem()
 
 	if !reflect.TypeOf(mock).Implements(iface) {
-		t.Fatalf("Mock does not implement the ChaosCommand interface")
+		t.Fatalf("Mock does not implement the Command interface")
 	}
 }

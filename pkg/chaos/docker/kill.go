@@ -3,6 +3,8 @@ package docker
 import (
 	"context"
 	"fmt"
+
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
 )
@@ -58,7 +60,7 @@ type KillCommand struct {
 }
 
 // NewKillCommand create new Kill Command instance
-func NewKillCommand(client container.Client, names []string, pattern string, signal string, limit int, dryRun bool) (ChaosCommand, error) {
+func NewKillCommand(client container.Client, names []string, pattern string, signal string, limit int, dryRun bool) (chaos.Command, error) {
 	kill := &KillCommand{client, names, pattern, signal, limit, dryRun}
 	if kill.signal == "" {
 		kill.signal = DefaultKillSignal

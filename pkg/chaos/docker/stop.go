@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,7 +28,7 @@ type StopCommand struct {
 }
 
 // NewStopCommand create new Stop Command instance
-func NewStopCommand(client container.Client, names []string, pattern string, restart bool, intervalStr string, durationStr string, waitTime int, limit int, dryRun bool) (ChaosCommand, error) {
+func NewStopCommand(client container.Client, names []string, pattern string, restart bool, intervalStr string, durationStr string, waitTime int, limit int, dryRun bool) (chaos.Command, error) {
 	if waitTime <= 0 {
 		waitTime = DeafultWaitTime
 	}

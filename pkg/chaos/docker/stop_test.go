@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -26,7 +27,7 @@ func TestNewStopCommand(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    ChaosCommand
+		want    chaos.Command
 		wantErr bool
 	}{
 		{

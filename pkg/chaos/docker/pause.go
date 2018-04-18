@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
 )
@@ -20,7 +21,7 @@ type PauseCommand struct {
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, names []string, pattern string, intervalStr string, durationStr string, limit int, dryRun bool) (ChaosCommand, error) {
+func NewPauseCommand(client container.Client, names []string, pattern string, intervalStr string, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
 	// get interval
 	interval, err := getIntervalValue(intervalStr)
 	if err != nil {
