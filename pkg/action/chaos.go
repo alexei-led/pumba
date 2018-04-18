@@ -81,9 +81,6 @@ type CommandNetemRate struct {
 	Image          string
 }
 
-// CommandStart arguments for start command
-type CommandStart struct{}
-
 // CommandRemove arguments for remove command
 type CommandRemove struct {
 	Force   bool
@@ -200,16 +197,6 @@ func randomContainer(containers []container.Container) *container.Container {
 	return nil
 }
 
-func startContainers(ctx context.Context, client container.Client, containers []container.Container) error {
-	for _, container := range containers {
-		err := client.StartContainer(ctx, container, DryMode)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func removeContainers(ctx context.Context, client container.Client, containers []container.Container, force bool, links bool, volumes bool) error {
 	if RandomMode {
 		container := randomContainer(containers)
@@ -277,22 +264,6 @@ func stopNetemContainers(ctx context.Context, client container.Client, container
 }
 
 //---------------------------------------------------------------------------------------------------
-
-// StartContainers start containers matching pattern
-func (p pumbaChaos) StartContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("Start containers")
-	// get command details
-	_, ok := cmd.(CommandStart)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandStart")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listAllContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	return startContainers(ctx, client, containers)
-}
 
 // RemoveContainers - remove container either by RE2 pattern (if specified) or by names
 func (p pumbaChaos) RemoveContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {

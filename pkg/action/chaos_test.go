@@ -485,35 +485,3 @@ func TestSelectRandomContainer(t *testing.T) {
 	assert.NotNil(t, c2)
 	assert.NotEqual(t, c1.Name(), c2.Name())
 }
-
-func TestStartByName(t *testing.T) {
-	// prepare test data and mock
-	names, cs := makeContainersN(10)
-	cmd := CommandStart{}
-	client := new(mocks.Client)
-	client.On("ListAllContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("StartContainer", mock.Anything, c).Return(nil)
-	}
-	// doc action
-	pumba := pumbaChaos{}
-	err := pumba.StartContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestStartByPattern(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandStart{}
-	client := new(mocks.Client)
-	client.On("ListAllContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("StartContainer", mock.Anything, mock.Anything).Return(nil)
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.StartContainers(context.TODO(), client, []string{}, "^c", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
