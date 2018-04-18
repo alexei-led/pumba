@@ -16,8 +16,8 @@ type stopContext struct {
 	context context.Context
 }
 
-// NewStopCommand initialize CLI stop command and bind it to the CommandContext
-func NewStopCommand(ctx context.Context, client container.Client) *cli.Command {
+// NewStopCLICommand initialize CLI stop command and bind it to the CommandContext
+func NewStopCLICommand(ctx context.Context, client container.Client) *cli.Command {
 	cmdContext := &stopContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "stop",

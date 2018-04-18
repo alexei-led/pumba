@@ -16,8 +16,8 @@ type killContext struct {
 	context context.Context
 }
 
-// NewKillCommand initialize CLI kill command and bind it to the killContext
-func NewKillCommand(ctx context.Context, client container.Client) *cli.Command {
+// NewKillCLICommand initialize CLI kill command and bind it to the killContext
+func NewKillCLICommand(ctx context.Context, client container.Client) *cli.Command {
 	cmdContext := &killContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "kill",

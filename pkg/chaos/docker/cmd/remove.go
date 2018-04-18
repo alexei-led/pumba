@@ -16,8 +16,8 @@ type removeContext struct {
 	context context.Context
 }
 
-// NewRemoveCommand initialize CLI remove command and bind it to the remove4Context
-func NewRemoveCommand(ctx context.Context, client container.Client) *cli.Command {
+// NewRemoveCLICommand initialize CLI remove command and bind it to the remove4Context
+func NewRemoveCLICommand(ctx context.Context, client container.Client) *cli.Command {
 	cmdContext := &removeContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "rm",

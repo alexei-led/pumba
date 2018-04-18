@@ -16,8 +16,8 @@ type pauseContext struct {
 	context context.Context
 }
 
-// NewPauseCommand initialize CLI pause command and bind it to the CommandContext
-func NewPauseCommand(ctx context.Context, client container.Client) *cli.Command {
+// NewPauseCLICommand initialize CLI pause command and bind it to the CommandContext
+func NewPauseCLICommand(ctx context.Context, client container.Client) *cli.Command {
 	cmdContext := &pauseContext{client: client, context: ctx}
 	return &cli.Command{
 		Name: "pause",

@@ -96,9 +96,10 @@ func main() {
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
 	app.Before = before
 	app.Commands = []cli.Command{
-		*cmd.NewKillCommand(topContext, client),
-		*cmd.NewStopCommand(topContext, client),
-		*cmd.NewPauseCommand(topContext, client),
+		*cmd.NewKillCLICommand(topContext, client),
+		*cmd.NewStopCLICommand(topContext, client),
+		*cmd.NewPauseCLICommand(topContext, client),
+		*cmd.NewRemoveCLICommand(topContext, client),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
