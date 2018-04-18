@@ -220,60 +220,6 @@ func TestRemoveByPatternRandom(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
-func TestPauseByName(t *testing.T) {
-	// prepare test data and mocks
-	names, cs := makeContainersN(10)
-	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := new(mocks.Client)
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("PauseContainer", mock.Anything, c).Return(nil)
-		client.On("UnpauseContainer", mock.Anything, c).Return(nil)
-	}
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.PauseContainers(context.TODO(), client, names, "", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestPauseByPattern(t *testing.T) {
-	// prepare test data and mocks
-	_, cs := makeContainersN(10)
-	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := new(mocks.Client)
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	for _, c := range cs {
-		client.On("PauseContainer", mock.Anything, c).Return(nil)
-		client.On("UnpauseContainer", mock.Anything, c).Return(nil)
-	}
-	// do action
-	pumba := pumbaChaos{}
-	err := pumba.PauseContainers(context.TODO(), client, []string{}, "^c", cmd)
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
-func TestPauseByNameRandom(t *testing.T) {
-	// prepare test data and mocks
-	names, cs := makeContainersN(10)
-	cmd := CommandPause{Duration: 2 * time.Millisecond}
-	client := new(mocks.Client)
-	client.On("ListContainers", mock.Anything, mock.Anything).Return(cs, nil)
-	client.On("PauseContainer", mock.Anything, mock.Anything).Return(nil)
-	client.On("UnpauseContainer", mock.Anything, mock.Anything).Return(nil)
-	// do action
-	RandomMode = true
-	pumba := pumbaChaos{}
-	err := pumba.PauseContainers(context.TODO(), client, names, "", cmd)
-	RandomMode = false
-	// asserts
-	assert.NoError(t, err)
-	client.AssertExpectations(t)
-}
-
 func TestNetemDelayByName(t *testing.T) {
 	// prepare test data and mocks
 	names, cs := makeContainersN(10)

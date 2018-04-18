@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
@@ -19,8 +20,27 @@ type PauseCommand struct {
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, names []string, pattern string, duration time.Duration, limit int, dryRun bool) ChaosCommand {
-	return &PauseCommand{client, names, pattern, duration, limit, dryRun}
+func NewPauseCommand(client container.Client, names []string, pattern string, intervalStr string, durationStr string, limit int, dryRun bool) (ChaosCommand, error) {
+	// get interval
+	interval, err := getIntervalValue(intervalStr)
+	if err != nil {
+		return nil, err
+	}
+	// get duration
+	var duration time.Duration
+	if durationStr == "" {
+		return nil, errors.New("undefined duration")
+	}
+	if durationStr != "" {
+		duration, err = time.ParseDuration(durationStr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if interval != 0 && duration >= interval {
+		return nil, errors.New("duration must be shorter than interval")
+	}
+	return &PauseCommand{client, names, pattern, duration, limit, dryRun}, nil
 }
 
 // Run pause command

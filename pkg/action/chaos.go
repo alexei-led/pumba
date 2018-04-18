@@ -22,11 +22,6 @@ var (
 	DelayDistribution = []string{"", "uniform", "normal", "pareto", "paretonormal"}
 )
 
-// CommandPause arguments for pause command
-type CommandPause struct {
-	Duration time.Duration
-}
-
 // CommandNetemDelay arguments for 'netem delay' sub-command
 type CommandNetemDelay struct {
 	NetInterface string
@@ -100,7 +95,6 @@ type CommandRemove struct {
 type Chaos interface {
 	RemoveContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemDelayContainers(context.Context, container.Client, []string, string, interface{}) error
-	PauseContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossRandomContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossStateContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossGEmodelContainers(context.Context, container.Client, []string, string, interface{}) error
@@ -234,51 +228,6 @@ func removeContainers(ctx context.Context, client container.Client, containers [
 		}
 	}
 	return nil
-}
-
-func pauseContainers(ctx context.Context, client container.Client, containers []container.Container, duration time.Duration) error {
-	var err error
-	pausedContainers := []container.Container{}
-	if RandomMode {
-		container := randomContainer(containers)
-		if container != nil {
-			err = client.PauseContainer(ctx, *container, DryMode)
-			if err != nil {
-				return err
-			}
-			pausedContainers = append(pausedContainers, *container)
-		}
-	} else {
-		for _, container := range containers {
-			err = client.PauseContainer(ctx, container, DryMode)
-			if err != nil {
-				break
-			} else {
-				pausedContainers = append(pausedContainers, container)
-			}
-		}
-	}
-	// wait for specified duration and then unpause containers or unpause on ctx.Done()
-	select {
-	case <-ctx.Done():
-		log.Debugf("Unpause containers by stop event")
-		// use different context to stop netem since parent context is canceled
-		err = unpauseContainers(context.Background(), client, pausedContainers)
-	case <-time.After(duration):
-		log.Debugf("Unpause containers after: %s", duration)
-		err = unpauseContainers(ctx, client, pausedContainers)
-	}
-	return err
-}
-
-func unpauseContainers(ctx context.Context, client container.Client, containers []container.Container) error {
-	var err error
-	for _, container := range containers {
-		if e := client.UnpauseContainer(ctx, container, DryMode); e != nil {
-			err = e
-		}
-	}
-	return err // last non nil error
 }
 
 func netemContainers(ctx context.Context, client container.Client, containers []container.Container, netInterface string, netemCmd []string, ips []net.IP, duration time.Duration, tcimage string) error {
@@ -477,20 +426,4 @@ func (p pumbaChaos) NetemRateContainers(ctx context.Context, client container.Cl
 	}
 
 	return netemContainers(ctx, client, containers, command.NetInterface, netemCmd, command.IPs, command.Duration, command.Image)
-}
-
-// PauseContainers pause container,if its name within `names`, for specified interval
-func (p pumbaChaos) PauseContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Infof("Pause containers")
-	// get command details
-	command, ok := cmd.(CommandPause)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandPause")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	return pauseContainers(ctx, client, containers, command.Duration)
 }

@@ -98,6 +98,7 @@ func main() {
 	app.Commands = []cli.Command{
 		*cmd.NewKillCommand(topContext, client),
 		*cmd.NewStopCommand(topContext, client),
+		*cmd.NewPauseCommand(topContext, client),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
@@ -281,19 +282,6 @@ func main() {
 					Action:      netemRate,
 				},
 			},
-		},
-		{
-			Name: "pause",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "duration, d",
-					Usage: "pause duration: should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
-				},
-			},
-			Usage:       "pause all processes",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-			Description: "pause all running processes within target containers",
-			Action:      pause,
 		},
 		{
 			Name: "rm",
@@ -830,34 +818,6 @@ func netemRate(c *cli.Context) error {
 		Image:          image,
 	}
 	runChaosCommand(rateCmd, interval, names, pattern, chaos.NetemRateContainers)
-	return nil
-}
-
-// PAUSE command
-func pause(c *cli.Context) error {
-	// get interval
-	interval, err := getIntervalValue(c)
-	if err != nil {
-		return err
-	}
-	// get names or pattern
-	names, pattern := getNamesOrPattern(c)
-	// get duration
-	durationString := c.String("duration")
-	if durationString == "" {
-		err := errors.New("Undefined duration interval")
-		log.Error(err)
-		return err
-	}
-	duration, err := time.ParseDuration(durationString)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	cmd := action.CommandPause{
-		Duration: duration,
-	}
-	runChaosCommand(cmd, interval, names, pattern, chaos.PauseContainers)
 	return nil
 }
 

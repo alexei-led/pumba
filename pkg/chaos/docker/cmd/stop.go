@@ -21,6 +21,11 @@ func NewStopCommand(ctx context.Context, client container.Client) *cli.Command {
 				Usage: "seconds to wait for stop before killing container (default 10)",
 				Value: docker.DeafultWaitTime,
 			},
+			cli.IntFlag{
+				Name:  "limit, l",
+				Usage: "limit to number of container to kill (0: kill all matching)",
+				Value: 0,
+			},
 			cli.BoolFlag{
 				Name:  "restart, r",
 				Usage: "restart stopped container after specified duration",
@@ -56,11 +61,11 @@ func (cmd *commandContext) stop(c *cli.Context) error {
 	restart := c.Bool("restart")
 	// get chaos command duration
 	duration := c.String("duration")
-	// init kill command
+	// init stop command
 	stopCommand, err := docker.NewStopCommand(cmd.client, names, pattern, restart, interval, duration, waitTime, limit, dryRun)
 	if err != nil {
 		return err
 	}
-	// run kill command
+	// run stop command
 	return runChaosCommandX(cmd.context, stopCommand, interval, random)
 }
