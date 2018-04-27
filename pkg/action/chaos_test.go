@@ -104,7 +104,7 @@ func TestNamesFilter(t *testing.T) {
 		)),
 		container.ImageDetailsResponse(container.AsMap()),
 	)
-	cf := containerFilter([]string{"ccc", "bbb", "xxx"})
+	cf := container.ContainerFilter([]string{"ccc", "bbb", "xxx"})
 	assert.True(t, cf(c1))
 	assert.False(t, cf(c2))
 	assert.False(t, cf(c3))
@@ -126,7 +126,7 @@ func TestAllNamesFilter(t *testing.T) {
 		)),
 		container.ImageDetailsResponse(container.AsMap()),
 	)
-	cf := containerFilter([]string{})
+	cf := container.ContainerFilter([]string{})
 	assert.True(t, cf(c1))
 	assert.True(t, cf(c2))
 	assert.False(t, cf(c3))
@@ -149,9 +149,9 @@ func TestAllFilter(t *testing.T) {
 		container.ImageDetailsResponse(container.AsMap()),
 	)
 
-	assert.True(t, allContainersFilter(c1))
-	assert.True(t, allContainersFilter(c2))
-	assert.False(t, allContainersFilter(c3))
+	assert.True(t, container.AllContainersFilter(c1))
+	assert.True(t, container.AllContainersFilter(c2))
+	assert.False(t, container.AllContainersFilter(c3))
 }
 
 func TestNetemDelayByName(t *testing.T) {

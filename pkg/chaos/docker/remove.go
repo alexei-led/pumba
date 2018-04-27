@@ -34,7 +34,7 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 		"pattern": r.pattern,
 		"limit":   r.limit,
 	}).Debug("listing matching containers")
-	containers, err := listNContainers(ctx, r.client, r.names, r.pattern, r.limit)
+	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err
@@ -47,7 +47,7 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		log.Debug("selecting single random container")
-		if c := randomContainer(containers); c != nil {
+		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
 	}

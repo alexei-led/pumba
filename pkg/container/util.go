@@ -1,4 +1,4 @@
-package docker
+package container
 
 import (
 	"context"
@@ -6,12 +6,11 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
 )
 
-// get interval value from string duration
-func getIntervalValue(interval string) (time.Duration, error) {
+// GetIntervalValue get interval value from string duration
+func GetIntervalValue(interval string) (time.Duration, error) {
 	// get recurrent time interval
 	if interval == "" {
 		log.Debug("no interval specified, running only once")
@@ -23,20 +22,20 @@ func getIntervalValue(interval string) (time.Duration, error) {
 	}
 }
 
-// all containers beside Pumba and PumbaSkip
-func allContainersFilter(c container.Container) bool {
+// AllContainersFilter all containers beside Pumba and PumbaSkip
+func AllContainersFilter(c Container) bool {
 	if c.IsPumba() || c.IsPumbaSkip() {
 		return false
 	}
 	return true
 }
 
-func containerFilter(names []string) container.Filter {
+func ContainerFilter(names []string) Filter {
 	if len(names) == 0 {
-		return allContainersFilter
+		return AllContainersFilter
 	}
 
-	return func(c container.Container) bool {
+	return func(c Container) bool {
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
@@ -49,8 +48,8 @@ func containerFilter(names []string) container.Filter {
 	}
 }
 
-func regexContainerFilter(pattern string) container.Filter {
-	return func(c container.Container) bool {
+func RegexContainerFilter(pattern string) Filter {
+	return func(c Container) bool {
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
@@ -69,13 +68,13 @@ func regexContainerFilter(pattern string) container.Filter {
 	}
 }
 
-func listContainers(ctx context.Context, client container.Client, names []string, pattern string, all bool) ([]container.Container, error) {
-	var filter container.Filter
+func ListContainers(ctx context.Context, client Client, names []string, pattern string, all bool) ([]Container, error) {
+	var filter Filter
 
 	if pattern != "" {
-		filter = regexContainerFilter(pattern)
+		filter = RegexContainerFilter(pattern)
 	} else {
-		filter = containerFilter(names)
+		filter = ContainerFilter(names)
 	}
 
 	if all {
@@ -84,7 +83,7 @@ func listContainers(ctx context.Context, client container.Client, names []string
 	return client.ListContainers(ctx, filter)
 }
 
-func randomContainer(containers []container.Container) *container.Container {
+func RandomContainer(containers []Container) *Container {
 	if len(containers) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		i := r.Intn(len(containers))
@@ -93,12 +92,12 @@ func randomContainer(containers []container.Container) *container.Container {
 	return nil
 }
 
-func listRunningContainers(ctx context.Context, client container.Client, names []string, pattern string) ([]container.Container, error) {
-	return listContainers(ctx, client, names, pattern, false)
+func ListRunningContainers(ctx context.Context, client Client, names []string, pattern string) ([]Container, error) {
+	return ListContainers(ctx, client, names, pattern, false)
 }
 
-func listNContainers(ctx context.Context, client container.Client, names []string, pattern string, limit int) ([]container.Container, error) {
-	containers, err := listRunningContainers(ctx, client, names, pattern)
+func ListNContainers(ctx context.Context, client Client, names []string, pattern string, limit int) ([]Container, error) {
+	containers, err := ListRunningContainers(ctx, client, names, pattern)
 	if err != nil {
 		return nil, err
 	}

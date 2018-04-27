@@ -76,12 +76,13 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	distribution := c.String("distribution")
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
+	// get limit for number of containers to kill
+	limit := c.Parent().Int("limit")
 	// init kill command
-	delayCommand, err := netem.NewDelayCommand(cmd.client, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, dryRun)
+	delayCommand, err := netem.NewDelayCommand(cmd.client, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, limit, dryRun)
 	if err != nil {
 		return nil
 	}
-
 	// run netem delay command
 	return chaos.RunChaosCommand(cmd.context, delayCommand, interval, random)
 }

@@ -81,7 +81,7 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 		"pattern": k.pattern,
 		"limit":   k.limit,
 	}).Debug("listing matching containers")
-	containers, err := listNContainers(ctx, k.client, k.names, k.pattern, k.limit)
+	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err
@@ -94,7 +94,7 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		log.Debug("selecting single random container")
-		if c := randomContainer(containers); c != nil {
+		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
 	}

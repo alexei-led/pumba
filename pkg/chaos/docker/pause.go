@@ -23,7 +23,7 @@ type PauseCommand struct {
 // NewPauseCommand create new Pause Command instance
 func NewPauseCommand(client container.Client, names []string, pattern string, intervalStr string, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
 	// get interval
-	interval, err := getIntervalValue(intervalStr)
+	interval, err := container.GetIntervalValue(intervalStr)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 		"duration": p.duration,
 		"limit":    p.limit,
 	}).Debug("listing matching containers")
-	containers, err := listNContainers(ctx, p.client, p.names, p.pattern, p.limit)
+	containers, err := container.ListNContainers(ctx, p.client, p.names, p.pattern, p.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err
@@ -66,7 +66,7 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		log.Debug("selecting single random container")
-		if c := randomContainer(containers); c != nil {
+		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
 	}

@@ -62,9 +62,10 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 
 	// handle the 'chaos' command
 	ctx, cancel := context.WithCancel(topContext)
+	// cancel current context on exit
+	defer cancel()
+	// run chaos command
 	for {
-		// cancel current context on exit
-		defer cancel()
 		// run chaos function
 		if err := command.Run(ctx, random); err != nil {
 			log.WithError(err).Error("failed to run chaos command")

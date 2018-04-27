@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -33,6 +34,7 @@ type DelayCommand struct {
 	correlation  float64
 	distribution string
 	image        string
+	limit        int
 	dryRun       bool
 }
 
@@ -49,6 +51,7 @@ func NewDelayCommand(client container.Client,
 	correlation float64, // delay correlation
 	distribution string, // delay distribution
 	image string, // traffic control image
+	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not delay just log
 ) (chaos.Command, error) {
 	// log error
@@ -119,11 +122,70 @@ func NewDelayCommand(client container.Client,
 		correlation:  correlation,
 		distribution: distribution,
 		image:        image,
+		limit:        limit,
 		dryRun:       dryRun,
 	}, nil
 }
 
 // Run netem delay command
-func (s *DelayCommand) Run(ctx context.Context, random bool) error {
+func (n *DelayCommand) Run(ctx context.Context, random bool) error {
+	log.Debug("adding network delay to all matching containers")
+	log.WithFields(log.Fields{
+		"names":   n.names,
+		"pattern": n.pattern,
+		"limit":   n.limit,
+	}).Debug("listing matching containers")
+	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.limit)
+	if err != nil {
+		log.WithError(err).Error("failed to list containers")
+		return err
+	}
+	if len(containers) == 0 {
+		log.Warning("no containers to found")
+		return nil
+	}
+
+	// select single random container from matching container and replace list with selected item
+	if random {
+		log.Debug("selecting single random container")
+		if c := container.RandomContainer(containers); c != nil {
+			containers = []container.Container{*c}
+		}
+	}
+
+	// prepare netem command
+	netemCmd := []string{"delay", strconv.Itoa(n.time) + "ms"}
+	if n.jitter > 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(n.jitter)+"ms")
+	}
+	if n.correlation > 0 {
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+	}
+	if n.distribution != "" {
+		netemCmd = append(netemCmd, []string{"distribution", n.distribution}...)
+	}
+
+	// run netem delay command for selected containers
+	var cancels []context.CancelFunc
+	for _, c := range containers {
+		log.WithFields(log.Fields{
+			"container": c,
+		}).Debug("adding network delay for container")
+		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
+		cancels = append(cancels, cancel)
+		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		if err != nil {
+			log.WithError(err).Error("failed to delay network for container")
+			return err
+		}
+	}
+
+	// cancel context to avoid leaks
+	defer func() {
+		for _, cancel := range cancels {
+			cancel()
+		}
+	}()
+
 	return nil
 }
