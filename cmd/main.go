@@ -19,6 +19,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/container"
 
 	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
+	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 
 	log "github.com/sirupsen/logrus"
 
@@ -125,35 +126,7 @@ func main() {
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
-				{
-					Name: "delay",
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "time, t",
-							Usage: "delay time; in milliseconds",
-							Value: 100,
-						},
-						cli.IntFlag{
-							Name:  "jitter, j",
-							Usage: "random delay variation (jitter); in milliseconds; example: 100ms ± 10ms",
-							Value: 10,
-						},
-						cli.Float64Flag{
-							Name:  "correlation, c",
-							Usage: "delay correlation; in percentage",
-							Value: 20,
-						},
-						cli.StringFlag{
-							Name:  "distribution, d",
-							Usage: "delay distribution, can be one of {<empty> | uniform | normal | pareto |  paretonormal}",
-							Value: "",
-						},
-					},
-					Usage:       "delay egress traffic",
-					ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-					Description: "delay egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation",
-					Action:      netemDelay,
-				},
+				*netemCmd.NewDelayCLICommand(topContext, client),
 				{
 					Name: "loss",
 					Flags: []cli.Flag{
@@ -483,7 +456,7 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		durationString = c.Parent().String("duration")
 	}
 	if durationString == "" {
-		err := errors.New("Undefined duration interval")
+		err = errors.New("Undefined duration interval")
 		log.Error(err)
 		return names, pattern, 0, "", nil, "", err
 	}
@@ -530,61 +503,6 @@ func parseNetemOptions(c *cli.Context) ([]string, string, time.Duration, string,
 		image = c.Parent().String("tc-image")
 	}
 	return names, pattern, duration, netInterface, ips, image, nil
-}
-
-// NETEM DELAY command
-func netemDelay(c *cli.Context) error {
-	// get interval
-	interval, err := getIntervalValue(c)
-	if err != nil {
-		return err
-	}
-	// parse common netem options
-	names, pattern, duration, netInterface, ips, image, err := parseNetemOptions(c)
-	if err != nil {
-		return err
-	}
-	// get delay time
-	time := c.Int("time")
-	if time <= 0 {
-		err = errors.New("Invalid delay time")
-		log.Error(err)
-		return err
-	}
-	// get delay variation
-	jitter := c.Int("jitter")
-	if jitter < 0 || jitter > time {
-		err = errors.New("Invalid delay jitter")
-		log.Error(err)
-		return err
-	}
-	// get delay variation
-	correlation := c.Float64("correlation")
-	if correlation < 0.0 || correlation > 100.0 {
-		err = errors.New("Invalid delay correlation: must be between 0.0 and 100.0")
-		log.Error(err)
-		return err
-	}
-	// get distribution
-	distribution := c.String("distribution")
-	if ok := contains(action.DelayDistribution, distribution); !ok {
-		err = errors.New("Invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
-		log.Error(err)
-		return err
-	}
-	// pepare netem delay command
-	delayCmd := action.CommandNetemDelay{
-		NetInterface: netInterface,
-		IPs:          ips,
-		Duration:     duration,
-		Time:         time,
-		Jitter:       jitter,
-		Correlation:  correlation,
-		Distribution: distribution,
-		Image:        image,
-	}
-	runChaosCommand(delayCmd, interval, names, pattern, chaos.NetemDelayContainers)
-	return nil
 }
 
 // NETEM LOSS random command
@@ -759,7 +677,7 @@ func netemRate(c *cli.Context) error {
 	// get target egress rate
 	rateString := c.String("rate")
 	if rateString == "" {
-		err := errors.New("Undefined rate limit")
+		err = errors.New("Undefined rate limit")
 		log.Error(err)
 		return err
 	}

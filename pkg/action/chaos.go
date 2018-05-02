@@ -18,21 +18,7 @@ var (
 	RandomMode = false
 	// DryMode - do not 'kill' the container only log event
 	DryMode = false
-	// DelayDistribution netem delay distributions
-	DelayDistribution = []string{"", "uniform", "normal", "pareto", "paretonormal"}
 )
-
-// CommandNetemDelay arguments for 'netem delay' sub-command
-type CommandNetemDelay struct {
-	NetInterface string
-	IPs          []net.IP
-	Duration     time.Duration
-	Time         int
-	Jitter       int
-	Correlation  float64
-	Distribution string
-	Image        string
-}
 
 // CommandNetemLossRandom arguments for 'netem loss' (random) sub-command
 type CommandNetemLossRandom struct {
@@ -83,7 +69,6 @@ type CommandNetemRate struct {
 
 // A Chaos is the interface with different methods to stop running containers.
 type Chaos interface {
-	NetemDelayContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossRandomContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossStateContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemLossGEmodelContainers(context.Context, container.Client, []string, string, interface{}) error
@@ -235,33 +220,6 @@ func stopNetemContainers(ctx context.Context, client container.Client, container
 }
 
 //---------------------------------------------------------------------------------------------------
-
-// NetemDelayContainers delay network traffic with optional Jitter and correlation
-func (p pumbaChaos) NetemDelayContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("netem: delay for containers")
-	// get command details
-	command, ok := cmd.(CommandNetemDelay)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandNetemDelay")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	netemCmd := []string{"delay", strconv.Itoa(command.Time) + "ms"}
-	if command.Jitter > 0 {
-		netemCmd = append(netemCmd, strconv.Itoa(command.Jitter)+"ms")
-	}
-	if command.Correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(command.Correlation, 'f', 2, 64))
-	}
-	if command.Distribution != "" {
-		netemCmd = append(netemCmd, []string{"distribution", command.Distribution}...)
-	}
-
-	return netemContainers(ctx, client, containers, command.NetInterface, netemCmd, command.IPs, command.Duration, command.Image)
-}
 
 func (p pumbaChaos) NetemLossRandomContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
 	log.Info("netem: loss random for containers")
