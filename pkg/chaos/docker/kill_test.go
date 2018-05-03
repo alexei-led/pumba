@@ -44,7 +44,7 @@ func TestKillCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 		},
 		{
 			name: "kill matching containers by filter with limit",
@@ -56,7 +56,7 @@ func TestKillCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 		},
 		{
 			name: "kill random matching container by names",
@@ -68,7 +68,7 @@ func TestKillCommand_Run(t *testing.T) {
 				ctx:    context.TODO(),
 				random: true,
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 		},
 		{
 			name: "no matching containers by names",
@@ -101,7 +101,7 @@ func TestKillCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{killError: true},
 		},

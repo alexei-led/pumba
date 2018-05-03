@@ -46,7 +46,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 		},
 		{
 			name: "remove matching containers by filter with limit",
@@ -59,7 +59,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 		},
 		{
 			name: "remove random matching container by names",
@@ -73,7 +73,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 				ctx:    context.TODO(),
 				random: true,
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 		},
 		{
 			name: "no matching containers by names",
@@ -103,7 +103,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
-			expected: testContainer3,
+			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{removeError: true},
 		},
