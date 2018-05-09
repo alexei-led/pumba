@@ -69,9 +69,6 @@ type CommandNetemRate struct {
 
 // A Chaos is the interface with different methods to stop running containers.
 type Chaos interface {
-	NetemLossRandomContainers(context.Context, container.Client, []string, string, interface{}) error
-	NetemLossStateContainers(context.Context, container.Client, []string, string, interface{}) error
-	NetemLossGEmodelContainers(context.Context, container.Client, []string, string, interface{}) error
 	NetemRateContainers(context.Context, container.Client, []string, string, interface{}) error
 }
 
@@ -220,70 +217,6 @@ func stopNetemContainers(ctx context.Context, client container.Client, container
 }
 
 //---------------------------------------------------------------------------------------------------
-
-func (p pumbaChaos) NetemLossRandomContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("netem: loss random for containers")
-	// get command details
-	command, ok := cmd.(CommandNetemLossRandom)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandNetemLossRandom")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	// prepare netem loss command
-	netemCmd := []string{"loss", strconv.FormatFloat(command.Percent, 'f', 2, 64)}
-	if command.Correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(command.Correlation, 'f', 2, 64))
-	}
-	// run prepared netem loss command
-	return netemContainers(ctx, client, containers, command.NetInterface, netemCmd, command.IPs, command.Duration, command.Image)
-}
-
-func (p pumbaChaos) NetemLossStateContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("netem: loss random for containers")
-	// get command details
-	command, ok := cmd.(CommandNetemLossState)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandNetemLossState")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	// prepare netem loss state command
-	netemCmd := []string{"loss", "state", strconv.FormatFloat(command.P13, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.P31, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.P32, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.P23, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.P14, 'f', 2, 64))
-	// run prepared netem state command
-	return netemContainers(ctx, client, containers, command.NetInterface, netemCmd, command.IPs, command.Duration, command.Image)
-}
-
-func (p pumbaChaos) NetemLossGEmodelContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {
-	log.Info("netem: loss random for containers")
-	// get command details
-	command, ok := cmd.(CommandNetemLossGEmodel)
-	if !ok {
-		return errors.New("Unexpected cmd type; should be CommandNetemLossGEmodel")
-	}
-	var err error
-	var containers []container.Container
-	if containers, err = listRunningContainers(ctx, client, names, pattern); err != nil {
-		return err
-	}
-	// prepare netem loss gemodel command
-	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(command.PG, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.PB, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneH, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(command.OneK, 'f', 2, 64))
-	// run prepared netem loss gemodel command
-	return netemContainers(ctx, client, containers, command.NetInterface, netemCmd, command.IPs, command.Duration, command.Image)
-}
 
 // NetemRateContainers delay network traffic with optional Jitter and correlation
 func (p pumbaChaos) NetemRateContainers(ctx context.Context, client container.Client, names []string, pattern string, cmd interface{}) error {

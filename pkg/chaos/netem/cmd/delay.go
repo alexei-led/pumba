@@ -60,12 +60,18 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	names, pattern := chaos.GetNamesOrPattern(c)
 	// get global chaos interval
 	interval := c.GlobalString("interval")
+
 	// get network interface from parent `netem` command
 	iface := c.Parent().String("interface")
 	// get ips list from parent `netem`` command `target` flag
 	ips := c.Parent().StringSlice("target")
 	// get duration from parent `netem`` command
 	duration := c.Parent().String("duration")
+	// get traffic control image from parent `netem` command
+	image := c.Parent().String("tc-image")
+	// get limit for number of containers to kill
+	limit := c.Parent().Int("limit")
+
 	// get delay time
 	time := c.Int("time")
 	// get delay jitter
@@ -74,11 +80,8 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 	// get delay distribution
 	distribution := c.String("distribution")
-	// get traffic control image from parent `netem` command
-	image := c.Parent().String("tc-image")
-	// get limit for number of containers to kill
-	limit := c.Parent().Int("limit")
-	// init kill command
+
+	// init netem delay command
 	delayCommand, err := netem.NewDelayCommand(cmd.client, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, limit, dryRun)
 	if err != nil {
 		return nil
