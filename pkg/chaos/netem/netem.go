@@ -11,7 +11,14 @@ import (
 
 // run network emulation command, stop netem on timeout or abort
 func runNetem(ctx context.Context, client container.Client, container container.Container, netInterface string, cmd []string, ips []net.IP, duration time.Duration, tcimage string, dryRun bool) error {
-	log.WithField("netem", cmd).Debug("running netem command")
+	log.WithFields(log.Fields{
+		"container": container,
+		"iface":     netInterface,
+		"netem":     cmd,
+		"ips":       ips,
+		"duration":  duration,
+		"tc-image":  tcimage,
+	}).Debug("running netem command")
 	var err error
 	err = client.NetemContainer(ctx, container, netInterface, cmd, ips, duration, tcimage, dryRun)
 	if err != nil {
@@ -22,7 +29,12 @@ func runNetem(ctx context.Context, client container.Client, container container.
 	// wait for specified duration and then stop netem (where it applied) or stop on ctx.Done()
 	select {
 	case <-ctx.Done():
-		log.Debugf("stopping netem command")
+		log.WithFields(log.Fields{
+			"container": container,
+			"iface":     netInterface,
+			"ips":       ips,
+			"tc-image":  tcimage,
+		}).Debug("stopping netem command")
 		// use different context to stop netem since parent context is canceled
 		err = client.StopNetemContainer(ctx, container, netInterface, ips, tcimage, dryRun)
 	}

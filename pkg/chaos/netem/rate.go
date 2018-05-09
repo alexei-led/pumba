@@ -16,35 +16,47 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// LossGECommand `netem loss gemodel` (Gilbert-Elliot model) command
-type LossGECommand struct {
-	client   container.Client
-	names    []string
-	pattern  string
-	iface    string
-	ips      []net.IP
-	duration time.Duration
-	pg       float64
-	pb       float64
-	oneH     float64
-	oneK     float64
-	image    string
-	limit    int
-	dryRun   bool
+// Parse rate
+func parseRate(rate string) (string, error) {
+	reRate := regexp.MustCompile("[0-9]+[gmk]?bit")
+	validRate := reRate.FindString(rate)
+	if rate != validRate {
+		err := fmt.Errorf("Invalid rate. Must match '%s'", reRate.String())
+		log.Error(err)
+		return "", err
+	}
+	return rate, nil
 }
 
-// NewLossGECommand create new netem loss gemodel (Gilbert-Elliot) command
-func NewLossGECommand(client container.Client,
+// RateCommand `netem rate` command
+type RateCommand struct {
+	client         container.Client
+	names          []string
+	pattern        string
+	iface          string
+	ips            []net.IP
+	duration       time.Duration
+	rate           string
+	packetOverhead int
+	cellSize       int
+	cellOverhead   int
+	image          string
+	limit          int
+	dryRun         bool
+}
+
+// NewRateCommand create new netem rate command
+func NewRateCommand(client container.Client,
 	names []string, // containers
 	pattern string, // re2 regex pattern
 	iface string, // network interface
 	ipsList []string, // list of target ips
 	durationStr string, // chaos duration
 	intervalStr string, // repeatable chaos interval
-	pg float64, // Good State transition probability
-	pb float64, // Bad State transition probability
-	oneH float64, // loss probability in Bad state
-	oneK float64, // loss probability in Good state
+	rate string, // delay outgoing packets; in common units
+	packetOverhead int, // per packet overhead; in bytes
+	cellSize int, // cell size of the simulated link layer scheme
+	cellOverhead int, // per cell overhead; in bytes
 	image string, // traffic control image
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
@@ -53,7 +65,7 @@ func NewLossGECommand(client container.Client,
 	var err error
 	defer func() {
 		if err != nil {
-			log.WithError(err).Error("failed to construct Netem Loss GEModel Command")
+			log.WithError(err).Error("failed to construct Netem Rate Command")
 		}
 	}()
 
@@ -84,51 +96,45 @@ func NewLossGECommand(client container.Client,
 		}
 		ips = append(ips, ip)
 	}
-	// get pg - Good State transition probability
-	if pg < 0.0 || pg > 100.0 {
-		err = errors.New("Invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
+	// validate target egress rate
+	if rate == "" {
+		err = errors.New("Undefined rate limit")
 		log.Error(err)
 		return nil, err
 	}
-	// get pb - Bad State transition probability
-	if pb < 0.0 || pb > 100.0 {
-		err = errors.New("Invalid pb (Bad State) transition probability: must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
-	}
-	// get (1-h) - loss probability in Bad state
-	if oneH < 0.0 || oneH > 100.0 {
-		err = errors.New("Invalid loss probability: must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
-	}
-	// get (1-k) - loss probability in Good state
-	if oneK < 0.0 || oneK > 100.0 {
-		err = errors.New("Invalid loss probability: must be between 0.0 and 100.0")
+	rate, err = parseRate(rate)
+	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 
-	return &LossGECommand{
-		client:   client,
-		names:    names,
-		pattern:  pattern,
-		iface:    iface,
-		ips:      ips,
-		duration: duration,
-		pg:       pg,
-		pb:       pb,
-		oneH:     oneH,
-		oneK:     oneK,
-		image:    image,
-		limit:    limit,
-		dryRun:   dryRun,
+	// validate cell size
+	if cellSize < 0 {
+		err = errors.New("Invalid cell size: must be a non-negative integer")
+		log.Error(err)
+		return nil, err
+	}
+
+	return &RateCommand{
+		client:         client,
+		names:          names,
+		pattern:        pattern,
+		iface:          iface,
+		ips:            ips,
+		duration:       duration,
+		rate:           rate,
+		packetOverhead: packetOverhead,
+		cellSize:       cellSize,
+		cellOverhead:   cellOverhead,
+		image:          image,
+		limit:          limit,
+		dryRun:         dryRun,
 	}, nil
 }
 
-// Run netem loss state command
-func (n *LossGECommand) Run(ctx context.Context, random bool) error {
-	log.Debug("adding network packet loss according Gilbert-Elliot model to all matching containers")
+// Run netem rate command
+func (n *RateCommand) Run(ctx context.Context, random bool) error {
+	log.Debug("setting network rate to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
 		"pattern": n.pattern,
@@ -152,23 +158,30 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 		}
 	}
 
-	// prepare netem loss gemodel command
-	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.pb, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.oneH, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.oneK, 'f', 2, 64))
+	// prepare netem rate command
+	netemCmd := []string{"rate", n.rate}
+	if n.packetOverhead != 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(n.packetOverhead))
+	}
+	if n.cellSize > 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(n.cellSize))
+	}
+	if n.cellOverhead != 0 {
+		netemCmd = append(netemCmd, strconv.Itoa(n.cellOverhead))
+	}
 
 	// run netem loss command for selected containers
 	var cancels []context.CancelFunc
 	for _, c := range containers {
 		log.WithFields(log.Fields{
 			"container": c,
-		}).Debug("adding network random packet loss for container")
+			"command":   netemCmd,
+		}).Debug("setting network rate for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels = append(cancels, cancel)
 		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to set packet loss for container")
+			log.WithError(err).Error("failed to set network rate for container")
 			return err
 		}
 	}

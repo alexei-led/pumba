@@ -59,7 +59,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
-	// get limit for number of containers to kill
+	// get limit for number of containers to netem
 	limit := c.Parent().Int("limit")
 
 	// get loss percentage

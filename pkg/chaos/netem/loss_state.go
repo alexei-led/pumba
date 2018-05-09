@@ -55,7 +55,7 @@ func NewLossStateCommand(client container.Client,
 	var err error
 	defer func() {
 		if err != nil {
-			log.WithError(err).Error("failed to construct Netem Loss Command")
+			log.WithError(err).Error("failed to construct Netem Loss State Command")
 		}
 	}()
 
@@ -174,12 +174,12 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	for _, c := range containers {
 		log.WithFields(log.Fields{
 			"container": c,
-		}).Debug("adding network random packet loss for container")
+		}).Debug("adding network 4-state packet loss for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels = append(cancels, cancel)
 		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to delay network for container")
+			log.WithError(err).Error("failed to set packet loss for container")
 			return err
 		}
 	}

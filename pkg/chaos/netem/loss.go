@@ -148,7 +148,7 @@ func (n *LossCommand) Run(ctx context.Context, random bool) error {
 		cancels = append(cancels, cancel)
 		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to delay network for container")
+			log.WithError(err).Error("failed to set packet loss for container")
 			return err
 		}
 	}
