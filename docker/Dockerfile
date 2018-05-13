@@ -49,7 +49,7 @@ LABEL com.gaiaadm.pumba=true
 
 RUN addgroup pumba && adduser -s /bin/bash -D -G pumba pumba
 
-RUN apk add --no-cache dumb-init su-exec
+RUN apk add --no-cache dumb-init su-exec ca-certificates
 
 COPY --from=builder /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/bin/pumba
 COPY docker/docker_entrypoint.sh /
