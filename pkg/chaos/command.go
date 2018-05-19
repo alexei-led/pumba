@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/alexei-led/pumba/pkg/util"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -12,6 +15,11 @@ import (
 const (
 	// Re2Prefix re2 regexp string prefix
 	Re2Prefix = "re2:"
+)
+
+var (
+	// Docker client instance
+	DockerClient container.Client
 )
 
 // Command chaos command
@@ -46,7 +54,7 @@ func GetNamesOrPattern(c *cli.Context) ([]string, string) {
 // RunChaosCommand run chaos command in go routine
 func RunChaosCommand(topContext context.Context, command Command, intervalStr string, random bool) error {
 	// parse interval
-	interval, err := time.ParseDuration(intervalStr)
+	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
 		log.WithError(err).Error("failed to parse interval")
 		return err

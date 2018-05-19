@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type rateContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewRateCLICommand initialize CLI rate command and bind it to the lossContext
-func NewRateCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &rateContext{client: client, context: ctx}
+func NewRateCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &rateContext{context: ctx}
 	return &cli.Command{
 		Name: "rate",
 		Flags: []cli.Flag{
@@ -82,7 +80,7 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	cellOverhead := c.Int("celloverhead")
 
 	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(cmd.client, names, pattern, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, limit, dryRun)
+	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, limit, dryRun)
 	if err != nil {
 		return nil
 	}

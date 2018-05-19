@@ -5,22 +5,7 @@ import (
 	"math/rand"
 	"regexp"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
-
-// GetIntervalValue get interval value from string duration
-func GetIntervalValue(interval string) (time.Duration, error) {
-	// get recurrent time interval
-	if interval == "" {
-		log.Debug("no interval specified, running only once")
-		return 0, nil
-	} else if i, err := time.ParseDuration(interval); err == nil {
-		return i, nil
-	} else {
-		return 0, err
-	}
-}
 
 // AllContainersFilter all containers beside Pumba and PumbaSkip
 func AllContainersFilter(c Container) bool {

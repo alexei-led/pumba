@@ -12,10 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexei-led/pumba/pkg/container"
-
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
+	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/alexei-led/pumba/pkg/logger"
 
 	log "github.com/sirupsen/logrus"
 
@@ -25,7 +26,6 @@ import (
 )
 
 var (
-	client     container.Client
 	topContext context.Context
 )
 
@@ -92,10 +92,10 @@ func main() {
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
 	app.Before = before
 	app.Commands = []cli.Command{
-		*cmd.NewKillCLICommand(topContext, client),
-		*cmd.NewStopCLICommand(topContext, client),
-		*cmd.NewPauseCLICommand(topContext, client),
-		*cmd.NewRemoveCLICommand(topContext, client),
+		*cmd.NewKillCLICommand(topContext),
+		*cmd.NewStopCLICommand(topContext),
+		*cmd.NewPauseCLICommand(topContext),
+		*cmd.NewRemoveCLICommand(topContext),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
@@ -121,11 +121,11 @@ func main() {
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
-				*netemCmd.NewDelayCLICommand(topContext, client),
-				*netemCmd.NewLossCLICommand(topContext, client),
-				*netemCmd.NewLossStateCLICommand(topContext, client),
-				*netemCmd.NewLossGECLICommand(topContext, client),
-				*netemCmd.NewRateCLICommand(topContext, client),
+				*netemCmd.NewDelayCLICommand(topContext),
+				*netemCmd.NewLossCLICommand(topContext),
+				*netemCmd.NewLossStateCLICommand(topContext),
+				*netemCmd.NewLossGECLICommand(topContext),
+				*netemCmd.NewRateCLICommand(topContext),
 				{
 					Name:  "duplicate",
 					Usage: "TBD",
@@ -241,13 +241,17 @@ func before(c *cli.Context) error {
 			Username:       "pumba_bot",
 		})
 	}
+	// trace function calls
+	traceHook := logger.NewHook()
+	traceHook.AppName = "pumba"
+	log.AddHook(traceHook)
 	// Set-up container client
 	tls, err := tlsConfig(c)
 	if err != nil {
 		return err
 	}
 	// create new Docker client
-	client = container.NewClient(c.GlobalString("host"), tls)
+	chaos.DockerClient = container.NewClient(c.GlobalString("host"), tls)
 	return nil
 }
 

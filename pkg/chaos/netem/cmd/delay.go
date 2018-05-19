@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type delayContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewDelayCLICommand initialize CLI delay command and bind it to the delayContext
-func NewDelayCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &delayContext{client: client, context: ctx}
+func NewDelayCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &delayContext{context: ctx}
 	return &cli.Command{
 		Name: "delay",
 		Flags: []cli.Flag{
@@ -82,7 +80,7 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	distribution := c.String("distribution")
 
 	// init netem delay command
-	delayCommand, err := netem.NewDelayCommand(cmd.client, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, limit, dryRun)
+	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, limit, dryRun)
 	if err != nil {
 		return nil
 	}

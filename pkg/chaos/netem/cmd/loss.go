@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type lossContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewLossCLICommand initialize CLI loss command and bind it to the lossContext
-func NewLossCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &lossContext{client: client, context: ctx}
+func NewLossCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &lossContext{context: ctx}
 	return &cli.Command{
 		Name: "loss",
 		Flags: []cli.Flag{
@@ -68,7 +66,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem loss command
-	lossCommand, err := netem.NewLossCommand(cmd.client, names, pattern, iface, ips, duration, interval, percent, correlation, image, limit, dryRun)
+	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, percent, correlation, image, limit, dryRun)
 	if err != nil {
 		return nil
 	}

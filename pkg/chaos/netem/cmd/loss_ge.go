@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type lossGEContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewLossGECLICommand initialize CLI loss gemodel command and bind it to the lossContext
-func NewLossGECLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &lossGEContext{client: client, context: ctx}
+func NewLossGECLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &lossGEContext{context: ctx}
 	return &cli.Command{
 		Name: "loss-gemodel",
 		Flags: []cli.Flag{
@@ -83,7 +81,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	oneK := c.Float64("one-k")
 
 	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(cmd.client, names, pattern, iface, ips, duration, interval, pg, pb, oneH, oneK, image, limit, dryRun)
+	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, pg, pb, oneH, oneK, image, limit, dryRun)
 	if err != nil {
 		return nil
 	}

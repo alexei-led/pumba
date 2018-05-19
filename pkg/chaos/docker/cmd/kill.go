@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type killContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewKillCLICommand initialize CLI kill command and bind it to the killContext
-func NewKillCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &killContext{client: client, context: ctx}
+func NewKillCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &killContext{context: ctx}
 	return &cli.Command{
 		Name: "kill",
 		Flags: []cli.Flag{
@@ -55,7 +53,7 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// init kill command
-	killCommand, err := docker.NewKillCommand(cmd.client, names, pattern, signal, limit, dryRun)
+	killCommand, err := docker.NewKillCommand(chaos.DockerClient, names, pattern, signal, limit, dryRun)
 	if err != nil {
 		return nil
 	}

@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type removeContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewRemoveCLICommand initialize CLI remove command and bind it to the remove4Context
-func NewRemoveCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &removeContext{client: client, context: ctx}
+func NewRemoveCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &removeContext{context: ctx}
 	return &cli.Command{
 		Name: "rm",
 		Flags: []cli.Flag{
@@ -66,7 +64,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// get limit for number of containers to remove
 	limit := c.Int("limit")
 	// init remove command
-	removeCommand, err := docker.NewRemoveCommand(cmd.client, names, pattern, force, links, volumes, limit, dryRun)
+	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, names, pattern, force, links, volumes, limit, dryRun)
 	if err != nil {
 		return nil
 	}

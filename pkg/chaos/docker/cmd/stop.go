@@ -8,23 +8,21 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type stopContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewStopCLICommand initialize CLI stop command and bind it to the CommandContext
-func NewStopCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &stopContext{client: client, context: ctx}
+func NewStopCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &stopContext{ctx}
 	return &cli.Command{
 		Name: "stop",
 		Flags: []cli.Flag{
 			cli.IntFlag{
 				Name:  "time, t",
-				Usage: "seconds to wait for stop before killing container (default 10)",
+				Usage: "seconds to wait for stop before killing container (default 5)",
 				Value: docker.DeafultWaitTime,
 			},
 			cli.IntFlag{
@@ -68,7 +66,7 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 	// get chaos command duration
 	duration := c.String("duration")
 	// init stop command
-	stopCommand, err := docker.NewStopCommand(cmd.client, names, pattern, restart, interval, duration, waitTime, limit, dryRun)
+	stopCommand, err := docker.NewStopCommand(chaos.DockerClient, names, pattern, restart, interval, duration, waitTime, limit, dryRun)
 	if err != nil {
 		return err
 	}

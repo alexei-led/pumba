@@ -55,12 +55,14 @@ func TestNewStopCommand(t *testing.T) {
 			args: args{
 				names:    []string{"c1", "c2"},
 				pattern:  "pattern",
+				duration: "10s",
 				waitTime: 0,
 				limit:    15,
 			},
 			want: &StopCommand{
 				names:    []string{"c1", "c2"},
 				pattern:  "pattern",
+				duration: 10 * time.Second,
 				waitTime: DeafultWaitTime,
 				limit:    15,
 			},

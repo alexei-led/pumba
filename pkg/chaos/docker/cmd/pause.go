@@ -8,17 +8,15 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/alexei-led/pumba/pkg/container"
 )
 
 type pauseContext struct {
-	client  container.Client
 	context context.Context
 }
 
 // NewPauseCLICommand initialize CLI pause command and bind it to the CommandContext
-func NewPauseCLICommand(ctx context.Context, client container.Client) *cli.Command {
-	cmdContext := &pauseContext{client: client, context: ctx}
+func NewPauseCLICommand(ctx context.Context) *cli.Command {
+	cmdContext := &pauseContext{context: ctx}
 	return &cli.Command{
 		Name: "pause",
 		Flags: []cli.Flag{
@@ -54,7 +52,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	// get chaos command duration
 	duration := c.String("duration")
 	// init pause command
-	pauseCommand, err := docker.NewPauseCommand(cmd.client, names, pattern, interval, duration, limit, dryRun)
+	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, names, pattern, interval, duration, limit, dryRun)
 	if err != nil {
 		return err
 	}
