@@ -8,6 +8,7 @@ steps:
     title: "Multi-stage build is running: compile, test, coverage ..."
     description: compile for linux amd64, runt unit test, calculate coverage 
     image_name: gaiaadm/pumba
+    no_cf_cache: true
     build_arguments:
       - GH_SHA=${{CF_REVISION}}
       - GITHUB_TOKEN=${{GITHUB_TOKEN}}
@@ -19,6 +20,7 @@ steps:
     title: "Building and releasing to the GitHub ..."
     description: cross-platform compile, run unit tests, report coverage and release to the GitHub
     image_name: pumba/github/release
+    no_cf_cache: true
     build_arguments:
       - RELEASE=true
       - GH_SHA=${{CF_REVISION}}

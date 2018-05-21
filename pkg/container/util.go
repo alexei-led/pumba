@@ -1,64 +1,99 @@
 package container
 
-func sliceEqual(s1, s2 []string) bool {
-	if len(s1) != len(s2) {
+import (
+	"context"
+	"math/rand"
+	"regexp"
+	"time"
+)
+
+// AllContainersFilter all containers beside Pumba and PumbaSkip
+func AllContainersFilter(c Container) bool {
+	if c.IsPumba() || c.IsPumbaSkip() {
 		return false
 	}
-
-	for i := range s1 {
-		if s1[i] != s2[i] {
-			return false
-		}
-	}
-
 	return true
 }
 
-func sliceSubtract(a1, a2 []string) []string {
-	a := []string{}
+func ContainerFilter(names []string) Filter {
+	if len(names) == 0 {
+		return AllContainersFilter
+	}
 
-	for _, e1 := range a1 {
-		found := false
-
-		for _, e2 := range a2 {
-			if e1 == e2 {
-				found = true
-				break
+	return func(c Container) bool {
+		if c.IsPumba() || c.IsPumbaSkip() {
+			return false
+		}
+		for _, name := range names {
+			if (name == c.Name()) || (name == c.Name()[1:]) {
+				return true
 			}
 		}
-
-		if !found {
-			a = append(a, e1)
-		}
+		return false
 	}
-
-	return a
 }
 
-func stringMapSubtract(m1, m2 map[string]string) map[string]string {
-	m := map[string]string{}
-
-	for k1, v1 := range m1 {
-		if v2, ok := m2[k1]; ok {
-			if v2 != v1 {
-				m[k1] = v1
+func RegexContainerFilter(pattern string) Filter {
+	return func(c Container) bool {
+		if c.IsPumba() || c.IsPumbaSkip() {
+			return false
+		}
+		matched, err := regexp.MatchString(pattern, c.Name())
+		if err != nil {
+			return false
+		}
+		// container name may start with forward slash, when using inspect function
+		if !matched {
+			matched, err = regexp.MatchString(pattern, c.Name()[1:])
+			if err != nil {
+				return false
 			}
-		} else {
-			m[k1] = v1
 		}
+		return matched
 	}
-
-	return m
 }
 
-func structMapSubtract(m1, m2 map[string]struct{}) map[string]struct{} {
-	m := map[string]struct{}{}
+func ListContainers(ctx context.Context, client Client, names []string, pattern string, all bool) ([]Container, error) {
+	var filter Filter
 
-	for k1, v1 := range m1 {
-		if _, ok := m2[k1]; !ok {
-			m[k1] = v1
-		}
+	if pattern != "" {
+		filter = RegexContainerFilter(pattern)
+	} else {
+		filter = ContainerFilter(names)
 	}
 
-	return m
+	if all {
+		return client.ListAllContainers(ctx, filter)
+	}
+	return client.ListContainers(ctx, filter)
+}
+
+func RandomContainer(containers []Container) *Container {
+	if len(containers) > 0 {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		i := r.Intn(len(containers))
+		return &containers[i]
+	}
+	return nil
+}
+
+func ListRunningContainers(ctx context.Context, client Client, names []string, pattern string) ([]Container, error) {
+	return ListContainers(ctx, client, names, pattern, false)
+}
+
+func ListNContainers(ctx context.Context, client Client, names []string, pattern string, limit int) ([]Container, error) {
+	containers, err := ListRunningContainers(ctx, client, names, pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(containers) > limit && limit > 0 {
+		for i := range containers {
+			j := rand.Intn(i + 1)
+			containers[i], containers[j] = containers[j], containers[i]
+		}
+		return containers[0:limit], nil
+	}
+
+	return containers, nil
 }

@@ -4,4 +4,10 @@
 go get -u github.com/vektra/mockery/.../
 
 # (re)generate mock for Docker APIClient interface
-mockery -name APIClient -dir vendor/github.com/docker/docker/client -output ./pkg/container/mocks
+mockery -name APIClient -dir vendor/github.com/docker/docker/client
+
+# (re)generate mock for Command
+mockery -dir pkg/chaos/docker -all
+
+# (re)generate mock for Client
+mockery -dir pkg/container -inpkg -all

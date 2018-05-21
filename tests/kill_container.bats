@@ -11,8 +11,8 @@
     [ $status -eq 0 ]
 
     # and (container has been killed)
-    run bash -c "docker inspect killing_victim | grep Running"
-    [[ $output == *"false"* ]]
+    run docker inspect -f {{.State.Status}} killing_victim
+    [[ $output == "exited" ]]
 
     # cleanup
     docker rm -f killing_victim || true

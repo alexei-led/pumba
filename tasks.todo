@@ -1,12 +1,12 @@
 Refactoring:
-    ☐ refactor `cmd` - move all commands into `cmd` folder and `main` package
-    ☐ move other packages under `pkg`
-    ☐ review current packages
-    ☐ use `WithField/WithError` for logging
-    ☐ review current logging
+    ✔ refactor `cmd` - move all commands into `cmd` folder and `main` package @done (5/9/2018, 12:10:56 PM)
+    ✔ move other packages under `pkg` @done (5/9/2018, 12:10:58 PM)
+    ✔ review current packages @done (5/9/2018, 12:11:02 PM)
+    ✔ use `WithField/WithError` for logging @done (5/9/2018, 12:11:03 PM)
+    ✔ review current logging @done (5/9/2018, 12:11:05 PM)
     ☐ implement Pumba API (REST or gRPC with client)
-    ☐ move mocks to `mocks` package/folder and auto-generate them
-    ☐ consider moving tests to `tests` folder
+    ✔ move mocks to `mocks` package/folder and auto-generate them @done (5/9/2018, 12:11:07 PM)
+    ✔ consider moving tests to `tests` folder @done (5/9/2018, 12:11:12 PM)
     ☐ use matrix tests for better coverage
 
 Distributed:
@@ -23,11 +23,11 @@ Kubernetes:
     ☐ consider Pumba CRD
     
 CI:
-    ☐ rename `script` to `hack`
-    ☐ reduce go binary size
-    ☐ skip packages without tests
+    ✔ rename `script` to `hack` @done (5/9/2018, 12:11:25 PM)
+    ✔ reduce go binary size @done (5/9/2018, 12:11:27 PM)
+    ✔ skip packages without tests @done (5/9/2018, 12:11:31 PM)
     ☐ add redis PubSub to integration tests
 
 CD:
     ☐ prepare Helm Chart: Pumba daemon set, RBAC, Reids PubSub, Controller
-    ☐ remove CodeOS service
+    ✔ remove CodeOS service @done (5/9/2018, 12:11:39 PM)

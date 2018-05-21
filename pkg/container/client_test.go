@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 
-	"github.com/alexei-led/pumba/pkg/container/mocks"
+	"github.com/alexei-led/pumba/mocks"
 )
 
 func NewMockEngine() *mocks.APIClient {
@@ -132,8 +132,6 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
-	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
-	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.StopContainer(context.TODO(), c, 1, false)
@@ -218,8 +216,6 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGUSR1").Return(nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
-	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
-	api.On("ContainerInspect", mock.Anything, "abc123").Return(ContainerDetailsResponse(AsMap()), errors.New("Not Found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.StopContainer(context.TODO(), c, 1, false)

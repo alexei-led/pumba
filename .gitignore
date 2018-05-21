@@ -5,5 +5,7 @@
 .vscode
 .bin
 .env
-debug
 /.gtm/
+
+**/debug
+**/debug.test

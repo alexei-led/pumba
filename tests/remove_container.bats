@@ -1,9 +1,6 @@
 #!/usr/bin/env bats
 
 @test "Should remove running docker container without any parameters" {
-    if [ "$SKIP_RM" = true ]; then
-      skip "Skip remove container test..."
-    fi
     # given (started container)
     docker run -d --name victim alpine tail -f /dev/null
 
