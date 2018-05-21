@@ -55,7 +55,7 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// init kill command
 	killCommand, err := docker.NewKillCommand(chaos.DockerClient, names, pattern, signal, limit, dryRun)
 	if err != nil {
-		return nil
+		return err
 	}
 	// run kill command
 	return chaos.RunChaosCommand(cmd.context, killCommand, interval, random)

@@ -24,7 +24,7 @@ func NewRemoveCLICommand(ctx context.Context) *cli.Command {
 				Name:  "force, f",
 				Usage: "force the removal of a running container (with SIGKILL)",
 			},
-			cli.BoolTFlag{
+			cli.BoolFlag{
 				Name:  "links, n",
 				Usage: "remove container links",
 			},
@@ -66,7 +66,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// init remove command
 	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, names, pattern, force, links, volumes, limit, dryRun)
 	if err != nil {
-		return nil
+		return err
 	}
 	// run remove command
 	return chaos.RunChaosCommand(cmd.context, removeCommand, interval, random)

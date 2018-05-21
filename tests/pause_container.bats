@@ -7,13 +7,13 @@
     sleep 2
 
     # then (container has been paused)
-    run bash -c "docker inspect pausing_victim | grep Paused"
-    [[ $output == *"true"* ]]
+    run docker inspect -f {{.State.Status}} pausing_victim
+    [[ $output == "paused" ]]
 
-    # and (container has been unpaused)
+    # and (container has been resumed)
     sleep 4
-    run bash -c "docker inspect pausing_victim | grep Paused"
-    [[ $output == *"false"* ]]
+    run docker inspect -f {{.State.Status}} pausing_victim
+    [[ $output == "running" ]]
 
     # cleanup
     docker rm -f pausing_victim || true

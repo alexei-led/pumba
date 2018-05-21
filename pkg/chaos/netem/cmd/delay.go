@@ -82,7 +82,7 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	// init netem delay command
 	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, limit, dryRun)
 	if err != nil {
-		return nil
+		return err
 	}
 	// run netem delay command
 	return chaos.RunChaosCommand(cmd.context, delayCommand, interval, random)

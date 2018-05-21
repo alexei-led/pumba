@@ -13,18 +13,18 @@
 @test "Netem Delay Undefined Duration" {
   run pumba netem delay --time 100
   [ $status -eq 1 ]
-  [[ ${lines[0]} =~ "Undefined duration interval" ]]
+  [[ ${lines[0]} =~ "undefined duration" ]]
 }
 
 @test "Netem Delay 200ms" {
   run pumba netem --duration 200ms delay --time 100
   [ $status -eq 0 ]
-  [[ $output =~ "netem: delay for containers" ]]
+  [[ $output =~ "no containers to found" ]]
 }
 
 @test "Netem Delay 200ms External Image" {
   # start ping container in background
-  docker run -dit --name pingtest alpine ping www.example.com
+  docker run -dit --name pingtest alpine ping 1.1.1.1
   cid=$(docker ps -q --filter "name=pingtest")
   while [ -z "$cid" ]; do
     sleep 1
@@ -37,6 +37,5 @@
   [[ $output =~ "Start netem for container $cid" ]]
   [[ $output =~ "Stop netem for container $cid" ]]
   # cleanup
-  docker stop pingtest
-  docker rm pingtest || true
+  docker rm -f pingtest || true
 }

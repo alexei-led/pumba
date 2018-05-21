@@ -12,12 +12,13 @@ import (
 // run network emulation command, stop netem on timeout or abort
 func runNetem(ctx context.Context, client container.Client, container container.Container, netInterface string, cmd []string, ips []net.IP, duration time.Duration, tcimage string, dryRun bool) error {
 	log.WithFields(log.Fields{
-		"container": container,
-		"iface":     netInterface,
-		"netem":     cmd,
-		"ips":       ips,
-		"duration":  duration,
-		"tc-image":  tcimage,
+		"id":       container.ID(),
+		"name":     container.Name(),
+		"iface":    netInterface,
+		"netem":    cmd,
+		"ips":      ips,
+		"duration": duration,
+		"tc-image": tcimage,
 	}).Debug("running netem command")
 	var err error
 	err = client.NetemContainer(ctx, container, netInterface, cmd, ips, duration, tcimage, dryRun)
@@ -26,18 +27,31 @@ func runNetem(ctx context.Context, client container.Client, container container.
 		return err
 	}
 
+	// create new context with timeout for canceling
+	stopCtx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
 	// wait for specified duration and then stop netem (where it applied) or stop on ctx.Done()
 	select {
 	case <-ctx.Done():
 		log.WithFields(log.Fields{
-			"container": container,
-			"iface":     netInterface,
-			"ips":       ips,
-			"tc-image":  tcimage,
-		}).Debug("stopping netem command")
+			"id":       container.ID(),
+			"name":     container.Name(),
+			"iface":    netInterface,
+			"ips":      ips,
+			"tc-image": tcimage,
+		}).Debug("stopping netem command on abort")
 		// use different context to stop netem since parent context is canceled
-		err = client.StopNetemContainer(ctx, container, netInterface, ips, tcimage, dryRun)
+		err = client.StopNetemContainer(context.Background(), container, netInterface, ips, tcimage, dryRun)
+	case <-stopCtx.Done():
+		log.WithFields(log.Fields{
+			"id":       container.ID(),
+			"name":     container.Name(),
+			"iface":    netInterface,
+			"ips":      ips,
+			"tc-image": tcimage,
+		}).Debug("stopping netem command on timout")
+		// use parent context to stop netem in container
+		err = client.StopNetemContainer(context.Background(), container, netInterface, ips, tcimage, dryRun)
 	}
-
 	return err
 }

@@ -171,12 +171,13 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 		log.WithFields(log.Fields{
 			"container": c,
 		}).Debug("adding network delay for container")
-		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
+		netemCtx, cancel := context.WithCancel(ctx)
 		cancels = append(cancels, cancel)
-		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		err = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to delay network for container")
-			return err
+			// break on error - to cancel all open contexts and avoid go routine leaks
+			break
 		}
 	}
 
@@ -187,5 +188,5 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 		}
 	}()
 
-	return nil
+	return err
 }

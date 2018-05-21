@@ -446,7 +446,10 @@ func (client dockerClient) tcCommand(ctx context.Context, c Container, args []st
 // execute tc command using other container (with iproute2 package installed), using target container network stack
 // try to use `gaiadocker\iproute2` image (Alpine + iproute2 package)
 func (client dockerClient) tcContainerCommand(ctx context.Context, target Container, args []string, tcimage string) error {
-	log.WithField("tcimage", tcimage).Debug("executing tc command")
+	log.WithFields(log.Fields{
+		"tcimage": tcimage,
+		"tc args": args,
+	}).Debug("executing tc command")
 	// container config
 	config := ctypes.Config{
 		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
@@ -454,7 +457,6 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 		Cmd:        args,
 		Image:      tcimage,
 	}
-	log.WithField("config", config).Debug("tc container configuration")
 	// host config
 	hconfig := ctypes.HostConfig{
 		// auto remove container on tc command exit
@@ -469,14 +471,19 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 		DNSOptions:   []string{},
 		DNSSearch:    []string{},
 	}
-	log.WithField("host config", hconfig).Debugf("host configuration")
+	log.WithField("network", hconfig.NetworkMode).Debug("network mode")
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
 	if err != nil {
 		log.WithError(err).Error("failed to create tc container")
 		return err
 	}
-	log.WithField("id", createResponse.ID).Debug("tc container created")
-	return client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
+	log.WithField("id", createResponse.ID).Debug("tc container created, starting it")
+	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
+	if err != nil {
+		log.WithError(err).Error("failed to start tc container")
+		return err
+	}
+	return nil
 }
 
 func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) error {

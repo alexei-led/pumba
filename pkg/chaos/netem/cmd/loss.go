@@ -68,7 +68,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	// init netem loss command
 	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, percent, correlation, image, limit, dryRun)
 	if err != nil {
-		return nil
+		return err
 	}
 	// run netem command
 	return chaos.RunChaosCommand(cmd.context, lossCommand, interval, random)

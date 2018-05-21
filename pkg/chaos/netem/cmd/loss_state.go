@@ -96,7 +96,7 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	// init netem loss state command
 	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, p13, p31, p32, p23, p14, image, limit, dryRun)
 	if err != nil {
-		return nil
+		return err
 	}
 	// run netem command
 	return chaos.RunChaosCommand(cmd.context, lossStateCommand, interval, random)

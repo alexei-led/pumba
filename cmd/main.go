@@ -108,9 +108,9 @@ func main() {
 					Usage: "network interface to apply delay on",
 					Value: DefaultInterface,
 				},
-				cli.StringFlag{
+				cli.StringSliceFlag{
 					Name:  "target, t",
-					Usage: "target IP filter; comma separated. netem will impact only on traffic to target IP(s)",
+					Usage: "target IP filter; supports multiple IPs",
 				},
 				cli.StringFlag{
 					Name:  "tc-image",

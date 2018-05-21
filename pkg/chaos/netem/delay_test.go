@@ -325,19 +325,19 @@ func TestDelayCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("NetemContainer", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.dryRun).Return(nil)
-				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.dryRun).Return(nil)
+				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.dryRun).Return(nil)
+				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.dryRun)
+						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.dryRun)
 						if tt.errs.netemError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
 						} else {
 							call.Return(nil)
 						}
-						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.dryRun).Return(nil)
+						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.dryRun).Return(nil)
 					}
 				}
 			}

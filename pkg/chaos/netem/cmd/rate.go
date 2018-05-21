@@ -82,7 +82,7 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	// init netem rate command
 	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, limit, dryRun)
 	if err != nil {
-		return nil
+		return err
 	}
 	// run netem command
 	return chaos.RunChaosCommand(cmd.context, lossCommand, interval, random)
