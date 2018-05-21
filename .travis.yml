@@ -5,6 +5,8 @@ services:
 
 addons:
   apt:
+    sources:
+    - sourceline: 'ppa:duggan/bats'
     packages:
     - bats
 
