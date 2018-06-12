@@ -1,5 +1,18 @@
 # Change Log
 
+## [0.5.0](https://github.com/alexei-led/pumba/tree/0.5.0) (2018-05-21)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.8...0.5.0)
+
+**Closed issues:**
+
+- Slack hooks fail due to no ca [\#84](https://github.com/alexei-led/pumba/issues/84)
+
+**Merged pull requests:**
+
+- Code refactoring [\#85](https://github.com/alexei-led/pumba/pull/85) ([alexei-led](https://github.com/alexei-led))
+- implement 'contains' in a cheaper, simpler way [\#82](https://github.com/alexei-led/pumba/pull/82) ([Dieterbe](https://github.com/Dieterbe))
+- Spring cleanup [\#80](https://github.com/alexei-led/pumba/pull/80) ([alexei-led](https://github.com/alexei-led))
+
 ## [0.4.8](https://github.com/alexei-led/pumba/tree/0.4.8) (2018-03-12)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.7...0.4.8)
 
