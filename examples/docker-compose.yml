@@ -1,0 +1,33 @@
+version: "3"
+services:
+  ping:
+    image: alpine:3.7
+    command: "ping 1.1.1.1"
+  pong:
+    image: alpine:3.7
+    command: "ping 8.8.8.8"
+  worker_1:
+    image: alpine:3.7
+    command: "tail -f /dev/null"
+  worker_2:
+    image: alpine:3.7
+    command: "tail -f /dev/null"
+  worker_3:
+    image: alpine:3.7
+    command: "tail -f /dev/null"
+  # chaos commands
+  chaos-pause:
+    image: gaiaadm/pumba
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: "pumba --log-level debug --interval 20s pause --duration 10s re2:pong"
+  chaos-delay:
+    image: gaiaadm/pumba
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: "pumba --log-level debug --interval 30s netem --tc-image gaiadocker/iproute2 --duration 20s delay re2:ping"
+  chaos-kill:
+    image: gaiaadm/pumba
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: "pumba --log-level debug --interval 10s kill --limit 1 re2:worker"
