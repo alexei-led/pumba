@@ -6,6 +6,10 @@
 
 [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master)  [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![Anchore Image Overview](https://anchore.io/service/badges/image/77101bee4abccf2db02413002f25930b73bc6f5fea187b1b5ab1f0b538c1ba7a)](https://anchore.io/image/dockerhub/77101bee4abccf2db02413002f25930b73bc6f5fea187b1b5ab1f0b538c1ba7a?repo=gaiaadm%2Fpumba&tag=latest#overview)
 
+## Logo
+
+![pumba](docs/img/pumba_logo.png)
+
 ## Demo
 
 [![asciicast](https://asciinema.org/a/82428.png)](https://asciinema.org/a/82428)
@@ -42,7 +46,7 @@ GLOBAL OPTIONS:
    --tlscacert value           trust certs signed only by this CA (default: "/etc/ssl/docker/ca.pem")
    --tlscert value             client certificate for TLS authentication (default: "/etc/ssl/docker/cert.pem")
    --tlskey value              client key for TLS authentication (default: "/etc/ssl/docker/key.pem")
-   --debug                     enable debug mode with verbose logging
+   --log-level value, -l value  set log level (debug, info, warning(*), error, fatal, panic) (default: "warning") [$LOG_LEVEL]
    --json                      produce log in JSON format: Logstash and Splunk friendly
    --slackhook value           web hook url; send Pumba log events to Slack
    --slackchannel value        Slack channel (default #pumba) (default: "#pumba")
