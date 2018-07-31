@@ -140,7 +140,7 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 		return err
 	}
 	if len(containers) == 0 {
-		log.Warning("no containers to found")
+		log.Warning("no containers found")
 		return nil
 	}
 
