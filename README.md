@@ -261,6 +261,46 @@ OPTIONS:
    --celloverhead value, -c value    per cell overhead; in bytes (default: 0)
 ```
 
+#### Network Emulation Duplicate sub-commands
+
+```text
+$ pumba netem duplicate -h
+
+NAME:
+   Pumba netem duplicate - adds duplicate packets
+
+USAGE:
+   Pumba netem duplicate [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   adds duplicate packets, based on independent (Bernoulli) probability model
+   see:  http://www.voiptroubleshooter.com/indepth/burstloss.html
+
+OPTIONS:
+   --percent value, -p value      packet duplicate percentage (default: 0)
+   --correlation value, -c value  duplicate correlation; in percentage (default: 0)
+```
+
+#### Network Emulation Corrupt sub-commands
+
+```text
+$ pumba netem corrup -h
+
+NAME:
+   Pumba netem corrupt - adds corrupt packets
+
+USAGE:
+   Pumba netem corrupt [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   adds corrupt packets, based on independent (Bernoulli) probability model
+   see:  http://www.voiptroubleshooter.com/indepth/burstloss.html
+
+OPTIONS:
+   --percent value, -p value      packet corrupt percentage (default: 0)
+   --correlation value, -c value  corrupt correlation; in percentage (default: 0)
+```
+
 ##### Examples
 
 ```text
@@ -292,6 +332,12 @@ $ pumba --random netem --duration 5m \
       --jitter 40 \
       --distribution normal \
     container1 container2 container3
+```
+
+```text
+# Corrupt 10% of the packets from the `mydb` Docker container for 5 minutes
+
+$ pumba netem --duration 5m corrupt --percent 10 mydb
 ```
 
 ##### `tc` tool
