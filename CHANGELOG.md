@@ -1,5 +1,31 @@
 # Change Log
 
+## [Unreleased](https://github.com/alexei-led/pumba/tree/HEAD)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.0...HEAD)
+
+**Implemented enhancements:**
+
+- Pumba is not an importable package [\#60](https://github.com/alexei-led/pumba/issues/60)
+- Add Start command. [\#59](https://github.com/alexei-led/pumba/issues/59)
+
+**Fixed bugs:**
+
+- Got permission denied after using pumba to delay network [\#83](https://github.com/alexei-led/pumba/issues/83)
+- docker\_entrypoint.sh changes ownership of parent socket [\#38](https://github.com/alexei-led/pumba/issues/38)
+
+**Closed issues:**
+
+- Pumba attack - visualize the execution steps in command terminal  [\#91](https://github.com/alexei-led/pumba/issues/91)
+- Pumba run time startup issues [\#88](https://github.com/alexei-led/pumba/issues/88)
+- cat: can't open 'VERSION': No such file or directory [\#87](https://github.com/alexei-led/pumba/issues/87)
+- netem delay loses the first 3 packets  [\#72](https://github.com/alexei-led/pumba/issues/72)
+- Pumba container exiting without any error [\#70](https://github.com/alexei-led/pumba/issues/70)
+
+**Merged pull requests:**
+
+- Add corrupt and duplicate netem commands [\#95](https://github.com/alexei-led/pumba/pull/95) ([philipgloyne](https://github.com/philipgloyne))
+
 ## [0.5.0](https://github.com/alexei-led/pumba/tree/0.5.0) (2018-05-21)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.4.8...0.5.0)
 
