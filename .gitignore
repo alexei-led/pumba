@@ -7,5 +7,6 @@
 .env
 /.gtm/
 
+**/.DS_Store
 **/debug
 **/debug.test
