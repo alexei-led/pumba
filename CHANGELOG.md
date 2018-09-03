@@ -1,8 +1,7 @@
 # Change Log
 
-## [Unreleased](https://github.com/alexei-led/pumba/tree/HEAD)
-
-[Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.0...HEAD)
+## [0.5.2](https://github.com/alexei-led/pumba/tree/0.5.2) (2018-09-03)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.0...0.5.2)
 
 **Implemented enhancements:**
 
