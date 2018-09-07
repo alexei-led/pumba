@@ -1,35 +1,55 @@
-#!/bin/bash
+#!/bin/sh
 
-readonly repo=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO_NAME}
-readonly branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-readonly commit=$(git rev-parse --short HEAD 2>/dev/null)
-readonly version=$(cat VERSION)
+# update build cache
+echo "==> create/update image: ${FULL_REPO_NAME}/builder:${CODEBUILD_GIT_BRANCH}" 
+docker build -t ${FULL_REPO_NAME}/builder:${CODEBUILD_GIT_BRANCH} --target builder \
+  --cache-from ${FULL_REPO_NAME}/builder:${CODEBUILD_GIT_BRANCH} \
+  --file docker/Dockerfile .
 
-# Attempt to pull existing builder image
-if docker pull ${repo}:builder-branch; then
-    # Update builder image
-    docker build -t ${repo}:builder-branch --target builder --cache-from ${repo}:builder-branch .
-else
-    # Create new builder image
-    docker build -t ${repo}:builder-branch --target builder .
+echo "==> create/update image: ${FULL_REPO_NAME}/build-and-test:${CODEBUILD_GIT_BRANCH}" 
+docker build -t ${FULL_REPO_NAME}/build-and-test:${CODEBUILD_GIT_BRANCH} --target build-and-test \
+  --cache-from ${FULL_REPO_NAME}/builder:${CODEBUILD_GIT_BRANCH} \
+  --cache-from ${FULL_REPO_NAME}/build-and-test:${CODEBUILD_GIT_BRANCH} \
+  --build-arg CODECOV_TOKEN=$CODECOV_TOKEN \
+  --build-arg VCS_COMMIT_ID=${CODEBUILD_GIT_COMMIT} \
+  --build-arg VCS_BRANCH_NAME=${CODEBUILD_GIT_BRANCH} \
+  --file docker/Dockerfile .
+
+echo "==> create/update image: ${FULL_REPO_NAME}/github-release:${CODEBUILD_GIT_BRANCH}"
+if [ "${CODEBUILD_GIT_BRANCH}" == "master" ]; then
+  echo "==> going to create a GitHub release ..."
+  RELEASE="true"
 fi
-
-# Attempt to pull latest branch target image
-docker pull ${repo}:branch || true
+docker build -t ${FULL_REPO_NAME}/github-release:${CODEBUILD_GIT_BRANCH} --target github-release \
+  --cache-from ${FULL_REPO_NAME}/builder:${CODEBUILD_GIT_BRANCH} \
+  --cache-from ${FULL_REPO_NAME}/build-and-test:${CODEBUILD_GIT_BRANCH} \
+  --cache-from ${FULL_REPO_NAME}/github-release:${CODEBUILD_GIT_BRANCH} \
+  --build-arg CODECOV_TOKEN=$CODECOV_TOKEN \
+  --build-arg VCS_COMMIT_ID=${CODEBUILD_GIT_COMMIT} \
+  --build-arg VCS_BRANCH_NAME=${CODEBUILD_GIT_BRANCH} \
+  --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} \
+  --build-arg RELEASE=${RELEASE} \
+  --build-arg RELEASE_TAG=${CODEBUILD_GIT_MOST_RECENT_TAG} \
+  --build-arg TAG_MESSAGE="${CODEBUILD_GIT_TAG_MESSAGE}" \
+  --file docker/Dockerfile .
 
 # Build and push target image
-docker build -t ${repo}:branch --cache-from ${repo}:builder-branch --cache-from ${repo}:branch \
-  --build-arg GH_SHA=${commit} \
-  --build-arg GITHUB_TOKEN=$GITHUB_TOKEN \
-  --build-arg CODECOV_TOKEN=$CODECOV_TOKEN
-  -f docker/Dockerfile .
-
-docker push ${repo}:branch
-
-# for master push versioned image too
-if [ "${version}" == "master" ]; then
-    docker push ${repo}:version
+echo "==> create/update final image: ${FULL_REPO_NAME}:${CODEBUILD_GIT_BRANCH}"
+if [ "$NO_CACHE" == "true" ]; then
+  echo "==> NO CACHE mode"
+  NO_CACHE_OPT="--no-cache"
 fi
+docker build -t ${FULL_REPO_NAME}:${CODEBUILD_GIT_BRANCH} ${NO_CACHE_OPT} \
+  --cache-from ${FULL_REPO_NAME}/builder:${CODEBUILD_GIT_BRANCH} \
+  --cache-from ${FULL_REPO_NAME}/build-and-test:${CODEBUILD_GIT_BRANCH} \
+  --cache-from ${FULL_REPO_NAME}/github-release:${CODEBUILD_GIT_BRANCH} \
+  --cache-from ${FULL_REPO_NAME}:${CODEBUILD_GIT_BRANCH} \
+  --build-arg CODECOV_TOKEN=$CODECOV_TOKEN \
+  --build-arg VCS_COMMIT_ID=${CODEBUILD_GIT_COMMIT} \
+  --build-arg VCS_BRANCH_NAME=${CODEBUILD_GIT_BRANCH} \
+  --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} \
+  --build-arg RELEASE=${RELEASE} \
+  --build-arg RELEASE_TAG=${CODEBUILD_GIT_MOST_RECENT_TAG} \
+  --build-arg TAG_MESSAGE="${CODEBUILD_GIT_TAG_MESSAGE}" \
+  --file docker/Dockerfile .
 
-# Push builder image
-docker push ${repo}:builder-branch

@@ -2,30 +2,64 @@ version: '1.0'
 
 steps:
 
+  get_release_info:
+    image: codefreshio/git-image:latest
+    commands:
+      - GIT_MOST_RECENT_TAG="$(git describe --tags --abbrev=0)"
+      - GIT_TAG_MESSAGE=$(git tag -l $CODEBUILD_GIT_MOST_RECENT_TAG -n 20 | awk '{$1=""; print}')
+      - cf_export GIT_MOST_RECENT_TAG GIT_MOST_RECENT_TAG
+    when:
+      branch:
+        only:
+          - /[0-9]+[.][0-9]+[.][0-9]+/
+
+  test_build:
+    type: build
+    dockerfile: docker/Dockerfile
+    target: build-and-test
+    title: "multi-stage build: target==build-and-test ..."
+    description: compile for linux amd64
+    image_name: gaiaadm/pumba/test
+    no_cf_cache: true
+    build_arguments:
+      - VCS_COMMIT_ID=${{CF_REVISION}}
+      - VCS_BRANCH_NAME=${{CF_BRANCH}}
+      - CODECOV_TOKEN=${{CODECOV_TOKEN}}
+
+  report_coverage:
+    image: ${{test_build}}
+    title: "Uploading coverage report to Codecov.io ..."
+    description: upload coverage report
+    environment:
+      - CI_BUILD_ID=${{CF_BUILD_ID}}
+      - CI_BUILD_URL=${{CF_BUILD_URL}}
+
   main_build:
     type: build
     dockerfile: docker/Dockerfile
-    title: "Multi-stage build is running: compile, test, coverage ..."
-    description: compile for linux amd64, runt unit test, calculate coverage 
+    title: "multi-stage build: final target ..."
+    description: compile for linux amd64
     image_name: gaiaadm/pumba
     no_cf_cache: true
     build_arguments:
-      - GH_SHA=${{CF_REVISION}}
-      - GITHUB_TOKEN=${{GITHUB_TOKEN}}
+      - VCS_COMMIT_ID=${{CF_REVISION}}
+      - VCS_BRANCH_NAME=${{CF_BRANCH}}
       - CODECOV_TOKEN=${{CODECOV_TOKEN}}
 
   gox_build:
     type: build
     dockerfile: docker/Dockerfile
     title: "Building and releasing to the GitHub ..."
-    description: cross-platform compile, run unit tests, report coverage and release to the GitHub
+    description: cross-platform compile, run unit tests, release to the GitHub
     image_name: pumba/github/release
     no_cf_cache: true
     build_arguments:
       - RELEASE=true
-      - GH_SHA=${{CF_REVISION}}
+      - VCS_COMMIT_ID=${{CF_REVISION}}
+      - VCS_BRANCH_NAME=${{CF_BRANCH}}
+      - RELEASE_TAG=${{GIT_MOST_RECENT_TAG}} \
+      - TAG_MESSAGE="${{GIT_TAG_MESSAGE}}"
       - GITHUB_TOKEN=${{GITHUB_TOKEN}}
-      - CODECOV_TOKEN=${{CODECOV_TOKEN}}
     when:
       branch:
         only:

@@ -3,8 +3,8 @@
 
 [ -z "$VERSION" ] && VERSION=$(cat VERSION)
 [ -z "$BUILDTIME" ] && BUILDTIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
-[ -z "$GITCOMMIT" ] && GITCOMMIT=$(git rev-parse HEAD --short 2>/dev/null)
-[ -z "$GITBRANCH" ] && GITBRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+[ -z "$VCS_COMMIT_ID" ] && VCS_COMMIT_ID=$(git rev-parse HEAD --short 2>/dev/null)
+[ -z "$VCS_BRANCH_NAME" ] && VCS_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 
 [ -d "${DIST}" ] && rm -rf "${DIST:?}/*"
 [ -d "${DIST}" ] || mkdir -p "${DIST}"
@@ -24,7 +24,7 @@ do
 
     echo "Building pumba for ${GOOS}/${GOARCH}..."
     CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
-    -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${GITCOMMIT} -X main.GitBranch=${GITBRANCH} -X main.BuildTime=${BUILDTIME}" \
+    -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${VCS_COMMIT_ID} -X main.GitBranch=${VCS_BRANCH_NAME} -X main.BuildTime=${BUILDTIME}" \
     -o "${DIST}/${output_name}" ./cmd
     if [ $? -ne 0 ]; then
         echo 'An error has occurred! Aborting the script execution...'

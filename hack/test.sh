@@ -40,7 +40,7 @@ generate_cover_data() {
   for pkg in "${pkgs[@]}"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"
     tout="${COVER}/$(echo $pkg | tr / -)_tests.out"
-    go test -v $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
+    CGO_ENABLED=0 go test -v $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
   done
 
   echo "mode: $mode" >"$profile"
