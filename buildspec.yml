@@ -1,0 +1,23 @@
+version: 0.2
+
+env:
+  parameter-store:
+    GITHUB_TOKEN: PRIVATE_GITHUB_TOKEN
+    CODECOV_TOKEN: PUMBA_CODECOV_TOKEN
+
+phases:
+  install:
+    commands:
+      - sudo apt-get update -y && sudo apt-get install -y git
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region $AWS_REGION)
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Pumba Docker image...
+      - hack/codefresh_build.sh
+  post_build:
+    commands:
+      - echo Build completed on `date`

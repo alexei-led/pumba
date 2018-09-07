@@ -9,6 +9,11 @@ RUN apk add --no-cache git bash curl || apk update && apk upgrade
 RUN go get -v github.com/aktau/github-release && \
     go get -v github.com/jstemmer/go-junit-report
 
+#
+# ----- Build and Test Image -----
+#
+FROM builder as build-and-test
+
 # set working directory
 RUN mkdir -p /go/src/github.com/alexei-led/pumba
 WORKDIR /go/src/github.com/alexei-led/pumba
@@ -49,7 +54,7 @@ LABEL com.gaiaadm.pumba=true
 
 RUN apk add --no-cache dumb-init su-exec shadow ca-certificates
 
-COPY --from=builder /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/bin/pumba
+COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/bin/pumba
 COPY docker/docker_entrypoint.sh /
 
 ENTRYPOINT ["dumb-init", "/docker_entrypoint.sh"]
