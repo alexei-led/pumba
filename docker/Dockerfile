@@ -1,7 +1,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:alpine
+FROM golang:1.7.1-alpine
 
 # github-release - Github Release and upload artifacts
 # go-junit-report - convert Go test into junit.xml format
