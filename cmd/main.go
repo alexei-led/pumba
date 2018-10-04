@@ -91,46 +91,7 @@ func main() {
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
 	app.Before = before
-	app.Commands = []cli.Command{
-		*cmd.NewKillCLICommand(topContext),
-		*cmd.NewStopCLICommand(topContext),
-		*cmd.NewPauseCLICommand(topContext),
-		*cmd.NewRemoveCLICommand(topContext),
-		{
-			Name: "netem",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "duration, d",
-					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
-				},
-				cli.StringFlag{
-					Name:  "interface, i",
-					Usage: "network interface to apply delay on",
-					Value: DefaultInterface,
-				},
-				cli.StringSliceFlag{
-					Name:  "target, t",
-					Usage: "target IP filter; supports multiple IPs",
-				},
-				cli.StringFlag{
-					Name:  "tc-image",
-					Usage: "Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'",
-				},
-			},
-			Usage:       "emulate the properties of wide area networks",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
-			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
-			Subcommands: []cli.Command{
-				*netemCmd.NewDelayCLICommand(topContext),
-				*netemCmd.NewLossCLICommand(topContext),
-				*netemCmd.NewLossStateCLICommand(topContext),
-				*netemCmd.NewLossGECLICommand(topContext),
-				*netemCmd.NewRateCLICommand(topContext),
-				*netemCmd.NewDuplicateCLICommand(topContext),
-				*netemCmd.NewCorruptCLICommand(topContext),
-			},
-		},
-	}
+	app.Commands = initializeCLICommands()
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:   "host, H",
@@ -314,4 +275,47 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 		}
 	}
 	return tlsConfig, nil
+}
+
+func initializeCLICommands() []cli.Command {
+	return []cli.Command{
+		*cmd.NewKillCLICommand(topContext),
+		*cmd.NewStopCLICommand(topContext),
+		*cmd.NewPauseCLICommand(topContext),
+		*cmd.NewRemoveCLICommand(topContext),
+		{
+			Name: "netem",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "duration, d",
+					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
+				},
+				cli.StringFlag{
+					Name:  "interface, i",
+					Usage: "network interface to apply delay on",
+					Value: DefaultInterface,
+				},
+				cli.StringSliceFlag{
+					Name:  "target, t",
+					Usage: "target IP filter; supports multiple IPs",
+				},
+				cli.StringFlag{
+					Name:  "tc-image",
+					Usage: "Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'",
+				},
+			},
+			Usage:       "emulate the properties of wide area networks",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
+			Subcommands: []cli.Command{
+				*netemCmd.NewDelayCLICommand(topContext),
+				*netemCmd.NewLossCLICommand(topContext),
+				*netemCmd.NewLossStateCLICommand(topContext),
+				*netemCmd.NewLossGECLICommand(topContext),
+				*netemCmd.NewRateCLICommand(topContext),
+				*netemCmd.NewDuplicateCLICommand(topContext),
+				*netemCmd.NewCorruptCLICommand(topContext),
+			},
+		},
+	}
 }
