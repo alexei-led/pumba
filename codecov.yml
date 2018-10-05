@@ -1,5 +1,5 @@
 coverage:
   ignore:
-    - "container/mock.go"
-    - "container/mockengine.go"
-  
+    - "mocks"
+    - "**/mock*.go"
+
