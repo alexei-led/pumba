@@ -2,26 +2,24 @@ language: bash
 sudo: required
 services:
 - docker
-
 addons:
   apt:
     sources:
-    - sourceline: 'ppa:duggan/bats'
+    - sourceline: ppa:duggan/bats
     packages:
     - bats
-
 env:
   global:
-  - secure: "VvbxQkATQggqRu1XBH0ERO0+xYZg5sa6kY94SbL2oaAW20/wPGR4VMq1EP/ryPfrEr+b9OB02IxqmHEdQ19tglWRo+ChR2vxPQJ6vZGogi0c8u8g44YPt/f9duxUfOvIeQzOXekygMeYtI7ZyXgbLhwe/imte/EU8F2kUiY8M7CeqhssdkdM25fQ+M1ulxxfbMIRnvkILYheLtL1/UKs0/AcNnqtNBdasIJtu4SnvvBB2fttvGFZsE4zReOP6d5AH81tRo4j0gJlGoTe9kE72+yds1kDoPOP6N3/lH5m/Gc/nUxSJieGo126f2kS6NcSUUYr7LQmwYgUhRe35PZd7/7lmOG8ePTQhM8FnFPrJqgSsEXVH0H/nd5L0QswsJR+jbUYMeqvZ51mHFG0Un9LhA4Ch8oQ5BO2raxMQSsZApKvmRxnECiJFzdYmzmAL0Yi2jhyG2AqkE6LJ4QmQvBfj0GQbjYCXDTpG8jLZFT521yHcVNBQN2QbwHAdRaXm4C4Jl2XCpJetkppGufjWsbftKy5bOzgyJhm8EVxX4lmIn3SF6gl0j9PFSJWeS9qFiG70OlWxQD6hr8oMHHwKKreBEZsy3hQvs6/VGPqTaRGMDyfC4SMO+OHcfonRPAsKB/bWbqO+ocagTcw/n8oATle6ooTm63n1qiCZF5aOR7YTmk="
+    secure: aWFt6qr6jtlJOzmfLF0QZXOPAi0y24/k+m8+YGRsNdNEZhcuYkkxiXGiZ6JdzLJ86mJdMe2hInS9C0Im2u2lYIgXqDahQKtmcVzirtdxfkvO/KV6vJAybcathTAgYeh4iDFFdBcaekumDirgbr/5UZLiBP22RYvZ53jCaPgJMqBNVommVkwCdR0mxpxuTLtjahu5PPGlIwCZo7RoHIbHw8/dh4I1vrLiG8Qp1o9CFOINrHxojUAb9hcu7MnuobzIafauQT/IVrZ0QrfGZQU5Kkn5A8Bzh6p2TXaR6/+K5yLo8/pbWWIaejO8L++z1qvMrOJVbZBDZHUx0j/uXVsWr5Nk7FfNYbjATGLTVlMGML9h8gIfE2B8xh53paVRYfy+ft2bfdIbqWCK4Q4UWzpugM/aItJxeLK7IIM3XlQ/RfsDnzh8uUiFFBVaPQzIRKMX7Ba7/fQuOs3COUavY02PEvOEqImlRxQ/WSGnUwc9jd0YRmalGt66T0FcbKScUmSG6EFzWDJZqh/NwUwBWvmw/+HC6uMdEZiN9ftwD2RvktRtO+sbCRrZ+6g3OjHgQGY+UJB0ulw+hDTRpXtT5sPJIGixBg1Go/Nwmf7MFRDRgBLxhBye09FH38DGzC/9ONvyB8qsTi9r6gpfvBZ6eWgOwf8JJOOo5i464r4fiYLeUOg=
 
 script:
-  # build and unit test
-  - echo "==> build and unit test pumba"
-  - docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${TRAVIS_COMMIT} --build-arg VCS_BRANCH_NAME=${TRAVIS_BRANCH} -f docker/Dockerfile .
-  # copy pumba binary and run integration tests
-  - docker create --name pumba --rm -e CI_BUILD_ID=${TRAVIS_BUILD_ID} -e CI_BUILD_URL=${TRAVIS_BUILD_WEB_URL} pumba/build-and-test
-  - docker cp pumba:/go/src/github.com/alexei-led/pumba/.bin/pumba .
-  - PATH=.:$PATH pumba -v
-  - PATH=.:$PATH bats tests
-  # upload coverage results
-  - docker start -i pumba
+- echo "==> build and unit test pumba"
+- docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN}
+  --build-arg VCS_COMMIT_ID=${TRAVIS_COMMIT} --build-arg VCS_BRANCH_NAME=${TRAVIS_BRANCH}
+  -f docker/Dockerfile .
+- docker create --name pumba --rm -e CI_BUILD_ID=${TRAVIS_BUILD_ID} -e CI_BUILD_URL=${TRAVIS_BUILD_WEB_URL}
+  pumba/build-and-test
+- docker cp pumba:/go/src/github.com/alexei-led/pumba/.bin/pumba .
+- PATH=.:$PATH pumba -v
+- PATH=.:$PATH bats tests
+- docker start -i pumba
