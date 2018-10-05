@@ -23,3 +23,4 @@ script:
 - PATH=.:$PATH pumba -v
 - PATH=.:$PATH bats tests
 - docker start -i pumba
+- docker run -t --rm pumba env
