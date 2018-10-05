@@ -26,6 +26,7 @@ steps:
   #   build_arguments:
   #     - VCS_COMMIT_ID=${{CF_REVISION}}
   #     - VCS_BRANCH_NAME=${{CF_BRANCH}}
+  #     - VCS_SLUG=${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
   #     - CODECOV_TOKEN=${{CODECOV_TOKEN}}
 
   # report_coverage:
@@ -46,6 +47,7 @@ steps:
     build_arguments:
       - VCS_COMMIT_ID=${{CF_REVISION}}
       - VCS_BRANCH_NAME=${{CF_BRANCH}}
+      - VCS_SLUG=${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
       - CODECOV_TOKEN=${{CODECOV_TOKEN}}
 
   gox_build:
@@ -59,6 +61,7 @@ steps:
       - RELEASE=true
       - VCS_COMMIT_ID=${{CF_REVISION}}
       - VCS_BRANCH_NAME=${{CF_BRANCH}}
+      - VCS_SLUG=${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
       - RELEASE_TAG=${{GIT_MOST_RECENT_TAG}} \
       - TAG_MESSAGE="${{GIT_TAG_MESSAGE}}"
       - GITHUB_TOKEN=${{GITHUB_TOKEN}}

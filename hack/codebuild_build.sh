@@ -13,6 +13,7 @@ docker build -t ${FULL_REPO_NAME}/build-and-test:${CODEBUILD_GIT_BRANCH} --targe
   --build-arg CODECOV_TOKEN=$CODECOV_TOKEN \
   --build-arg VCS_COMMIT_ID=${CODEBUILD_GIT_COMMIT} \
   --build-arg VCS_BRANCH_NAME=${CODEBUILD_GIT_BRANCH} \
+  --build-arg VCS_SLUG="alexei-led/pumba" \
   --file docker/Dockerfile .
 
 echo "==> create/update image: ${FULL_REPO_NAME}/github-release:${CODEBUILD_GIT_BRANCH}"
@@ -27,6 +28,7 @@ docker build -t ${FULL_REPO_NAME}/github-release:${CODEBUILD_GIT_BRANCH} --targe
   --build-arg CODECOV_TOKEN=$CODECOV_TOKEN \
   --build-arg VCS_COMMIT_ID=${CODEBUILD_GIT_COMMIT} \
   --build-arg VCS_BRANCH_NAME=${CODEBUILD_GIT_BRANCH} \
+  --build-arg VCS_SLUG="alexei-led/pumba" \
   --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} \
   --build-arg RELEASE=${RELEASE} \
   --build-arg RELEASE_TAG=${CODEBUILD_GIT_MOST_RECENT_TAG} \
@@ -47,6 +49,7 @@ docker build -t ${FULL_REPO_NAME}:${CODEBUILD_GIT_BRANCH} ${NO_CACHE_OPT} \
   --build-arg CODECOV_TOKEN=$CODECOV_TOKEN \
   --build-arg VCS_COMMIT_ID=${CODEBUILD_GIT_COMMIT} \
   --build-arg VCS_BRANCH_NAME=${CODEBUILD_GIT_BRANCH} \
+  --build-arg VCS_SLUG="alexei-led/pumba" \
   --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} \
   --build-arg RELEASE=${RELEASE} \
   --build-arg RELEASE_TAG=${CODEBUILD_GIT_MOST_RECENT_TAG} \
