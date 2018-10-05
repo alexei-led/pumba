@@ -17,7 +17,7 @@ script:
 - echo "==> build and unit test pumba"
 - docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${TRAVIS_COMMIT} --build-arg VCS_BRANCH_NAME=${TRAVIS_BRANCH} --build-arg VCS_SLUG=${TRAVIS_REPO_SLUG} -f docker/Dockerfile .
 # copy binary and run integration tests
-- docker create --name pumba --rm -e CI_BUILD_ID=${TRAVIS_JOB_NUMBER} -e CI_BUILD_URL=${TRAVIS_BUILD_WEB_URL pumba/build-and-test
+- docker create --name pumba --rm -e CI_BUILD_ID=${TRAVIS_JOB_NUMBER} -e CI_BUILD_URL=${TRAVIS_BUILD_WEB_URL}  pumba/build-and-test
 - docker cp pumba:/go/src/github.com/alexei-led/pumba/.bin/pumba .
 - PATH=.:$PATH pumba -v
 - PATH=.:$PATH bats tests
