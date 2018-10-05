@@ -30,6 +30,9 @@ ENV VCS_COMMIT_ID ${VCS_COMMIT_ID}
 # `VCS_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)`
 ARG VCS_BRANCH_NAME
 ENV VCS_BRANCH_NAME ${VCS_BRANCH_NAME}
+# VCS_SLUG: owner/repo slug
+ARG VCS_SLUG
+ENV VCS_SLUG ${VCS_SLUG}
 # bild pumba binary for amd64 linux
 RUN VERSION=$(cat VERSION) hack/build.sh
 
@@ -40,7 +43,7 @@ ADD https://codecov.io/bash codecov.sh
 RUN chmod +x codecov.sh
 
 # command to upload coverage report to Codecov: need to pass CI_BUILD_ID/URL as environment variables
-CMD ["./codecov.sh", "-t", "${CODECOV_TOKEN}", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,CI_BUILD_ID,CI_BUILD_URL"]
+CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,CI_BUILD_URL"]
 
 #
 # ------ Pumba GitHub Release ------
