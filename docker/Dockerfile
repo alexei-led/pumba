@@ -72,18 +72,9 @@ RUN if [[ "$RELEASE" == true ]]; then hack/github_release.sh alexei-led pumba; f
 #
 # ------ Pumba runtime image ------
 #
-FROM alpine:3.8
-
-RUN apk add --no-cache dumb-init su-exec shadow ca-certificates
-COPY docker/docker_entrypoint.sh /
-
-ENTRYPOINT ["dumb-init", "/docker_entrypoint.sh"]
-CMD ["pumba", "--help"]
-
-ARG VCS_COMMIT_ID=dev
-LABEL com.gaiaadm.pumba=true \
-      org.label-schema.vcs-ref=$VCS_COMMIT_ID \
-      org.label-schema.vcs-url="https://github.com/alexei-led/pumba"
+FROM scratch
 
 # this is the last commabd since it's never cached
-COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/bin/pumba
+COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /pumba
+
+ENTRYPOINT ["/pumba"]
