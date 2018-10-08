@@ -7,9 +7,8 @@ steps:
   get_release_info:
     image: codefreshio/git-image:latest
     commands:
-      - GIT_MOST_RECENT_TAG="$(git describe --tags --abbrev=0)"
-      - GIT_TAG_MESSAGE=$(git tag -l $CODEBUILD_GIT_MOST_RECENT_TAG -n 20 | awk '{$1=""; print}')
-      - cf_export GIT_MOST_RECENT_TAG GIT_MOST_RECENT_TAG
+      - cf_export GIT_MOST_RECENT_TAG="$(git describe --tags --abbrev=0)"
+      - cf_export GIT_TAG_MESSAGE=$(git tag -l $GIT_MOST_RECENT_TAG -n 20 | awk '{$1=""; print}')
     when:
       branch:
         only:

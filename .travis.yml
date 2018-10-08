@@ -1,4 +1,7 @@
 language: bash
+# skip tags for build
+tags: false
+# need sudo
 sudo: required
 services:
 - docker
