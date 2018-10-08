@@ -4,16 +4,16 @@ steps:
 
   # BUG: Codefrehs does not support target option
 
-  # get_release_info:
-  #   image: codefreshio/git-image:latest
-  #   commands:
-  #     - GIT_MOST_RECENT_TAG="$(git describe --tags --abbrev=0)"
-  #     - GIT_TAG_MESSAGE=$(git tag -l $CODEBUILD_GIT_MOST_RECENT_TAG -n 20 | awk '{$1=""; print}')
-  #     - cf_export GIT_MOST_RECENT_TAG GIT_MOST_RECENT_TAG
-  #   when:
-  #     branch:
-  #       only:
-  #         - /[0-9]+[.][0-9]+[.][0-9]+/
+  get_release_info:
+    image: codefreshio/git-image:latest
+    commands:
+      - GIT_MOST_RECENT_TAG="$(git describe --tags --abbrev=0)"
+      - GIT_TAG_MESSAGE=$(git tag -l $CODEBUILD_GIT_MOST_RECENT_TAG -n 20 | awk '{$1=""; print}')
+      - cf_export GIT_MOST_RECENT_TAG GIT_MOST_RECENT_TAG
+    when:
+      branch:
+        only:
+          - /[0-9]+[.][0-9]+[.][0-9]+/
 
   # test_build:
   #   type: build
@@ -62,6 +62,8 @@ steps:
       - VCS_COMMIT_ID=${{CF_REVISION}}
       - VCS_BRANCH_NAME=${{CF_BRANCH}}
       - VCS_SLUG=${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+      - RELEASE_TAG=${{GIT_MOST_RECENT_TAG}}
+      - TAG_MESSAGE="${{GIT_TAG_MESSAGE}}"
       - GITHUB_TOKEN=${{GITHUB_TOKEN}}
     when:
       branch:
