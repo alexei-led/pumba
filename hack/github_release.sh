@@ -31,7 +31,7 @@ fi
 
 # see https://github.com/aktau/github-release for the tool commands
 # edit release details (release is automatically created for annotated tag by GitHub)
-github-release --verbose edit \
+github-release release \
   --security-token ${GITHUB_TOKEN} \
   --user ${user} \
   --repo ${repo} \
@@ -43,7 +43,7 @@ github-release --verbose edit \
 # upload files
 ( cd "${DIST}" || exit
 for f in *; do
-  github-release --verbose upload \
+  github-release upload \
     --security-token ${GITHUB_TOKEN} \
     --user ${user} \
     --repo ${repo} \
