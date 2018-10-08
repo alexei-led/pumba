@@ -1,8 +1,7 @@
 # Change Log
 
-## [Unreleased](https://github.com/alexei-led/pumba/tree/HEAD)
-
-[Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.2...HEAD)
+## [0.6.0](https://github.com/alexei-led/pumba/tree/0.6.0) (2018-10-08)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.2...0.6.0)
 
 **Closed issues:**
 
@@ -11,6 +10,7 @@
 
 **Merged pull requests:**
 
+- use SCRATCH image for base image [\#101](https://github.com/alexei-led/pumba/pull/101) ([alexei-led](https://github.com/alexei-led))
 - Better support for CI tool and Codecov [\#100](https://github.com/alexei-led/pumba/pull/100) ([alexei-led](https://github.com/alexei-led))
 - Refactor: Initialize CLI Commands in a separate func. [\#99](https://github.com/alexei-led/pumba/pull/99) ([nawazish-github](https://github.com/nawazish-github))
 
