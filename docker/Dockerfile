@@ -48,7 +48,7 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 #
 # ------ Pumba GitHub Release ------
 #
-FROM builder as github-release
+FROM build-and-test as github-release
 
 # build argument to secify if to create a GitHub release
 ARG DEBUG=false
