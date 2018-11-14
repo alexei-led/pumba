@@ -41,6 +41,7 @@ type RateCommand struct {
 	cellSize       int
 	cellOverhead   int
 	image          string
+	pull           bool
 	limit          int
 	dryRun         bool
 }
@@ -58,6 +59,7 @@ func NewRateCommand(client container.Client,
 	cellSize int, // cell size of the simulated link layer scheme
 	cellOverhead int, // per cell overhead; in bytes
 	image string, // traffic control image
+	pull bool, // pull tc image
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
@@ -127,6 +129,7 @@ func NewRateCommand(client container.Client,
 		cellSize:       cellSize,
 		cellOverhead:   cellOverhead,
 		image:          image,
+		pull:           pull,
 		limit:          limit,
 		dryRun:         dryRun,
 	}, nil
@@ -179,7 +182,7 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("setting network rate for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels = append(cancels, cancel)
-		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to set network rate for container")
 			return err

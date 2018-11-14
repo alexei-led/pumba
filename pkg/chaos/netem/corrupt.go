@@ -27,6 +27,7 @@ type CorruptCommand struct {
 	percent     float64
 	correlation float64
 	image       string
+	pull        bool
 	limit       int
 	dryRun      bool
 }
@@ -42,6 +43,7 @@ func NewCorruptCommand(client container.Client,
 	percent float64, // corrupt percent
 	correlation float64, // corrupt correlation
 	image string, // traffic control image
+	pull bool, // pull tc image
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
@@ -101,6 +103,7 @@ func NewCorruptCommand(client container.Client,
 		percent:     percent,
 		correlation: correlation,
 		image:       image,
+		pull:        pull,
 		limit:       limit,
 		dryRun:      dryRun,
 	}, nil
@@ -146,7 +149,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("adding network random packet corrupt for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels = append(cancels, cancel)
-		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to set packet corrupt for container")
 			return err

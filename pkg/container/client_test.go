@@ -1,7 +1,10 @@
 package container
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net"
 	"testing"
 	"time"
@@ -385,7 +388,7 @@ func TestNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", mock.Anything, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -410,7 +413,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "testID").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.StopNetemContainer(context.TODO(), c, "eth0", nil, "", false)
+	err := client.StopNetemContainer(context.TODO(), c, "eth0", nil, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -423,7 +426,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 	engineClient := NewMockEngine()
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", true)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, nil, 1*time.Millisecond, "", false, true)
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
@@ -470,7 +473,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd5").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []net.IP{net.ParseIP("10.10.0.1")}, 1*time.Millisecond, "", false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []net.IP{net.ParseIP("10.10.0.1")}, 1*time.Millisecond, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -501,15 +504,34 @@ func Test_tcContainerCommand(t *testing.T) {
 		DNSOptions:   []string{},
 		DNSSearch:    []string{},
 	}
+	// pull response
+	pullResponse := ImagePullResponse{
+		Status:   "ok",
+		Error:    "no error",
+		Progress: "done",
+		ProgressDetail: struct {
+			Current int `json:"current"`
+			Total   int `json:"total"`
+		}{
+			Current: 100,
+			Total:   100,
+		},
+	}
+	pullResponseByte, _ := json.Marshal(pullResponse)
+	readerResponse := bytes.NewReader(pullResponseByte)
 
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
+	// pull image
+	engineClient.On("ImagePull", ctx, config.Image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
+	// create container
 	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
+	// start container
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
-	client := dockerClient{containerAPI: engineClient}
-	err := client.tcContainerCommand(context.TODO(), c, []string{"test", "me"}, "pumba/tcimage")
+	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
+	err := client.tcContainerCommand(context.TODO(), c, []string{"test", "me"}, "pumba/tcimage", true)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

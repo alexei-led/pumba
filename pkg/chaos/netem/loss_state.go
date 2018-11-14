@@ -30,6 +30,7 @@ type LossStateCommand struct {
 	p23      float64
 	p14      float64
 	image    string
+	pull     bool
 	limit    int
 	dryRun   bool
 }
@@ -48,6 +49,7 @@ func NewLossStateCommand(client container.Client,
 	p23 float64, // probability to go from state (2) to state (3)
 	p14 float64, // probability to go from state (1) to state (4)
 	image string, // traffic control image
+	pull bool, // pull tc image
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
@@ -131,6 +133,7 @@ func NewLossStateCommand(client container.Client,
 		p23:      p23,
 		p14:      p14,
 		image:    image,
+		pull:     pull,
 		limit:    limit,
 		dryRun:   dryRun,
 	}, nil
@@ -177,7 +180,7 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("adding network 4-state packet loss for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels = append(cancels, cancel)
-		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to set packet loss for container")
 			return err
