@@ -1,11 +1,17 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.11-alpine AS builder
+FROM golang:1.11 AS builder
+
+# curl git bash
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		curl \
+		git \
+		bash \
+	&& rm -rf /var/lib/apt/lists/*
 
 # github-release - Github Release and upload artifacts
 # go-junit-report - convert Go test into junit.xml format
-RUN apk add --no-cache git bash curl || apk update && apk upgrade
 RUN go get -v github.com/aktau/github-release && \
     go get -v github.com/jstemmer/go-junit-report
 
@@ -64,10 +70,10 @@ ARG TAG_MESSAGE
 ARG GITHUB_TOKEN
 
 # build pumba for all platforms
-RUN if [[ "$RELEASE" == true ]]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
+RUN if [ $RELEASE = true ]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
 
 # release to GitHub
-RUN if [[ "$RELEASE" == true ]]; then hack/github_release.sh alexei-led pumba; fi
+RUN if [ $RELEASE = true ]; then hack/github_release.sh alexei-led pumba; fi
 
 #
 # ------ Pumba runtime image ------
