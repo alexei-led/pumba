@@ -3,8 +3,10 @@ package container
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -34,11 +36,22 @@ type Client interface {
 	StopContainer(context.Context, Container, int, bool) error
 	KillContainer(context.Context, Container, string, bool) error
 	RemoveContainer(context.Context, Container, bool, bool, bool, bool) error
-	NetemContainer(context.Context, Container, string, []string, []net.IP, time.Duration, string, bool) error
-	StopNetemContainer(context.Context, Container, string, []net.IP, string, bool) error
+	NetemContainer(context.Context, Container, string, []string, []net.IP, time.Duration, string, bool, bool) error
+	StopNetemContainer(context.Context, Container, string, []net.IP, string, bool, bool) error
 	PauseContainer(context.Context, Container, bool) error
 	UnpauseContainer(context.Context, Container, bool) error
 	StartContainer(context.Context, Container, bool) error
+}
+
+// ImagePullResponse - response from ImagePull
+type ImagePullResponse struct {
+	Status         string `json:"status"`
+	Error          string `json:"error"`
+	Progress       string `json:"progress"`
+	ProgressDetail struct {
+		Current int `json:"current"`
+		Total   int `json:"total"`
+	} `json:"progressDetail"`
 }
 
 // NewClient returns a new Client instance which can be used to interact with
@@ -210,7 +223,7 @@ func (client dockerClient) RemoveContainer(ctx context.Context, c Container, for
 	return nil
 }
 
-func (client dockerClient) NetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, ips []net.IP, duration time.Duration, tcimage string, dryrun bool) error {
+func (client dockerClient) NetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, ips []net.IP, duration time.Duration, tcimage string, pull bool, dryrun bool) error {
 	prefix := ""
 	if dryrun {
 		prefix = dryRunPrefix
@@ -218,10 +231,10 @@ func (client dockerClient) NetemContainer(ctx context.Context, c Container, netI
 	var err error
 	if len(ips) == 0 {
 		log.Infof("%sRunning netem command '%s' on container %s for %s", prefix, netemCmd, c.ID(), duration)
-		err = client.startNetemContainer(ctx, c, netInterface, netemCmd, tcimage, dryrun)
+		err = client.startNetemContainer(ctx, c, netInterface, netemCmd, tcimage, pull, dryrun)
 	} else {
 		log.Infof("%sRunning netem command '%s' on container %s for %s using filter %v", prefix, netemCmd, c.ID(), duration, ips)
-		err = client.startNetemContainerIPFilter(ctx, c, netInterface, netemCmd, ips, tcimage, dryrun)
+		err = client.startNetemContainerIPFilter(ctx, c, netInterface, netemCmd, ips, tcimage, pull, dryrun)
 	}
 	if err != nil {
 		log.Error(err)
@@ -229,16 +242,17 @@ func (client dockerClient) NetemContainer(ctx context.Context, c Container, netI
 	return err
 }
 
-func (client dockerClient) StopNetemContainer(ctx context.Context, c Container, netInterface string, ip []net.IP, tcimage string, dryrun bool) error {
+func (client dockerClient) StopNetemContainer(ctx context.Context, c Container, netInterface string, ip []net.IP, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
 		"id":       c.ID(),
 		"IPs":      ip,
 		"iface":    netInterface,
 		"tc-image": tcimage,
+		"pull":     pull,
 		"dryrun":   dryrun,
 	}).Info("stopping netem on container")
-	return client.stopNetemContainer(ctx, c, netInterface, ip, tcimage, dryrun)
+	return client.stopNetemContainer(ctx, c, netInterface, ip, tcimage, pull, dryrun)
 }
 
 func (client dockerClient) PauseContainer(ctx context.Context, c Container, dryrun bool) error {
@@ -265,13 +279,14 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dr
 	return nil
 }
 
-func (client dockerClient) startNetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, tcimage string, dryrun bool) error {
+func (client dockerClient) startNetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
 		"iface":   netInterface,
 		"netem":   strings.Join(netemCmd, " "),
 		"tcimage": tcimage,
+		"pull":    pull,
 		"dryrun":  dryrun,
 	}).Info("start netem for container")
 	if !dryrun {
@@ -282,18 +297,19 @@ func (client dockerClient) startNetemContainer(ctx context.Context, c Container,
 		// stop disruption command
 		// netemStopCommand := "tc qdisc del dev eth0 root netem"
 		log.WithField("netem", strings.Join(netemCommand, " ")).Debug("adding netem qdisc")
-		return client.tcCommand(ctx, c, netemCommand, tcimage)
+		return client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 	}
 	return nil
 }
 
-func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, netInterface string, ips []net.IP, tcimage string, dryrun bool) error {
+func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, netInterface string, ips []net.IP, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
 		"iface":   netInterface,
 		"IPs":     ips,
 		"tcimage": tcimage,
+		"pull":    pull,
 		"dryrun":  dryrun,
 	}).Info("stop netem for container")
 	if !dryrun {
@@ -302,7 +318,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand := []string{"qdisc", "del", "dev", netInterface, "parent", "1:1", "handle", "10:"}
 			log.WithField("netem", strings.Join(netemCommand, " ")).Debug("deleting netem qdisc")
-			err := client.tcCommand(ctx, c, netemCommand, tcimage)
+			err := client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 			if err != nil {
 				log.WithError(err).Error("failed to execute tc command")
 				return err
@@ -311,7 +327,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand = []string{"qdisc", "del", "dev", netInterface, "parent", "1:2", "handle", "20:"}
 			log.WithField("netem", strings.Join(netemCommand, " ")).Debug("deleting netem qdisc")
-			err = client.tcCommand(ctx, c, netemCommand, tcimage)
+			err = client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 			if err != nil {
 				log.WithError(err).Error("failed to execute tc command")
 				return err
@@ -320,7 +336,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand = []string{"qdisc", "del", "dev", netInterface, "parent", "1:3", "handle", "30:"}
 			log.WithField("netem", strings.Join(netemCommand, " ")).Debug("deleting netem qdisc")
-			err = client.tcCommand(ctx, c, netemCommand, tcimage)
+			err = client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 			if err != nil {
 				log.WithError(err).Error("failed to execute tc command")
 				return err
@@ -329,7 +345,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand = []string{"qdisc", "del", "dev", netInterface, "root", "handle", "1:", "prio"}
 			log.WithField("netem", strings.Join(netemCommand, " ")).Debug("deleting netem qdisc")
-			err = client.tcCommand(ctx, c, netemCommand, tcimage)
+			err = client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 			if err != nil {
 				log.WithError(err).Error("failed to execute tc command")
 				return err
@@ -339,7 +355,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 			// http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
 			netemCommand := []string{"qdisc", "del", "dev", netInterface, "root", "netem"}
 			log.WithField("netem", strings.Join(netemCommand, " ")).Debug("deleting netem qdisc")
-			err := client.tcCommand(ctx, c, netemCommand, tcimage)
+			err := client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 			if err != nil {
 				log.WithError(err).Error("failed to execute tc command")
 				return err
@@ -350,13 +366,14 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 }
 
 func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Container, netInterface string, netemCmd []string,
-	ips []net.IP, tcimage string, dryrun bool) error {
+	ips []net.IP, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
 		"iface":   netInterface,
 		"IPs":     ips,
 		"tcimage": tcimage,
+		"pull":    pull,
 		"dryrun":  dryrun,
 	}).Info("start netem for container with IP(s) filter")
 	if !dryrun {
@@ -380,7 +397,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 		// See more: http://man7.org/linux/man-pages/man8/tc-netem.8.html
 		handleCommand := []string{"qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"}
 		log.WithField("netem", strings.Join(handleCommand, " ")).Debug("adding netem qdisc")
-		err := client.tcCommand(ctx, c, handleCommand, tcimage)
+		err := client.tcCommand(ctx, c, handleCommand, tcimage, pull)
 		if err != nil {
 			log.WithError(err).Error("failed to execute tc command")
 			return err
@@ -391,7 +408,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 		// See more: https://linux.die.net/man/8/tc-sfq
 		netemCommand := []string{"qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"}
 		log.WithField("netem", strings.Join(netemCommand, " ")).Debug("adding netem qdisc")
-		err = client.tcCommand(ctx, c, netemCommand, tcimage)
+		err = client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 		if err != nil {
 			log.WithError(err).Error("failed to execute tc command")
 			return err
@@ -402,7 +419,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 		// See more: https://linux.die.net/man/8/tc-sfq
 		netemCommand = []string{"qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"}
 		log.WithField("netem", strings.Join(netemCommand, " ")).Debug("adding netem qdisc")
-		err = client.tcCommand(ctx, c, netemCommand, tcimage)
+		err = client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 		if err != nil {
 			log.WithError(err).Error("failed to execute tc command")
 			return err
@@ -413,7 +430,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 		// See more: http://man7.org/linux/man-pages/man8/tc-netem.8.html
 		netemCommand = append([]string{"qdisc", "add", "dev", netInterface, "parent", "1:3", "handle", "30:", "netem"}, netemCmd...)
 		log.WithField("netem", strings.Join(netemCommand, " ")).Debug("adding netem qdisc")
-		err = client.tcCommand(ctx, c, netemCommand, tcimage)
+		err = client.tcCommand(ctx, c, netemCommand, tcimage, pull)
 		if err != nil {
 			log.WithError(err).Error("failed to execute tc command")
 			return err
@@ -426,7 +443,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 			filterCommand := []string{"filter", "add", "dev", netInterface, "protocol", "ip", "parent", "1:0", "prio", "1",
 				"u32", "match", "ip", "dst", ip.String(), "flowid", "1:3"}
 			log.WithField("netem", strings.Join(filterCommand, " ")).Debug("adding netem filter")
-			err = client.tcCommand(ctx, c, filterCommand, tcimage)
+			err = client.tcCommand(ctx, c, filterCommand, tcimage, pull)
 			if err != nil {
 				log.WithError(err).Error("failed to execute tc command")
 				return err
@@ -436,16 +453,16 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 	return nil
 }
 
-func (client dockerClient) tcCommand(ctx context.Context, c Container, args []string, tcimage string) error {
+func (client dockerClient) tcCommand(ctx context.Context, c Container, args []string, tcimage string, pull bool) error {
 	if tcimage == "" {
 		return client.execOnContainer(ctx, c, "tc", args, true)
 	}
-	return client.tcContainerCommand(ctx, c, args, tcimage)
+	return client.tcContainerCommand(ctx, c, args, tcimage, pull)
 }
 
 // execute tc command using other container (with iproute2 package installed), using target container network stack
 // try to use `gaiadocker\iproute2` image (Alpine + iproute2 package)
-func (client dockerClient) tcContainerCommand(ctx context.Context, target Container, args []string, tcimage string) error {
+func (client dockerClient) tcContainerCommand(ctx context.Context, target Container, args []string, tcimage string, pull bool) error {
 	log.WithFields(log.Fields{
 		"tcimage": tcimage,
 		"tc args": args,
@@ -472,6 +489,28 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 		DNSSearch:    []string{},
 	}
 	log.WithField("network", hconfig.NetworkMode).Debug("network mode")
+	// pull docker image if required: can pull only public images
+	if pull {
+		log.WithField("image", config.Image).Debug("pulling tc image")
+		events, err := client.imageAPI.ImagePull(ctx, config.Image, types.ImagePullOptions{})
+		if err != nil {
+			log.WithError(err).Error("failed to pull tc image")
+			return err
+		}
+		defer events.Close()
+		d := json.NewDecoder(events)
+		var pullResponse *ImagePullResponse
+		for {
+			if err = d.Decode(&pullResponse); err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.WithError(err).Error("failed to decode docker pull result")
+			}
+			log.Debug(pullResponse)
+		}
+	}
+	log.WithField("image", config.Image).Debug("creating tc container")
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
 	if err != nil {
 		log.WithError(err).Error("failed to create tc container")

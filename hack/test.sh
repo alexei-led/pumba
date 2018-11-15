@@ -17,11 +17,16 @@ mode=atomic
 
 OS=$(uname)
 race_flag="-race"
+cgo_flag=1
 if [ "$OS" = "Linux" ]; then
   # check Alpine - alpine does not support race test
   if [ -f "/etc/alpine-release" ]; then 
     race_flag=""
+    cgo_flag=0
   fi
+fi
+if [ "$race_flag" != "" ]; then
+  echo "testing with race detection ..."
 fi
 
 generate_cover_data() {
@@ -40,7 +45,7 @@ generate_cover_data() {
   for pkg in "${pkgs[@]}"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"
     tout="${COVER}/$(echo $pkg | tr / -)_tests.out"
-    CGO_ENABLED=0 go test -v $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
+    CGO_ENABLED=$cgo_flag go test -v $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
   done
 
   echo "mode: $mode" >"$profile"

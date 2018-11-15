@@ -24,7 +24,7 @@ if [ -z "$TAG_MESSAGE" ]; then
   fi
 fi
 
-if [[ "$DEBUG" = true ]]; then
+if [ $DEBUG = true ]; then
   echo "release --name \"v${RELEASE_TAG}\" --tag \"${RELEASE_TAG}\" --description \"${TAG_MESSAGE}\""
   exit 0
 fi

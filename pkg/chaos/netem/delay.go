@@ -34,6 +34,7 @@ type DelayCommand struct {
 	correlation  float64
 	distribution string
 	image        string
+	pull         bool
 	limit        int
 	dryRun       bool
 }
@@ -51,6 +52,7 @@ func NewDelayCommand(client container.Client,
 	correlation float64, // delay correlation
 	distribution string, // delay distribution
 	image string, // traffic control image
+	pull bool, // pull tc image option
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not delay just log
 ) (chaos.Command, error) {
@@ -122,6 +124,7 @@ func NewDelayCommand(client container.Client,
 		correlation:  correlation,
 		distribution: distribution,
 		image:        image,
+		pull:         pull,
 		limit:        limit,
 		dryRun:       dryRun,
 	}, nil
@@ -173,7 +176,7 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("adding network delay for container")
 		netemCtx, cancel := context.WithCancel(ctx)
 		cancels = append(cancels, cancel)
-		err = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		err = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to delay network for container")
 			// break on error - to cancel all open contexts and avoid go routine leaks

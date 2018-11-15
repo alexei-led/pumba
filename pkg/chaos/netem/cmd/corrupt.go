@@ -57,6 +57,8 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
+	// get pull tc image flag
+	pull := c.Parent().BoolT("pull-image")
 	// get limit for number of containers to netem
 	limit := c.Parent().Int("limit")
 
@@ -66,7 +68,7 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem corrupt command
-	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, percent, correlation, image, limit, dryRun)
+	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, percent, correlation, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

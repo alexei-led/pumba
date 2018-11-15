@@ -26,6 +26,7 @@ func TestNewDelayCommand(t *testing.T) {
 		correlation  float64
 		distribution string
 		image        string
+		pull         bool
 		limit        int
 		dryRun       bool
 	}
@@ -174,7 +175,7 @@ func TestNewDelayCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// invoke
-			got, err := NewDelayCommand(nil, tt.args.names, tt.args.pattern, tt.args.iface, tt.args.ipsList, tt.args.durationStr, tt.args.intervalStr, tt.args.time, tt.args.jitter, tt.args.correlation, tt.args.distribution, tt.args.image, tt.args.limit, tt.args.dryRun)
+			got, err := NewDelayCommand(nil, tt.args.names, tt.args.pattern, tt.args.iface, tt.args.ipsList, tt.args.durationStr, tt.args.intervalStr, tt.args.time, tt.args.jitter, tt.args.correlation, tt.args.distribution, tt.args.image, tt.args.pull, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewDelayCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -202,6 +203,7 @@ func TestDelayCommand_Run(t *testing.T) {
 		correlation  float64
 		distribution string
 		image        string
+		pull         bool
 		limit        int
 		dryRun       bool
 	}
@@ -325,19 +327,19 @@ func TestDelayCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.dryRun).Return(nil)
-				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.dryRun).Return(nil)
+				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
+				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.dryRun)
+						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun)
 						if tt.errs.netemError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
 						} else {
 							call.Return(nil)
 						}
-						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.dryRun).Return(nil)
+						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
 					}
 				}
 			}

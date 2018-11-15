@@ -68,6 +68,8 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
+	// get pull tc image flag
+	pull := c.Parent().BoolT("pull-image")
 	// get limit for number of containers to netem
 	limit := c.Parent().Int("limit")
 
@@ -81,7 +83,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	oneK := c.Float64("one-k")
 
 	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, pg, pb, oneH, oneK, image, limit, dryRun)
+	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, pg, pb, oneH, oneK, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

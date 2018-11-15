@@ -79,6 +79,8 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
+	// get pull tc image flag
+	pull := c.Parent().BoolT("pull-image")
 	// get limit for number of containers to netem
 	limit := c.Parent().Int("limit")
 
@@ -94,7 +96,7 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	p14 := c.Float64("p14")
 
 	// init netem loss state command
-	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, p13, p31, p32, p23, p14, image, limit, dryRun)
+	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, p13, p31, p32, p23, p14, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

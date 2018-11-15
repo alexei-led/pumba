@@ -27,6 +27,7 @@ type DuplicateCommand struct {
 	percent     float64
 	correlation float64
 	image       string
+	pull        bool
 	limit       int
 	dryRun      bool
 }
@@ -42,6 +43,7 @@ func NewDuplicateCommand(client container.Client,
 	percent float64, // duplicate percent
 	correlation float64, // duplicate correlation
 	image string, // traffic control image
+	pull bool, // pull tc image
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
@@ -102,6 +104,7 @@ func NewDuplicateCommand(client container.Client,
 		correlation: correlation,
 		image:       image,
 		limit:       limit,
+		pull:        pull,
 		dryRun:      dryRun,
 	}, nil
 }
@@ -146,7 +149,7 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("adding network random packet duplicates for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels = append(cancels, cancel)
-		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.dryRun)
+		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to set packet duplicates for container")
 			return err

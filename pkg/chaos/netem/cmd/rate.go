@@ -67,6 +67,8 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
+	// get pull tc image flag
+	pull := c.Parent().BoolT("pull-image")
 	// get limit for number of containers to netem command
 	limit := c.Parent().Int("limit")
 
@@ -80,7 +82,7 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	cellOverhead := c.Int("celloverhead")
 
 	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, limit, dryRun)
+	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}
