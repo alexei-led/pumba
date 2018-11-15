@@ -1,5 +1,27 @@
 # Change Log
 
+## [0.6.1](https://github.com/alexei-led/pumba/tree/0.6.1) (2018-11-15)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.0...0.6.1)
+
+**Implemented enhancements:**
+
+- Better killing and respawing options  [\#46](https://github.com/alexei-led/pumba/issues/46)
+- No such image: gaiadocker/iproute2 [\#40](https://github.com/alexei-led/pumba/issues/40)
+
+**Fixed bugs:**
+
+- reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
+
+**Closed issues:**
+
+- when using --tc-image flag the sidekick image is not deleted after the command execution finishes [\#106](https://github.com/alexei-led/pumba/issues/106)
+- Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
+- Strange latency spikes on 4.15.0-36 kernel [\#103](https://github.com/alexei-led/pumba/issues/103)
+
+**Merged pull requests:**
+
+- Fixing tc image and more [\#107](https://github.com/alexei-led/pumba/pull/107) ([alexei-led](https://github.com/alexei-led))
+
 ## [0.6.0](https://github.com/alexei-led/pumba/tree/0.6.0) (2018-10-08)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.2...0.6.0)
 
