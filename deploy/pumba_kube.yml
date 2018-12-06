@@ -25,7 +25,13 @@ spec:
         name: pumba
         # Pumba command: modify it to suite your needs
         # Currently: randomly try to kill some container every 3 minutes
-        command: ["pumba", "--debug", "--random", "--interval", "3m", "kill", "--signal", "SIGTERM"]
+        args:
+          - --random
+          - --interval
+          - "3m"
+          - kill
+          - --signal
+          - "SIGKILL"
         resources:
           requests:
             cpu: 10m
