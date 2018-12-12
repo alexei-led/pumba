@@ -1,5 +1,25 @@
 # Change Log
 
+## [0.6.2](https://github.com/alexei-led/pumba/tree/0.6.2) (2018-12-12)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.1...0.6.2)
+
+**Implemented enhancements:**
+
+- Deployment failed on Kubernetes 1.7 [\#42](https://github.com/alexei-led/pumba/issues/42)
+
+**Fixed bugs:**
+
+- Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
+
+**Closed issues:**
+
+- Pumba daemonset pods are crashing [\#110](https://github.com/alexei-led/pumba/issues/110)
+
+**Merged pull requests:**
+
+- run netem in parallel on multiple containers. fix \#112 [\#113](https://github.com/alexei-led/pumba/pull/113) ([alexei-led](https://github.com/alexei-led))
+- Change command to args and support entrypoint [\#111](https://github.com/alexei-led/pumba/pull/111) ([yaron-idan](https://github.com/yaron-idan))
+
 ## [0.6.1](https://github.com/alexei-led/pumba/tree/0.6.1) (2018-11-15)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.0...0.6.1)
 
