@@ -7,6 +7,7 @@ import (
 	"net"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -173,19 +174,27 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	netemCmd = append(netemCmd, strconv.FormatFloat(n.p14, 'f', 2, 64))
 
 	// run netem loss command for selected containers
-	var cancels []context.CancelFunc
-	for _, c := range containers {
+	var wg sync.WaitGroup
+	errors := make([]error, len(containers))
+	cancels := make([]context.CancelFunc, len(containers))
+	for i, c := range containers {
 		log.WithFields(log.Fields{
 			"container": c,
 		}).Debug("adding network 4-state packet loss for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
-		cancels = append(cancels, cancel)
-		err := runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
-		if err != nil {
-			log.WithError(err).Error("failed to set packet loss for container")
-			return err
-		}
+		cancels[i] = cancel
+		wg.Add(1)
+		go func(i int, c container.Container) {
+			defer wg.Done()
+			errors[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			if errors[i] != nil {
+				log.WithError(errors[i]).Error("failed to set packet loss for container")
+			}
+		}(i, c)
 	}
+
+	// Wait for all netem delay commands to complete
+	wg.Wait()
 
 	// cancel context to avoid leaks
 	defer func() {
@@ -194,5 +203,14 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 		}
 	}()
 
-	return nil
+	// scan through all errors in goroutines
+	for _, e := range errors {
+		// take first found error
+		if e != nil {
+			err = e
+			break
+		}
+	}
+
+	return err
 }
