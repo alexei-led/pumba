@@ -10,6 +10,9 @@
 [ -d "${DIST}" ] || mkdir -p "${DIST}"
 echo "Building ${BUILD_VERSION} on ${BUILD_DATE}"
 
+export CGO_ENABLED=0
+export GO111MODULE=on
+
 platforms=("windows/amd64" "linux/amd64" "darwin/amd64" "linux/386")
 
 for platform in "${platforms[@]}"
@@ -23,7 +26,7 @@ do
     fi  
 
     echo "Building pumba for ${GOOS}/${GOARCH}..."
-    CGO_ENABLED=0 GO111MODULE=on GOOS=$GOOS GOARCH=$GOARCH go build \
+    GOOS=$GOOS GOARCH=$GOARCH go build \
     -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${VCS_COMMIT_ID} -X main.GitBranch=${VCS_BRANCH_NAME} -X main.BuildTime=${BUILDTIME}" \
     -o "${DIST}/${output_name}" ./cmd
     if [ $? -ne 0 ]; then

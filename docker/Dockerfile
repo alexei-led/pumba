@@ -27,6 +27,12 @@ WORKDIR /go/src/github.com/alexei-led/pumba
 # copy sources
 COPY . .
 
+# fixing "checksum mismatch" error
+# docker package has different checksum for every OS
+# remove github.com/docker/engine from go.sum
+RUN cat go.sum | grep -v "github.com/docker/engine" > go.sum || true
+RUN cat go.sum | grep -v "github.com/docker/distribution" > go.sum || true
+
 # run test and calculate coverage
 RUN VERSION=$(cat VERSION) hack/test.sh
 
