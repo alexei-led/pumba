@@ -37,7 +37,7 @@ generate_cover_data() {
   SAVEIFS=$IFS
   # Change IFS to new line. 
   IFS=$'\n'
-  pkgs=($(go list -f '{{if .TestGoFiles}}{{ .ImportPath }}{{end}}' ./... | grep -v vendor))
+  pkgs=($(go list -f '{{if .TestGoFiles}}{{ .ImportPath }}{{end}}' ./... | grep -v vendor | grep -v mocks))
   # Restore IFS
   # Restore IFS
   IFS=$SAVEIFS

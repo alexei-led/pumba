@@ -9,7 +9,7 @@
 go_build() {
   [ -d "${DIST}" ] && rm -rf "${DIST:?}/*"
   [ -d "${DIST}" ] || mkdir -p "${DIST}"
-  CGO_ENABLED=0 GO111MODULE=on go build -mod vendor \
+  CGO_ENABLED=0 GO111MODULE=on go build \
     -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${VCS_COMMIT_ID} -X main.GitBranch=${VCS_BRANCH_NAME} -X main.BuildTime=${BUILDTIME}" \
     -v -o "${DIST}/pumba" ./cmd
 }

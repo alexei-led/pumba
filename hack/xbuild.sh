@@ -23,7 +23,7 @@ do
     fi  
 
     echo "Building pumba for ${GOOS}/${GOARCH}..."
-    CGO_ENABLED=0 GO111MODULE=on GOOS=$GOOS GOARCH=$GOARCH go build -mod vendor \
+    CGO_ENABLED=0 GO111MODULE=on GOOS=$GOOS GOARCH=$GOARCH go build \
     -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${VCS_COMMIT_ID} -X main.GitBranch=${VCS_BRANCH_NAME} -X main.BuildTime=${BUILDTIME}" \
     -o "${DIST}/${output_name}" ./cmd
     if [ $? -ne 0 ]; then
