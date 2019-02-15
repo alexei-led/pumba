@@ -284,7 +284,7 @@ OPTIONS:
 #### Network Emulation Corrupt sub-commands
 
 ```text
-$ pumba netem corrup -h
+$ pumba netem corrupt -h
 
 NAME:
    Pumba netem corrupt - adds corrupt packets
