@@ -13,8 +13,8 @@ spec:
       - image: gaiaadm/pumba:master
         imagePullPolicy: Always
         name: pumba
-        command: ["pumba"] 
-        args: ["--random", "--debug", "--interval", "30s", "kill", "--signal", "SIGKILL", "re2:.*hello.*"]
+        command: ["/pumba"] 
+        args: ["--random", "--interval", "30s", "kill", "--signal", "SIGKILL", "re2:.*hello.*"]
         securityContext:
           runAsUser: 0
         volumeMounts:
