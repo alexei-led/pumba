@@ -81,10 +81,17 @@ RUN if [ $RELEASE = true ]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
 # release to GitHub
 RUN if [ $RELEASE = true ]; then hack/github_release.sh alexei-led pumba; fi
 
+# get latest CA certificates
+FROM alpine:3.9 as certs
+RUN apk --update add ca-certificates
+
 #
 # ------ Pumba runtime image ------
 #
 FROM scratch
+
+# copy CA certificates
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # this is the last commabd since it's never cached
 COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /pumba
