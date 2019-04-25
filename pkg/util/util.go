@@ -70,7 +70,7 @@ func ParseCIDR(ip string) *net.IPNet {
 
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		// log.Fatal(err)
+		log.Error(err)
 		return nil
 	}
 	return ipNet
