@@ -73,11 +73,11 @@ func (_m *MockClient) ListContainers(_a0 context.Context, _a1 Filter) ([]Contain
 }
 
 // NetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8
-func (_m *MockClient) NetemContainer(_a0 context.Context, _a1 Container, _a2 string, _a3 []string, _a4 []net.IP, _a5 time.Duration, _a6 string, _a7 bool, _a8 bool) error {
+func (_m *MockClient) NetemContainer(_a0 context.Context, _a1 Container, _a2 string, _a3 []string, _a4 []*net.IPNet, _a5 time.Duration, _a6 string, _a7 bool, _a8 bool) error {
 	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, Container, string, []string, []net.IP, time.Duration, string, bool, bool) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, Container, string, []string, []*net.IPNet, time.Duration, string, bool, bool) error); ok {
 		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
 	} else {
 		r0 = ret.Error(0)
@@ -143,11 +143,11 @@ func (_m *MockClient) StopContainer(_a0 context.Context, _a1 Container, _a2 int,
 }
 
 // StopNetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6
-func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 Container, _a2 string, _a3 []net.IP, _a4 string, _a5 bool, _a6 bool) error {
+func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 Container, _a2 string, _a3 []*net.IPNet, _a4 string, _a5 bool, _a6 bool) error {
 	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, Container, string, []net.IP, string, bool, bool) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, Container, string, []*net.IPNet, string, bool, bool) error); ok {
 		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 	} else {
 		r0 = ret.Error(0)

@@ -10,7 +10,7 @@ import (
 )
 
 // run network emulation command, stop netem on timeout or abort
-func runNetem(ctx context.Context, client container.Client, container container.Container, netInterface string, cmd []string, ips []net.IP, duration time.Duration, tcimage string, pull bool, dryRun bool) error {
+func runNetem(ctx context.Context, client container.Client, container container.Container, netInterface string, cmd []string, ips []*net.IPNet, duration time.Duration, tcimage string, pull bool, dryRun bool) error {
 	log.WithFields(log.Fields{
 		"id":       container.ID(),
 		"name":     container.Name(),

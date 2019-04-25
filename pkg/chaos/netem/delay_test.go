@@ -10,6 +10,7 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -57,7 +58,7 @@ func TestNewDelayCommand(t *testing.T) {
 				names:        []string{"n1", "n2"},
 				pattern:      "re2:test",
 				iface:        "testIface",
-				ips:          []net.IP{net.ParseIP("1.2.3.4"), net.ParseIP("5.6.7.8")},
+				ips:          []*net.IPNet{util.ParseCIDR("1.2.3.4"), util.ParseCIDR("5.6.7.8")},
 				duration:     30 * time.Second,
 				time:         10,
 				jitter:       2,
@@ -196,7 +197,7 @@ func TestDelayCommand_Run(t *testing.T) {
 		names        []string
 		pattern      string
 		iface        string
-		ips          []net.IP
+		ips          []*net.IPNet
 		duration     time.Duration
 		time         int
 		jitter       int
@@ -224,7 +225,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1"},
 				iface:        "eth0",
-				ips:          []net.IP{net.ParseIP("10.10.10.10")},
+				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -239,7 +240,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1", "c2", "c3"},
 				iface:        "eth0",
-				ips:          []net.IP{net.ParseIP("10.10.10.10")},
+				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -254,7 +255,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1", "c2", "c3"},
 				iface:        "eth0",
-				ips:          []net.IP{net.ParseIP("10.10.10.10")},
+				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -284,7 +285,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1", "c2", "c3"},
 				iface:        "eth0",
-				ips:          []net.IP{net.ParseIP("10.10.10.10")},
+				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
