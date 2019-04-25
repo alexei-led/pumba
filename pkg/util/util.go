@@ -3,6 +3,8 @@ package util
 import (
 	"errors"
 	"time"
+	"strings"
+	"net"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -52,4 +54,24 @@ func GetDurationValue(durationStr string, interval time.Duration) (time.Duration
 		return 0, errors.New("duration must be shorter than interval")
 	}
 	return duration, nil
+}
+
+// CIDRNotation Ensure IP string is in CIDR notation
+func CIDRNotation(ip string) string {
+	if !strings.Contains(ip, "/") {
+		return ip + "/32"
+	}
+	return ip
+}
+
+// ParseCIDR Parse IP string to IPNet
+func ParseCIDR(ip string) *net.IPNet {
+	cidr := CIDRNotation(ip)
+
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		// log.Fatal(err)
+		return nil
+	}
+	return ipNet
 }
