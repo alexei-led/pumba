@@ -49,6 +49,20 @@ func Test_runNetem(t *testing.T) {
 			},
 		},
 		{
+			name: "netem with CIDR IP",
+			args: args{
+				container: *container.NewContainer(
+					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.ImageDetailsResponse(container.AsMap()),
+				),
+				netInterface: "testIface",
+				cmd:          []string{"test", "--test"},
+				ips:          []*net.IPNet{util.ParseCIDR("10.10.0.0/16")},
+				duration:     time.Microsecond * 10,
+				tcimage:      "test/image",
+			},
+		},
+		{
 			name: "netem with abort",
 			args: args{
 				container: *container.NewContainer(
