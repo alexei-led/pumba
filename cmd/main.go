@@ -297,7 +297,7 @@ func initializeCLICommands() []cli.Command {
 				},
 				cli.StringSliceFlag{
 					Name:  "target, t",
-					Usage: "target IP filter; supports multiple IPs",
+					Usage: "target IP filter; supports multiple IPs; supports CIDR notation",
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
