@@ -1,5 +1,39 @@
 # Change Log
 
+## [0.6.4](https://github.com/alexei-led/pumba/tree/0.6.4) (2019-05-02)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.3...0.6.4)
+
+**Fixed bugs:**
+
+- Unable to specify target network, only single host IP [\#126](https://github.com/alexei-led/pumba/issues/126)
+
+**Closed issues:**
+
+- How to add more containers to kill [\#124](https://github.com/alexei-led/pumba/issues/124)
+- Using re2 in pumba command in kubernetes template [\#123](https://github.com/alexei-led/pumba/issues/123)
+- Fedora - command 'tc' not found [\#121](https://github.com/alexei-led/pumba/issues/121)
+- log-level behaviour [\#120](https://github.com/alexei-led/pumba/issues/120)
+
+**Merged pull requests:**
+
+- Add support for specifying target networks \(CIDR notation\) \#126 [\#127](https://github.com/alexei-led/pumba/pull/127) ([gmpify](https://github.com/gmpify))
+
+## [0.6.3](https://github.com/alexei-led/pumba/tree/0.6.3) (2019-03-12)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.2...0.6.3)
+
+**Fixed bugs:**
+
+- Regex issue with interface name [\#109](https://github.com/alexei-led/pumba/issues/109)
+
+**Closed issues:**
+
+- Slack hook certificate error [\#122](https://github.com/alexei-led/pumba/issues/122)
+
+**Merged pull requests:**
+
+- Fix spelling error [\#116](https://github.com/alexei-led/pumba/pull/116) ([CatEars](https://github.com/CatEars))
+- Update interface regexp [\#108](https://github.com/alexei-led/pumba/pull/108) ([ddliu](https://github.com/ddliu))
+
 ## [0.6.2](https://github.com/alexei-led/pumba/tree/0.6.2) (2018-12-12)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.1...0.6.2)
 
