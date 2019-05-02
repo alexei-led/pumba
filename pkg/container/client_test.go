@@ -18,6 +18,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/alexei-led/pumba/mocks"
+	"github.com/alexei-led/pumba/pkg/util"
 )
 
 func NewMockEngine() *mocks.APIClient {
@@ -467,13 +468,13 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd4").Return(types.ContainerExecInspect{}, nil)
 
 	config5 := types.ExecConfig{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
-		"parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", "10.10.0.1", "flowid", "1:3"}, Privileged: true}
+		"parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", "10.10.0.1/32", "flowid", "1:3"}, Privileged: true}
 	engineClient.On("ContainerExecCreate", ctx, "abc123", config5).Return(types.IDResponse{ID: "cmd5"}, nil)
 	engineClient.On("ContainerExecStart", ctx, "cmd5", types.ExecStartCheck{}).Return(nil)
 	engineClient.On("ContainerExecInspect", ctx, "cmd5").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []net.IP{net.ParseIP("10.10.0.1")}, 1*time.Millisecond, "", false, false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{util.ParseCIDR("10.10.0.1")}, 1*time.Millisecond, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

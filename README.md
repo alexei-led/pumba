@@ -420,7 +420,7 @@ cd pumba
 Now create a new Pumba Docker image.
 
 ```sh
-docker build -t pumba -f Dockerfile .
+docker build -t pumba -f docker/Dockerfile .
 ```
 
 ## License

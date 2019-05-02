@@ -35,7 +35,7 @@ type RateCommand struct {
 	names          []string
 	pattern        string
 	iface          string
-	ips            []net.IP
+	ips            []*net.IPNet
 	duration       time.Duration
 	rate           string
 	packetOverhead int
@@ -90,9 +90,9 @@ func NewRateCommand(client container.Client,
 		return nil, err
 	}
 	// validate ips
-	var ips []net.IP
+	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip := net.ParseIP(str)
+		ip := util.ParseCIDR(str)
 		if ip == nil {
 			err = fmt.Errorf("bad target: '%s' is not a valid IP", str)
 			return nil, err
