@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![Build Status](https://travis-ci.org/alexei-led/pumba.svg?branch=master)](https://travis-ci.org/alexei-led/pumba) [![Codefresh build status]( https://g.codefresh.io/api/badges/pipeline/codefresh-inc/alexei-led%2Fpumba%2Fpumba?type=cf-1)]( https://g.codefresh.io/public/accounts/codefresh-inc/pipelines/alexei-led/pumba/pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
+[![Codefresh build status]( https://g.codefresh.io/api/badges/pipeline/alexei-led/alexei-led%2Fpumba%2Fpumba?type=cf-1)](https://g.codefresh.io/public/accounts/alexei-led/pipelines/alexei-led/pumba/pumba) [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
 
 [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master)  [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba)
 
