@@ -52,7 +52,7 @@ GLOBAL OPTIONS:
    --slackchannel value        Slack channel (default #pumba) (default: "#pumba")
    --interval value, -i value  recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'
    --random, -r                randomly select single matching container from list of target containers
-   --dry                       dry runl does not create chaos, only logs planned chaos commands
+   --dry-run                   dry runl does not create chaos, only logs planned chaos commands
    --help, -h                  show help
    --version, -v               print the version
 ```
