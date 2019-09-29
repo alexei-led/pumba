@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+
+jobs:
+
+  build:
+ 
+    runs-on: ubuntu-18.04
+ 
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: display env
+      run: printenv
+
+    - name: decide on Docker image tag
+      run: |
+        echo $GITHUB_REF | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
+        echo "Tagging image with '$(cat IMAGE_TAG)'"
+
+    - name: build and test image
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      run: |
+        IMAGE_TAG=$(cat IMAGE_TAG) 
+        DOCKER_BUILDKIT=1 docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${GITHUB_SHA} --build-arg VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg VCS_SLUG=${GITHUB_REPOSITORY} -f docker/Dockerfile .
+
+    - name: run integration tests
+      run: |
+        # install bats testing framework
+        sudo add-apt-repository ppa:duggan/bats
+        sudo apt-get update
+        sudo apt-get install bats
+        # extract pumba binary from build-and-test container
+        CI_BUILD_URL=https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}/checks
+        docker create --name pumba --rm -e CI_BUILD_ID=$(date --iso-8601=seconds) -e CI_BUILD_URL=${CI_BUILD_URL} pumba/build-and-test
+        docker cp pumba:/go/src/github.com/alexei-led/pumba/.bin/pumba .
+        # run integration tests
+        PATH=.:$PATH pumba -v
+        PATH=.:$PATH bats tests
+
+    
+    # - name: push Docker image
+    #   env:
+    #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    #   run: |
+    #     IMAGE_TAG=$(cat IMAGE_TAG)
+    #     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+    #     docker push ${DOCKER_USERNAME}/pumba:${IMAGE_TAG}
+    #     docker logout

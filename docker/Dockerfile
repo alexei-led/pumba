@@ -1,7 +1,9 @@
+# syntax = docker/dockerfile:1.0-experimental
+
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.12 AS builder
+FROM golang:1.13 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
