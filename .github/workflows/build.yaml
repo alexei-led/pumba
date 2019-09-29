@@ -1,4 +1,4 @@
-name: Build
+name: Pumba CI
 
 on:
   push:
@@ -9,15 +9,12 @@ on:
 
 jobs:
 
-  build:
+  full:
  
     runs-on: ubuntu-18.04
  
     steps:
     - uses: actions/checkout@v1
-
-    - name: display env
-      run: printenv
 
     - name: decide on Docker image tag
       run: |
@@ -45,6 +42,10 @@ jobs:
         PATH=.:$PATH pumba -v
         PATH=.:$PATH bats tests
 
+    - name: upload coverage report
+      run: |
+         # upload coverage to codecov.io
+         docker start -i pumba
     
     # - name: push Docker image
     #   env:
