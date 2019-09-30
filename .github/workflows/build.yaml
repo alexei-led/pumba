@@ -12,21 +12,21 @@ jobs:
 
     - name: decide on Docker image tag
       run: |
+        echo "GitHub Ref = ${GITHUB_REF}"
         echo $GITHUB_REF | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
         echo "Tagging image with '$(cat IMAGE_TAG)'"
 
     - name: build test images
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        DOCKER_BUILDKIT: 1
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
 
         echo "==> compile and test Go code"
-        docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${GITHUB_SHA} --build-arg VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg VCS_SLUG=${GITHUB_REPOSITORY} -f docker/Dockerfile .
+        DOCKER_BUILDKIT=1 docker build --progress=plain --tag=pumba/build-and-test --target=build-and-test --build-arg=CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg=VCS_COMMIT_ID=${GITHUB_SHA} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${GITHUB_REPOSITORY} --file docker/Dockerfile .
 
         echo "==> prepare integration tests image"
-        docker build -t pumba/integration-tests --target integration-tests --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${GITHUB_SHA} --build-arg VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg VCS_SLUG=${GITHUB_REPOSITORY} -f docker/Dockerfile .
+        DOCKER_BUILDKIT=1 docker build --progress=plain --tag pumba/integration-tests --target=integration-tests --build-arg=CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg=VCS_COMMIT_ID=${GITHUB_SHA} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${GITHUB_REPOSITORY} --file=docker/Dockerfile .
 
     - name: run integration tests
       run: |
@@ -43,7 +43,7 @@ jobs:
         DOCKER_BUILDKIT: 1
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
-        docker build -t ${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG} -f docker/Dockerfile . 
+        DOCKER_BUILDKIT=1 docker build --progress=plain --tag=${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG} --file docker/Dockerfile . 
 
     - name: push Docker image
       env:
