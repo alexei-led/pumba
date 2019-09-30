@@ -12,21 +12,19 @@ jobs:
 
     - name: decide on Docker image tag
       run: |
-        echo "GitHub Ref = ${GITHUB_REF}"
-        echo $GITHUB_REF | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
+        echo "GitHub Ref = ${{ github.ref }}"
+        echo ${{ github.ref }} | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
         echo "Tagging image with '$(cat IMAGE_TAG)'"
 
     - name: build test images
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
 
         echo "==> compile and test Go code"
-        DOCKER_BUILDKIT=1 docker build --progress=plain --tag=pumba/build-and-test --target=build-and-test --build-arg=CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg=VCS_COMMIT_ID=${GITHUB_SHA} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${GITHUB_REPOSITORY} --file docker/Dockerfile .
+        DOCKER_BUILDKIT=1 docker build --progress=plain --tag=pumba/build-and-test --target=build-and-test --build-arg=CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }} --build-arg=VCS_COMMIT_ID=${{ github.sha }} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${{ github.repository }} --file docker/Dockerfile .
 
         echo "==> prepare integration tests image"
-        DOCKER_BUILDKIT=1 docker build --progress=plain --tag pumba/integration-tests --target=integration-tests --build-arg=CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg=VCS_COMMIT_ID=${GITHUB_SHA} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${GITHUB_REPOSITORY} --file=docker/Dockerfile .
+        DOCKER_BUILDKIT=1 docker build --progress=plain --tag pumba/integration-tests --target=integration-tests --build-arg=CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }} --build-arg=VCS_COMMIT_ID=${{ github.sha }} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${{ github.repository }} --file=docker/Dockerfile .
 
     - name: run integration tests
       run: |
@@ -34,13 +32,12 @@ jobs:
 
     - name: upload coverage report
       run: |
-        CI_BUILD_URL=https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}/checks
+        CI_BUILD_URL=https://github.com/${{ github.repository }}/commit/${{ github.sha }}/checks
         docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
 
     - name: prepare final image
       env:
         DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
-        DOCKER_BUILDKIT: 1
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
         DOCKER_BUILDKIT=1 docker build --progress=plain --tag=${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG} --file docker/Dockerfile . 
