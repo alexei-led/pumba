@@ -24,7 +24,7 @@ jobs:
 
     - name: decide on Docker image tag
       run: |
-        echo ${{ github.ref }} | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
+        echo ${{ github.ref }} | sed -e 's/^refs\/heads\///g' -e 's/^refs\/tags\///g' -e 's/^refs\/pull\///g' -e 's/\/merge$//g' | sed -e 's/master/latest/g' > IMAGE_TAG
         echo "Tagging image with '$(cat IMAGE_TAG)'"
 
     - name: build test images
