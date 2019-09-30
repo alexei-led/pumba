@@ -5,17 +5,13 @@
 .gtm
 .idea
 .vscode
+.github
 .bin
 
 .gitignore
 .env
 LICENSE
 
-.travis.yml
-buildspec.yml
-codefresh.yaml
-
-*.toml
 *.lock
 *.md
 *.todo

@@ -21,32 +21,28 @@ jobs:
         echo $GITHUB_REF | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
         echo "Tagging image with '$(cat IMAGE_TAG)'"
 
-    - name: build and test image
+    - name: build test images
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        DOCKER_BUILDKIT: 1
       run: |
-        IMAGE_TAG=$(cat IMAGE_TAG) 
-        DOCKER_BUILDKIT=1 docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${GITHUB_SHA} --build-arg VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg VCS_SLUG=${GITHUB_REPOSITORY} -f docker/Dockerfile .
+        IMAGE_TAG=$(cat IMAGE_TAG)
+
+        echo "==> compile and test Go code"
+        docker build -t pumba/build-and-test --target build-and-test --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${GITHUB_SHA} --build-arg VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg VCS_SLUG=${GITHUB_REPOSITORY} -f docker/Dockerfile .
+
+        echo "==> prepare integration tests image"
+        docker build -t pumba/integration-tests --target integration-tests --build-arg CODECOV_TOKEN=${CODECOV_TOKEN} --build-arg VCS_COMMIT_ID=${GITHUB_SHA} --build-arg VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg VCS_SLUG=${GITHUB_REPOSITORY} -f docker/Dockerfile .
 
     - name: run integration tests
       run: |
-        # install bats testing framework
-        sudo add-apt-repository ppa:duggan/bats
-        sudo apt-get update
-        sudo apt-get install bats
-        # extract pumba binary from build-and-test container
-        CI_BUILD_URL=https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}/checks
-        docker create --name pumba --rm -e CI_BUILD_ID=$(date --iso-8601=seconds) -e CI_BUILD_URL=${CI_BUILD_URL} pumba/build-and-test
-        docker cp pumba:/go/src/github.com/alexei-led/pumba/.bin/pumba .
-        # run integration tests
-        PATH=.:$PATH pumba -v
-        PATH=.:$PATH bats tests
+        docker run -it --rm --name integration-tests pumba/integration-tests
 
     - name: upload coverage report
       run: |
-         # upload coverage to codecov.io
-         docker start -i pumba
-    
+        CI_BUILD_URL=https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}/checks
+        docker run -it --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
+
     # - name: push Docker image
     #   env:
     #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}

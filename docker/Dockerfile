@@ -1,4 +1,4 @@
-# syntax = docker/dockerfile:1.0-experimental
+# syntax = docker/dockerfile:experimental
 
 #
 # ----- Go Builder Image ------
@@ -52,6 +52,25 @@ RUN chmod +x codecov.sh
 
 # command to upload coverage report to Codecov: need to pass CI_BUILD_ID/URL as environment variables
 CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,CI_BUILD_URL"]
+
+#
+# ------ Pumba Integration Tests ------
+#
+FROM alpine:3.9 as integraton-tests
+
+# install required packages
+RUN apk add --no-cache bash bats docker iproute2
+
+# copy bats tests
+COPY ./tests /tests
+COPY VERSION .
+
+# copy compiled binary
+COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/local/bin/pumba
+
+# mount docker.sock and run pumba tests
+CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
+
 
 #
 # ------ Pumba GitHub Release ------
