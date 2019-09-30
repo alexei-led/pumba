@@ -1,5 +1,14 @@
 name: Pumba CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches:
+    - '*'
+    tags:
+    - '*'
+  pull_request:
+    branches:
+    - '*'
 
 jobs:
 
@@ -10,9 +19,11 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
+    - name: debug
+      run: printenv
+
     - name: decide on Docker image tag
       run: |
-        echo "GitHub Ref = ${{ github.ref }}"
         echo ${{ github.ref }} | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
         echo "Tagging image with '$(cat IMAGE_TAG)'"
 
@@ -36,6 +47,7 @@ jobs:
         docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
 
     - name: prepare final image
+      if: github.event_name != 'pull_request'
       env:
         DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
       run: |
@@ -43,6 +55,7 @@ jobs:
         DOCKER_BUILDKIT=1 docker build --progress=plain --tag=${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG} --file docker/Dockerfile . 
 
     - name: push Docker image
+      if: github.event_name != 'pull_request'
       env:
         DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
         DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
