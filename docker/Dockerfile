@@ -1,7 +1,9 @@
+# syntax = docker/dockerfile:experimental
+
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.12 AS builder
+FROM golang:1.13 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -52,6 +54,24 @@ RUN chmod +x codecov.sh
 CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,CI_BUILD_URL"]
 
 #
+# ------ Pumba Integration Tests ------
+#
+FROM alpine:3.9 as integration-tests
+
+# install required packages
+RUN apk add --no-cache bash bats docker iproute2
+
+# copy bats tests
+COPY ./tests /tests
+COPY VERSION .
+
+# copy compiled binary
+COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/local/bin/pumba
+
+# mount docker.sock and run pumba tests
+CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
+
+#
 # ------ Pumba GitHub Release ------
 #
 FROM build-and-test as github-release
@@ -75,12 +95,16 @@ RUN if [ $RELEASE = true ]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
 # release to GitHub
 RUN if [ $RELEASE = true ]; then hack/github_release.sh alexei-led pumba; fi
 
-# get latest CA certificates
+
+#
+# ------ get latest CA certificates
+#
 FROM alpine:3.9 as certs
 RUN apk --update add ca-certificates
 
+
 #
-# ------ Pumba runtime image ------
+# ------ Pumba release Docker image ------
 #
 FROM scratch
 
