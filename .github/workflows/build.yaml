@@ -36,12 +36,12 @@ jobs:
 
     - name: run integration tests
       run: |
-        docker run -it --rm --name integration-tests pumba/integration-tests
+        docker run -i --rm --name integration-tests pumba/integration-tests
 
     - name: upload coverage report
       run: |
         CI_BUILD_URL=https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}/checks
-        docker run -it --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
+        docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
 
     # - name: push Docker image
     #   env:
