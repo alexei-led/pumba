@@ -36,7 +36,7 @@ jobs:
 
     - name: run integration tests
       run: |
-        docker run -i --rm --name integration-tests pumba/integration-tests
+        docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba/integration-tests
 
     - name: upload coverage report
       run: |
