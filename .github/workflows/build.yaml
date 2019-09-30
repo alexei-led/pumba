@@ -16,6 +16,21 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+
+    - name: Dump job context
+      env:
+        JOB_CONTEXT: ${{ toJson(job) }}
+      run: echo "$JOB_CONTEXT"
+
+    - name: Dump runner context
+      env:
+        RUNNER_CONTEXT: ${{ toJson(runner) }}
+      run: echo "$RUNNER_CONTEXT"
+
     - name: decide on Docker image tag
       run: |
         echo $GITHUB_REF | sed -e 's/refs\/heads\///g' -e 's/refs\/tags\///g' | sed -e 's/master/latest/g' > IMAGE_TAG
