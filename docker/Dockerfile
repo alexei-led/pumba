@@ -71,7 +71,6 @@ COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/l
 # mount docker.sock and run pumba tests
 CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
 
-
 #
 # ------ Pumba GitHub Release ------
 #
@@ -96,12 +95,16 @@ RUN if [ $RELEASE = true ]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
 # release to GitHub
 RUN if [ $RELEASE = true ]; then hack/github_release.sh alexei-led pumba; fi
 
-# get latest CA certificates
+
+#
+# ------ get latest CA certificates
+#
 FROM alpine:3.9 as certs
 RUN apk --update add ca-certificates
 
+
 #
-# ------ Pumba runtime image ------
+# ------ Pumba release Docker image ------
 #
 FROM scratch
 

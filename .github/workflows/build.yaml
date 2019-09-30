@@ -1,7 +1,7 @@
 name: Pumba CI
 
 on:
-  push:
+  [push, pull_request]:
     branches:
       - '*'
     tags:
@@ -15,21 +15,6 @@ jobs:
  
     steps:
     - uses: actions/checkout@v1
-
-    - name: Dump GitHub context
-      env:
-        GITHUB_CONTEXT: ${{ toJson(github) }}
-      run: echo "$GITHUB_CONTEXT"
-
-    - name: Dump job context
-      env:
-        JOB_CONTEXT: ${{ toJson(job) }}
-      run: echo "$JOB_CONTEXT"
-
-    - name: Dump runner context
-      env:
-        RUNNER_CONTEXT: ${{ toJson(runner) }}
-      run: echo "$RUNNER_CONTEXT"
 
     - name: decide on Docker image tag
       run: |
@@ -58,12 +43,20 @@ jobs:
         CI_BUILD_URL=https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}/checks
         docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
 
-    # - name: push Docker image
-    #   env:
-    #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-    #   run: |
-    #     IMAGE_TAG=$(cat IMAGE_TAG)
-    #     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-    #     docker push ${DOCKER_USERNAME}/pumba:${IMAGE_TAG}
-    #     docker logout
+    - name: prepare final image
+      env:
+        DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
+        DOCKER_BUILDKIT: 1
+      run: |
+        IMAGE_TAG=$(cat IMAGE_TAG)
+        docker build -t ${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG} -f docker/Dockerfile . 
+
+    - name: push Docker image
+      env:
+        DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
+        DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        IMAGE_TAG=$(cat IMAGE_TAG)
+        echo ${DOCKER_TOKEN} | docker login -u ${DOCKER_ACCOUNT} --password-stdin
+        docker push ${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG}
+        docker logout
