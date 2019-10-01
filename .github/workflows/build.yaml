@@ -29,7 +29,7 @@ jobs:
 
     - name: prepare build arguments
       run: |
-        echo "--progress=plain --build-arg=CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }} --build-arg=VCS_COMMIT_ID=${{ github.sha }} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${{ github.repository }} --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} --file=docker/Dockerfile ." > BUILD_ARGS
+        echo "--progress=plain --build-arg=CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }} --build-arg=VCS_COMMIT_ID=${{ github.sha }} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${{ github.repository }} --file=docker/Dockerfile ." > BUILD_ARGS
 
     - name: build test images
       run: |
@@ -72,4 +72,4 @@ jobs:
       if: github.event_name != 'pull_request'
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
-        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then DOCKER_BUILDKIT=1 docker build --tag pumba/github-release --target=github-release $(cat BUILD_ARGS); fi
+        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then DOCKER_BUILDKIT=1 docker build --tag pumba/github-release --target=github-release --build-args=RELEASE=true --build-args=DEBUG=true --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} $(cat BUILD_ARGS); fi
