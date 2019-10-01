@@ -39,6 +39,7 @@ github-release release \
   --tag "${RELEASE_TAG}" \
   --description "${TAG_MESSAGE}" \
   --pre-release
+  --draft
 
 # upload files
 ( cd "${DIST}" || exit

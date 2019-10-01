@@ -72,4 +72,4 @@ jobs:
       if: github.event_name != 'pull_request'
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
-        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then DOCKER_BUILDKIT=1 docker build --tag pumba/github-release --target=github-release --build-arg=RELEASE=true --build-arg=DEBUG=true --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} $(cat BUILD_ARGS); fi
+        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then DOCKER_BUILDKIT=1 docker build --tag pumba/github-release --target=github-release --build-arg=RELEASE=true --build-arg=DEBUG=true --build-arg=RELEASE_TAG=${IMAGE_TAG} --build-arg=TAG_MESSAGE="Draft Release" --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} $(cat BUILD_ARGS); fi
