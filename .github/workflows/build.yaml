@@ -6,6 +6,10 @@ on:
     - '*'
     tags:
     - '*'
+    paths-ignore:
+    - 'docs/**'
+    - 'deploy/**'
+    - '*.md'
   pull_request:
     branches:
     - '*'

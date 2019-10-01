@@ -1,5 +1,17 @@
 # Change Log
 
+## [0.6.5](https://github.com/alexei-led/pumba/tree/0.6.5) (2019-10-01)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.4...0.6.5)
+
+**Closed issues:**
+
+- pull-image can only be true [\#132](https://github.com/alexei-led/pumba/issues/132)
+- K8s & netem question [\#128](https://github.com/alexei-led/pumba/issues/128)
+
+**Merged pull requests:**
+
+- Use GitHub Actions [\#136](https://github.com/alexei-led/pumba/pull/136) ([alexei-led](https://github.com/alexei-led))
+
 ## [0.6.4](https://github.com/alexei-led/pumba/tree/0.6.4) (2019-05-02)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.3...0.6.4)
 
