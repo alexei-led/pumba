@@ -69,6 +69,6 @@ jobs:
       if: github.event_name != 'pull_request'
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
-        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; \
+        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then \
           DOCKER_BUILDKIT=1 docker build --progress=plain --tag pumba/github-release --target=github-release --build-arg=CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }} --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} --build-arg=VCS_COMMIT_ID=${{ github.sha }} --build-arg=VCS_BRANCH_NAME=${IMAGE_TAG} --build-arg=VCS_SLUG=${{ github.repository }} --file=docker/Dockerfile . \
         fi
