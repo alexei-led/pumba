@@ -38,7 +38,7 @@ github-release release \
   --name "v${RELEASE_TAG}" \
   --tag "${RELEASE_TAG}" \
   --description "${TAG_MESSAGE}" \
-  --pre-release
+  --pre-release \
   --draft
 
 # upload files
