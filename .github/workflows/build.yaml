@@ -56,20 +56,21 @@ jobs:
     - name: prepare final image
       if: github.event_name != 'pull_request'
       env:
-        DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
+        DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
-        DOCKER_BUILDKIT=1 docker build --tag=${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG} $(cat BUILD_ARGS)
+        DOCKER_BUILDKIT=1 docker build --tag=${DOCKER_ORG}/pumba:${IMAGE_TAG} $(cat BUILD_ARGS)
 
     - name: push Docker image
       if: github.event_name != 'pull_request'
       env:
         DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
         DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+        DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
       run: |
         IMAGE_TAG=$(cat IMAGE_TAG)
         echo ${DOCKER_TOKEN} | docker login -u ${DOCKER_ACCOUNT} --password-stdin
-        docker push ${DOCKER_ACCOUNT}/pumba:${IMAGE_TAG}
+        docker push ${DOCKER_ORG}/pumba:${IMAGE_TAG}
         docker logout
 
     - name: release to GitHub
