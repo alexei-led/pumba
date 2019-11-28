@@ -7,11 +7,14 @@
 # If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos.
 # `docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba --random --interval 3m kill --signal SIGKILL"`
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: pumba
 spec:
+  selector:
+    matchLabels:
+      app: pumba
   template:
     metadata:
       labels:
@@ -32,6 +35,16 @@ spec:
           - kill
           - --signal
           - "SIGKILL"
+        # another example: kill myserver-6c6c... container in myserver deployment on minikube every 60 seconds
+        # find out re2 regex string with minikube ssh; docker ps | grep myserver
+        # remember to delete/comment the nodeSelector when deploying to minikube ;)
+        #args:
+        #  - --interval
+        #  - "1m"
+        #  - kill
+        #  - --signal
+        #  - "SIGKILL"
+        #  - re2:k8s_myserver_myserver-6c8c7c8d9f-hqh2r
         resources:
           requests:
             cpu: 10m
@@ -39,12 +52,12 @@ spec:
           limits:
             cpu: 100m
             memory: 20M
-        # run on regular nodes and not api nodes where the critical infrastucure like kube-scheduler lives
-        nodeSelector:
-          node-type: node
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock
+      # run on regular nodes and not api nodes where the critical infrastucure like kube-scheduler lives
+      nodeSelector:
+          node-type: node
       volumes:
         - hostPath:
             path: /var/run/docker.sock
