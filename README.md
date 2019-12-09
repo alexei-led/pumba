@@ -367,7 +367,7 @@ $ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --int
 ### Running Pumba on Kubernetes cluster
 
 If you are running Kubernetes >= 1.1.0. You can take advantage of DaemonSets to automatically deploy the Pumba on all your nodes.
-On 1.1.x you'll need to explicitly enable the DaemonSets extension, see [documentation](http://kubernetes.io/v1.1/docs/admin/daemons.html#caveats).
+On 1.1.x you'll need to explicitly enable the DaemonSets extension, see [documentation](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/).
 
 You'll then be able to deploy the DaemonSet with the command
 
@@ -376,6 +376,9 @@ kubectl create -f pumba_kube.yml
 ```
 
 If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos (see above)
+
+Note: running `pumba netem` commands on minikube clusters will not work, because the sch_netem kernel module is missing in the minikube vm!
+
 
 ## Build instructions
 
