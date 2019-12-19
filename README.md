@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Falexei-led%2Fpumba%2Fbadge%3Fref%3Dmaster&style=flat)](https://actions-badge.atrox.dev/alexei-led/pumba/goto?ref=master)
+[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Pumba+CI")
 
 [![](https://badge.imagelayers.io/gaiaadm/pumba:master.svg)](https://imagelayers.io/?images=gaiaadm/pumba:master)  [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba)
 
@@ -51,6 +51,7 @@ GLOBAL OPTIONS:
    --slackhook value           web hook url; send Pumba log events to Slack
    --slackchannel value        Slack channel (default #pumba) (default: "#pumba")
    --interval value, -i value  recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'
+   --label value               filter containers by labels, e.g '--label key=value' (multiple labels supported)
    --random, -r                randomly select single matching container from list of target containers
    --dry                       dry runl does not create chaos, only logs planned chaos commands
    --help, -h                  show help
@@ -66,13 +67,14 @@ NAME:
    pumba kill - kill specified containers
 
 USAGE:
-   pumba kill [command options] containers (name, list of names, RE2 regex)
+   pumba [global options] kill [command options] containers (name, list of names, RE2 regex)
 
 DESCRIPTION:
    send termination signal to the main process inside target container(s)
 
 OPTIONS:
    --signal value, -s value  termination signal, that will be sent by Pumba to the main process inside target container(s) (default: "SIGKILL")
+   --limit value, -l value   limit to number of container to kill (0: kill all matching) (default: 0)
 ```
 
 ### Pause Container command

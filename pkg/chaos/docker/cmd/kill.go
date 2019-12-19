@@ -32,7 +32,7 @@ func NewKillCLICommand(ctx context.Context) *cli.Command {
 			},
 		},
 		Usage:       "kill specified containers",
-		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
+		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "send termination signal to the main process inside target container(s)",
 		Action:      cmdContext.kill,
 	}
