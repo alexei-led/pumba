@@ -64,6 +64,8 @@ func NewLossStateCLICommand(ctx context.Context) *cli.Command {
 func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get names or pattern
@@ -96,7 +98,7 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	p14 := c.Float64("p14")
 
 	// init netem loss state command
-	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, p13, p31, p32, p23, p14, image, pull, limit, dryRun)
+	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, p13, p31, p32, p23, p14, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

@@ -25,10 +25,10 @@ func NewMockEngine() *mocks.APIClient {
 	return new(mocks.APIClient)
 }
 
-func allContainers(Container) bool {
+func mock_allContainers(c Container) bool {
 	return true
 }
-func noContainers(Container) bool {
+func mock_noContainers(c Container) bool {
 	return false
 }
 
@@ -46,7 +46,7 @@ func TestListContainers_Success(t *testing.T) {
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetails, []byte{}, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	containers, err := client.ListContainers(context.TODO(), allContainers)
+	containers, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 1)
@@ -69,7 +69,7 @@ func TestListContainers_Filter(t *testing.T) {
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetails, []byte{}, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	containers, err := client.ListContainers(context.TODO(), noContainers)
+	containers, err := client.ListContainers(context.TODO(), mock_noContainers, ListOpts{})
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 0)
@@ -81,7 +81,7 @@ func TestListContainers_ListError(t *testing.T) {
 	api.On("ContainerList", mock.Anything, mock.Anything).Return(Containers(), errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), allContainers)
+	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "oops")
@@ -98,7 +98,7 @@ func TestListContainers_InspectContainerError(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "foo").Return(ContainerDetailsResponse(AsMap()), errors.New("uh-oh"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), allContainers)
+	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "uh-oh")
@@ -118,7 +118,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetailsResponse, []byte{}, errors.New("whoops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), allContainers)
+	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "whoops")

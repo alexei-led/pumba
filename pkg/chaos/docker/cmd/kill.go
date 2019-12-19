@@ -32,7 +32,7 @@ func NewKillCLICommand(ctx context.Context) *cli.Command {
 			},
 		},
 		Usage:       "kill specified containers",
-		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
+		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "send termination signal to the main process inside target container(s)",
 		Action:      cmdContext.kill,
 	}
@@ -42,6 +42,8 @@ func NewKillCLICommand(ctx context.Context) *cli.Command {
 func (cmd *killContext) kill(c *cli.Context) error {
 	// get random
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get interval
@@ -53,7 +55,7 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// init kill command
-	killCommand, err := docker.NewKillCommand(chaos.DockerClient, names, pattern, signal, limit, dryRun)
+	killCommand, err := docker.NewKillCommand(chaos.DockerClient, names, pattern, labels, signal, limit, dryRun)
 	if err != nil {
 		return err
 	}

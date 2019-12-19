@@ -49,6 +49,8 @@ func NewRemoveCLICommand(ctx context.Context) *cli.Command {
 func (cmd *removeContext) remove(c *cli.Context) error {
 	// get random
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get interval
@@ -64,7 +66,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// get limit for number of containers to remove
 	limit := c.Int("limit")
 	// init remove command
-	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, names, pattern, force, links, volumes, limit, dryRun)
+	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, names, pattern, labels, force, links, volumes, limit, dryRun)
 	if err != nil {
 		return err
 	}

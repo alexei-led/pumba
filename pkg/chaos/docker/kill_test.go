@@ -19,6 +19,7 @@ func TestKillCommand_Run(t *testing.T) {
 	type fields struct {
 		names   []string
 		pattern string
+		labels  []string
 		signal  string
 		limit   int
 		dryRun  bool
@@ -45,6 +46,18 @@ func TestKillCommand_Run(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			expected: container.CreateTestContainers(3),
+		},
+		{
+			name: "kill matching labeled containers by names",
+			fields: fields{
+				names:  []string{"c1", "c2", "c3"},
+				labels: []string{"key=value"},
+				signal: "SIGKILL",
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			expected: container.CreateLabeledTestContainers(3, map[string]string{"key": "value"}),
 		},
 		{
 			name: "kill matching containers by filter with limit",
@@ -113,11 +126,13 @@ func TestKillCommand_Run(t *testing.T) {
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
+				labels:  tt.fields.labels,
 				signal:  tt.fields.signal,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.Filter"))
+			opts := container.ListOpts{Labels: tt.fields.labels}
+			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), opts)
 			if tt.errs.listError {
 				call.Return(tt.expected, errors.New("ERROR"))
 				goto Invoke
@@ -156,6 +171,7 @@ func TestNewKillCommand(t *testing.T) {
 		client  container.Client
 		names   []string
 		pattern string
+		labels  []string
 		signal  string
 		limit   int
 		dryRun  bool
@@ -201,7 +217,7 @@ func TestNewKillCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewKillCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.signal, tt.args.limit, tt.args.dryRun)
+			got, err := NewKillCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.signal, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewKillCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return

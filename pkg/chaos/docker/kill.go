@@ -54,14 +54,15 @@ type KillCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
+	labels  []string
 	signal  string
 	limit   int
 	dryRun  bool
 }
 
 // NewKillCommand create new Kill Command instance
-func NewKillCommand(client container.Client, names []string, pattern string, signal string, limit int, dryRun bool) (chaos.Command, error) {
-	kill := &KillCommand{client, names, pattern, signal, limit, dryRun}
+func NewKillCommand(client container.Client, names []string, pattern string, labels []string, signal string, limit int, dryRun bool) (chaos.Command, error) {
+	kill := &KillCommand{client, names, pattern, labels, signal, limit, dryRun}
 	if kill.signal == "" {
 		kill.signal = DefaultKillSignal
 	}
@@ -79,9 +80,10 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":   k.names,
 		"pattern": k.pattern,
+		"labels":  k.labels,
 		"limit":   k.limit,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.limit)
+	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err

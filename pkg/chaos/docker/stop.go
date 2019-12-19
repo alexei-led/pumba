@@ -20,6 +20,7 @@ type StopCommand struct {
 	client   container.Client
 	names    []string
 	pattern  string
+	labels   []string
 	restart  bool
 	duration time.Duration
 	waitTime int
@@ -28,7 +29,7 @@ type StopCommand struct {
 }
 
 // NewStopCommand create new Stop Command instance
-func NewStopCommand(client container.Client, names []string, pattern string, restart bool, intervalStr string, durationStr string, waitTime int, limit int, dryRun bool) (chaos.Command, error) {
+func NewStopCommand(client container.Client, names []string, pattern string, labels []string, restart bool, intervalStr string, durationStr string, waitTime int, limit int, dryRun bool) (chaos.Command, error) {
 	if waitTime <= 0 {
 		waitTime = DeafultWaitTime
 	}
@@ -42,7 +43,7 @@ func NewStopCommand(client container.Client, names []string, pattern string, res
 	if err != nil {
 		return nil, err
 	}
-	return &StopCommand{client, names, pattern, restart, duration, waitTime, limit, dryRun}, nil
+	return &StopCommand{client, names, pattern, labels, restart, duration, waitTime, limit, dryRun}, nil
 }
 
 // Run stop command
@@ -51,11 +52,12 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":    s.names,
 		"pattern":  s.pattern,
+		"labels":   s.labels,
 		"duration": s.duration,
 		"waitTime": s.waitTime,
 		"limit":    s.limit,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.limit)
+	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err

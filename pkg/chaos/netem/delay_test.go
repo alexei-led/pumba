@@ -18,6 +18,7 @@ func TestNewDelayCommand(t *testing.T) {
 	type args struct {
 		names        []string
 		pattern      string
+		labels       []string
 		iface        string
 		ipsList      []string
 		durationStr  string
@@ -186,7 +187,7 @@ func TestNewDelayCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// invoke
-			got, err := NewDelayCommand(nil, tt.args.names, tt.args.pattern, tt.args.iface, tt.args.ipsList, tt.args.durationStr, tt.args.intervalStr, tt.args.time, tt.args.jitter, tt.args.correlation, tt.args.distribution, tt.args.image, tt.args.pull, tt.args.limit, tt.args.dryRun)
+			got, err := NewDelayCommand(nil, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.iface, tt.args.ipsList, tt.args.durationStr, tt.args.intervalStr, tt.args.time, tt.args.jitter, tt.args.correlation, tt.args.distribution, tt.args.image, tt.args.pull, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewDelayCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -342,7 +343,7 @@ func TestDelayCommand_Run(t *testing.T) {
 				dryRun:       tt.fields.dryRun,
 			}
 			// mock calls
-			call := mockClient.On("ListContainers", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Filter"))
+			call := mockClient.On("ListContainers", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
 			if tt.errs.listError {
 				call.Return(tt.expected, errors.New("ERROR"))
 				goto Invoke

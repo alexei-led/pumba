@@ -42,6 +42,8 @@ func NewDuplicateCLICommand(ctx context.Context) *cli.Command {
 func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get names or pattern
@@ -68,7 +70,7 @@ func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem duplicate command
-	duplicateCommand, err := netem.NewDuplicateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, percent, correlation, image, pull, limit, dryRun)
+	duplicateCommand, err := netem.NewDuplicateCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, percent, correlation, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

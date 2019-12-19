@@ -43,6 +43,8 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	random := c.GlobalBool("random")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get global chaos interval
 	interval := c.GlobalString("interval")
 	// get limit for number of containers to kill
@@ -52,7 +54,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	// get chaos command duration
 	duration := c.String("duration")
 	// init pause command
-	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, names, pattern, interval, duration, limit, dryRun)
+	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, names, pattern, labels, interval, duration, limit, dryRun)
 	if err != nil {
 		return err
 	}

@@ -15,6 +15,7 @@ import (
 
 	types "github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	dockerapi "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -25,14 +26,13 @@ const (
 	dryRunPrefix      = "DRY: "
 )
 
-// A Filter is a prototype for a function that can be used to filter the
+// A FilterFunc is a prototype for a function that can be used to filter the
 // results from a call to the ListContainers() method on the Client.
-type Filter func(Container) bool
+type FilterFunc func(Container) bool
 
 // Client interface
 type Client interface {
-	ListContainers(context.Context, Filter) ([]Container, error)
-	ListAllContainers(context.Context, Filter) ([]Container, error)
+	ListContainers(context.Context, FilterFunc, ListOpts) ([]Container, error)
 	StopContainer(context.Context, Container, int, bool) error
 	KillContainer(context.Context, Container, string, bool) error
 	RemoveContainer(context.Context, Container, bool, bool, bool, bool) error
@@ -75,15 +75,15 @@ type dockerClient struct {
 	imageAPI     dockerapi.ImageAPIClient
 }
 
-func (client dockerClient) ListContainers(ctx context.Context, fn Filter) ([]Container, error) {
-	return client.listContainers(ctx, fn, types.ContainerListOptions{})
+func (client dockerClient) ListContainers(ctx context.Context, fn FilterFunc, opts ListOpts) ([]Container, error) {
+	filterArgs := filters.NewArgs()
+	for _, label := range opts.Labels {
+		filterArgs.Add("label", label)
+	}
+	return client.listContainers(ctx, fn, types.ContainerListOptions{All: opts.All, Filters: filterArgs})
 }
 
-func (client dockerClient) ListAllContainers(ctx context.Context, fn Filter) ([]Container, error) {
-	return client.listContainers(ctx, fn, types.ContainerListOptions{All: true})
-}
-
-func (client dockerClient) listContainers(ctx context.Context, fn Filter, opts types.ContainerListOptions) ([]Container, error) {
+func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, opts types.ContainerListOptions) ([]Container, error) {
 	log.Debug("listing containers")
 	containers, err := client.containerAPI.ContainerList(ctx, opts)
 	if err != nil {
