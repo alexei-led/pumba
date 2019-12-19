@@ -51,6 +51,8 @@ func NewStopCLICommand(ctx context.Context) *cli.Command {
 func (cmd *stopContext) stop(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get global chaos interval
@@ -66,7 +68,7 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 	// get chaos command duration
 	duration := c.String("duration")
 	// init stop command
-	stopCommand, err := docker.NewStopCommand(chaos.DockerClient, names, pattern, restart, interval, duration, waitTime, limit, dryRun)
+	stopCommand, err := docker.NewStopCommand(chaos.DockerClient, names, pattern, labels, restart, interval, duration, waitTime, limit, dryRun)
 	if err != nil {
 		return err
 	}

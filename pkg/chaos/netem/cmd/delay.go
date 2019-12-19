@@ -52,6 +52,8 @@ func NewDelayCLICommand(ctx context.Context) *cli.Command {
 func (cmd *delayContext) delay(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get names or pattern
@@ -82,7 +84,7 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	distribution := c.String("distribution")
 
 	// init netem delay command
-	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, time, jitter, correlation, distribution, image, pull, limit, dryRun)
+	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, time, jitter, correlation, distribution, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

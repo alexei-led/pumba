@@ -13,6 +13,7 @@ type RemoveCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
+	labels  []string
 	force   bool
 	links   bool
 	volumes bool
@@ -21,8 +22,8 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, names []string, pattern string, force bool, links bool, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
-	remove := &RemoveCommand{client, names, pattern, force, links, volumes, limit, dryRun}
+func NewRemoveCommand(client container.Client, names []string, pattern string, labels []string, force bool, links bool, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
+	remove := &RemoveCommand{client, names, pattern, labels, force, links, volumes, limit, dryRun}
 	return remove, nil
 }
 
@@ -32,9 +33,10 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":   r.names,
 		"pattern": r.pattern,
+		"labels":  r.labels,
 		"limit":   r.limit,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.limit)
+	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.labels, r.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err

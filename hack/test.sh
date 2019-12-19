@@ -33,7 +33,7 @@ export CGO_ENABLED=${cgo_flag}
 export GO111MODULE=on
 
 generate_cover_data() {
-  [ -d "${COVER}" ] && rm -rf "${COVER:?}/*"
+  [ -d "${COVER}" ] && rm -rf "${COVER:?}"
   [ -d "${COVER}" ] || mkdir -p "${COVER}"
 
   # Save current IFS

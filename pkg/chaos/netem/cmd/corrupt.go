@@ -42,6 +42,8 @@ func NewCorruptCLICommand(ctx context.Context) *cli.Command {
 func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get names or pattern
@@ -68,7 +70,7 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem corrupt command
-	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, percent, correlation, image, pull, limit, dryRun)
+	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, percent, correlation, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

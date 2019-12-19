@@ -52,6 +52,8 @@ func NewRateCLICommand(ctx context.Context) *cli.Command {
 func (cmd *rateContext) rate(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get names or pattern
@@ -82,7 +84,7 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	cellOverhead := c.Int("celloverhead")
 
 	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, pull, limit, dryRun)
+	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

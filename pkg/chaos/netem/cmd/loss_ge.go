@@ -53,6 +53,8 @@ func NewLossGECLICommand(ctx context.Context) *cli.Command {
 func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	// get random flag
 	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get names or pattern
@@ -83,7 +85,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	oneK := c.Float64("one-k")
 
 	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, iface, ips, duration, interval, pg, pb, oneH, oneK, image, pull, limit, dryRun)
+	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, pg, pb, oneH, oneK, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

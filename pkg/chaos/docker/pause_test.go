@@ -17,6 +17,7 @@ func TestNewPauseCommand(t *testing.T) {
 		client   container.Client
 		names    []string
 		pattern  string
+		labels   []string
 		interval string
 		duration string
 		limit    int
@@ -47,7 +48,7 @@ func TestNewPauseCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewPauseCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.interval, tt.args.duration, tt.args.limit, tt.args.dryRun)
+			got, err := NewPauseCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.interval, tt.args.duration, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewPauseCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -170,7 +171,7 @@ func TestPauseCommand_Run(t *testing.T) {
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.Filter"))
+			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
 			if tt.errs.listError {
 				call.Return(tt.expected, errors.New("ERROR"))
 				goto Invoke

@@ -147,6 +147,10 @@ func main() {
 			Name:  "interval, i",
 			Usage: "recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'",
 		},
+		cli.StringSliceFlag{
+			Name:  "label",
+			Usage: "filter containers by labels, e.g '--label key=value'",
+		},
 		cli.BoolFlag{
 			Name:  "random, r",
 			Usage: "randomly select single matching container from list of target containers",

@@ -34,6 +34,7 @@ type RateCommand struct {
 	client         container.Client
 	names          []string
 	pattern        string
+	labels         []string
 	iface          string
 	ips            []*net.IPNet
 	duration       time.Duration
@@ -51,6 +52,7 @@ type RateCommand struct {
 func NewRateCommand(client container.Client,
 	names []string, // containers
 	pattern string, // re2 regex pattern
+	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
 	durationStr string, // chaos duration
@@ -122,6 +124,7 @@ func NewRateCommand(client container.Client,
 		client:         client,
 		names:          names,
 		pattern:        pattern,
+		labels:         labels,
 		iface:          iface,
 		ips:            ips,
 		duration:       duration,
@@ -142,9 +145,10 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":   n.names,
 		"pattern": n.pattern,
+		"labels":  n.labels,
 		"limit":   n.limit,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.limit)
+	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err

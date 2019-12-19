@@ -15,13 +15,14 @@ type PauseCommand struct {
 	client   container.Client
 	names    []string
 	pattern  string
+	labels   []string
 	duration time.Duration
 	limit    int
 	dryRun   bool
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, names []string, pattern string, intervalStr string, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
+func NewPauseCommand(client container.Client, names []string, pattern string, labels []string, intervalStr string, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -32,7 +33,7 @@ func NewPauseCommand(client container.Client, names []string, pattern string, in
 	if err != nil {
 		return nil, err
 	}
-	return &PauseCommand{client, names, pattern, duration, limit, dryRun}, nil
+	return &PauseCommand{client, names, pattern, labels, duration, limit, dryRun}, nil
 }
 
 // Run pause command
@@ -41,10 +42,11 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":    p.names,
 		"pattern":  p.pattern,
+		"labels":   p.labels,
 		"duration": p.duration,
 		"limit":    p.limit,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, p.client, p.names, p.pattern, p.limit)
+	containers, err := container.ListNContainers(ctx, p.client, p.names, p.pattern, p.labels, p.limit)
 	if err != nil {
 		log.WithError(err).Error("failed to list containers")
 		return err

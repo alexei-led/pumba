@@ -7,65 +7,71 @@ import (
 	"time"
 )
 
-// AllContainersFilter all containers beside Pumba and PumbaSkip
-func AllContainersFilter(c Container) bool {
-	if c.IsPumba() || c.IsPumbaSkip() {
-		return false
-	}
-	return true
+type ListOpts struct {
+	All    bool
+	Labels []string
 }
 
-func ContainerFilter(names []string) Filter {
-	if len(names) == 0 {
-		return AllContainersFilter
-	}
-
-	return func(c Container) bool {
-		if c.IsPumba() || c.IsPumbaSkip() {
-			return false
-		}
-		for _, name := range names {
-			if (name == c.Name()) || (name == c.Name()[1:]) {
-				return true
-			}
-		}
-		return false
-	}
+type Filter struct {
+	Names   []string
+	Pattern string
+	Opts    ListOpts
 }
 
-func RegexContainerFilter(pattern string) Filter {
-	return func(c Container) bool {
-		if c.IsPumba() || c.IsPumbaSkip() {
-			return false
+func matchNames(names []string, containerName string) bool {
+	for _, name := range names {
+		// container name may start with forward slash, when using inspect function
+		if (name == containerName) || (name == containerName[1:]) {
+			return true
 		}
-		matched, err := regexp.MatchString(pattern, c.Name())
+	}
+	return false
+}
+
+func matchPattern(pattern string, containerName string) bool {
+	matched, err := regexp.MatchString(pattern, containerName)
+	if err != nil {
+		return false
+	}
+	// container name may start with forward slash, when using inspect function
+	if !matched {
+		matched, err = regexp.MatchString(pattern, containerName[1:])
 		if err != nil {
 			return false
 		}
-		// container name may start with forward slash, when using inspect function
-		if !matched {
-			matched, err = regexp.MatchString(pattern, c.Name()[1:])
-			if err != nil {
-				return false
+	}
+	return matched
+}
+
+func applyContainerFilter(filter Filter) FilterFunc {
+	return func(c Container) bool {
+		// skip Pumba label
+		if c.IsPumba() || c.IsPumbaSkip() {
+			return false
+		}
+		// if not requested all
+		if !filter.Opts.All {
+			// match names
+			if len(filter.Names) > 0 {
+				return matchNames(filter.Names, c.containerInfo.Name)
+			} else { // or regex pattern
+				return matchPattern(filter.Pattern, c.containerInfo.Name)
 			}
 		}
-		return matched
+		return true
 	}
 }
 
-func ListContainers(ctx context.Context, client Client, names []string, pattern string, all bool) ([]Container, error) {
-	var filter Filter
-
-	if pattern != "" {
-		filter = RegexContainerFilter(pattern)
-	} else {
-		filter = ContainerFilter(names)
+func listContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, all bool) ([]Container, error) {
+	filter := Filter{
+		Names:   names,
+		Pattern: pattern,
+		Opts: ListOpts{
+			All:    all,
+			Labels: labels,
+		},
 	}
-
-	if all {
-		return client.ListAllContainers(ctx, filter)
-	}
-	return client.ListContainers(ctx, filter)
+	return client.ListContainers(ctx, applyContainerFilter(filter), filter.Opts)
 }
 
 func RandomContainer(containers []Container) *Container {
@@ -77,12 +83,8 @@ func RandomContainer(containers []Container) *Container {
 	return nil
 }
 
-func ListRunningContainers(ctx context.Context, client Client, names []string, pattern string) ([]Container, error) {
-	return ListContainers(ctx, client, names, pattern, false)
-}
-
-func ListNContainers(ctx context.Context, client Client, names []string, pattern string, limit int) ([]Container, error) {
-	containers, err := ListRunningContainers(ctx, client, names, pattern)
+func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]Container, error) {
+	containers, err := listContainers(ctx, client, names, pattern, labels, false)
 	if err != nil {
 		return nil, err
 	}
