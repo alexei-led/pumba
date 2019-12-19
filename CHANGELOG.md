@@ -1,5 +1,19 @@
 # Change Log
 
+## [0.6.7](https://github.com/alexei-led/pumba/tree/0.6.7) (2019-12-19)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.5...0.6.7)
+
+**Closed issues:**
+
+- Bug: netem command not working on minikube [\#140](https://github.com/alexei-led/pumba/issues/140)
+- DaemonSet apiVersion changed with newer Kubernetes version [\#138](https://github.com/alexei-led/pumba/issues/138)
+
+**Merged pull requests:**
+
+- Use container labels as additional filter [\#143](https://github.com/alexei-led/pumba/pull/143) ([alexei-led](https://github.com/alexei-led))
+- Add minikube netem hint [\#142](https://github.com/alexei-led/pumba/pull/142) ([LaumiH](https://github.com/LaumiH))
+- Fix daemonset apiVersion and nodeSelector for k8s \>= 1.16.2 [\#139](https://github.com/alexei-led/pumba/pull/139) ([LaumiH](https://github.com/LaumiH))
+
 ## [0.6.5](https://github.com/alexei-led/pumba/tree/0.6.5) (2019-10-01)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.4...0.6.5)
 
