@@ -23,28 +23,30 @@ spec:
       name: pumba
     spec:
       containers:
-      - image: gaiaadm/pumba:master
+      - image: gaiaadm/pumba
         imagePullPolicy: Always
         name: pumba
         # Pumba command: modify it to suite your needs
-        # Currently: randomly try to kill some container every 3 minutes
+        # Currently: randomly pause containers in Pod 'test-1' every minute for 15 sec
         args:
           - --random
+          - --label
+          - io.kubernetes.pod.name=test-1
           - --interval
-          - "3m"
-          - kill
-          - --signal
-          - "SIGKILL"
-        # another example: kill myserver-6c6c... container in myserver deployment on minikube every 60 seconds
-        # find out re2 regex string with minikube ssh; docker ps | grep myserver
-        # remember to delete/comment the nodeSelector when deploying to minikube ;)
+          - "1m"
+          - pause
+          - --duration
+          - 15s
+        # another example: kill 'myserver' container in 'myapp' pod once in 5 minutes
         #args:
         #  - --interval
-        #  - "1m"
+        #  - --label
+        #  - io.kubernetes.pod.name=myapp
+        #  - "5m"
         #  - kill
         #  - --signal
         #  - "SIGKILL"
-        #  - re2:k8s_myserver_myserver-6c8c7c8d9f-hqh2r
+        #  - re2:^k8s_myserver
         resources:
           requests:
             cpu: 10m
@@ -55,9 +57,11 @@ spec:
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock
-      # run on regular nodes and not api nodes where the critical infrastucure like kube-scheduler lives
-      nodeSelector:
-          node-type: node
+      # limit to specific k8s nodes: e.g. eks my-node-group or gke node-pool
+      # nodeSelector:
+      #     alpha.eksctl.io/nodegroup-name=my-node-group
+      # nodeSelector:
+      #     cloud.google.com/gke-nodepool=node-pool
       volumes:
         - hostPath:
             path: /var/run/docker.sock

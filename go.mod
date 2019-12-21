@@ -28,6 +28,6 @@ require (
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
-replace github.com/docker/docker v1.13.1 => github.com/docker/engine v1.4.2-0.20191113042239-ea84732a7725
+replace github.com/docker/docker v1.13.1 => github.com/docker/engine v1.4.2-0.20180718150940-a3ef7e9a9bda
 
 go 1.13

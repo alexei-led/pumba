@@ -11,6 +11,10 @@
 
 ![pumba](docs/img/pumba_logo.png)
 
+## Required Docker Version
+
+**Important:**: Minimal required Docker version `v18.06.0`.
+
 ## Demo
 
 [![asciicast](https://asciinema.org/a/82428.png)](https://asciinema.org/a/82428)
