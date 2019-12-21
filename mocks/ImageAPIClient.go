@@ -22,13 +22,13 @@ type ImageAPIClient struct {
 	mock.Mock
 }
 
-// BuildCachePrune provides a mock function with given fields: ctx, opts
-func (_m *ImageAPIClient) BuildCachePrune(ctx context.Context, opts types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error) {
-	ret := _m.Called(ctx, opts)
+// BuildCachePrune provides a mock function with given fields: ctx
+func (_m *ImageAPIClient) BuildCachePrune(ctx context.Context) (*types.BuildCachePruneReport, error) {
+	ret := _m.Called(ctx)
 
 	var r0 *types.BuildCachePruneReport
-	if rf, ok := ret.Get(0).(func(context.Context, types.BuildCachePruneOptions) *types.BuildCachePruneReport); ok {
-		r0 = rf(ctx, opts)
+	if rf, ok := ret.Get(0).(func(context.Context) *types.BuildCachePruneReport); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.BuildCachePruneReport)
@@ -36,8 +36,8 @@ func (_m *ImageAPIClient) BuildCachePrune(ctx context.Context, opts types.BuildC
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, types.BuildCachePruneOptions) error); ok {
-		r1 = rf(ctx, opts)
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}

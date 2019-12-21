@@ -39,13 +39,13 @@ type CommonAPIClient struct {
 	mock.Mock
 }
 
-// BuildCachePrune provides a mock function with given fields: ctx, opts
-func (_m *CommonAPIClient) BuildCachePrune(ctx context.Context, opts types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error) {
-	ret := _m.Called(ctx, opts)
+// BuildCachePrune provides a mock function with given fields: ctx
+func (_m *CommonAPIClient) BuildCachePrune(ctx context.Context) (*types.BuildCachePruneReport, error) {
+	ret := _m.Called(ctx)
 
 	var r0 *types.BuildCachePruneReport
-	if rf, ok := ret.Get(0).(func(context.Context, types.BuildCachePruneOptions) *types.BuildCachePruneReport); ok {
-		r0 = rf(ctx, opts)
+	if rf, ok := ret.Get(0).(func(context.Context) *types.BuildCachePruneReport); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.BuildCachePruneReport)
@@ -53,8 +53,8 @@ func (_m *CommonAPIClient) BuildCachePrune(ctx context.Context, opts types.Build
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, types.BuildCachePruneOptions) error); ok {
-		r1 = rf(ctx, opts)
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -817,13 +817,13 @@ func (_m *CommonAPIClient) DaemonHost() string {
 	return r0
 }
 
-// DialHijack provides a mock function with given fields: ctx, url, proto, meta
-func (_m *CommonAPIClient) DialHijack(ctx context.Context, url string, proto string, meta map[string][]string) (net.Conn, error) {
-	ret := _m.Called(ctx, url, proto, meta)
+// DialSession provides a mock function with given fields: ctx, proto, meta
+func (_m *CommonAPIClient) DialSession(ctx context.Context, proto string, meta map[string][]string) (net.Conn, error) {
+	ret := _m.Called(ctx, proto, meta)
 
 	var r0 net.Conn
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, map[string][]string) net.Conn); ok {
-		r0 = rf(ctx, url, proto, meta)
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string][]string) net.Conn); ok {
+		r0 = rf(ctx, proto, meta)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(net.Conn)
@@ -831,29 +831,13 @@ func (_m *CommonAPIClient) DialHijack(ctx context.Context, url string, proto str
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, map[string][]string) error); ok {
-		r1 = rf(ctx, url, proto, meta)
+	if rf, ok := ret.Get(1).(func(context.Context, string, map[string][]string) error); ok {
+		r1 = rf(ctx, proto, meta)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
-}
-
-// Dialer provides a mock function with given fields:
-func (_m *CommonAPIClient) Dialer() func(context.Context) (net.Conn, error) {
-	ret := _m.Called()
-
-	var r0 func(context.Context) (net.Conn, error)
-	if rf, ok := ret.Get(0).(func() func(context.Context) (net.Conn, error)); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(func(context.Context) (net.Conn, error))
-		}
-	}
-
-	return r0
 }
 
 // DiskUsage provides a mock function with given fields: ctx
