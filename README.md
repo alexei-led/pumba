@@ -373,19 +373,27 @@ $ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --int
 
 ### Running Pumba on Kubernetes cluster
 
-If you are running Kubernetes >= 1.1.0. You can take advantage of DaemonSets to automatically deploy the Pumba on all your nodes.
-On 1.1.x you'll need to explicitly enable the DaemonSets extension, see [documentation](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/).
+If you are running Kubernetes, you can take advantage of DaemonSets to automatically deploy the Pumba on selected K8s nodes, using `nodeSelector` or `nodeAffinity`, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
 
-You'll then be able to deploy the DaemonSet with the command
+You'll then be able to deploy the DaemonSet with the command:
 
 ```sh
-kubectl create -f pumba_kube.yml
+kubectl create -f deploy/pumba_kube.yml
+```
+
+K8s automatically assigns labels to Docker container, and you can use Pumba `--label` filter to create chaos for specific Pods and Namespaces.
+
+K8s auto-assigned container labels, than can be used by Pumba:
+
+```json
+"io.kubernetes.container.name": "test-container"
+"io.kubernetes.pod.name": "test-pod"
+"io.kubernetes.pod.namespace": "test-namespace"
 ```
 
 If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos (see above)
 
-Note: running `pumba netem` commands on minikube clusters will not work, because the sch_netem kernel module is missing in the minikube vm!
-
+**Note:** running `pumba netem` commands on minikube clusters will not work, because the sch_netem kernel module is missing in the minikube VM!
 
 ## Build instructions
 
