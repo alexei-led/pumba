@@ -66,7 +66,7 @@ GLOBAL OPTIONS:
 ### Kill Container command
 
 ```text
-$ pumba kill -h
+pumba kill -h
 
 NAME:
    pumba kill - kill specified containers
@@ -85,7 +85,7 @@ OPTIONS:
 ### Pause Container command
 
 ```text
-$ pumba pause -h
+pumba pause -h
 
 NAME:
    pumba pause - pause all processes
@@ -103,7 +103,7 @@ OPTIONS:
 ### Stop Container command
 
 ```text
-$ pumba stop -h
+pumba stop -h
 NAME:
    pumba stop - stop containers
 
@@ -120,7 +120,7 @@ OPTIONS:
 ### Remove (rm) Container command
 
 ```text
-$ pumba rm -h
+pumba rm -h
 
 NAME:
    pumba rm - remove containers
@@ -140,7 +140,7 @@ OPTIONS:
 ### Network Emulation (netem) command
 
 ```text
-$ pumba netem -h
+pumba netem -h
 
 NAME:
    Pumba netem - delay, loss, duplicate and re-order (run 'netem') packets, to emulate different network problems
@@ -166,7 +166,7 @@ OPTIONS:
 #### Network Emulation Delay sub-command
 
 ```text
-$ pumba netem delay -h
+pumba netem delay -h
 
 NAME:
    Pumba netem delay - delay egress traffic
@@ -187,7 +187,7 @@ OPTIONS:
 #### Network Emulation Loss sub-commands
 
 ```text
-$ pumba netem loss -h
+pumba netem loss -h
 
 NAME:
    Pumba netem loss - adds packet losses
@@ -205,7 +205,7 @@ OPTIONS:
 ```
 
 ```text
-$ pumba netem loss-state -h
+pumba netem loss-state -h
 
 NAME:
    Pumba netem loss-state - adds packet losses, based on 4-state Markov probability model
@@ -230,7 +230,7 @@ OPTIONS:
 ```
 
 ```text
-$ pumba netem loss-gemodel -h
+pumba netem loss-gemodel -h
 
 NAME:
    Pumba netem loss-gemodel - adds packet losses, according to the Gilbert-Elliot loss model
@@ -250,7 +250,7 @@ OPTIONS:
 ```
 
 ```text
-$ pumba netem rate -h
+pumba netem rate -h
 
 NAME:
    Pumba netem rate - rate limit egress traffic
@@ -271,7 +271,7 @@ OPTIONS:
 #### Network Emulation Duplicate sub-commands
 
 ```text
-$ pumba netem duplicate -h
+pumba netem duplicate -h
 
 NAME:
    Pumba netem duplicate - adds duplicate packets
@@ -291,7 +291,7 @@ OPTIONS:
 #### Network Emulation Corrupt sub-commands
 
 ```text
-$ pumba netem corrupt -h
+pumba netem corrupt -h
 
 NAME:
    Pumba netem corrupt - adds corrupt packets
@@ -313,7 +313,7 @@ OPTIONS:
 ```text
 # add 3 seconds delay for all outgoing packets on device `eth0` (default) of `mydb` Docker container for 5 minutes
 
-$ pumba netem --duration 5m delay --time 3000 mydb
+pumba netem --duration 5m delay --time 3000 mydb
 ```
 
 ```text
@@ -321,7 +321,7 @@ $ pumba netem --duration 5m delay --time 3000 mydb
 # for all outgoing packets on device `eth1` of all Docker container, with name start with `hp`
 # for 5 minutes
 
-$ pumba netem --duration 5m --interface eth1 delay \
+pumba netem --duration 5m --interface eth1 delay \
       --time 3000 \
       --jitter 30 \
       --correlation 20 \
@@ -333,7 +333,7 @@ $ pumba netem --duration 5m --interface eth1 delay \
 # for all outgoing packets on device `eth0` of randomly chosen Docker container from the list
 # for 5 minutes
 
-$ pumba --random netem --duration 5m \
+pumba --random netem --duration 5m \
     delay \
       --time 3000 \
       --jitter 40 \
@@ -344,7 +344,7 @@ $ pumba --random netem --duration 5m \
 ```text
 # Corrupt 10% of the packets from the `mydb` Docker container for 5 minutes
 
-$ pumba netem --duration 5m corrupt --percent 10 mydb
+pumba netem --duration 5m corrupt --percent 10 mydb
 ```
 
 ##### `tc` tool
