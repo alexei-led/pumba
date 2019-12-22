@@ -391,6 +391,8 @@ K8s auto-assigned container labels, than can be used by Pumba:
 "io.kubernetes.pod.namespace": "test-namespace"
 ```
 
+It's possible to run multiple Pumba commands in the same DaemonSet using multiple Pumba containers, see `deploy/pumba_kube.yml` example.
+
 If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos (see above)
 
 **Note:** running `pumba netem` commands on minikube clusters will not work, because the sch_netem kernel module is missing in the minikube VM!
