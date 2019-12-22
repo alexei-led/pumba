@@ -82,9 +82,11 @@ spec:
         volumeMounts:
           - name: dockersocket
             mountPath: /var/run/docker.sock
-      # limit to specific k8s nodes: e.g. eks my-node-group or gke node-pool
+      # limit to specific k8s nodes
+      # EKS node group
       # nodeSelector:
       #     alpha.eksctl.io/nodegroup-name=my-node-group
+      # GKE node pool
       # nodeSelector:
       #     cloud.google.com/gke-nodepool=node-pool
       volumes:
