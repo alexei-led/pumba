@@ -137,6 +137,20 @@ func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 Container, _a2
 	return r0
 }
 
+// StressContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6
+func (_m *MockClient) StressContainer(_a0 context.Context, _a1 Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool) error {
+	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, Container, []string, string, bool, time.Duration, bool) error); ok {
+		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UnpauseContainer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *MockClient) UnpauseContainer(_a0 context.Context, _a1 Container, _a2 bool) error {
 	ret := _m.Called(_a0, _a1, _a2)

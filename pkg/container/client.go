@@ -41,6 +41,7 @@ type Client interface {
 	PauseContainer(context.Context, Container, bool) error
 	UnpauseContainer(context.Context, Container, bool) error
 	StartContainer(context.Context, Container, bool) error
+	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) error
 }
 
 // ImagePullResponse - response from ImagePull
@@ -275,6 +276,19 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dr
 	}).Info("stop pausing container")
 	if !dryrun {
 		return client.containerAPI.ContainerUnpause(ctx, c.ID())
+	}
+	return nil
+}
+
+func (client dockerClient) StressContainer(ctx context.Context, c Container, args []string, image string, pull bool, duration time.Duration, dryrun bool) error {
+	log.WithFields(log.Fields{
+		"name":   c.Name(),
+		"id":     c.ID(),
+		"dryrun": dryrun,
+	}).Info("stress testing container")
+	if !dryrun {
+		_, err := client.stressContainerCommand(ctx, c, args, image, pull)
+		return err
 	}
 	return nil
 }
@@ -525,6 +539,77 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 	return nil
 }
 
+// execute a stress-ng command in stress-ng Docker container joining target container cgroup
+// returns a stress-ng container ID
+func (client dockerClient) stressContainerCommand(ctx context.Context, target Container, args []string, image string, pull bool) (string, error) {
+	log.WithFields(log.Fields{
+		"image": image,
+	}).Debug("executing stress-ng command")
+	// container config
+	config := ctypes.Config{
+		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Image:  image,
+		// stress-ng command arguments
+		Cmd: args,
+	}
+	// host config
+	//supportedCgroups := "devices,cpu,cpuacct,freezer,blkio,memory,hugetlb,perf_event,pids,net_cls,net_prio,cpuset"
+	hconfig := ctypes.HostConfig{
+		// auto remove container on tc command exit
+		AutoRemove: true,
+		// use target container cgroups
+		//Cgroup: ctypes.CgroupSpec(supportedCgroups + ":docker/" + target.ID()),
+	}
+	// pull docker image if required: can pull only public images
+	if pull {
+		log.WithField("image", config.Image).Debug("pulling stress-ng image")
+		events, err := client.imageAPI.ImagePull(ctx, config.Image, types.ImagePullOptions{})
+		if err != nil {
+			log.WithError(err).Error("failed to pull stress-ng image")
+			return "", err
+		}
+		defer events.Close()
+		d := json.NewDecoder(events)
+		var pullResponse *ImagePullResponse
+		for {
+			if err = d.Decode(&pullResponse); err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.WithError(err).Error("failed to decode docker pull result")
+			}
+			log.Debug(pullResponse)
+		}
+	}
+	log.WithField("image", config.Image).Debug("creating stress-ng container")
+	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
+	if err != nil {
+		log.WithError(err).Error("failed to create stress-ng container")
+		return "", err
+	}
+	// copy stress-ng binary from stress-ng container
+	log.WithField("id", createResponse.ID).Debug("stress-ng container created, copying stress-ng tool from it")
+	readCloser, _, err := client.containerAPI.CopyFromContainer(ctx, createResponse.ID, "/stress-ng")
+	if err != nil {
+		log.WithError(err).Error("failed to create stress-ng container")
+		return "", err
+	}
+	err = client.containerAPI.CopyToContainer(ctx, target.ID(), "/", readCloser, types.CopyToContainerOptions{})
+	if err != nil {
+		log.WithError(err).Error("failed to copy stress-ng binary to target container")
+		return "", err
+	}
+	// exec on container
+	err = client.execOnContainer(ctx, target, "/stress-ng", args, false)
+	if err != nil {
+		log.WithError(err).Error("failed to execute stress-ng binary on target container")
+		return "", err
+	}
+
+	return createResponse.ID, nil
+}
+
+// execute command on container
 func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) error {
 	log.WithFields(log.Fields{
 		"id":         c.ID(),
