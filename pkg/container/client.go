@@ -683,21 +683,21 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 // wait till command in container completes, with timeout in msec
 func (client dockerClient) execOnContainerWait(ctx context.Context, c Container, execID string, timeout int) error {
 	for i := 0; i < timeout; i++ {
-		exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, execID)
+		inspect, err := client.containerAPI.ContainerExecInspect(ctx, execID)
 		if err != nil {
 			log.WithError(err).Error("failed to inspect command execution")
 			return err
 		}
-		if exitInspect.ExitCode != 0 {
-			log.WithField("exit", exitInspect.ExitCode).Error("command exited with error")
-			return fmt.Errorf("exec failed in %s container with error code %d; run it in manually to debug", exitInspect.ContainerID, exitInspect.ExitCode)
+		if inspect.ExitCode != 0 {
+			log.WithField("exit", inspect.ExitCode).Error("command exited with error")
+			return fmt.Errorf("exec failed in %s container with error code %d; run it in manually to debug", inspect.ContainerID, inspect.ExitCode)
 		}
-		if !exitInspect.Running {
-			break
+		if !inspect.Running {
+			return nil
 		}
 		time.Sleep(time.Millisecond)
 	}
-	return nil
+	return fmt.Errorf("exec wait exited on timeout")
 }
 
 // abort process execution on container

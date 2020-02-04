@@ -574,10 +574,6 @@ func TestStartContainer_DryRun(t *testing.T) {
 }
 
 func Test_dockerClient_execOnContainer(t *testing.T) {
-	type fields struct {
-		containerAPI dockerapi.ContainerAPIClient
-		imageAPI     dockerapi.ImageAPIClient
-	}
 	type args struct {
 		c          Container
 		ctx        context.Context
@@ -587,7 +583,6 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		fields   fields
 		args     args
 		mockInit func(context.Context, *mocks.APIClient, string, string, []string)
 		want     string
@@ -755,10 +750,6 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 }
 
 func Test_dockerClient_execOnContainerWait(t *testing.T) {
-	type fields struct {
-		containerAPI dockerapi.ContainerAPIClient
-		imageAPI     dockerapi.ImageAPIClient
-	}
 	type args struct {
 		ctx     context.Context
 		c       Container
@@ -766,22 +757,80 @@ func Test_dockerClient_execOnContainerWait(t *testing.T) {
 		timeout int
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name     string
+		args     args
+		mockInit func(context.Context, *mocks.APIClient, string, int)
+		wantErr  bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "fail to wait on timeout",
+			args: args{
+				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
+				ctx:     context.TODO(),
+				execID:  "cmdID",
+				timeout: 2,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
+				for i := 0; i < timeout; i++ {
+					engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{
+						ExecID: id, ContainerID: "cid", Running: true, ExitCode: 0, Pid: 10}, nil)
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "successful exit before timeout",
+			args: args{
+				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
+				ctx:     context.TODO(),
+				execID:  "cmdID",
+				timeout: 2,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
+				engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{
+					ExecID: id, ContainerID: "cid", Running: false, ExitCode: 0, Pid: 10}, nil)
+			},
+		},
+		{
+			name: "command fails with bad exit before timeout",
+			args: args{
+				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
+				ctx:     context.TODO(),
+				execID:  "cmdID",
+				timeout: 2,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
+				engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{
+					ExecID: id, ContainerID: "cid", Running: false, ExitCode: 1, Pid: 10}, nil)
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail to inspect command execution",
+			args: args{
+				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
+				ctx:     context.TODO(),
+				execID:  "cmdID",
+				timeout: 2,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
+				engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{}, errors.New("error"))
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockClient := NewMockEngine()
 			client := dockerClient{
-				containerAPI: tt.fields.containerAPI,
-				imageAPI:     tt.fields.imageAPI,
+				containerAPI: mockClient,
 			}
+			// init mock engine
+			tt.mockInit(tt.args.ctx, mockClient, tt.args.execID, tt.args.timeout)
 			if err := client.execOnContainerWait(tt.args.ctx, tt.args.c, tt.args.execID, tt.args.timeout); (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.execOnContainerWait() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			mockClient.AssertExpectations(t)
 		})
 	}
 }
