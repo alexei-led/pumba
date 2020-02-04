@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -469,7 +470,19 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 
 func (client dockerClient) tcCommand(ctx context.Context, c Container, args []string, tcimage string, pull bool) error {
 	if tcimage == "" {
-		return client.execOnContainer(ctx, c, "tc", args, true)
+		execID, err := client.execOnContainer(ctx, c, "tc", args, true)
+		if err != nil {
+			log.WithError(err).Error("failed to execute tc command in container")
+			return err
+		}
+		// wait till tc command complete (timeout = 100msec)
+		err = client.execOnContainerWait(ctx, c, execID, 100)
+		if err != nil {
+			log.WithError(err).Error("failed to wait tc in container completion")
+			return err
+		}
+		// completed successfully
+		return nil
 	}
 	return client.tcContainerCommand(ctx, c, args, tcimage, pull)
 }
@@ -553,12 +566,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, target Co
 		Cmd: args,
 	}
 	// host config
-	//supportedCgroups := "devices,cpu,cpuacct,freezer,blkio,memory,hugetlb,perf_event,pids,net_cls,net_prio,cpuset"
 	hconfig := ctypes.HostConfig{
-		// auto remove container on tc command exit
+		// auto remove container on command exit
 		AutoRemove: true,
-		// use target container cgroups
-		//Cgroup: ctypes.CgroupSpec(supportedCgroups + ":docker/" + target.ID()),
 	}
 	// pull docker image if required: can pull only public images
 	if pull {
@@ -591,16 +601,17 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, target Co
 	log.WithField("id", createResponse.ID).Debug("stress-ng container created, copying stress-ng tool from it")
 	readCloser, _, err := client.containerAPI.CopyFromContainer(ctx, createResponse.ID, "/stress-ng")
 	if err != nil {
-		log.WithError(err).Error("failed to create stress-ng container")
+		log.WithError(err).Error("failed to copy stress-ng binary from stress-ng container")
 		return "", err
 	}
+	// copy stress-ng binary into the target container
 	err = client.containerAPI.CopyToContainer(ctx, target.ID(), "/", readCloser, types.CopyToContainerOptions{})
 	if err != nil {
 		log.WithError(err).Error("failed to copy stress-ng binary to target container")
 		return "", err
 	}
 	// exec on container
-	err = client.execOnContainer(ctx, target, "/stress-ng", args, false)
+	_, err = client.execOnContainer(ctx, target, "/stress-ng", args, false)
 	if err != nil {
 		log.WithError(err).Error("failed to execute stress-ng binary on target container")
 		return "", err
@@ -610,7 +621,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, target Co
 }
 
 // execute command on container
-func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) error {
+func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) (string, error) {
 	log.WithFields(log.Fields{
 		"id":         c.ID(),
 		"name":       c.Name(),
@@ -628,22 +639,22 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 	exec, err := client.containerAPI.ContainerExecCreate(ctx, c.ID(), checkExists)
 	if err != nil {
 		log.WithError(err).Error("failed to create exec configuration to check if command exists")
-		return err
+		return "", err
 	}
 	log.WithField("command", execCmd).Debugf("checking if command exists")
 	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		log.WithError(err).Error("failed to check if command exists in a container")
-		return err
+		return "", err
 	}
 	checkInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
 	if err != nil {
 		log.WithError(err).Error("failed to inspect check execution")
-		return err
+		return "", err
 	}
 	if checkInspect.ExitCode != 0 {
 		log.Error("command does not exist inside the container")
-		return fmt.Errorf("command '%s' not found inside the %s (%s) container", execCmd, c.Name(), c.ID())
+		return "", fmt.Errorf("command '%s' not found inside the %s (%s) container", execCmd, c.Name(), c.ID())
 	}
 
 	// if command found execute it
@@ -658,22 +669,48 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
 	if err != nil {
 		log.WithError(err).Error("failed to create exec configuration for a command")
-		return err
+		return "", err
 	}
-	log.Debugf("Starting Exec %s %s (%s)", execCmd, execArgs, exec.ID)
+	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
 	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		log.WithError(err).Error("failed to start command execution")
-		return err
+		return "", err
 	}
-	exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
+	return exec.ID, nil
+}
+
+// wait till command in container completes, with timeout in msec
+func (client dockerClient) execOnContainerWait(ctx context.Context, c Container, execID string, timeout int) error {
+	for i := 0; i < timeout; i++ {
+		exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, execID)
+		if err != nil {
+			log.WithError(err).Error("failed to inspect command execution")
+			return err
+		}
+		if exitInspect.ExitCode != 0 {
+			log.WithField("exit", exitInspect.ExitCode).Error("command exited with error")
+			return fmt.Errorf("exec failed in %s container with error code %d; run it in manually to debug", exitInspect.ContainerID, exitInspect.ExitCode)
+		}
+		if !exitInspect.Running {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return nil
+}
+
+// abort process execution on container
+func (client dockerClient) execOnContainerAbort(ctx context.Context, c Container, execID string) error {
+	inspect, err := client.containerAPI.ContainerExecInspect(ctx, execID)
 	if err != nil {
 		log.WithError(err).Error("failed to inspect command execution")
 		return err
 	}
-	if exitInspect.ExitCode != 0 {
-		log.WithField("exit", exitInspect.ExitCode).Error("command exited with error")
-		return fmt.Errorf("command '%s' failed in %s (%s) container; run it in manually to debug", execCmd, c.Name(), c.ID())
+	// kill process by PID with SIGTERM (default)
+	if _, err := client.execOnContainer(ctx, c, "kill", []string{strconv.Itoa(inspect.Pid)}, false); err != nil {
+		log.WithError(err).Errorf("failed to kill command process for pid %d", inspect.Pid)
+		return err
 	}
 	return nil
 }
