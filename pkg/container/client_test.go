@@ -580,6 +580,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		execCmd    string
 		execArgs   []string
 		privileged bool
+		detach     bool
 	}
 	tests := []struct {
 		name     string
@@ -626,6 +627,28 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				engine.On("ContainerExecInspect", ctx, "whichID").Return(types.ContainerExecInspect{}, nil)
 				// prepare main command
 				execConfig := types.ExecConfig{Cmd: append([]string{cmd}, args...), Privileged: true}
+				engine.On("ContainerExecCreate", ctx, cID, execConfig).Return(types.IDResponse{ID: "cmdID"}, nil)
+				engine.On("ContainerExecStart", ctx, "cmdID", types.ExecStartCheck{}).Return(nil)
+			},
+			want: "cmdID",
+		},
+		{
+			name: "run detached command with args",
+			args: args{
+				c:        Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
+				ctx:      context.TODO(),
+				execCmd:  "test-app",
+				execArgs: []string{"one", "two", "three"},
+				detach:   true,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
+				// prepare which command
+				checkConfig := types.ExecConfig{Cmd: []string{"which", cmd}}
+				engine.On("ContainerExecCreate", ctx, cID, checkConfig).Return(types.IDResponse{ID: "whichID"}, nil)
+				engine.On("ContainerExecStart", ctx, "whichID", types.ExecStartCheck{}).Return(nil)
+				engine.On("ContainerExecInspect", ctx, "whichID").Return(types.ContainerExecInspect{}, nil)
+				// prepare main command
+				execConfig := types.ExecConfig{Cmd: append([]string{cmd}, args...), Detach: true}
 				engine.On("ContainerExecCreate", ctx, cID, execConfig).Return(types.IDResponse{ID: "cmdID"}, nil)
 				engine.On("ContainerExecStart", ctx, "cmdID", types.ExecStartCheck{}).Return(nil)
 			},
@@ -736,7 +759,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			}
 			// init mock engine
 			tt.mockInit(tt.args.ctx, mockClient, tt.args.c.containerInfo.ID, tt.args.execCmd, tt.args.execArgs)
-			got, err := client.execOnContainer(tt.args.ctx, tt.args.c, tt.args.execCmd, tt.args.execArgs, tt.args.privileged)
+			got, err := client.execOnContainer(tt.args.ctx, tt.args.c, tt.args.execCmd, tt.args.execArgs, tt.args.privileged, tt.args.detach)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.execOnContainer() error = %v, wantErr %v", err, tt.wantErr)
 				return

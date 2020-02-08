@@ -21,6 +21,10 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 		Name: "stress",
 		Flags: []cli.Flag{
 			cli.StringFlag{
+				Name:  "duration, d",
+				Usage: "stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
+			},
+			cli.StringFlag{
 				Name:  "args",
 				Usage: "stress-ng arguments",
 				Value: "--cpu 4",
@@ -49,8 +53,10 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	limit := c.Int("limit")
 	// get stress-ng arguments
 	args := c.String("args")
+	// get chaos command
+	duration := c.String("duration")
 	// init stress command
-	stressCommand, err := stress.NewStressCommand(chaos.DockerClient, names, pattern, labels, args, limit, dryRun)
+	stressCommand, err := stress.NewStressCommand(chaos.DockerClient, names, pattern, labels, args, interval, duration, limit, dryRun)
 	if err != nil {
 		return err
 	}

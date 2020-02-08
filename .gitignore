@@ -10,3 +10,5 @@
 **/.DS_Store
 **/debug
 **/debug.test
+
+vendor

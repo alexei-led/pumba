@@ -42,7 +42,8 @@ type Client interface {
 	PauseContainer(context.Context, Container, bool) error
 	UnpauseContainer(context.Context, Container, bool) error
 	StartContainer(context.Context, Container, bool) error
-	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) error
+	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) (string, error)
+	StopStressContainer(context.Context, Container, string, bool) error
 }
 
 // ImagePullResponse - response from ImagePull
@@ -281,14 +282,28 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dr
 	return nil
 }
 
-func (client dockerClient) StressContainer(ctx context.Context, c Container, args []string, image string, pull bool, duration time.Duration, dryrun bool) error {
+func (client dockerClient) StressContainer(ctx context.Context, c Container, args []string, image string, pull bool, duration time.Duration, dryrun bool) (string, error) {
+	log.WithFields(log.Fields{
+		"name":   c.Name(),
+		"id":     c.ID(),
+		"dryrun": dryrun,
+	}).Info("stress testing container")
+	var execID string
+	var err error
+	if !dryrun {
+		execID, err = client.stressContainerCommand(ctx, c, args, image, pull)
+	}
+	return execID, err
+}
+
+func (client dockerClient) StopStressContainer(ctx context.Context, c Container, execID string, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
 		"id":     c.ID(),
 		"dryrun": dryrun,
 	}).Info("stress testing container")
 	if !dryrun {
-		_, err := client.stressContainerCommand(ctx, c, args, image, pull)
+		err := client.stopStressContainerCommand(ctx, c, execID)
 		return err
 	}
 	return nil
@@ -470,7 +485,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 
 func (client dockerClient) tcCommand(ctx context.Context, c Container, args []string, tcimage string, pull bool) error {
 	if tcimage == "" {
-		execID, err := client.execOnContainer(ctx, c, "tc", args, true)
+		execID, err := client.execOnContainer(ctx, c, "tc", args, true, false)
 		if err != nil {
 			log.WithError(err).Error("failed to execute tc command in container")
 			return err
@@ -552,7 +567,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 	return nil
 }
 
-// execute a stress-ng command in stress-ng Docker container joining target container cgroup
+// execute a stress-ng command in stress-ng Docker container injecting binary into container (joining cgroup does not work)
 // returns a stress-ng container ID
 func (client dockerClient) stressContainerCommand(ctx context.Context, target Container, args []string, image string, pull bool) (string, error) {
 	log.WithFields(log.Fields{
@@ -611,17 +626,36 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, target Co
 		return "", err
 	}
 	// exec on container
-	_, err = client.execOnContainer(ctx, target, "/stress-ng", args, false)
+	execID, err := client.execOnContainer(ctx, target, "/stress-ng", args, false, true)
 	if err != nil {
 		log.WithError(err).Error("failed to execute stress-ng binary on target container")
 		return "", err
 	}
 
-	return createResponse.ID, nil
+	return execID, nil
+}
+
+func (client dockerClient) stopStressContainerCommand(ctx context.Context, target Container, execID string) error {
+	log.WithFields(log.Fields{
+		"id":   target.ID(),
+		"name": target.Name(),
+	}).Debug("stop stress test on container")
+	// try to kill (with SIGTERM) stress-ng process tree
+	err := client.execOnContainerAbort(ctx, target, execID)
+	if err != nil { // do not exit on error, just report it
+		log.WithError(err).Error("failed to kill stress-ng on target container")
+	}
+	// try to remove stress-ng binary from target container
+	_, err = client.execOnContainer(ctx, target, "rm", []string{"-f", "/stress-ng"}, false, true)
+	if err != nil {
+		log.WithError(err).Error("failed to remove stress-ng binary from target container")
+		return err
+	}
+	return nil
 }
 
 // execute command on container
-func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) (string, error) {
+func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged, detach bool) (string, error) {
 	log.WithFields(log.Fields{
 		"id":         c.ID(),
 		"name":       c.Name(),
@@ -664,6 +698,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 	config := types.ExecConfig{
 		Privileged: privileged,
 		Cmd:        append([]string{execCmd}, execArgs...),
+		Detach:     detach,
 	}
 	// execute the command
 	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
@@ -708,8 +743,15 @@ func (client dockerClient) execOnContainerAbort(ctx context.Context, c Container
 		return err
 	}
 	// kill process by PID with SIGTERM (default)
-	if _, err := client.execOnContainer(ctx, c, "kill", []string{strconv.Itoa(inspect.Pid)}, false); err != nil {
+	killID, err := client.execOnContainer(ctx, c, "kill", []string{strconv.Itoa(inspect.Pid)}, false, false)
+	if err != nil {
 		log.WithError(err).Errorf("failed to kill command process for pid %d", inspect.Pid)
+		return err
+	}
+	// wait till tc command complete (timeout = 100msec)
+	err = client.execOnContainerWait(ctx, c, killID, 100)
+	if err != nil {
+		log.WithError(err).Error("failed to wait kill in container completion")
 		return err
 	}
 	return nil

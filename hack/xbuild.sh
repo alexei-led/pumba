@@ -13,7 +13,7 @@ echo "Building ${BUILD_VERSION} on ${BUILD_DATE}"
 export CGO_ENABLED=0
 export GO111MODULE=on
 
-platforms=("windows/amd64" "linux/amd64" "darwin/amd64" "linux/386")
+platforms=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64" "linux/386")
 
 for platform in "${platforms[@]}"
 do
