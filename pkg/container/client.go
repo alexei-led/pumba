@@ -16,6 +16,7 @@ import (
 	types "github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
 	dockerapi "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -41,6 +42,8 @@ type Client interface {
 	PauseContainer(context.Context, Container, bool) error
 	UnpauseContainer(context.Context, Container, bool) error
 	StartContainer(context.Context, Container, bool) error
+	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) (string, error)
+	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
 // ImagePullResponse - response from ImagePull
@@ -190,6 +193,18 @@ func (client dockerClient) StopContainer(ctx context.Context, c Container, timeo
 	return nil
 }
 
+func (client dockerClient) StopContainerWithID(ctx context.Context, containerID string, timeout time.Duration, dryrun bool) error {
+	log.WithFields(log.Fields{
+		"id":      containerID,
+		"timeout": timeout,
+		"dryrun":  dryrun,
+	}).Info("stopping container")
+	if !dryrun {
+		return client.containerAPI.ContainerStop(ctx, containerID, &timeout)
+	}
+	return nil
+}
+
 func (client dockerClient) StartContainer(ctx context.Context, c Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
@@ -277,6 +292,18 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dr
 		return client.containerAPI.ContainerUnpause(ctx, c.ID())
 	}
 	return nil
+}
+
+func (client dockerClient) StressContainer(ctx context.Context, c Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, error) {
+	log.WithFields(log.Fields{
+		"name":   c.Name(),
+		"id":     c.ID(),
+		"dryrun": dryrun,
+	}).Info("stress testing container")
+	if !dryrun {
+		return client.stressContainerCommand(ctx, c.ID(), stressors, image, pull)
+	}
+	return "", nil
 }
 
 func (client dockerClient) startNetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, tcimage string, pull bool, dryrun bool) error {
@@ -525,6 +552,96 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 	return nil
 }
 
+// execute a stress-ng command in stress-ng Docker container in target container cgroup
+func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, image string, pull bool) (string, error) {
+	log.WithFields(log.Fields{
+		"image": image,
+	}).Debug("executing stress-ng command")
+	dockhackArgs := append([]string{targetID, "stress-ng"}, stressors...)
+	// container config
+	config := ctypes.Config{
+		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Image:  image,
+		// dockhack script is required as entrypoint https://github.com/tavisrudd/dockhack
+		Entrypoint: []string{"dockhack", "cg_exec"},
+		// target container ID plus stress-ng command and it's arguments
+		Cmd: dockhackArgs,
+	}
+	// docker socket mount
+	dockerSocket := mount.Mount{
+		Type:   mount.TypeBind,
+		Source: "/var/run/docker.sock",
+		Target: "/var/run/docker.sock",
+	}
+	fsCgroup := mount.Mount{
+		Type:   mount.TypeBind,
+		Source: "/sys/fs/cgroup",
+		Target: "/sys/fs/cgroup",
+	}
+	// host config
+	hconfig := ctypes.HostConfig{
+		// auto remove container on command exit
+		AutoRemove: true,
+		// SYS_ADMIN is required for "dockhack" script to access cgroup
+		CapAdd: []string{"SYS_ADMIN"},
+		// apparmor:unconfined required to work with cgroup from container
+		SecurityOpt: []string{"apparmor:unconfined"},
+		// mount docker.sock and host cgroups fs as bind mount (equal to --volume /path:/path flag in docker run)
+		Mounts: []mount.Mount{dockerSocket, fsCgroup},
+	}
+	// pull docker image if required: can pull only public images
+	if pull {
+		log.WithField("image", config.Image).Debug("pulling stress-ng image")
+		events, err := client.imageAPI.ImagePull(ctx, config.Image, types.ImagePullOptions{})
+		if err != nil {
+			log.WithError(err).Error("failed to pull stress-ng image")
+			return "", err
+		}
+		defer events.Close()
+		d := json.NewDecoder(events)
+		var pullResponse *ImagePullResponse
+		for {
+			if err = d.Decode(&pullResponse); err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.WithError(err).Error("failed to decode docker pull result")
+			}
+			log.Debug(pullResponse)
+		}
+	}
+	// create stress-ng container
+	log.WithField("image", config.Image).Debug("creating stress-ng container")
+	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
+	if err != nil {
+		log.WithError(err).Error("failed to create stress-ng container")
+		return "", err
+	}
+	// start stress-ng container running stress-ng in target container cgroup
+	log.WithField("id", createResponse.ID).Debug("stress-ng container created, starting it")
+	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
+	if err != nil {
+		log.WithError(err).Error("failed to start stress-ng container")
+		return "", err
+	}
+	// give 1s to stress-ng command to parse command line args
+	time.Sleep(1 * time.Second)
+	// inspect stress-ng container
+	inspect, err := client.containerAPI.ContainerInspect(ctx, createResponse.ID)
+	if err != nil {
+		log.WithError(err).Error("failed to inspect stress-ng container")
+		return "", err
+	}
+	// get status of stress-ng command
+	if inspect.State.ExitCode != 0 {
+		err = fmt.Errorf("stress-ng exited with code: %d", inspect.State.ExitCode)
+		log.WithError(err).Error("failed to run stress-ng")
+		return "", err
+	}
+	return createResponse.ID, nil
+}
+
+// execute command on container
 func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) error {
 	log.WithFields(log.Fields{
 		"id":         c.ID(),
@@ -558,7 +675,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 	}
 	if checkInspect.ExitCode != 0 {
 		log.Error("command does not exist inside the container")
-		return fmt.Errorf("command '%s' not found inside the %s (%s) container", execCmd, c.Name(), c.ID())
+		return fmt.Errorf("command '%s' not found inside the %s container", execCmd, c.ID())
 	}
 
 	// if command found execute it
@@ -575,7 +692,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 		log.WithError(err).Error("failed to create exec configuration for a command")
 		return err
 	}
-	log.Debugf("Starting Exec %s %s (%s)", execCmd, execArgs, exec.ID)
+	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
 	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		log.WithError(err).Error("failed to start command execution")
@@ -588,7 +705,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 	}
 	if exitInspect.ExitCode != 0 {
 		log.WithField("exit", exitInspect.ExitCode).Error("command exited with error")
-		return fmt.Errorf("command '%s' failed in %s (%s) container; run it in manually to debug", execCmd, c.Name(), c.ID())
+		return fmt.Errorf("command '%s' failed in %s container; run it in manually to debug", execCmd, c.ID())
 	}
 	return nil
 }

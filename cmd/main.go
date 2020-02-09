@@ -15,6 +15,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
+	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/logger"
 
@@ -287,6 +288,7 @@ func initializeCLICommands() []cli.Command {
 		*cmd.NewStopCLICommand(topContext),
 		*cmd.NewPauseCLICommand(topContext),
 		*cmd.NewRemoveCLICommand(topContext),
+		*stressCmd.NewStressCLICommand(topContext),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
