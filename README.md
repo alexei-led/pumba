@@ -1,21 +1,13 @@
-# Pumba: Chaos testing tool for Docker
+# Pumba: chaos testing tool for Docker [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Breaking%20Docker%20containers%20on%20purpose%20with%20Pumba&url=https://github.com/alexei-led/pumba&via=alexeiled&hashtags=docker,chaosengineering,chaos,breakthingsonpurpose,kubernetes)
 
-[![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+Pumba is a chaos testing command line tool for Docker containers. Pumba disturbs your containers by crashing containerized application, emulating network failures and stress-testing container resources (cpu, memory, fs, io, and others).
 
-[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Pumba+CI") [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/alexei-led/pumba) [![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Pumba+CI") [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba) [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![Join the chat at https://gitter.im/pumba-chaos/Lobby](https://badges.gitter.im/pumba-chaos/Lobby.svg)](https://gitter.im/pumba-chaos/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 
-[![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba)
+![pumba](docs/img/pumba_logo.png "They CALL me... MISTER PIG!")
 
-## TL;DR
-
-Pumba is a chaos testing tool for Docker containers. It can inject container level errors, emulate network problems and stress-test container resources (cpu, memory, fs, io, and others).
-
-## Logo
-
-![pumba](docs/img/pumba_logo.png)
-
-## Required Docker Version
+## Prerequisites
 
 **Important:**: Minimal required Docker version `v18.06.0`.
 
