@@ -1,5 +1,21 @@
 # Change Log
 
+## [0.7.0](https://github.com/alexei-led/pumba/tree/0.7.0) (2020-02-09)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.8...0.7.0)
+
+**Closed issues:**
+
+- pumba netem is affecting all containers in host and not responding to kill -9 when running in background [\#147](https://github.com/alexei-led/pumba/issues/147)
+- docker client version too new [\#144](https://github.com/alexei-led/pumba/issues/144)
+- Anyway to run this on a Raspberry PI [\#146](https://github.com/alexei-led/pumba/issues/146)
+
+**Merged pull requests:**
+
+- stress test target container [\#148](https://github.com/alexei-led/pumba/pull/148) ([alexei-led](https://github.com/alexei-led))
+
+## [0.6.8](https://github.com/alexei-led/pumba/tree/0.6.8) (2019-12-21)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.7...0.6.8)
+
 ## [0.6.7](https://github.com/alexei-led/pumba/tree/0.6.7) (2019-12-19)
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.6.5...0.6.7)
 

@@ -7,6 +7,10 @@
 
 [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/commit/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba)
 
+## TL;DR
+
+Pumba is a chaos testing tool for Docker containers. It can inject container level errors, emulate network problems and stress-test container resources (cpu, memory, fs, io, and others).
+
 ## Logo
 
 ![pumba](docs/img/pumba_logo.png)
@@ -355,6 +359,39 @@ Pumba uses `tc` Linux tool for network emulation. You have two options:
 2. Use `--tc-image` option, with any `netem` command, to specify external Docker image with `tc` tool available. Pumba will create a new container from this image, adding `NET_ADMIN` capability to it and reusing target container network stack. You can try to use [gaiadocker/iproute2](https://hub.docker.com/r/gaiadocker/iproute2/) image (it's just Alpine Linux 3.3 with `iproute2` package installed)
 
 **Note:** For Alpine Linux based image, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
+
+### Stress testing Docker containers
+
+Pumba can inject [stress-ng](https://kernel.ubuntu.com/~cking/stress-ng/) testing tool into a target container(s) `cgroup` and control stress test run.
+
+```text
+NAME:
+   pumba stress - stress test a specified containers
+
+USAGE:
+   pumba stress [command options] containers (name, list of names, or RE2 regex if prefixed with "re2:")
+
+DESCRIPTION:
+   stress test target container(s)
+
+OPTIONS:
+   --duration value, -d value  stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
+   --stress-image value        Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script (default: "alexeiled/stress-ng:latest-ubuntu")
+   --pull-image                pull stress-image form Docker registry
+   --stressors value           stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/ (default: "--cpu 4 --timeout 60s")
+```
+
+#### stress-ng image requirements
+
+Pumba uses [alexeiled/stress-ng:latest-ubuntu](https://hub.docker.com/r/alexeiled/stress-ng/) `stress-ng` Ubuntu-based Docker image with statically linked `stress-ng` tool.
+
+You can provide your own image, but it must include the following tools:
+
+1. `stress-ng` tool (in `$PATH`)
+1. Bash shell
+1. [`dockhack`](https://github.com/tavisrudd/dockhack) helper Bash script (in `$PATH`)
+1. `docker` client CLI tool (runnable without `sudo`)
+1. `cgexec` tool, available from `cgroups-tools` or/and `cgroup-bin` packages
 
 ### Running inside Docker container
 
