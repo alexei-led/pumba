@@ -2,6 +2,7 @@ package stress
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -12,23 +13,29 @@ import (
 
 // StressCommand `stress-ng` command
 type StressCommand struct {
-	client   container.Client
-	names    []string
-	pattern  string
-	labels   []string
-	args     string
-	duration time.Duration
-	limit    int
-	dryRun   bool
+	client    container.Client
+	names     []string
+	pattern   string
+	labels    []string
+	image     string
+	pull      bool
+	stressors []string
+	duration  time.Duration
+	limit     int
+	dryRun    bool
 }
 
-type execContainer struct {
-	ID        string // exec ID
-	container container.Container
+type stressedContainer struct {
+	stress    string              // stress container ID
+	container container.Container // target container
 }
+
+const (
+	defaultStopTimeout = 5 * time.Second
+)
 
 // NewStressCommand create new Kill Command instance
-func NewStressCommand(client container.Client, names []string, pattern string, labels []string, args, interval, duration string, limit int, dryRun bool) (chaos.Command, error) {
+func NewStressCommand(client container.Client, names []string, pattern string, labels []string, image string, pull bool, stressors, interval, duration string, limit int, dryRun bool) (chaos.Command, error) {
 	// get interval
 	i, err := util.GetIntervalValue(interval)
 	if err != nil {
@@ -39,7 +46,7 @@ func NewStressCommand(client container.Client, names []string, pattern string, l
 	if err != nil {
 		return nil, err
 	}
-	stress := &StressCommand{client, names, pattern, labels, args, d, limit, dryRun}
+	stress := &StressCommand{client, names, pattern, labels, image, pull, strings.Fields(stressors), d, limit, dryRun}
 	return stress, nil
 }
 
@@ -47,11 +54,12 @@ func NewStressCommand(client container.Client, names []string, pattern string, l
 func (s *StressCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("stress testing all matching containers")
 	log.WithFields(log.Fields{
-		"names":    s.names,
-		"pattern":  s.pattern,
-		"labels":   s.labels,
-		"duration": s.duration,
-		"limit":    s.limit,
+		"names":     s.names,
+		"pattern":   s.pattern,
+		"labels":    s.labels,
+		"duration":  s.duration,
+		"stressors": s.stressors,
+		"limit":     s.limit,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
@@ -72,19 +80,22 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// keep stressed containers
-	stressedContainers := []execContainer{}
-	// pause containers
+	stressedContainers := []stressedContainer{}
+	// stress containers
 	for _, container := range containers {
 		log.WithFields(log.Fields{
-			"container": container,
-			"duration":  s.duration,
+			"container":       container.ID(),
+			"duration":        s.duration,
+			"stressors":       s.stressors,
+			"stress-ng image": s.image,
+			"pull image":      s.pull,
 		}).Debug("stress testing container for duration")
-		execID, err := s.client.StressContainer(ctx, container, []string{"--cpu", "4", "--timeout", "60s"}, "alexeiled/stress-ng", true, s.duration, s.dryRun)
+		stress, err := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 		if err != nil {
 			log.WithError(err).Error("failed to stress container")
 			break
 		}
-		stressedContainers = append(stressedContainers, execContainer{execID, container})
+		stressedContainers = append(stressedContainers, stressedContainer{stress, container})
 	}
 
 	// if there are stressed containers stop stress-ng and remove it from containers
@@ -106,13 +117,13 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 	return err
 }
 
-// stop stress test on containers
-func (s *StressCommand) stopStressContainers(ctx context.Context, containers []execContainer) error {
+// stop stress-ng containers, one by one
+func (s *StressCommand) stopStressContainers(ctx context.Context, containers []stressedContainer) error {
 	var err error
 	for _, exec := range containers {
-		log.WithField("container", exec.container.ID).Debug("stop stress on container")
-		if e := s.client.StopStressContainer(ctx, exec.container, exec.ID, s.dryRun); e != nil {
-			log.WithError(e).Error("failed to stop stress on container")
+		log.WithField("container", exec.container.ID).Debug("stop stress for container")
+		if e := s.client.StopContainerWithID(ctx, exec.stress, defaultStopTimeout, s.dryRun); e != nil {
+			log.WithError(e).Error("failed to stop stress-ng container")
 			err = e
 		}
 	}

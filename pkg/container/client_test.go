@@ -15,7 +15,6 @@ import (
 	types "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	dockerapi "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -580,13 +579,11 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		execCmd    string
 		execArgs   []string
 		privileged bool
-		detach     bool
 	}
 	tests := []struct {
 		name     string
 		args     args
 		mockInit func(context.Context, *mocks.APIClient, string, string, []string)
-		want     string
 		wantErr  bool
 	}{
 		{
@@ -607,8 +604,8 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execConfig := types.ExecConfig{Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.On("ContainerExecCreate", ctx, cID, execConfig).Return(types.IDResponse{ID: "cmdID"}, nil)
 				engine.On("ContainerExecStart", ctx, "cmdID", types.ExecStartCheck{}).Return(nil)
+				engine.On("ContainerExecInspect", ctx, "cmdID").Return(types.ContainerExecInspect{}, nil)
 			},
-			want: "cmdID",
 		},
 		{
 			name: "run privileged command with args",
@@ -629,30 +626,8 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execConfig := types.ExecConfig{Cmd: append([]string{cmd}, args...), Privileged: true}
 				engine.On("ContainerExecCreate", ctx, cID, execConfig).Return(types.IDResponse{ID: "cmdID"}, nil)
 				engine.On("ContainerExecStart", ctx, "cmdID", types.ExecStartCheck{}).Return(nil)
+				engine.On("ContainerExecInspect", ctx, "cmdID").Return(types.ContainerExecInspect{}, nil)
 			},
-			want: "cmdID",
-		},
-		{
-			name: "run detached command with args",
-			args: args{
-				c:        Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
-				ctx:      context.TODO(),
-				execCmd:  "test-app",
-				execArgs: []string{"one", "two", "three"},
-				detach:   true,
-			},
-			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
-				// prepare which command
-				checkConfig := types.ExecConfig{Cmd: []string{"which", cmd}}
-				engine.On("ContainerExecCreate", ctx, cID, checkConfig).Return(types.IDResponse{ID: "whichID"}, nil)
-				engine.On("ContainerExecStart", ctx, "whichID", types.ExecStartCheck{}).Return(nil)
-				engine.On("ContainerExecInspect", ctx, "whichID").Return(types.ContainerExecInspect{}, nil)
-				// prepare main command
-				execConfig := types.ExecConfig{Cmd: append([]string{cmd}, args...), Detach: true}
-				engine.On("ContainerExecCreate", ctx, cID, execConfig).Return(types.IDResponse{ID: "cmdID"}, nil)
-				engine.On("ContainerExecStart", ctx, "cmdID", types.ExecStartCheck{}).Return(nil)
-			},
-			want: "cmdID",
 		},
 		{
 			name: "fail to find command",
@@ -759,132 +734,12 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			}
 			// init mock engine
 			tt.mockInit(tt.args.ctx, mockClient, tt.args.c.containerInfo.ID, tt.args.execCmd, tt.args.execArgs)
-			got, err := client.execOnContainer(tt.args.ctx, tt.args.c, tt.args.execCmd, tt.args.execArgs, tt.args.privileged, tt.args.detach)
+			err := client.execOnContainer(tt.args.ctx, tt.args.c, tt.args.execCmd, tt.args.execArgs, tt.args.privileged)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.execOnContainer() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("dockerClient.execOnContainer() = %v, want %v", got, tt.want)
-			}
 			mockClient.AssertExpectations(t)
-		})
-	}
-}
-
-func Test_dockerClient_execOnContainerWait(t *testing.T) {
-	type args struct {
-		ctx     context.Context
-		c       Container
-		execID  string
-		timeout int
-	}
-	tests := []struct {
-		name     string
-		args     args
-		mockInit func(context.Context, *mocks.APIClient, string, int)
-		wantErr  bool
-	}{
-		{
-			name: "fail to wait on timeout",
-			args: args{
-				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
-				ctx:     context.TODO(),
-				execID:  "cmdID",
-				timeout: 2,
-			},
-			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
-				for i := 0; i < timeout; i++ {
-					engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{
-						ExecID: id, ContainerID: "cid", Running: true, ExitCode: 0, Pid: 10}, nil)
-				}
-			},
-			wantErr: true,
-		},
-		{
-			name: "successful exit before timeout",
-			args: args{
-				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
-				ctx:     context.TODO(),
-				execID:  "cmdID",
-				timeout: 2,
-			},
-			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
-				engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{
-					ExecID: id, ContainerID: "cid", Running: false, ExitCode: 0, Pid: 10}, nil)
-			},
-		},
-		{
-			name: "command fails with bad exit before timeout",
-			args: args{
-				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
-				ctx:     context.TODO(),
-				execID:  "cmdID",
-				timeout: 2,
-			},
-			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
-				engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{
-					ExecID: id, ContainerID: "cid", Running: false, ExitCode: 1, Pid: 10}, nil)
-			},
-			wantErr: true,
-		},
-		{
-			name: "fail to inspect command execution",
-			args: args{
-				c:       Container{containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123"))},
-				ctx:     context.TODO(),
-				execID:  "cmdID",
-				timeout: 2,
-			},
-			mockInit: func(ctx context.Context, engine *mocks.APIClient, id string, timeout int) {
-				engine.On("ContainerExecInspect", ctx, id).Return(types.ContainerExecInspect{}, errors.New("error"))
-			},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockClient := NewMockEngine()
-			client := dockerClient{
-				containerAPI: mockClient,
-			}
-			// init mock engine
-			tt.mockInit(tt.args.ctx, mockClient, tt.args.execID, tt.args.timeout)
-			if err := client.execOnContainerWait(tt.args.ctx, tt.args.c, tt.args.execID, tt.args.timeout); (err != nil) != tt.wantErr {
-				t.Errorf("dockerClient.execOnContainerWait() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			mockClient.AssertExpectations(t)
-		})
-	}
-}
-
-func Test_dockerClient_execOnContainerAbort(t *testing.T) {
-	type fields struct {
-		containerAPI dockerapi.ContainerAPIClient
-		imageAPI     dockerapi.ImageAPIClient
-	}
-	type args struct {
-		ctx    context.Context
-		c      Container
-		execID string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := dockerClient{
-				containerAPI: tt.fields.containerAPI,
-				imageAPI:     tt.fields.imageAPI,
-			}
-			if err := client.execOnContainerAbort(tt.args.ctx, tt.args.c, tt.args.execID); (err != nil) != tt.wantErr {
-				t.Errorf("dockerClient.execOnContainerAbort() error = %v, wantErr %v", err, tt.wantErr)
-			}
 		})
 	}
 }
