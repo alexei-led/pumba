@@ -27,7 +27,7 @@ func NewStopCLICommand(ctx context.Context) *cli.Command {
 			},
 			cli.IntFlag{
 				Name:  "limit, l",
-				Usage: "limit to number of container to kill (0: kill all matching)",
+				Usage: "limit number of container to stop (0: stop all matching)",
 				Value: 0,
 			},
 			cli.BoolFlag{
