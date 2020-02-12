@@ -30,3 +30,11 @@
 
 1. Split screen horizontally
 2. Run test container and show Docker stats: `./stress_demo.sh`
+
+## Kubernetes demo: delay and pause
+
+1. Split screen horizontally
+1. Split bottom screen vertically
+1. On the left bottom screen, run Pod in interactive mode: `./k8s_pause_demo.sh` - Pod prints time every second
+1. On the right bottom screen, run Pod in interactive mode: `./k8s_delay_demo.sh` - Pod pings `1.1.1.1`
+1. On the top screen, deploy `pumba` DaemonSet with two commands running `pause` and `delay`

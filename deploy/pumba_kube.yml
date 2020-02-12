@@ -34,10 +34,10 @@ spec:
           - --label
           - io.kubernetes.pod.name=test-1
           - --interval
-          - 1m
+          - 20s
           - pause
           - --duration 
-          - 30s
+          - 10s
         resources:
           requests:
             cpu: 10m
@@ -59,10 +59,10 @@ spec:
           - --label
           - io.kubernetes.pod.name=test-2
           - --interval
-          - 5m
+          - 30s
           - netem
           - --duration
-          - 2m
+          - 20s
           - --tc-image
           - gaiadocker/iproute2
           - delay
