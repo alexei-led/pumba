@@ -163,11 +163,6 @@ func (client dockerClient) StopContainer(ctx context.Context, c Container, timeo
 			}
 			// Wait for container to be removed
 			if err := client.waitForStop(ctx, c, timeout); err != nil {
-				log.WithError(err).WithFields(log.Fields{
-					"name":    c.Name(),
-					"id":      c.ID(),
-					"timeout": timeout,
-				}).Error("failed waiting for container to stop")
 				return errors.New("failed waiting for container to stop")
 			}
 		}

@@ -173,7 +173,7 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 			defer wg.Done()
 			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
-				log.WithError(errs[i]).Debug("failed to delay network for container")
+				log.WithError(errs[i]).Warn("failed to delay network for container")
 			}
 		}(i, c)
 	}

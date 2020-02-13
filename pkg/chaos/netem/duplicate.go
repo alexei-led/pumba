@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -110,10 +110,10 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 		"pattern": n.pattern,
 		"labels":  n.labels,
 		"limit":   n.limit,
+		"random":  random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -123,7 +123,6 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -137,7 +136,7 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 
 	// run netem duplicate command for selected containers
 	var wg sync.WaitGroup
-	errors := make([]error, len(containers))
+	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
 	for i, c := range containers {
 		log.WithFields(log.Fields{
@@ -148,9 +147,9 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errors[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
-			if errors[i] != nil {
-				log.WithError(errors[i]).Error("failed to set packet duplicates for container")
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			if errs[i] != nil {
+				log.WithError(errs[i]).Warn("failed to set packet duplicates for container")
 			}
 		}(i, c)
 	}
@@ -166,13 +165,12 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, e := range errors {
+	for _, err := range errs {
 		// take first found error
-		if e != nil {
-			err = e
-			break
+		if err != nil {
+			return errors.Wrap(err, "failed to set packet duplicates for one or more containers")
 		}
 	}
 
-	return err
+	return nil
 }

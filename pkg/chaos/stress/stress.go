@@ -8,6 +8,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -60,10 +61,10 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 		"duration":  s.duration,
 		"stressors": s.stressors,
 		"limit":     s.limit,
+		"random":    random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -73,7 +74,6 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -92,7 +92,7 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("stress testing container for duration")
 		stress, err := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to stress container")
+			log.WithError(err).Warn("failed to stress container")
 			break
 		}
 		stressedContainers = append(stressedContainers, stressedContainer{stress, container})
@@ -111,9 +111,6 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 			err = s.stopStressContainers(ctx, stressedContainers)
 		}
 	}
-	if err != nil {
-		log.WithError(err).Error("failed to unpause paused containers")
-	}
 	return err
 }
 
@@ -123,8 +120,8 @@ func (s *StressCommand) stopStressContainers(ctx context.Context, containers []s
 	for _, exec := range containers {
 		log.WithField("container", exec.container.ID).Debug("stop stress for container")
 		if e := s.client.StopContainerWithID(ctx, exec.stress, defaultStopTimeout, s.dryRun); e != nil {
-			log.WithError(e).Error("failed to stop stress-ng container")
-			err = e
+			log.WithError(e).Warn("failed to stop stress-ng container")
+			err = errors.Wrap(e, "failed to stop stress-ng container")
 		}
 	}
 	return err // last non nil error
