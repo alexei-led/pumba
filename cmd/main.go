@@ -17,8 +17,6 @@ import (
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/logger"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/urfave/cli"
@@ -200,10 +198,6 @@ func before(c *cli.Context) error {
 			Username:       "pumba_bot",
 		})
 	}
-	// trace function calls
-	traceHook := logger.NewHook()
-	traceHook.AppName = "pumba"
-	log.AddHook(traceHook)
 	// Set-up container client
 	tls, err := tlsConfig(c)
 	if err != nil {
