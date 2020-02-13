@@ -35,10 +35,10 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 		"pattern": r.pattern,
 		"labels":  r.labels,
 		"limit":   r.limit,
+		"random":  random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.labels, r.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -48,7 +48,6 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -63,7 +62,6 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("removing container")
 		err := r.client.RemoveContainer(ctx, container, r.force, r.links, r.volumes, r.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to remove container")
 			return err
 		}
 	}

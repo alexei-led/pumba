@@ -22,9 +22,7 @@ func parseRate(rate string) (string, error) {
 	reRate := regexp.MustCompile("[0-9]+[gmk]?bit")
 	validRate := reRate.FindString(rate)
 	if rate != validRate {
-		err := fmt.Errorf("Invalid rate. Must match '%s'", reRate.String())
-		log.Error(err)
-		return "", err
+		return "", fmt.Errorf("Invalid rate. Must match '%s'", reRate.String())
 	}
 	return rate, nil
 }
@@ -97,7 +95,6 @@ func NewRateCommand(client container.Client,
 	}
 	rate, err = parseRate(rate)
 	if err != nil {
-		log.Error(err)
 		return nil, err
 	}
 
