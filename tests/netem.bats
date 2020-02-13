@@ -34,8 +34,8 @@
   docker pull gaiadocker/iproute2
   run pumba -l=info netem --duration 5s --tc-image gaiadocker/iproute2 delay --time 1000 pingtest
   [ $status -eq 0 ]
-  [[ $output =~ "start netem for container" ]]
-  [[ $output =~ "stop netem for container" ]]
+  [[ $output =~ "running netem on container" ]]
+  [[ $output =~ "stopping netem on container" ]]
   # cleanup
   docker rm -f pingtest || true
 }

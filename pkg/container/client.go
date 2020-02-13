@@ -225,7 +225,7 @@ func (client dockerClient) NetemContainer(ctx context.Context, c Container, netI
 		"tc-image": tcimage,
 		"pull":     pull,
 		"dryrun":   dryrun,
-	}).Info("running netem command on container")
+	}).Info("running netem on container")
 	if len(ips) == 0 {
 		return client.startNetemContainer(ctx, c, netInterface, netemCmd, tcimage, pull, dryrun)
 	}
