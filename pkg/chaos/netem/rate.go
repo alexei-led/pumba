@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -66,14 +66,6 @@ func NewRateCommand(client container.Client,
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// log error
-	var err error
-	defer func() {
-		if err != nil {
-			log.WithError(err).Error("failed to construct Netem Rate Command")
-		}
-	}()
-
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -88,24 +80,20 @@ func NewRateCommand(client container.Client,
 	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9_-]*")
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		err = fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
-		return nil, err
+		return nil, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip := util.ParseCIDR(str)
-		if ip == nil {
-			err = fmt.Errorf("bad target: '%s' is not a valid IP", str)
+		ip, err := util.ParseCIDR(str)
+		if err != nil {
 			return nil, err
 		}
 		ips = append(ips, ip)
 	}
 	// validate target egress rate
 	if rate == "" {
-		err = errors.New("Undefined rate limit")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("undefined rate limit")
 	}
 	rate, err = parseRate(rate)
 	if err != nil {
@@ -115,9 +103,7 @@ func NewRateCommand(client container.Client,
 
 	// validate cell size
 	if cellSize < 0 {
-		err = errors.New("Invalid cell size: must be a non-negative integer")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("invalid cell size: must be a non-negative integer")
 	}
 
 	return &RateCommand{
@@ -147,10 +133,10 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 		"pattern": n.pattern,
 		"labels":  n.labels,
 		"limit":   n.limit,
+		"random":  random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -160,7 +146,6 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -180,7 +165,7 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
-	errors := make([]error, len(containers))
+	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
 	for i, c := range containers {
 		log.WithFields(log.Fields{
@@ -192,9 +177,9 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errors[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
-			if errors[i] != nil {
-				log.WithError(errors[i]).Error("failed to set network rate for container")
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			if errs[i] != nil {
+				log.WithError(errs[i]).Debug("failed to set network rate for container")
 			}
 		}(i, c)
 	}
@@ -210,13 +195,12 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, e := range errors {
+	for _, err := range errs {
 		// take first found error
-		if e != nil {
-			err = e
-			break
+		if err != nil {
+			return errors.Wrap(err, "failed to set network rate for one or more containers")
 		}
 	}
 
-	return err
+	return nil
 }

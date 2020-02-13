@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
-	"github.com/alexei-led/pumba/pkg/util"
 	types "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -83,7 +82,7 @@ func TestListContainers_ListError(t *testing.T) {
 	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "oops")
+	assert.EqualError(t, err, "failed to list containers: oops")
 	api.AssertExpectations(t)
 }
 
@@ -100,7 +99,7 @@ func TestListContainers_InspectContainerError(t *testing.T) {
 	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "uh-oh")
+	assert.EqualError(t, err, "failed to inspect container: uh-oh")
 	api.AssertExpectations(t)
 }
 
@@ -120,7 +119,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "whoops")
+	assert.EqualError(t, err, "failed to inspect container image: whoops")
 	api.AssertExpectations(t)
 }
 
@@ -263,7 +262,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "whoops")
+	assert.EqualError(t, err, "failed to kill container: whoops")
 	api.AssertExpectations(t)
 }
 
@@ -473,7 +472,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd5").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{util.ParseCIDR("10.10.0.1")}, 1*time.Millisecond, "", false, false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 0, 1}, Mask: net.IPMask{255, 255, 255, 255}}}, 1*time.Millisecond, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

@@ -210,8 +210,8 @@ func before(c *cli.Context) error {
 		return err
 	}
 	// create new Docker client
-	chaos.DockerClient = container.NewClient(c.GlobalString("host"), tls)
-	return nil
+	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tls)
+	return err
 }
 
 func handleSignals() context.Context {
@@ -225,7 +225,7 @@ func handleSignals() context.Context {
 	go func() {
 		defer cancel()
 		sid := <-sig
-		log.Debugf("Received signal: %d", sid)
+		log.Debugf("Received signal: %d\n", sid)
 		log.Debug("Canceling running chaos commands ...")
 		log.Debug("Gracefully exiting after some cleanup ...")
 	}()

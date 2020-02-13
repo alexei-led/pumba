@@ -10,7 +10,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -55,11 +54,14 @@ func TestNewDelayCommand(t *testing.T) {
 				limit:        2,
 			},
 			want: &DelayCommand{
-				client:       nil,
-				names:        []string{"n1", "n2"},
-				pattern:      "re2:test",
-				iface:        "testIface",
-				ips:          []*net.IPNet{util.ParseCIDR("1.2.3.4"), util.ParseCIDR("5.6.7.8")},
+				client:  nil,
+				names:   []string{"n1", "n2"},
+				pattern: "re2:test",
+				iface:   "testIface",
+				ips: []*net.IPNet{
+					&net.IPNet{IP: net.IP{1, 2, 3, 4}, Mask: net.IPMask{255, 255, 255, 255}},
+					&net.IPNet{IP: net.IP{5, 6, 7, 8}, Mask: net.IPMask{255, 255, 255, 255}},
+				},
 				duration:     30 * time.Second,
 				time:         10,
 				jitter:       2,
@@ -236,7 +238,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1"},
 				iface:        "eth0",
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.0/24")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 255, 255, 255}}},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -251,7 +253,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1"},
 				iface:        "eth0",
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -266,7 +268,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1", "c2", "c3"},
 				iface:        "eth0",
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -281,7 +283,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1", "c2", "c3"},
 				iface:        "eth0",
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -311,7 +313,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names:        []string{"c1", "c2", "c3"},
 				iface:        "eth0",
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,

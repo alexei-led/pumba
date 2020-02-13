@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -43,7 +42,7 @@ func Test_runNetem(t *testing.T) {
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -57,7 +56,7 @@ func Test_runNetem(t *testing.T) {
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.0.0/16")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 0, 255, 255}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -71,7 +70,7 @@ func Test_runNetem(t *testing.T) {
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -86,7 +85,7 @@ func Test_runNetem(t *testing.T) {
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -102,7 +101,7 @@ func Test_runNetem(t *testing.T) {
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{util.ParseCIDR("10.10.10.10")},
+				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},

@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -54,14 +54,6 @@ func NewLossGECommand(client container.Client,
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// log error
-	var err error
-	defer func() {
-		if err != nil {
-			log.WithError(err).Error("failed to construct Netem Loss GEModel Command")
-		}
-	}()
-
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -82,36 +74,27 @@ func NewLossGECommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip := util.ParseCIDR(str)
-		if ip == nil {
-			err = fmt.Errorf("bad target: '%s' is not a valid IP", str)
+		ip, err := util.ParseCIDR(str)
+		if err != nil {
 			return nil, err
 		}
 		ips = append(ips, ip)
 	}
 	// get pg - Good State transition probability
 	if pg < 0.0 || pg > 100.0 {
-		err = errors.New("Invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
 	}
 	// get pb - Bad State transition probability
 	if pb < 0.0 || pb > 100.0 {
-		err = errors.New("Invalid pb (Bad State) transition probability: must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid pb (Bad State) transition probability: must be between 0.0 and 100.0")
 	}
 	// get (1-h) - loss probability in Bad state
 	if oneH < 0.0 || oneH > 100.0 {
-		err = errors.New("Invalid loss probability: must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid loss probability: must be between 0.0 and 100.0")
 	}
 	// get (1-k) - loss probability in Good state
 	if oneK < 0.0 || oneK > 100.0 {
-		err = errors.New("Invalid loss probability: must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid loss probability: must be between 0.0 and 100.0")
 	}
 
 	return &LossGECommand{
@@ -141,10 +124,10 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 		"pattern": n.pattern,
 		"labels":  n.labels,
 		"limit":   n.limit,
+		"random":  random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -154,7 +137,6 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -168,7 +150,7 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
-	errors := make([]error, len(containers))
+	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
 	for i, c := range containers {
 		log.WithFields(log.Fields{
@@ -179,9 +161,9 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errors[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
-			if errors[i] != nil {
-				log.WithError(errors[i]).Error("failed to set packet loss for container")
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			if errs[i] != nil {
+				log.WithError(errs[i]).Debug("failed to set packet loss for container")
 			}
 		}(i, c)
 	}
@@ -197,13 +179,12 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, e := range errors {
+	for _, err := range errs {
 		// take first found error
-		if e != nil {
-			err = e
-			break
+		if err != nil {
+			return errors.Wrap(err, "failed to add packet loss (Gilbert-Elliot model) for one or more containers")
 		}
 	}
 
-	return err
+	return nil
 }

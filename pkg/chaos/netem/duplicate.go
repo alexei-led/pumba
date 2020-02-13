@@ -50,14 +50,6 @@ func NewDuplicateCommand(client container.Client,
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// log error
-	var err error
-	defer func() {
-		if err != nil {
-			log.WithError(err).Error("failed to construct Netem Duplicate Command")
-		}
-	}()
-
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -78,22 +70,19 @@ func NewDuplicateCommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip := util.ParseCIDR(str)
-		if ip == nil {
-			err = fmt.Errorf("bad target: '%s' is not a valid IP", str)
+		ip, err := util.ParseCIDR(str)
+		if err != nil {
 			return nil, err
 		}
 		ips = append(ips, ip)
 	}
 	// get netem duplicate percent
 	if percent < 0.0 || percent > 100.0 {
-		err = errors.New("invalid duplicate percent: must be between 0.0 and 100.0")
-		return nil, err
+		return nil, errors.New("invalid duplicate percent: must be between 0.0 and 100.0")
 	}
 	// get netem duplicate variation
 	if correlation < 0.0 || correlation > 100.0 {
-		err = errors.New("invalid duplicate correlation: must be between 0.0 and 100.0")
-		return nil, err
+		return nil, errors.New("invalid duplicate correlation: must be between 0.0 and 100.0")
 	}
 
 	return &DuplicateCommand{

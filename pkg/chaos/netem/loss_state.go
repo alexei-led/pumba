@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -56,14 +56,6 @@ func NewLossStateCommand(client container.Client,
 	limit int, // limit chaos to containers
 	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// log error
-	var err error
-	defer func() {
-		if err != nil {
-			log.WithError(err).Error("failed to construct Netem Loss State Command")
-		}
-	}()
-
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -78,15 +70,13 @@ func NewLossStateCommand(client container.Client,
 	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9_-]*")
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		err = fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
-		return nil, err
+		return nil, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip := util.ParseCIDR(str)
-		if ip == nil {
-			err = fmt.Errorf("bad target: '%s' is not a valid IP", str)
+		ip, err := util.ParseCIDR(str)
+		if err != nil {
 			return nil, err
 		}
 		ips = append(ips, ip)
@@ -94,33 +84,23 @@ func NewLossStateCommand(client container.Client,
 
 	// validate p13
 	if p13 < 0.0 || p13 > 100.0 {
-		err = errors.New("Invalid p13 percentage: : must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid p13 percentage: : must be between 0.0 and 100.0")
 	}
 	// validate p31
 	if p31 < 0.0 || p31 > 100.0 {
-		err = errors.New("Invalid p31 percentage: : must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid p31 percentage: : must be between 0.0 and 100.0")
 	}
 	// validate p32
 	if p32 < 0.0 || p32 > 100.0 {
-		err = errors.New("Invalid p32 percentage: : must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid p32 percentage: : must be between 0.0 and 100.0")
 	}
 	// vaidate p23
 	if p23 < 0.0 || p23 > 100.0 {
-		err = errors.New("Invalid p23 percentage: : must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid p23 percentage: : must be between 0.0 and 100.0")
 	}
 	// validate p14
 	if p14 < 0.0 || p14 > 100.0 {
-		err = errors.New("Invalid p14 percentage: : must be between 0.0 and 100.0")
-		log.Error(err)
-		return nil, err
+		return nil, errors.New("Invalid p14 percentage: : must be between 0.0 and 100.0")
 	}
 
 	return &LossStateCommand{
@@ -151,10 +131,10 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 		"pattern": n.pattern,
 		"labels":  n.labels,
 		"limit":   n.limit,
+		"random":  random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -164,7 +144,6 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -179,7 +158,7 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
-	errors := make([]error, len(containers))
+	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
 	for i, c := range containers {
 		log.WithFields(log.Fields{
@@ -190,9 +169,9 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errors[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
-			if errors[i] != nil {
-				log.WithError(errors[i]).Error("failed to set packet loss for container")
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			if errs[i] != nil {
+				log.WithError(errs[i]).Debug("failed to set packet loss for container")
 			}
 		}(i, c)
 	}
@@ -208,13 +187,12 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, e := range errors {
+	for _, err := range errs {
 		// take first found error
-		if e != nil {
-			err = e
-			break
+		if err != nil {
+			return errors.Wrap(err, "failed to add packet loss (4-state Markov model) for one or more containers")
 		}
 	}
 
-	return err
+	return nil
 }
