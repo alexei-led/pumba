@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -68,7 +67,7 @@ func NewKillCommand(client container.Client, names []string, pattern string, lab
 		kill.signal = DefaultKillSignal
 	}
 	if _, ok := LinuxSignals[kill.signal]; !ok {
-		return nil, fmt.Errorf("undefined Linux signal: %s", signal)
+		return nil, errors.Errorf("undefined Linux signal: %s", signal)
 	}
 	return kill, nil
 }

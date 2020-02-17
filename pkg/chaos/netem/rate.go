@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"regexp"
 	"strconv"
@@ -22,7 +21,7 @@ func parseRate(rate string) (string, error) {
 	reRate := regexp.MustCompile("[0-9]+[gmk]?bit")
 	validRate := reRate.FindString(rate)
 	if rate != validRate {
-		return "", fmt.Errorf("Invalid rate. Must match '%s'", reRate.String())
+		return "", errors.Errorf("Invalid rate. Must match '%s'", reRate.String())
 	}
 	return rate, nil
 }
@@ -78,7 +77,7 @@ func NewRateCommand(client container.Client,
 	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9_-]*")
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		return nil, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
+		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 	// validate ips
 	var ips []*net.IPNet

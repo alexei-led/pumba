@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"regexp"
 	"strconv"
@@ -68,7 +67,7 @@ func NewLossGECommand(client container.Client,
 	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9_-]*")
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		err = fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
+		err = errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
 		return nil, err
 	}
 	// validate ips
