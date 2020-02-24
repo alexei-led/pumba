@@ -89,8 +89,9 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 		return err
 	}
 	if len(containers) == 0 {
-		log.Warning("no containers to kill")
-		return nil
+		err := fmt.Errorf("no containers matching names = %s, pattern = %s, labels = %s", k.names, k.pattern, k.labels)
+		log.WithError(err).Error("no containers to kill")
+		return err
 	}
 
 	// select single random container from matching container and replace list with selected item

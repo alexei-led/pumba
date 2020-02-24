@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -42,8 +43,9 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 		return err
 	}
 	if len(containers) == 0 {
-		log.Warning("no containers to remove")
-		return nil
+		err := fmt.Errorf("no containers matching names = %s, pattern = %s, labels = %s", r.names, r.pattern, r.labels)
+		log.WithError(err).Error("no containers to remove")
+		return err
 	}
 
 	// select single random container from matching container and replace list with selected item

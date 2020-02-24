@@ -83,6 +83,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
+			wantErr: true,
 		},
 		{
 			name: "error listing containers",

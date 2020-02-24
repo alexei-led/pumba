@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -52,8 +53,9 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 		return err
 	}
 	if len(containers) == 0 {
-		log.Warning("no containers to stop")
-		return nil
+		err := fmt.Errorf("no containers matching names = %s, pattern = %s, labels = %s", p.names, p.pattern, p.labels)
+		log.WithError(err).Error("no containers to pause")
+		return err
 	}
 
 	// select single random container from matching container and replace list with selected item
