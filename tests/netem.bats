@@ -18,8 +18,8 @@
 
 @test "Netem Delay 200ms" {
   run pumba netem --duration 200ms delay --time 100 test
-  [ $status -eq 0 ]
-  [[ $output =~ "no containers found" ]]
+  [ $status -eq 1 ]
+  [[ $output =~ "no containers" ]]
 }
 
 @test "Netem Delay 200ms External Image" {

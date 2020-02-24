@@ -297,6 +297,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1"},
 			},
+			wantErr: true,
 		},
 		{
 			name: "error listing containers",

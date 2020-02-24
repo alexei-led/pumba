@@ -128,8 +128,9 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 		return err
 	}
 	if len(containers) == 0 {
-		log.Warning("no containers found")
-		return nil
+		err := fmt.Errorf("no containers matching names = %s, pattern = %s, labels = %s", n.names, n.pattern, n.labels)
+		log.WithError(err).Error("no containers to netem duplicate")
+		return err
 	}
 
 	// select single random container from matching container and replace list with selected item
