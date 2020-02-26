@@ -148,7 +148,7 @@ func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 Container, _a2
 }
 
 // StressContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6
-func (_m *MockClient) StressContainer(_a0 context.Context, _a1 Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool) (string, error, <-chan string, <-chan error) {
+func (_m *MockClient) StressContainer(_a0 context.Context, _a1 Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool) (string, <-chan string, <-chan error, error) {
 	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 
 	var r0 string
@@ -158,29 +158,29 @@ func (_m *MockClient) StressContainer(_a0 context.Context, _a1 Container, _a2 []
 		r0 = ret.Get(0).(string)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, Container, []string, string, bool, time.Duration, bool) error); ok {
+	var r1 <-chan string
+	if rf, ok := ret.Get(1).(func(context.Context, Container, []string, string, bool, time.Duration, bool) <-chan string); ok {
 		r1 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(<-chan string)
+		}
 	}
 
-	var r2 <-chan string
-	if rf, ok := ret.Get(2).(func(context.Context, Container, []string, string, bool, time.Duration, bool) <-chan string); ok {
+	var r2 <-chan error
+	if rf, ok := ret.Get(2).(func(context.Context, Container, []string, string, bool, time.Duration, bool) <-chan error); ok {
 		r2 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 	} else {
 		if ret.Get(2) != nil {
-			r2 = ret.Get(2).(<-chan string)
+			r2 = ret.Get(2).(<-chan error)
 		}
 	}
 
-	var r3 <-chan error
-	if rf, ok := ret.Get(3).(func(context.Context, Container, []string, string, bool, time.Duration, bool) <-chan error); ok {
+	var r3 error
+	if rf, ok := ret.Get(3).(func(context.Context, Container, []string, string, bool, time.Duration, bool) error); ok {
 		r3 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 	} else {
-		if ret.Get(3) != nil {
-			r3 = ret.Get(3).(<-chan error)
-		}
+		r3 = ret.Error(3)
 	}
 
 	return r0, r1, r2, r3

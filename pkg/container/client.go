@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -42,7 +41,7 @@ type Client interface {
 	PauseContainer(context.Context, Container, bool) error
 	UnpauseContainer(context.Context, Container, bool) error
 	StartContainer(context.Context, Container, bool) error
-	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) (string, error, <-chan string, <-chan error)
+	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
 	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
@@ -270,7 +269,7 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dr
 	return nil
 }
 
-func (client dockerClient) StressContainer(ctx context.Context, c Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, error, <-chan string, <-chan error) {
+func (client dockerClient) StressContainer(ctx context.Context, c Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"name":      c.Name(),
 		"id":        c.ID(),
@@ -522,7 +521,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target Contai
 }
 
 // execute a stress-ng command in stress-ng Docker container in target container cgroup
-func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, image string, pull bool) (string, error, <-chan string, <-chan error) {
+func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, image string, pull bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"target":    targetID,
 		"stressors": stressors,
@@ -569,7 +568,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		log.WithField("image", config.Image).Debug("pulling stress-ng image")
 		events, err := client.imageAPI.ImagePull(ctx, config.Image, types.ImagePullOptions{})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to pull stress-ng image"), output, outerr
+			close(outerr)
+			close(output)
+			return "", output, outerr, errors.Wrap(err, "failed to pull stress-ng image")
 		}
 		defer events.Close()
 		d := json.NewDecoder(events)
@@ -579,7 +580,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 				if err == io.EOF {
 					break
 				}
-				return "", errors.Wrap(err, "failed to decode docker pull result"), output, outerr
+				close(outerr)
+				close(output)
+				return "", output, outerr, errors.Wrap(err, "failed to decode docker pull result")
 			}
 			log.Debug(pullResponse)
 		}
@@ -588,7 +591,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	log.WithField("image", config.Image).Debug("creating stress-ng container")
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create stress-ng container"), output, outerr
+		close(outerr)
+		close(output)
+		return "", output, outerr, errors.Wrap(err, "failed to create stress-ng container")
 	}
 	// attach to stress-ng container, capturing stdout and stderr
 	opts := types.ContainerAttachOptions{
@@ -599,8 +604,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	}
 	attach, err := client.containerAPI.ContainerAttach(ctx, createResponse.ID, opts)
 	if err != nil {
-		fmt.Println(err)
-		return "", errors.Wrap(err, "failed to attach to stress-ng container"), output, outerr
+		close(outerr)
+		close(output)
+		return "", output, outerr, errors.Wrap(err, "failed to attach to stress-ng container")
 	}
 	// copy stderr and stdout from attached reader
 	go func() {
@@ -630,9 +636,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	log.WithField("id", createResponse.ID).Debug("stress-ng container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
 	if err != nil {
-		return createResponse.ID, errors.Wrap(err, "failed to start stress-ng container"), output, outerr
+		return createResponse.ID, output, outerr, errors.Wrap(err, "failed to start stress-ng container")
 	}
-	return createResponse.ID, nil, output, outerr
+	return createResponse.ID, output, outerr, nil
 }
 
 // execute command on container

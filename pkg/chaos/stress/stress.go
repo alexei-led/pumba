@@ -103,7 +103,7 @@ func (s *StressCommand) stressContainer(ctx context.Context, container container
 		"stress-ng image": s.image,
 		"pull image":      s.pull,
 	}).Debug("stress testing container for duration")
-	stress, err, output, outerr := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
+	stress, output, outerr, err := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 	if err != nil {
 		return err
 	}

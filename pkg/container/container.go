@@ -2,16 +2,21 @@ package container
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/docker/docker/api/types"
 )
 
 const (
-	pumbaLabel = "com.gaiaadm.pumba"
+	pumbaLabel     = "com.gaiaadm.pumba"
 	pumbaSkipLabel = "com.gaiaadm.pumba.skip"
-	signalLabel = "com.gaiaadm.pumba.stop-signal"
+	signalLabel    = "com.gaiaadm.pumba.stop-signal"
 )
+
+type conn interface {
+	net.Conn
+}
 
 // Container represents a running Docker container.
 type Container struct {
