@@ -17,8 +17,6 @@ import (
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/logger"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/urfave/cli"
@@ -200,18 +198,14 @@ func before(c *cli.Context) error {
 			Username:       "pumba_bot",
 		})
 	}
-	// trace function calls
-	traceHook := logger.NewHook()
-	traceHook.AppName = "pumba"
-	log.AddHook(traceHook)
 	// Set-up container client
 	tls, err := tlsConfig(c)
 	if err != nil {
 		return err
 	}
 	// create new Docker client
-	chaos.DockerClient = container.NewClient(c.GlobalString("host"), tls)
-	return nil
+	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tls)
+	return err
 }
 
 func handleSignals() context.Context {
@@ -225,7 +219,7 @@ func handleSignals() context.Context {
 	go func() {
 		defer cancel()
 		sid := <-sig
-		log.Debugf("Received signal: %d", sid)
+		log.Debugf("Received signal: %d\n", sid)
 		log.Debug("Canceling running chaos commands ...")
 		log.Debug("Gracefully exiting after some cleanup ...")
 	}()

@@ -1,21 +1,22 @@
 package container
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
-	"github.com/alexei-led/pumba/pkg/util"
 	types "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -83,7 +84,7 @@ func TestListContainers_ListError(t *testing.T) {
 	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "oops")
+	assert.EqualError(t, err, "failed to list containers: oops")
 	api.AssertExpectations(t)
 }
 
@@ -100,7 +101,7 @@ func TestListContainers_InspectContainerError(t *testing.T) {
 	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "uh-oh")
+	assert.EqualError(t, err, "failed to inspect container: uh-oh")
 	api.AssertExpectations(t)
 }
 
@@ -120,7 +121,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	_, err := client.ListContainers(context.TODO(), mock_allContainers, ListOpts{All: true})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "whoops")
+	assert.EqualError(t, err, "failed to inspect container image: whoops")
 	api.AssertExpectations(t)
 }
 
@@ -263,7 +264,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "whoops")
+	assert.EqualError(t, err, "failed to kill container: whoops")
 	api.AssertExpectations(t)
 }
 
@@ -473,7 +474,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd5").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{util.ParseCIDR("10.10.0.1")}, 1*time.Millisecond, "", false, false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 0, 1}, Mask: net.IPMask{255, 255, 255, 255}}}, 1*time.Millisecond, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -740,6 +741,224 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				return
 			}
 			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func Test_dockerClient_stressContainerCommand(t *testing.T) {
+	type args struct {
+		ctx       context.Context
+		targetID  string
+		stressors []string
+		image     string
+		pull      bool
+	}
+	tests := []struct {
+		name       string
+		args       args
+		mockInit   func(context.Context, *mocks.APIClient, *mockConn, string, []string, string, bool)
+		want       string
+		wantOutput string
+		wantErr    bool
+		wantErrCh  bool
+	}{
+		{
+			name: "stress test with pull image",
+			args: args{
+				ctx:       context.TODO(),
+				targetID:  "123",
+				stressors: []string{"--cpu", "4"},
+				image:     "test/stress-ng",
+				pull:      true,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				// pull response
+				pullResponse := ImagePullResponse{
+					Status:   "ok",
+					Error:    "no error",
+					Progress: "done",
+					ProgressDetail: struct {
+						Current int `json:"current"`
+						Total   int `json:"total"`
+					}{
+						Current: 100,
+						Total:   100,
+					},
+				}
+				pullResponseByte, _ := json.Marshal(pullResponse)
+				readerResponse := bytes.NewReader(pullResponseByte)
+				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(nil)
+				inspect := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						State: &types.ContainerState{},
+					},
+				}
+				conn.On("Close").Return(nil)
+				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+		},
+		{
+			name: "stress test fail to pull image",
+			args: args{
+				ctx:   context.TODO(),
+				image: "test/stress-ng",
+				pull:  true,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(ioutil.NopCloser(bytes.NewReader([]byte("{}"))), errors.New("failed to pull image"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "stress test without pull image",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(nil)
+				inspect := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						State: &types.ContainerState{},
+					},
+				}
+				conn.On("Close").Return(nil)
+				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+		},
+		{
+			name: "stress-ng exit with error",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(nil)
+				inspect := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						State: &types.ContainerState{ExitCode: 1},
+					},
+				}
+				conn.On("Close").Return(nil)
+				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
+			},
+			want:      "000",
+			wantErrCh: true,
+		},
+		{
+			name: "fail to inspect stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(nil)
+				conn.On("Close").Return(nil)
+				engine.On("ContainerInspect", ctx, "000").Return(types.ContainerJSON{}, errors.New("filed to inspect"))
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+			wantErrCh:  true,
+		},
+		{
+			name: "fail to start stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(errors.New("failed to start"))
+				conn.On("Close").Return(nil)
+				inspect := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						State: &types.ContainerState{},
+					},
+				}
+				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+			wantErr:    true,
+		},
+		{
+			name: "fail to attach to stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{}, errors.New("failed to attach"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail to create to stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{}, errors.New("failed to create"))
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := NewMockEngine()
+			mConn := &mockConn{}
+			client := dockerClient{
+				containerAPI: mockClient,
+				imageAPI:     mockClient,
+			}
+			// init mock engine
+			tt.mockInit(tt.args.ctx, mockClient, mConn, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
+			// test stress command
+			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.stressContainerCommand() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("dockerClient.stressContainerCommand() got = %v, want %v", got, tt.want)
+			}
+			select {
+			case output := <-got1:
+				if output != tt.wantOutput {
+					t.Errorf("dockerClient.stressContainerCommand() got = %v, from output channel, want %v", output, tt.wantOutput)
+				}
+			case err := <-got2:
+				if (err != nil) != tt.wantErrCh {
+					t.Errorf("dockerClient.stressContainerCommand() error in error channel = %v, wantErrCh %v", err, tt.wantErrCh)
+				}
+			}
+			mockClient.AssertExpectations(t)
+			mConn.AssertExpectations(t)
 		})
 	}
 }

@@ -8,7 +8,9 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // StressCommand `stress-ng` command
@@ -60,10 +62,10 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 		"duration":  s.duration,
 		"stressors": s.stressors,
 		"limit":     s.limit,
+		"random":    random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -73,59 +75,59 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
 	}
 
-	// keep stressed containers
-	stressedContainers := []stressedContainer{}
 	// stress containers
-	for _, container := range containers {
-		log.WithFields(log.Fields{
-			"container":       container.ID(),
-			"duration":        s.duration,
-			"stressors":       s.stressors,
-			"stress-ng image": s.image,
-			"pull image":      s.pull,
-		}).Debug("stress testing container for duration")
-		stress, err := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
-		if err != nil {
-			log.WithError(err).Error("failed to stress container")
-			break
-		}
-		stressedContainers = append(stressedContainers, stressedContainer{stress, container})
+	var eg errgroup.Group
+	for _, c := range containers {
+		container := c
+		eg.Go(func() error {
+			return s.stressContainer(ctx, container)
+		})
 	}
-
-	// if there are stressed containers stop stress-ng and remove it from containers
-	if len(stressedContainers) > 0 {
-		// wait for specified duration and then stop stress-ng containers or stop stress-ng on ctx.Done()
-		select {
-		case <-ctx.Done():
-			log.Debug("stop stress test on containers by stop event")
-			// NOTE: use different context to stop netem since parent context is canceled
-			err = s.stopStressContainers(context.Background(), stressedContainers)
-		case <-time.After(s.duration):
-			log.WithField("duration", s.duration).Debug("stop stress containers after duration")
-			err = s.stopStressContainers(ctx, stressedContainers)
-		}
+	// wait till all stress tests complete
+	if err := eg.Wait(); err != nil {
+		return errors.Wrap(err, "one or more stress test failed")
 	}
-	if err != nil {
-		log.WithError(err).Error("failed to unpause paused containers")
-	}
-	return err
+	return nil
 }
 
-// stop stress-ng containers, one by one
-func (s *StressCommand) stopStressContainers(ctx context.Context, containers []stressedContainer) error {
-	var err error
-	for _, exec := range containers {
-		log.WithField("container", exec.container.ID).Debug("stop stress for container")
-		if e := s.client.StopContainerWithID(ctx, exec.stress, defaultStopTimeout, s.dryRun); e != nil {
-			log.WithError(e).Error("failed to stop stress-ng container")
-			err = e
-		}
+func (s *StressCommand) stressContainer(ctx context.Context, container container.Container) error {
+	log.WithFields(log.Fields{
+		"container":       container.ID(),
+		"duration":        s.duration,
+		"stressors":       s.stressors,
+		"stress-ng image": s.image,
+		"pull image":      s.pull,
+	}).Debug("stress testing container for duration")
+	stress, output, outerr, err := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
+	if err != nil {
+		return err
 	}
-	return err // last non nil error
+	select {
+	case out := <-output:
+		log.WithField("stdout", out).Debug("stress-ng completed")
+		break
+	case e := <-outerr:
+		return errors.Wrap(e, "stress-ng failed with error")
+	case <-ctx.Done():
+		log.Debug("stop stress test on containers by stop event")
+		// NOTE: use different context to stop netem since parent context is canceled
+		err = s.client.StopContainerWithID(context.Background(), stress, defaultStopTimeout, s.dryRun)
+		if err != nil {
+			return errors.Wrap(err, "failed to stop stress-ng container")
+		}
+		break
+	case <-time.After(s.duration):
+		log.WithField("duration", s.duration).Debug("stop stress containers after duration")
+		err = s.client.StopContainerWithID(ctx, stress, defaultStopTimeout, s.dryRun)
+		if err != nil {
+			return errors.Wrap(err, "failed to stop stress-ng container")
+		}
+		break
+	}
+	return nil
 }

@@ -1,8 +1,9 @@
 package container
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // ByCreated allows a list of Container structs to be sorted by the container's
@@ -60,7 +61,7 @@ func (ds *dependencySorter) Sort(containers []Container) ([]Container, error) {
 func (ds *dependencySorter) visit(c Container) error {
 
 	if _, ok := ds.marked[c.Name()]; ok {
-		return fmt.Errorf("Circular reference to %s", c.Name())
+		return errors.Errorf("Circular reference to %s", c.Name())
 	}
 
 	// Mark any visited node so that circular references can be detected

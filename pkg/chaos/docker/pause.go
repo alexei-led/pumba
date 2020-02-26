@@ -7,6 +7,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,10 +46,10 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 		"labels":   p.labels,
 		"duration": p.duration,
 		"limit":    p.limit,
+		"random":   random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, p.client, p.names, p.pattern, p.labels, p.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -58,7 +59,6 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -74,7 +74,7 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("pausing container for duration")
 		err = p.client.PauseContainer(ctx, container, p.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to pause container")
+			log.WithError(err).Warn("failed to pause container")
 			break
 		}
 		pausedContainers = append(pausedContainers, container)
@@ -93,9 +93,6 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 			err = p.unpauseContainers(ctx, pausedContainers)
 		}
 	}
-	if err != nil {
-		log.WithError(err).Error("failed to unpause paused containers")
-	}
 	return err
 }
 
@@ -105,8 +102,7 @@ func (p *PauseCommand) unpauseContainers(ctx context.Context, containers []conta
 	for _, container := range containers {
 		log.WithField("container", container).Debug("unpause container")
 		if e := p.client.UnpauseContainer(ctx, container, p.dryRun); e != nil {
-			log.WithError(e).Error("failed to unpause container")
-			err = e
+			err = errors.Wrap(e, "failed to unpause container")
 		}
 	}
 	return err // last non nil error

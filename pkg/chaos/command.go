@@ -56,7 +56,6 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 	// parse interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
-		log.WithError(err).Error("failed to parse interval")
 		return err
 	}
 
@@ -76,7 +75,6 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 	for {
 		// run chaos function
 		if err := command.Run(ctx, random); err != nil {
-			log.WithError(err).Error("failed to run chaos command")
 			return err
 		}
 		// wait for next timer tick or cancel

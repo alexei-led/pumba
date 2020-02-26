@@ -2,10 +2,10 @@ package docker
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -67,9 +67,7 @@ func NewKillCommand(client container.Client, names []string, pattern string, lab
 		kill.signal = DefaultKillSignal
 	}
 	if _, ok := LinuxSignals[kill.signal]; !ok {
-		err := fmt.Errorf("undefined Linux signal: %s", signal)
-		log.WithError(err).Error("bad value for Linux signal")
-		return nil, err
+		return nil, errors.Errorf("undefined Linux signal: %s", signal)
 	}
 	return kill, nil
 }
@@ -82,10 +80,10 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 		"pattern": k.pattern,
 		"labels":  k.labels,
 		"limit":   k.limit,
+		"random":  random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -95,7 +93,6 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -108,8 +105,7 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("killing container")
 		err := k.client.KillContainer(ctx, container, k.signal, k.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to kill container")
-			return err
+			return errors.Wrap(err, "failed to kill container")
 		}
 	}
 	return nil

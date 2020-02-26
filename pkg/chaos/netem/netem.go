@@ -24,7 +24,6 @@ func runNetem(ctx context.Context, client container.Client, container container.
 	var err error
 	err = client.NetemContainer(ctx, container, netInterface, cmd, ips, duration, tcimage, pull, dryRun)
 	if err != nil {
-		log.WithError(err).Error("failed to start netem for container")
 		return err
 	}
 

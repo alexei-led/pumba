@@ -7,6 +7,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -56,10 +57,10 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 		"duration": s.duration,
 		"waitTime": s.waitTime,
 		"limit":    s.limit,
+		"random":   random,
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		log.WithError(err).Error("failed to list containers")
 		return err
 	}
 	if len(containers) == 0 {
@@ -69,7 +70,6 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 
 	// select single random container from matching container and replace list with selected item
 	if random {
-		log.Debug("selecting single random container")
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []container.Container{*c}
 		}
@@ -85,7 +85,7 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("stopping container")
 		err = s.client.StopContainer(ctx, container, s.waitTime, s.dryRun)
 		if err != nil {
-			log.WithError(err).Error("failed to stop container")
+			log.WithError(err).Warn("failed to stop container")
 			break
 		}
 		stoppedContainers = append(stoppedContainers, container)
@@ -104,9 +104,6 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 			err = s.startStoppedContainers(ctx, stoppedContainers)
 		}
 	}
-	if err != nil {
-		log.WithError(err).Error("failed to start stopped containers")
-	}
 	return err
 }
 
@@ -116,8 +113,7 @@ func (s *StopCommand) startStoppedContainers(ctx context.Context, containers []c
 	for _, container := range containers {
 		log.WithField("container", container).Debug("start stopped container")
 		if e := s.client.StartContainer(ctx, container, s.dryRun); e != nil {
-			log.WithError(e).Error("failed to start stopped container")
-			err = e
+			err = errors.Wrap(e, "failed to start stopped container")
 		}
 	}
 	return err // last non nil error
