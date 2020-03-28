@@ -1,8 +1,9 @@
 package container
 
 import (
-	"testing"
 	"sort"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,13 +47,13 @@ func TestSortByDependencies_Error(t *testing.T) {
 
 func containerCreatedAt(creationDate string) Container {
 	return Container{
-		containerInfo: ContainerDetailsResponse(AsMap("Created", creationDate)),
+		containerInfo: DetailsResponse(AsMap("Created", creationDate)),
 	}
 }
 
 func containerWithLinks(name string, links []string) Container {
 	return Container{
-		containerInfo: ContainerDetailsResponse(AsMap(
+		containerInfo: DetailsResponse(AsMap(
 			"Name", name,
 			"Links", links,
 		)),

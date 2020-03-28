@@ -610,9 +610,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	}
 	// copy stderr and stdout from attached reader
 	go func() {
-		defer attach.Close()
 		defer close(output)
 		defer close(outerr)
+		defer attach.Close()
 		var stdout bytes.Buffer
 		_, err := io.Copy(&stdout, attach.Reader)
 		if err != nil {
