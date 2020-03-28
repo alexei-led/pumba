@@ -314,14 +314,14 @@ pumba netem --duration 5m delay --time 3000 mydb
 
 ```text
 # add a delay of 3000ms ± 30ms, with the next random element depending 20% on the last one,
-# for all outgoing packets on device `eth1` of all Docker container, with name start with `hp`
+# for all outgoing packets on device `eth1` of all Docker container, with name start with `test`
 # for 5 minutes
 
 pumba netem --duration 5m --interface eth1 delay \
       --time 3000 \
       --jitter 30 \
       --correlation 20 \
-    re2:^hp
+    "re2:^test"
 ```
 
 ```text
@@ -390,10 +390,14 @@ You can provide your own image, but it must include the following tools:
 If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
 
 ```text
-# once in a 10 seconds, try to kill (with `SIGTERM` signal) all containers named **hp(something)**
+# run 10 Docker containers named test_(index)
+for i in `seq 1 10`; do docker run -d --name test_$i --rm alpine tail -f /dev/null; done
+
+# once in a 10 seconds, try to kill (with `SIGKILL` signal) all containers named **test(something)**
 # on same Docker host, where Pumba container is running
 
-$ docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --interval 10s kill --signal SIGTERM ^hp
+$ docker run -it --rm  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --interval=10s --random --log-level=info kill --signal=SIGKILL "re2:^test"
+
 ```
 
 **Note:** from version `0.6` Pumba Docker image is a `scratch` Docker image, that contains only single `pumba` binary file and `ENTRYPOINT` set to the `pumba` command.
