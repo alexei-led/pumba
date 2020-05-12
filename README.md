@@ -54,7 +54,7 @@ GLOBAL OPTIONS:
    --interval value, -i value  recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'
    --label value               filter containers by labels, e.g '--label key=value' (multiple labels supported)
    --random, -r                randomly select single matching container from list of target containers
-   --dry                       dry runl does not create chaos, only logs planned chaos commands
+   --dry-run                   does not create chaos, only logs planned chaos commands
    --help, -h                  show help
    --version, -v               print the version
 ```
