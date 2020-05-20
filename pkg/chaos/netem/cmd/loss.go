@@ -55,6 +55,10 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	iface := c.Parent().String("interface")
 	// get ips list from parent `netem`` command `target` flag
 	ips := c.Parent().StringSlice("target")
+	// get egress port list from parent `netem` command `egressPort` flag
+	sports := c.Parent().String("egressPort")
+	// get ingress port list from parent `netem` command `ingressPort` flag
+	dports := c.Parent().String("ingressPort")
 	// get duration from parent `netem`` command
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
@@ -70,7 +74,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem loss command
-	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, percent, correlation, image, pull, limit, dryRun)
+	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, names, pattern, labels, iface, ips, sports, dports, duration, interval, percent, correlation, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

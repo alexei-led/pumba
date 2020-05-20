@@ -24,6 +24,8 @@ type LossStateCommand struct {
 	labels   []string
 	iface    string
 	ips      []*net.IPNet
+	sports   []string
+	dports   []string
 	duration time.Duration
 	p13      float64
 	p31      float64
@@ -43,6 +45,8 @@ func NewLossStateCommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
+	sportsList string, // list of comma separated target sports
+	dportsList string, // list of comma separated target dports
 	durationStr string, // chaos duration
 	intervalStr string, // repeatable chaos interval
 	p13 float64, // probability to go from state (1) to state (3)
@@ -80,7 +84,16 @@ func NewLossStateCommand(client container.Client,
 		}
 		ips = append(ips, ip)
 	}
-
+	// validate sports
+	sports, err := util.GetPorts(sportsList)
+	if err != nil {
+		return nil, err
+	}
+	// validate dports
+	dports, err := util.GetPorts(dportsList)
+	if err != nil {
+		return nil, err
+	}
 	// validate p13
 	if p13 < 0.0 || p13 > 100.0 {
 		return nil, errors.New("Invalid p13 percentage: : must be between 0.0 and 100.0")
@@ -109,6 +122,8 @@ func NewLossStateCommand(client container.Client,
 		labels:   labels,
 		iface:    iface,
 		ips:      ips,
+		sports:   sports,
+		dports:   dports,
 		duration: duration,
 		p13:      p13,
 		p31:      p31,
@@ -168,7 +183,7 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}

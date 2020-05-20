@@ -20,6 +20,8 @@ func TestNewDelayCommand(t *testing.T) {
 		labels       []string
 		iface        string
 		ipsList      []string
+		sportsList   string
+		dportsList   string
 		durationStr  string
 		intervalStr  string
 		time         int
@@ -44,6 +46,8 @@ func TestNewDelayCommand(t *testing.T) {
 				pattern:      "re2:test",
 				iface:        "testIface",
 				ipsList:      []string{"1.2.3.4", "5.6.7.8"},
+				sportsList:   "0,65535",
+				dportsList:   "33,512",
 				intervalStr:  "1m",
 				durationStr:  "30s",
 				time:         10,
@@ -62,6 +66,8 @@ func TestNewDelayCommand(t *testing.T) {
 					&net.IPNet{IP: net.IP{1, 2, 3, 4}, Mask: net.IPMask{255, 255, 255, 255}},
 					&net.IPNet{IP: net.IP{5, 6, 7, 8}, Mask: net.IPMask{255, 255, 255, 255}},
 				},
+				sports:       []string{"0", "65535"},
+				dports:       []string{"33", "512"},
 				duration:     30 * time.Second,
 				time:         10,
 				jitter:       2,
@@ -120,6 +126,26 @@ func TestNewDelayCommand(t *testing.T) {
 				durationStr: "30s",
 				iface:       "eth0",
 				ipsList:     []string{"1.2.3.4.5.6..."},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid port number: too high",
+			args: args{
+				intervalStr: "1m",
+				durationStr: "30s",
+				iface:       "eth0",
+				sportsList:  "70000",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid port number: non-numerical",
+			args: args{
+				intervalStr: "1m",
+				durationStr: "30s",
+				iface:       "eth0",
+				dportsList:  "!abcd$",
 			},
 			wantErr: true,
 		},
@@ -189,7 +215,7 @@ func TestNewDelayCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// invoke
-			got, err := NewDelayCommand(nil, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.iface, tt.args.ipsList, tt.args.durationStr, tt.args.intervalStr, tt.args.time, tt.args.jitter, tt.args.correlation, tt.args.distribution, tt.args.image, tt.args.pull, tt.args.limit, tt.args.dryRun)
+			got, err := NewDelayCommand(nil, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.iface, tt.args.ipsList, tt.args.sportsList, tt.args.dportsList, tt.args.durationStr, tt.args.intervalStr, tt.args.time, tt.args.jitter, tt.args.correlation, tt.args.distribution, tt.args.image, tt.args.pull, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewDelayCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -211,6 +237,8 @@ func TestDelayCommand_Run(t *testing.T) {
 		pattern      string
 		iface        string
 		ips          []*net.IPNet
+		sports       []string
+		dports       []string
 		duration     time.Duration
 		time         int
 		jitter       int
@@ -239,6 +267,36 @@ func TestDelayCommand_Run(t *testing.T) {
 				names:        []string{"c1"},
 				iface:        "eth0",
 				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 255, 255, 255}}},
+				duration:     10 * time.Microsecond,
+				time:         2,
+				jitter:       1,
+				correlation:  10.0,
+				distribution: "normal",
+			},
+			expected: container.CreateTestContainers(1),
+			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+		},
+		{
+			name: "delay with sport",
+			fields: fields{
+				names:        []string{"c1"},
+				iface:        "eth0",
+				sports:       []string{"33"},
+				duration:     10 * time.Microsecond,
+				time:         2,
+				jitter:       1,
+				correlation:  10.0,
+				distribution: "normal",
+			},
+			expected: container.CreateTestContainers(1),
+			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+		},
+		{
+			name: "delay with dport",
+			fields: fields{
+				names:        []string{"c1"},
+				iface:        "eth0",
+				dports:       []string{"512"},
 				duration:     10 * time.Microsecond,
 				time:         2,
 				jitter:       1,
@@ -335,6 +393,8 @@ func TestDelayCommand_Run(t *testing.T) {
 				pattern:      tt.fields.pattern,
 				iface:        tt.fields.iface,
 				ips:          tt.fields.ips,
+				sports:       tt.fields.sports,
+				dports:       tt.fields.dports,
 				duration:     tt.fields.duration,
 				time:         tt.fields.time,
 				jitter:       tt.fields.jitter,
@@ -356,19 +416,19 @@ func TestDelayCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
-				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
+				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
+				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun)
+						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun)
 						if tt.errs.netemError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
 						} else {
 							call.Return(nil)
 						}
-						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
+						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
 					}
 				}
 			}

@@ -66,6 +66,10 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	iface := c.Parent().String("interface")
 	// get ips list from parent `netem`` command `target` flag
 	ips := c.Parent().StringSlice("target")
+	// get egress port list from parent `netem` command `egressPort` flag
+	sports := c.Parent().String("egressPort")
+	// get ingress port list from parent `netem` command `ingressPort` flag
+	dports := c.Parent().String("ingressPort")
 	// get duration from parent `netem`` command
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
@@ -85,7 +89,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	oneK := c.Float64("one-k")
 
 	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, pg, pb, oneH, oneK, image, pull, limit, dryRun)
+	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, names, pattern, labels, iface, ips, sports, dports, duration, interval, pg, pb, oneH, oneK, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

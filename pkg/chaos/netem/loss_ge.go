@@ -24,6 +24,8 @@ type LossGECommand struct {
 	labels   []string
 	iface    string
 	ips      []*net.IPNet
+	sports   []string
+	dports   []string
 	duration time.Duration
 	pg       float64
 	pb       float64
@@ -42,6 +44,8 @@ func NewLossGECommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
+	sportsList string, // list of comma separated target sports
+	dportsList string, // list of comma separated target dports
 	durationStr string, // chaos duration
 	intervalStr string, // repeatable chaos interval
 	pg float64, // Good State transition probability
@@ -79,6 +83,16 @@ func NewLossGECommand(client container.Client,
 		}
 		ips = append(ips, ip)
 	}
+	// validate sports
+	sports, err := util.GetPorts(sportsList)
+	if err != nil {
+		return nil, err
+	}
+	// validate dports
+	dports, err := util.GetPorts(dportsList)
+	if err != nil {
+		return nil, err
+	}
 	// get pg - Good State transition probability
 	if pg < 0.0 || pg > 100.0 {
 		return nil, errors.New("Invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
@@ -103,6 +117,8 @@ func NewLossGECommand(client container.Client,
 		labels:   labels,
 		iface:    iface,
 		ips:      ips,
+		sports:   sports,
+		dports:   dports,
 		duration: duration,
 		pg:       pg,
 		pb:       pb,
@@ -160,7 +176,7 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.duration, n.image, n.pull, n.dryRun)
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}

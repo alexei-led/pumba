@@ -77,6 +77,10 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	iface := c.Parent().String("interface")
 	// get ips list from parent `netem`` command `target` flag
 	ips := c.Parent().StringSlice("target")
+	// get egress port list from parent `netem` command `egressPort` flag
+	sports := c.Parent().String("egressPort")
+	// get ingress port list from parent `netem` command `ingressPort` flag
+	dports := c.Parent().String("ingressPort")
 	// get duration from parent `netem`` command
 	duration := c.Parent().String("duration")
 	// get traffic control image from parent `netem` command
@@ -98,7 +102,7 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	p14 := c.Float64("p14")
 
 	// init netem loss state command
-	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, labels, iface, ips, duration, interval, p13, p31, p32, p23, p14, image, pull, limit, dryRun)
+	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, names, pattern, labels, iface, ips, sports, dports, duration, interval, p13, p31, p32, p23, p14, image, pull, limit, dryRun)
 	if err != nil {
 		return err
 	}

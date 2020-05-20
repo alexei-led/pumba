@@ -300,6 +300,14 @@ func initializeCLICommands() []cli.Command {
 					Usage: "target IP filter; supports multiple IPs; supports CIDR notation",
 				},
 				cli.StringFlag{
+					Name:  "egressPort",
+					Usage: "target port filter for egress, or sport; supports multiple ports;",
+				},
+				cli.StringFlag{
+					Name:  "ingressPort",
+					Usage: "target port filter for ingress, or dport; supports multiple ports;",
+				},
+				cli.StringFlag{
 					Name:  "tc-image",
 					Usage: "Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'",
 				},

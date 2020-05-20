@@ -1,7 +1,9 @@
 package util
 
 import (
+	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +31,41 @@ func GetIntervalValue(interval string) (time.Duration, error) {
 		return 0, errors.Wrap(err, "failed to parse interval")
 	}
 	return i, nil
+}
+
+// GetPorts will split the string of comma separated ports and return a list of ports
+func GetPorts(ports string) ([]string, error) {
+	portList := strings.Split(ports, ",")
+	// Handle no port case
+	if portList[0] == "" {
+		return nil, nil
+	}
+
+	for _, port := range portList {
+		err := verifyPort(port)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid port specified")
+		}
+	}
+
+	return portList, nil
+}
+
+// verifyPort will make sure the port is numeric and within the correct range
+func verifyPort(port string) error {
+	if port == "" {
+		return nil
+	}
+	portNum, err := strconv.ParseInt(port, 10, 64)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse port as number")
+	}
+	if portNum < 0 || portNum > 65535 {
+		return fmt.Errorf("Port is either below 0 or greater than 65535: " + port)
+	}
+
+	return nil
 }
 
 // GetDurationValue get duration and make sure it's smaller than interval
