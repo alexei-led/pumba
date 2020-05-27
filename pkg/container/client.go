@@ -64,7 +64,7 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 		return nil, err
 	}
 
-	apiClient, err := dockerapi.NewClient(dockerHost, "", httpClient, nil)
+	apiClient, err := dockerapi.NewClientWithOpts(dockerapi.WithHost(dockerHost), dockerapi.WithHTTPClient(httpClient), dockerapi.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
