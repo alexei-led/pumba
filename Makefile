@@ -1,6 +1,6 @@
 MODULE   = $(shell env GO111MODULE=on $(GO) list -m)
 DATE    ?= $(shell date +%FT%T%z)
-VERSION ?= $(shell git describe --tags --always --dirty --match="v*" 2> /dev/null || \
+VERSION ?= $(shell git describe --tags --always --dirty 2> /dev/null || \
 			cat $(CURDIR)/VERSION 2> /dev/null || echo v0)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
