@@ -64,7 +64,7 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 		return nil, err
 	}
 
-	apiClient, err := dockerapi.NewClient(dockerHost, "", httpClient, nil)
+	apiClient, err := dockerapi.NewClientWithOpts(dockerapi.WithHost(dockerHost), dockerapi.WithHTTPClient(httpClient), dockerapi.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
@@ -640,9 +640,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	}
 	// copy stderr and stdout from attached reader
 	go func() {
-		defer attach.Close()
 		defer close(output)
 		defer close(outerr)
+		defer attach.Close()
 		var stdout bytes.Buffer
 		_, err := io.Copy(&stdout, attach.Reader)
 		if err != nil {

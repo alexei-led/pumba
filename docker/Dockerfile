@@ -11,11 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		git \
 		bash \
 	&& rm -rf /var/lib/apt/lists/*
-
-# github-release - Github Release and upload artifacts
-# go-junit-report - convert Go test into junit.xml format
-RUN go get -v github.com/aktau/github-release && \
-    go get -v github.com/jstemmer/go-junit-report
+# copy golangci-lint linter
+COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/bin
 
 #
 # ----- Build and Test Image -----
@@ -23,14 +20,25 @@ RUN go get -v github.com/aktau/github-release && \
 FROM builder as build-and-test
 
 # set working directory
-RUN mkdir -p /go/src/github.com/alexei-led/pumba
-WORKDIR /go/src/github.com/alexei-led/pumba
+RUN mkdir -p /go/src/pumba
+WORKDIR /go/src/pumba
+
+# copy Makefile
+COPY Makefile .
+RUN make build-tools
+
+# copy go.mod/sum
+COPY go.* .
+RUN make dependency
 
 # copy sources
-COPY . .
+COPY mocks ./mocks
+COPY cmd ./cmd
+COPY pkg ./pkg
+COPY VERSION ./VERSION
 
-# run test and calculate coverage
-RUN VERSION=$(cat VERSION) hack/test.sh
+# run lint, test race and calculate coverage
+RUN make lint test-race test-coverage
 
 # `VCS_COMMIT_ID=$(git rev-parse --short HEAD 2>/dev/null)`
 ARG VCS_COMMIT_ID
@@ -42,7 +50,7 @@ ENV VCS_BRANCH_NAME ${VCS_BRANCH_NAME}
 ARG VCS_SLUG
 ENV VCS_SLUG ${VCS_SLUG}
 # bild pumba binary for amd64 linux
-RUN VERSION=$(cat VERSION) hack/build.sh
+RUN make
 
 # upload coverage reports to Codecov.io, if CODECOV_TOKEN set through build-arg
 ARG CODECOV_TOKEN
@@ -56,7 +64,7 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 #
 # ------ Pumba Integration Tests ------
 #
-FROM alpine:3.9 as integration-tests
+FROM alpine:3.11 as integration-tests
 
 # install required packages
 RUN apk add --no-cache bash bats docker iproute2
@@ -66,7 +74,7 @@ COPY ./tests /tests
 COPY VERSION .
 
 # copy compiled binary
-COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /usr/local/bin/pumba
+COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/local/bin/pumba
 
 # mount docker.sock and run pumba tests
 CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
@@ -90,16 +98,16 @@ ARG TAG_MESSAGE
 ARG GITHUB_TOKEN
 
 # build pumba for all platforms
-RUN if [ $RELEASE = true ]; then VERSION=$(cat VERSION) hack/xbuild.sh; fi
+RUN if [ $RELEASE = true ]; make release
 
 # release to GitHub
-RUN if [ $RELEASE = true ]; then hack/github_release.sh alexei-led pumba; fi
+RUN if [ $RELEASE = true ]; make github-release
 
 
 #
 # ------ get latest CA certificates
 #
-FROM alpine:3.9 as certs
+FROM alpine:3.11 as certs
 RUN apk --update add ca-certificates
 
 
@@ -112,6 +120,6 @@ FROM scratch
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # this is the last commabd since it's never cached
-COPY --from=build-and-test /go/src/github.com/alexei-led/pumba/.bin/pumba /pumba
+COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /pumba
 
 ENTRYPOINT ["/pumba"]

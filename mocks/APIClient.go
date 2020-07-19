@@ -40,12 +40,12 @@ type APIClient struct {
 }
 
 // BuildCachePrune provides a mock function with given fields: ctx
-func (_m *APIClient) BuildCachePrune(ctx context.Context) (*types.BuildCachePruneReport, error) {
-	ret := _m.Called(ctx)
+func (_m *APIClient) BuildCachePrune(ctx context.Context, opts types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error) {
+	ret := _m.Called(ctx, opts)
 
 	var r0 *types.BuildCachePruneReport
-	if rf, ok := ret.Get(0).(func(context.Context) *types.BuildCachePruneReport); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, types.BuildCachePruneOptions) *types.BuildCachePruneReport); ok {
+		r0 = rf(ctx, opts)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.BuildCachePruneReport)

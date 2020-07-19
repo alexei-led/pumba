@@ -7,11 +7,13 @@ import (
 	"time"
 )
 
+// ListOpts list options
 type ListOpts struct {
 	All    bool
 	Labels []string
 }
 
+// Filter list filter
 type Filter struct {
 	Names   []string
 	Pattern string
@@ -54,9 +56,8 @@ func applyContainerFilter(filter Filter) FilterFunc {
 			// match names
 			if len(filter.Names) > 0 {
 				return matchNames(filter.Names, c.containerInfo.Name)
-			} else { // or regex pattern
-				return matchPattern(filter.Pattern, c.containerInfo.Name)
 			}
+			return matchPattern(filter.Pattern, c.containerInfo.Name)
 		}
 		return true
 	}
@@ -74,6 +75,7 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 	return client.ListContainers(ctx, applyContainerFilter(filter), filter.Opts)
 }
 
+// RandomContainer select random container
 func RandomContainer(containers []Container) *Container {
 	if len(containers) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -83,6 +85,7 @@ func RandomContainer(containers []Container) *Container {
 	return nil
 }
 
+// ListNContainers list containers up to specified limit
 func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]Container, error) {
 	containers, err := listContainers(ctx, client, names, pattern, labels, false)
 	if err != nil {

@@ -39,7 +39,7 @@ func Test_runNetem(t *testing.T) {
 			name: "netem with duration",
 			args: args{
 				container: *container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
@@ -55,7 +55,7 @@ func Test_runNetem(t *testing.T) {
 			name: "netem with CIDR IP",
 			args: args{
 				container: *container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
@@ -69,7 +69,7 @@ func Test_runNetem(t *testing.T) {
 			name: "netem with abort",
 			args: args{
 				container: *container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
@@ -84,7 +84,7 @@ func Test_runNetem(t *testing.T) {
 			name: "netem error in NetemContainer",
 			args: args{
 				container: *container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
@@ -100,7 +100,7 @@ func Test_runNetem(t *testing.T) {
 			name: "netem error in StopNetemContainer",
 			args: args{
 				container: *container.NewContainer(
-					container.ContainerDetailsResponse(container.AsMap("Name", "c1")),
+					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",

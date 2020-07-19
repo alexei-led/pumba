@@ -6,21 +6,24 @@ import (
 	"github.com/docker/docker/api/types/network"
 )
 
-func Containers(containers... types.Container) []types.Container {
-	return containers;
+// Containers list of containers
+func Containers(containers ...types.Container) []types.Container {
+	return containers
 }
 
-func ContainerResponse(params map[string]interface{}) types.Container {
+// Response mock single container
+func Response(params map[string]interface{}) types.Container {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 	Names := lookupWithDefault(params, "Names", []string{"foo", "bar"}).([]string)
 
 	return types.Container{
-		ID: ID,
+		ID:    ID,
 		Names: Names,
 	}
 }
 
-func ContainerDetailsResponse(params map[string]interface{}) types.ContainerJSON {
+// DetailsResponse mock container details response
+func DetailsResponse(params map[string]interface{}) types.ContainerJSON {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 	Name := lookupWithDefault(params, "Name", "defaultName").(string)
 	Created := lookupWithDefault(params, "Created", "2015-07-01T12:00:01.000000000Z").(string)
@@ -31,11 +34,11 @@ func ContainerDetailsResponse(params map[string]interface{}) types.ContainerJSON
 
 	return types.ContainerJSON{
 		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: ID,
-			Name: Name,
+			ID:      ID,
+			Name:    Name,
 			Created: Created,
-			Image: Image,
-			State: &types.ContainerState{Running: Running},
+			Image:   Image,
+			State:   &types.ContainerState{Running: Running},
 		},
 		Config: &container.Config{
 			Labels: Labels,
@@ -48,6 +51,7 @@ func ContainerDetailsResponse(params map[string]interface{}) types.ContainerJSON
 	}
 }
 
+// ImageDetailsResponse mock image response
 func ImageDetailsResponse(params map[string]interface{}) types.ImageInspect {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 
@@ -63,11 +67,11 @@ func lookupWithDefault(aMap map[string]interface{}, key string, defaultValue int
 	return defaultValue
 }
 
-func AsMap(args ... interface{}) map[string]interface{} {
+// AsMap convert multiple arguments into map[string]interface{}
+func AsMap(args ...interface{}) map[string]interface{} {
 	paramMap := make(map[string]interface{})
 	for i := 0; i < len(args); i += 2 {
-		paramMap[args[i].(string)] = args[i + 1]
+		paramMap[args[i].(string)] = args[i+1]
 	}
 	return paramMap
 }
-

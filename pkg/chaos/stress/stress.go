@@ -13,8 +13,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// StressCommand `stress-ng` command
-type StressCommand struct {
+// Command `stress-ng` command
+type Command struct {
 	client    container.Client
 	names     []string
 	pattern   string
@@ -48,12 +48,12 @@ func NewStressCommand(client container.Client, names []string, pattern string, l
 	if err != nil {
 		return nil, err
 	}
-	stress := &StressCommand{client, names, pattern, labels, image, pull, strings.Fields(stressors), d, limit, dryRun}
+	stress := &Command{client, names, pattern, labels, image, pull, strings.Fields(stressors), d, limit, dryRun}
 	return stress, nil
 }
 
 // Run stress command
-func (s *StressCommand) Run(ctx context.Context, random bool) error {
+func (s *Command) Run(ctx context.Context, random bool) error {
 	log.Debug("stress testing all matching containers")
 	log.WithFields(log.Fields{
 		"names":     s.names,
@@ -95,7 +95,7 @@ func (s *StressCommand) Run(ctx context.Context, random bool) error {
 	return nil
 }
 
-func (s *StressCommand) stressContainer(ctx context.Context, container container.Container) error {
+func (s *Command) stressContainer(ctx context.Context, container container.Container) error {
 	log.WithFields(log.Fields{
 		"container":       container.ID(),
 		"duration":        s.duration,

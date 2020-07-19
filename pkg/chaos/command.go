@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	// Docker client instance
+	// DockerClient Docker client instance
 	DockerClient container.Client
 )
 

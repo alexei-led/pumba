@@ -19,6 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/stretchr/testify v1.3.0
 	github.com/urfave/cli v1.20.0
+	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
@@ -26,6 +27,6 @@ require (
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
-replace github.com/docker/docker v1.13.1 => github.com/docker/engine v1.4.2-0.20180718150940-a3ef7e9a9bda
+replace github.com/docker/docker => github.com/docker/engine v17.12.0-ce-rc1.0.20190717161051-705d9623b7c1+incompatible
 
 go 1.13
