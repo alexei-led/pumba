@@ -15,8 +15,10 @@ GOLANGCI_LINT_CONFIG = $(CURDIR)/.golangci.yaml
 PLATFORMS     = darwin linux windows
 ARCHITECTURES = amd64 arm64
 
-GO      = go
-DOCKER  = docker
+GO            = go
+DOCKER        = docker
+GOLANGCI_LINT = golangci-lint
+
 TIMEOUT = 15
 V = 0
 Q = $(if $(filter 1,$V),,@)
@@ -64,9 +66,6 @@ $(BIN)/%: | $(BIN) ; $(info $(M) building $(PACKAGE)…)
 		|| ret=$$?; \
 	   rm -rf $$tmp ; exit $$ret
 
-GOLANGCI_LINT = $(BIN)/golangci-lint
-$(BIN)/golangci-lint: PACKAGE=github.com/golangci/golangci-lint/cmd/golangci-lint
-
 GOCOV = $(BIN)/gocov
 $(BIN)/gocov: PACKAGE=github.com/axw/gocov/...
 
@@ -86,7 +85,7 @@ GHR = $(BIN)/ghr
 $(BIN)/ghr: PACKAGE=github.com/tcnksm/ghr
 
 # build tools
-build-tools: $(GOLANGCI_LINT) $(GOLINT) $(GOCOV) $(GOCOVXML) $(GO2XUNIT)
+build-tools: $(GOLINT) $(GOCOV) $(GOCOVXML) $(GO2XUNIT)
 
 # Tests
 

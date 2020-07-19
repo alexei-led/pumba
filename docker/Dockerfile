@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		git \
 		bash \
 	&& rm -rf /var/lib/apt/lists/*
+# copy golangci-lint linter
+COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/bin
 
 #
 # ----- Build and Test Image -----
