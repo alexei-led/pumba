@@ -35,6 +35,7 @@ RUN make dependency
 COPY mocks ./mocks
 COPY cmd ./cmd
 COPY pkg ./pkg
+COPY VERSION ./VERSION
 
 # run lint, test race and calculate coverage
 RUN make lint test-race test-coverage
