@@ -1,8 +1,25 @@
 # Changelog
 
-## [Unreleased](https://github.com/alexei-led/pumba/tree/HEAD)
+## [0.7.3](https://github.com/alexei-led/pumba/tree/0.7.4) (2020-07-20)
 
-[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.2...HEAD)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.4...0.7.3)
+
+**Closed issues:**
+
+- Netem target port filter [\#130](https://github.com/alexei-led/pumba/issues/130)
+
+**Merged pull requests:**
+
+- Adding port targeting [\#163](https://github.com/alexei-led/pumba/pull/163) ([chuckkQ](https://github.com/chuckkQ))
+
+**Implemented enhancements:**
+
+- build with make
+- updated mockery: mock generation tool
+
+## [0.7.3](https://github.com/alexei-led/pumba/tree/0.7.3) (2020-07-19)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.2...0.7.3)
 
 **Implemented enhancements:**
 
@@ -12,11 +29,24 @@
 
 **Closed issues:**
 
+- Error running Pumba on OpenShift version 4.3 [\#169](https://github.com/alexei-led/pumba/issues/169)
+- Pumba docker container is exiting as soon as container is initiated [\#165](https://github.com/alexei-led/pumba/issues/165)
+- unexpected behaviour of --interval flag [\#162](https://github.com/alexei-led/pumba/issues/162)
+- Unable to start Pumba docker container on MacOs [\#161](https://github.com/alexei-led/pumba/issues/161)
+- Control the packet selection in loss/corruption/duplication commands [\#160](https://github.com/alexei-led/pumba/issues/160)
+- Network emulation not working on armv7 containers [\#156](https://github.com/alexei-led/pumba/issues/156)
+- Using Pumba with Docker desktop on Windows won't randomly kill a container  [\#155](https://github.com/alexei-led/pumba/issues/155)
+- How to use Pumba on AWS Fargate Containers [\#154](https://github.com/alexei-led/pumba/issues/154)
 - Running stress-ng with K8s on an alpine based image causes errors [\#153](https://github.com/alexei-led/pumba/issues/153)
 - Why use a DaemonSet in Kubernetes? [\#150](https://github.com/alexei-led/pumba/issues/150)
 - Error when running 'pumba stress' [\#149](https://github.com/alexei-led/pumba/issues/149)
+- regression: with --tc-image flag, iproute2 sidecar container is not deleted after the command execution finishes [\#135](https://github.com/alexei-led/pumba/issues/135)
 - https://goo.gl/SUKo6T sunset [\#81](https://github.com/alexei-led/pumba/issues/81)
 - Is there a Pumba API? [\#75](https://github.com/alexei-led/pumba/issues/75)
+
+**Merged pull requests:**
+
+- Update docker engine to allow cleanup [\#167](https://github.com/alexei-led/pumba/pull/167) ([chuckkQ](https://github.com/chuckkQ))
 
 ## [0.7.2](https://github.com/alexei-led/pumba/tree/0.7.2) (2020-02-26)
 
