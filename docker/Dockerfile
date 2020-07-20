@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		bash \
 	&& rm -rf /var/lib/apt/lists/*
 # copy golangci-lint linter
-COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/bin
+COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/local/bin
+# copy mockery mock generator
+COPY --from=vektra/mockery:v2.1 /usr/local/bin/mockery /usr/local/bin
 
 #
 # ----- Build and Test Image -----

@@ -17,6 +17,7 @@ ARCHITECTURES = amd64 arm64
 
 GO            = go
 DOCKER        = docker
+GOMOCK        = mockery
 GOLANGCI_LINT = golangci-lint
 
 TIMEOUT = 15
@@ -32,22 +33,22 @@ export GOPROXY=https://proxy.golang.org
 all: fmt lint test build
 
 .PHONY: dependency
-dependency: $(BIN); $(info $(M) downloading dependencies…) @ ## Build program binary
+dependency: $(BIN); $(info $(M) downloading dependencies...) @ ## Build program binary
 	$Q $(GO) mod download
 
 
 .PHONY: build
-build: dependency | $(BIN) ; $(info $(M) building executable…) @ ## Build program binary
+build: dependency | $(BIN) ; $(info $(M) building executable...) @ ## Build program binary
 	$Q $(GO) build \
 		-tags release \
 		-ldflags "$(LDFLAGS_VERSION)" \
 		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
 
 .PHONY: release
-release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch…) @ ## Build program binary for paltforms and os	
+release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch...) @ ## Build program binary for paltforms and os
 	$(foreach GOOS, $(PLATFORMS),\
 		$(foreach GOARCH, $(ARCHITECTURES), \
-			$(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); \
+			$(shell \
 				if [ $(GOARCH) == "arm64" ] && [ $(GOOS) != "linux" ]; then exit 0; fi; \
 				$(GO) build \
 				-tags release \
@@ -60,7 +61,7 @@ release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch�
 
 $(BIN):
 	@mkdir -p $@
-$(BIN)/%: | $(BIN) ; $(info $(M) building $(PACKAGE)…)
+$(BIN)/%: | $(BIN) ; $(info $(M) building $(PACKAGE)...)
 	$Q tmp=$$(mktemp -d); \
 	   env GO111MODULE=off GOPATH=$$tmp GOBIN=$(BIN) $(GO) get $(PACKAGE) \
 		|| ret=$$?; \
@@ -78,9 +79,6 @@ $(BIN)/gocov-xml: PACKAGE=github.com/AlekSi/gocov-xml
 GO2XUNIT = $(BIN)/go2xunit
 $(BIN)/go2xunit: PACKAGE=github.com/tebeka/go2xunit
 
-GOMOCK = $(BIN)/mockery
-$(BIN)/mockery: PACKAGE=github.com/vektra/mockery/.../
-
 GHR = $(BIN)/ghr
 $(BIN)/ghr: PACKAGE=github.com/tcnksm/ghr
 
@@ -97,10 +95,10 @@ test-verbose: ARGS=-v            ## Run tests in verbose mode with coverage repo
 test-race:    ARGS=-race         ## Run tests with race detector
 $(TEST_TARGETS): NAME=$(MAKECMDGOALS:test-%=%)
 $(TEST_TARGETS): test
-check test tests: fmt ; $(info $(M) running $(NAME:%=% )tests…) @ ## Run tests
+check test tests: fmt ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
 	$Q env CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
-test-xml: fmt lint | $(GO2XUNIT) ; $(info $(M) running xUnit tests…) @ ## Run tests with xUnit output
+test-xml: fmt lint | $(GO2XUNIT) ; $(info $(M) running xUnit tests...) @ ## Run tests with xUnit output
 	$Q mkdir -p test
 	$Q 2>&1 $(GO) test -timeout $(TIMEOUT)s -v $(TESTPKGS) | tee test/tests.output
 	$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
@@ -110,9 +108,9 @@ COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
 .PHONY: test-coverage test-coverage-tools
-test-coverage-tools: | $(GOCOV) $(GOCOVXML)
+
 test-coverage: COVERAGE_DIR := $(CURDIR)/.cover/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-test-coverage: fmt test-coverage-tools ; $(info $(M) running coverage tests…) @ ## Run coverage tests
+test-coverage: fmt; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
 	$Q $(GO) test \
 		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
@@ -124,31 +122,31 @@ test-coverage: fmt test-coverage-tools ; $(info $(M) running coverage tests…) 
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
 .PHONY: golangci-lint
-golangci-lint: | $(GOLANGCI_LINT) ; $(info $(M) running golangci-lint…) @ ## Run golangci-lint
+golangci-lint: | $(GOLANGCI_LINT) ; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
 
 .PHONY: lint
-lint: | $(GOLINT) ; $(info $(M) running golint…) @ ## Run golint
+lint: | $(GOLINT) ; $(info $(M) running golint...) @ ## Run golint
 	$Q $(GOLINT) -set_exit_status $(PKGS)
 
 .PHONY: fmt
-fmt: ; $(info $(M) running gofmt…) @ ## Run gofmt on all source files
+fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
 
 # generate test mock for interfaces
 
 .PHONY: mocks
-mocks: | $(GOMOCK) ; $(info $(M) generating mocks…) @ ## Run mockery
-	$Q $(GOMOCK) -dir pkg/chaos/docker -all
-	$Q $(GOMOCK) -dir pkg/container -inpkg -all
-	$Q $(GOMOCK) -dir $(call source_of,github.com/docker/engine)/client -name ContainerAPIClient
-	$Q $(GOMOCK) -dir $(call source_of,github.com/docker/engine)/client -name ImageAPIClient
-	$Q $(GOMOCK) -dir $(call source_of,github.com/docker/engine)/client -name APIClient
+mocks: $(info $(M) generating mocks...) ## Run mockery
+	$Q $(GOMOCK) --dir pkg/chaos/docker --all
+	$Q $(GOMOCK) --dir pkg/container --inpackage --all
+	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name ContainerAPIClient
+	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name ImageAPIClient
+	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name APIClient
 
 # generate CHANGELOG.md changelog file
 
 .PHONY: changelog
-changelog: $(DOCKER) ; $(info $(M) generating changelog…)	@ ## Generating CAHNGELOG.md
+changelog: $(DOCKER) ; $(info $(M) generating changelog...)	@ ## Generating CAHNGELOG.md
 ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
@@ -156,7 +154,7 @@ endif
 
 # generate github release
 .PHONY: github-release
-github-release: release | $(GHR) ;$(info $(M) generating github release…) @ ## run ghr tool
+github-release: release | $(GHR) ;$(info $(M) generating github release...) @ ## run ghr tool
 ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
@@ -174,7 +172,7 @@ endif
 # Misc
 
 .PHONY: clean
-clean: ; $(info $(M) cleaning…)	@ ## Cleanup everything
+clean: ; $(info $(M) cleaning...)	@ ## Cleanup everything
 	@rm -rf $(BIN)
 	@rm -rf .cover/coverage.*
 
