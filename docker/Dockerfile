@@ -100,10 +100,10 @@ ARG TAG_MESSAGE
 ARG GITHUB_TOKEN
 
 # build pumba for all platforms
-RUN [ $RELEASE = true ] && make release
+RUN if [ $RELEASE ]; then make release; fi
 
 # release to GitHub
-RUN [ $RELEASE = true ] && make github-release
+RUN if [ $RELEASE ]; then make github-release; fi
 
 
 #
