@@ -418,7 +418,7 @@ K8s automatically assigns labels to Docker container, and you can use Pumba `--l
 
 K8s auto-assigned container labels, than can be used by Pumba:
 
-```json
+```yaml
 "io.kubernetes.container.name": "test-container"
 "io.kubernetes.pod.name": "test-pod"
 "io.kubernetes.pod.namespace": "test-namespace"

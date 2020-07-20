@@ -6,7 +6,6 @@
 .idea
 .vscode
 .github
-.bin
 
 .gitignore
 .env

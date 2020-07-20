@@ -482,7 +482,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 
 func TestNetemContainerSportFilter_Success(t *testing.T) {
 	c := Container{
-		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	ctx := mock.Anything
@@ -528,7 +528,7 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 
 func TestNetemContainerDportFilter_Success(t *testing.T) {
 	c := Container{
-		containerInfo: ContainerDetailsResponse(AsMap("ID", "abc123")),
+		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	ctx := mock.Anything
