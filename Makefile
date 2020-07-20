@@ -162,7 +162,7 @@ endif
 		-t $(GITHUB_TOKEN) \
 		-u alexei-led \
 		-r pumba \
-		-t "v$(RELEASE_TAG)" \
+		-n "v$(RELEASE_TAG)" \
 		-b "$(TAG_MESSAGE)" \
 		-prerelease \
 		-draft \
