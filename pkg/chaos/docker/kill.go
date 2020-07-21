@@ -103,7 +103,8 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 			"container": container,
 			"signal":    k.signal,
 		}).Debug("killing container")
-		err := k.client.KillContainer(ctx, container, k.signal, k.dryRun)
+		c := container
+		err = k.client.KillContainer(ctx, &c, k.signal, k.dryRun)
 		if err != nil {
 			return errors.Wrap(err, "failed to kill container")
 		}

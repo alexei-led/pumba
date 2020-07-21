@@ -83,7 +83,8 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 			"container": container,
 			"waitTime":  s.waitTime,
 		}).Debug("stopping container")
-		err = s.client.StopContainer(ctx, container, s.waitTime, s.dryRun)
+		c := container
+		err = s.client.StopContainer(ctx, &c, s.waitTime, s.dryRun)
 		if err != nil {
 			log.WithError(err).Warn("failed to stop container")
 			break
@@ -111,8 +112,9 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 func (s *StopCommand) startStoppedContainers(ctx context.Context, containers []container.Container) error {
 	var err error
 	for _, container := range containers {
-		log.WithField("container", container).Debug("start stopped container")
-		if e := s.client.StartContainer(ctx, container, s.dryRun); e != nil {
+		c := container
+		log.WithField("container", c).Debug("start stopped container")
+		if e := s.client.StartContainer(ctx, &c, s.dryRun); e != nil {
 			err = errors.Wrap(e, "failed to start stopped container")
 		}
 	}

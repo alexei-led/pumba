@@ -33,15 +33,15 @@ type FilterFunc func(Container) bool
 // Client interface
 type Client interface {
 	ListContainers(context.Context, FilterFunc, ListOpts) ([]Container, error)
-	StopContainer(context.Context, Container, int, bool) error
-	KillContainer(context.Context, Container, string, bool) error
-	RemoveContainer(context.Context, Container, bool, bool, bool, bool) error
-	NetemContainer(context.Context, Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
-	StopNetemContainer(context.Context, Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
-	PauseContainer(context.Context, Container, bool) error
-	UnpauseContainer(context.Context, Container, bool) error
-	StartContainer(context.Context, Container, bool) error
-	StressContainer(context.Context, Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
+	StopContainer(context.Context, *Container, int, bool) error
+	KillContainer(context.Context, *Container, string, bool) error
+	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
+	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
+	StopNetemContainer(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
+	PauseContainer(context.Context, *Container, bool) error
+	UnpauseContainer(context.Context, *Container, bool) error
+	StartContainer(context.Context, *Container, bool) error
+	StressContainer(context.Context, *Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
 	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
@@ -91,7 +91,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list containers")
 	}
-	cs := []Container{}
+	var cs []Container
 	for _, container := range containers {
 		containerInfo, err := client.containerAPI.ContainerInspect(ctx, container.ID)
 		if err != nil {
@@ -114,7 +114,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 	return cs, nil
 }
 
-func (client dockerClient) KillContainer(ctx context.Context, c Container, signal string, dryrun bool) error {
+func (client dockerClient) KillContainer(ctx context.Context, c *Container, signal string, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
 		"id":     c.ID(),
@@ -127,7 +127,7 @@ func (client dockerClient) KillContainer(ctx context.Context, c Container, signa
 	return nil
 }
 
-func (client dockerClient) StopContainer(ctx context.Context, c Container, timeout int, dryrun bool) error {
+func (client dockerClient) StopContainer(ctx context.Context, c *Container, timeout int, dryrun bool) error {
 	signal := c.StopSignal()
 	if signal == "" {
 		signal = defaultStopSignal
@@ -182,7 +182,7 @@ func (client dockerClient) StopContainerWithID(ctx context.Context, containerID 
 	return nil
 }
 
-func (client dockerClient) StartContainer(ctx context.Context, c Container, dryrun bool) error {
+func (client dockerClient) StartContainer(ctx context.Context, c *Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
 		"id":     c.ID(),
@@ -195,7 +195,7 @@ func (client dockerClient) StartContainer(ctx context.Context, c Container, dryr
 	return nil
 }
 
-func (client dockerClient) RemoveContainer(ctx context.Context, c Container, force bool, links bool, volumes bool, dryrun bool) error {
+func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, force bool, links bool, volumes bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -215,7 +215,7 @@ func (client dockerClient) RemoveContainer(ctx context.Context, c Container, for
 	return nil
 }
 
-func (client dockerClient) NetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports []string, dports []string, duration time.Duration, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) NetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports []string, dports []string, duration time.Duration, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
 		"id":       c.ID(),
@@ -234,7 +234,7 @@ func (client dockerClient) NetemContainer(ctx context.Context, c Container, netI
 	return client.startNetemContainerIPFilter(ctx, c, netInterface, netemCmd, ips, sports, dports, tcimage, pull, dryrun)
 }
 
-func (client dockerClient) StopNetemContainer(ctx context.Context, c Container, netInterface string, ip []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) StopNetemContainer(ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
 		"id":       c.ID(),
@@ -249,7 +249,7 @@ func (client dockerClient) StopNetemContainer(ctx context.Context, c Container, 
 	return client.stopNetemContainer(ctx, c, netInterface, ip, sports, dports, tcimage, pull, dryrun)
 }
 
-func (client dockerClient) PauseContainer(ctx context.Context, c Container, dryrun bool) error {
+func (client dockerClient) PauseContainer(ctx context.Context, c *Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
 		"id":     c.ID(),
@@ -261,7 +261,7 @@ func (client dockerClient) PauseContainer(ctx context.Context, c Container, dryr
 	return nil
 }
 
-func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dryrun bool) error {
+func (client dockerClient) UnpauseContainer(ctx context.Context, c *Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
 		"id":     c.ID(),
@@ -273,7 +273,7 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c Container, dr
 	return nil
 }
 
-func (client dockerClient) StressContainer(ctx context.Context, c Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error) {
+func (client dockerClient) StressContainer(ctx context.Context, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"name":      c.Name(),
 		"id":        c.ID(),
@@ -289,7 +289,7 @@ func (client dockerClient) StressContainer(ctx context.Context, c Container, str
 	return "", nil, nil, nil
 }
 
-func (client dockerClient) startNetemContainer(ctx context.Context, c Container, netInterface string, netemCmd []string, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) startNetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -312,7 +312,7 @@ func (client dockerClient) startNetemContainer(ctx context.Context, c Container,
 	return nil
 }
 
-func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, netInterface string, ips []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) stopNetemContainer(ctx context.Context, c *Container, netInterface string, ips []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -370,7 +370,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c Container, 
 	return nil
 }
 
-func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Container, netInterface string, netemCmd []string,
+func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c *Container, netInterface string, netemCmd []string,
 	ips []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
@@ -479,7 +479,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c Co
 	return nil
 }
 
-func (client dockerClient) tcCommand(ctx context.Context, c Container, args []string, tcimage string, pull bool) error {
+func (client dockerClient) tcCommand(ctx context.Context, c *Container, args []string, tcimage string, pull bool) error {
 	if tcimage == "" {
 		return client.execOnContainer(ctx, c, "tc", args, true)
 	}
@@ -488,7 +488,7 @@ func (client dockerClient) tcCommand(ctx context.Context, c Container, args []st
 
 // execute tc command using other container (with iproute2 package installed), using target container network stack
 // try to use `gaiadocker\iproute2` image (Alpine + iproute2 package)
-func (client dockerClient) tcContainerCommand(ctx context.Context, target Container, args []string, tcimage string, pull bool) error {
+func (client dockerClient) tcContainerCommand(ctx context.Context, target *Container, args []string, tcimage string, pull bool) error {
 	log.WithFields(log.Fields{
 		"container": target.ID(),
 		"tc-image":  tcimage,
@@ -672,7 +672,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 }
 
 // execute command on container
-func (client dockerClient) execOnContainer(ctx context.Context, c Container, execCmd string, execArgs []string, privileged bool) error {
+func (client dockerClient) execOnContainer(ctx context.Context, c *Container, execCmd string, execArgs []string, privileged bool) error {
 	log.WithFields(log.Fields{
 		"id":         c.ID(),
 		"name":       c.Name(),
@@ -732,7 +732,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c Container, exe
 	return nil
 }
 
-func (client dockerClient) waitForStop(ctx context.Context, c Container, waitTime int) error {
+func (client dockerClient) waitForStop(ctx context.Context, c *Container, waitTime int) error {
 	timeout := time.After(time.Duration(waitTime) * time.Second)
 	log.WithFields(log.Fields{
 		"name":    c.Name(),

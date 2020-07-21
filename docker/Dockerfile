@@ -7,10 +7,10 @@ FROM golang:1.14 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
-		curl \
-		git \
-		bash \
-	&& rm -rf /var/lib/apt/lists/*
+        curl \
+        git \
+        bash \
+    && rm -rf /var/lib/apt/lists/*
 # copy golangci-lint linter
 COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/local/bin
 # copy mockery mock generator

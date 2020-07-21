@@ -24,7 +24,7 @@ func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
 		}
 	}
 
-	return newHTTPClient(u, tlsConfig, time.Duration(defaultTimeout))
+	return newHTTPClient(u, tlsConfig, defaultTimeout)
 }
 
 func newHTTPClient(url *url.URL, tlsConfig *tls.Config, timeout time.Duration) (*http.Client, error) {

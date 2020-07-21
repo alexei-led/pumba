@@ -72,9 +72,9 @@ func NewCorruptCommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip, err := util.ParseCIDR(str)
-		if err != nil {
-			return nil, err
+		ip, e := util.ParseCIDR(str)
+		if e != nil {
+			return nil, e
 		}
 		ips = append(ips, ip)
 	}
@@ -161,7 +161,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c container.Container) {
 			defer wg.Done()
-			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
+			errs[i] = runNetem(netemCtx, n.client, &c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet corrupt for container")
 			}
@@ -179,7 +179,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, err := range errs {
+	for _, err = range errs {
 		// take first reported error
 		if err != nil {
 			return errors.Wrap(err, "failed to corrupt packets for one or more containers")

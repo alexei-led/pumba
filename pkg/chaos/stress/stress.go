@@ -27,11 +27,6 @@ type Command struct {
 	dryRun    bool
 }
 
-type stressedContainer struct {
-	stress    string              // stress container ID
-	container container.Container // target container
-}
-
 const (
 	defaultStopTimeout = 5 * time.Second
 )
@@ -85,7 +80,7 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	for _, c := range containers {
 		container := c
 		eg.Go(func() error {
-			return s.stressContainer(ctx, container)
+			return s.stressContainer(ctx, &container)
 		})
 	}
 	// wait till all stress tests complete
@@ -95,7 +90,7 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	return nil
 }
 
-func (s *Command) stressContainer(ctx context.Context, container container.Container) error {
+func (s *Command) stressContainer(ctx context.Context, container *container.Container) error {
 	log.WithFields(log.Fields{
 		"container":       container.ID(),
 		"duration":        s.duration,

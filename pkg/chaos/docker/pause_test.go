@@ -182,19 +182,19 @@ func TestPauseCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("PauseContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.dryRun).Return(nil)
-				mockClient.On("UnpauseContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.dryRun).Return(nil)
+				mockClient.On("PauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil)
+				mockClient.On("UnpauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("PauseContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.dryRun)
+						call = mockClient.On("PauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun)
 						if tt.errs.pauseError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
 						} else {
 							call.Return(nil)
 						}
-						call = mockClient.On("UnpauseContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.dryRun)
+						call = mockClient.On("UnpauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun)
 						if tt.errs.unpauseError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

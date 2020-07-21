@@ -60,7 +60,8 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 			"links":     r.links,
 			"volumes":   r.volumes,
 		}).Debug("removing container")
-		err := r.client.RemoveContainer(ctx, container, r.force, r.links, r.volumes, r.dryRun)
+		c := container
+		err = r.client.RemoveContainer(ctx, &c, r.force, r.links, r.volumes, r.dryRun)
 		if err != nil {
 			return err
 		}

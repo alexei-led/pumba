@@ -72,7 +72,8 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 			"container": container,
 			"duration":  p.duration,
 		}).Debug("pausing container for duration")
-		err = p.client.PauseContainer(ctx, container, p.dryRun)
+		c := container
+		err = p.client.PauseContainer(ctx, &c, p.dryRun)
 		if err != nil {
 			log.WithError(err).Warn("failed to pause container")
 			break
@@ -101,7 +102,8 @@ func (p *PauseCommand) unpauseContainers(ctx context.Context, containers []conta
 	var err error
 	for _, container := range containers {
 		log.WithField("container", container).Debug("unpause container")
-		if e := p.client.UnpauseContainer(ctx, container, p.dryRun); e != nil {
+		c := container
+		if e := p.client.UnpauseContainer(ctx, &c, p.dryRun); e != nil {
 			err = errors.Wrap(e, "failed to unpause container")
 		}
 	}
