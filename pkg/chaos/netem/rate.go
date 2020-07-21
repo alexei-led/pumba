@@ -18,10 +18,10 @@ import (
 
 // Parse rate
 func parseRate(rate string) (string, error) {
-	reRate := regexp.MustCompile("[0-9]+[gmk]?bit")
+	reRate := regexp.MustCompile(`\d+[gmk]?bit`)
 	validRate := reRate.FindString(rate)
 	if rate != validRate {
-		return "", errors.Errorf("Invalid rate. Must match '%s'", reRate.String())
+		return "", errors.Errorf("invalid rate, must match '%s'", reRate.String())
 	}
 	return rate, nil
 }
@@ -54,13 +54,13 @@ func NewRateCommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
-	sportsList string, // list of comma separated target sports
-	dportsList string, // list of comma separated target dports
-	durationStr string, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	sportsList, // list of comma separated target sports
+	dportsList, // list of comma separated target dports
+	durationStr, // chaos duration
+	intervalStr, // repeatable chaos interval
 	rate string, // delay outgoing packets; in common units
-	packetOverhead int, // per packet overhead; in bytes
-	cellSize int, // cell size of the simulated link layer scheme
+	packetOverhead, // per packet overhead; in bytes
+	cellSize, // cell size of the simulated link layer scheme
 	cellOverhead int, // per cell overhead; in bytes
 	image string, // traffic control image
 	pull bool, // pull tc image
@@ -86,9 +86,9 @@ func NewRateCommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip, err := util.ParseCIDR(str)
-		if err != nil {
-			return nil, err
+		ip, e := util.ParseCIDR(str)
+		if e != nil {
+			return nil, e
 		}
 		ips = append(ips, ip)
 	}
@@ -159,7 +159,7 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
@@ -187,9 +187,9 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels[i] = cancel
 		wg.Add(1)
-		go func(i int, c container.Container) {
+		go func(i int, c *container.Container) {
 			defer wg.Done()
-			errs[i] = runNetem(netemCtx, n.client, &c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set network rate for container")
 			}

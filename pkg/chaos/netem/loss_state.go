@@ -45,14 +45,14 @@ func NewLossStateCommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
-	sportsList string, // list of comma separated target sports
-	dportsList string, // list of comma separated target dports
-	durationStr string, // chaos duration
+	sportsList, // list of comma separated target sports
+	dportsList, // list of comma separated target dports
+	durationStr, // chaos duration
 	intervalStr string, // repeatable chaos interval
-	p13 float64, // probability to go from state (1) to state (3)
-	p31 float64, // probability to go from state (3) to state (1)
-	p32 float64, // probability to go from state (3) to state (2)
-	p23 float64, // probability to go from state (2) to state (3)
+	p13, // probability to go from state (1) to state (3)
+	p31, // probability to go from state (3) to state (1)
+	p32, // probability to go from state (3) to state (2)
+	p23, // probability to go from state (2) to state (3)
 	p14 float64, // probability to go from state (1) to state (4)
 	image string, // traffic control image
 	pull bool, // pull tc image
@@ -78,9 +78,9 @@ func NewLossStateCommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip, err := util.ParseCIDR(str)
-		if err != nil {
-			return nil, err
+		ip, e := util.ParseCIDR(str)
+		if e != nil {
+			return nil, e
 		}
 		ips = append(ips, ip)
 	}
@@ -96,23 +96,23 @@ func NewLossStateCommand(client container.Client,
 	}
 	// validate p13
 	if p13 < 0.0 || p13 > 100.0 {
-		return nil, errors.New("Invalid p13 percentage: : must be between 0.0 and 100.0")
+		return nil, errors.New("invalid p13 percentage: : must be between 0.0 and 100.0")
 	}
 	// validate p31
 	if p31 < 0.0 || p31 > 100.0 {
-		return nil, errors.New("Invalid p31 percentage: : must be between 0.0 and 100.0")
+		return nil, errors.New("invalid p31 percentage: : must be between 0.0 and 100.0")
 	}
 	// validate p32
 	if p32 < 0.0 || p32 > 100.0 {
-		return nil, errors.New("Invalid p32 percentage: : must be between 0.0 and 100.0")
+		return nil, errors.New("invalid p32 percentage: : must be between 0.0 and 100.0")
 	}
 	// vaidate p23
 	if p23 < 0.0 || p23 > 100.0 {
-		return nil, errors.New("Invalid p23 percentage: : must be between 0.0 and 100.0")
+		return nil, errors.New("invalid p23 percentage: : must be between 0.0 and 100.0")
 	}
 	// validate p14
 	if p14 < 0.0 || p14 > 100.0 {
-		return nil, errors.New("Invalid p14 percentage: : must be between 0.0 and 100.0")
+		return nil, errors.New("invalid p14 percentage: : must be between 0.0 and 100.0")
 	}
 
 	return &LossStateCommand{
@@ -159,7 +159,7 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
@@ -178,9 +178,9 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels[i] = cancel
 		wg.Add(1)
-		go func(i int, c container.Container) {
+		go func(i int, c *container.Container) {
 			defer wg.Done()
-			errs[i] = runNetem(netemCtx, n.client, &c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
+			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}

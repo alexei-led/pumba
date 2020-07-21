@@ -31,15 +31,15 @@ func (_m *MockClient) KillContainer(_a0 context.Context, _a1 *Container, _a2 str
 }
 
 // ListContainers provides a mock function with given fields: _a0, _a1, _a2
-func (_m *MockClient) ListContainers(_a0 context.Context, _a1 FilterFunc, _a2 ListOpts) ([]Container, error) {
+func (_m *MockClient) ListContainers(_a0 context.Context, _a1 FilterFunc, _a2 ListOpts) ([]*Container, error) {
 	ret := _m.Called(_a0, _a1, _a2)
 
-	var r0 []Container
-	if rf, ok := ret.Get(0).(func(context.Context, FilterFunc, ListOpts) []Container); ok {
+	var r0 []*Container
+	if rf, ok := ret.Get(0).(func(context.Context, FilterFunc, ListOpts) []*Container); ok {
 		r0 = rf(_a0, _a1, _a2)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]Container)
+			r0 = ret.Get(0).([]*Container)
 		}
 	}
 

@@ -11,6 +11,7 @@ const (
 	pumbaLabel     = "com.gaiaadm.pumba"
 	pumbaSkipLabel = "com.gaiaadm.pumba.skip"
 	signalLabel    = "com.gaiaadm.pumba.stop-signal"
+	trueValue      = "true"
 )
 
 // Container represents a running Docker container.
@@ -79,7 +80,7 @@ func (c *Container) Links() []string {
 // the container metadata.
 func (c *Container) IsPumba() bool {
 	val, ok := c.containerInfo.Config.Labels[pumbaLabel]
-	return ok && val == "true"
+	return ok && val == trueValue
 }
 
 // IsPumbaSkip returns a boolean flag indicating whether or not the current
@@ -88,7 +89,7 @@ func (c *Container) IsPumba() bool {
 // the container metadata. Use it to skip monitoring and helper containers.
 func (c *Container) IsPumbaSkip() bool {
 	val, ok := c.containerInfo.Config.Labels[pumbaSkipLabel]
-	return ok && val == "true"
+	return ok && val == trueValue
 }
 
 // StopSignal returns the custom stop signal (if any) that is encoded in the

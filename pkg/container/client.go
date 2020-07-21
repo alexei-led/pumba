@@ -28,11 +28,11 @@ const (
 
 // A FilterFunc is a prototype for a function that can be used to filter the
 // results from a call to the ListContainers() method on the Client.
-type FilterFunc func(Container) bool
+type FilterFunc func(*Container) bool
 
 // Client interface
 type Client interface {
-	ListContainers(context.Context, FilterFunc, ListOpts) ([]Container, error)
+	ListContainers(context.Context, FilterFunc, ListOpts) ([]*Container, error)
 	StopContainer(context.Context, *Container, int, bool) error
 	KillContainer(context.Context, *Container, string, bool) error
 	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
@@ -77,7 +77,7 @@ type dockerClient struct {
 	imageAPI     dockerapi.ImageAPIClient
 }
 
-func (client dockerClient) ListContainers(ctx context.Context, fn FilterFunc, opts ListOpts) ([]Container, error) {
+func (client dockerClient) ListContainers(ctx context.Context, fn FilterFunc, opts ListOpts) ([]*Container, error) {
 	filterArgs := filters.NewArgs()
 	for _, label := range opts.Labels {
 		filterArgs.Add("label", label)
@@ -85,13 +85,13 @@ func (client dockerClient) ListContainers(ctx context.Context, fn FilterFunc, op
 	return client.listContainers(ctx, fn, types.ContainerListOptions{All: opts.All, Filters: filterArgs})
 }
 
-func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, opts types.ContainerListOptions) ([]Container, error) {
+func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, opts types.ContainerListOptions) ([]*Container, error) {
 	log.Debug("listing containers")
 	containers, err := client.containerAPI.ContainerList(ctx, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list containers")
 	}
-	var cs []Container
+	var cs []*Container
 	for _, container := range containers {
 		containerInfo, err := client.containerAPI.ContainerInspect(ctx, container.ID)
 		if err != nil {
@@ -106,7 +106,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to inspect container image")
 		}
-		c := Container{containerInfo: containerInfo, imageInfo: imageInfo}
+		c := &Container{containerInfo: containerInfo, imageInfo: imageInfo}
 		if fn(c) {
 			cs = append(cs, c)
 		}
@@ -195,7 +195,7 @@ func (client dockerClient) StartContainer(ctx context.Context, c *Container, dry
 	return nil
 }
 
-func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, force bool, links bool, volumes bool, dryrun bool) error {
+func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, force, links, volumes, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -215,7 +215,7 @@ func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, fo
 	return nil
 }
 
-func (client dockerClient) NetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports []string, dports []string, duration time.Duration, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) NetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimage string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
 		"id":       c.ID(),
@@ -234,7 +234,7 @@ func (client dockerClient) NetemContainer(ctx context.Context, c *Container, net
 	return client.startNetemContainerIPFilter(ctx, c, netInterface, netemCmd, ips, sports, dports, tcimage, pull, dryrun)
 }
 
-func (client dockerClient) StopNetemContainer(ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) StopNetemContainer(ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
 		"id":       c.ID(),
@@ -289,7 +289,7 @@ func (client dockerClient) StressContainer(ctx context.Context, c *Container, st
 	return "", nil, nil, nil
 }
 
-func (client dockerClient) startNetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) startNetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, tcimage string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -312,7 +312,7 @@ func (client dockerClient) startNetemContainer(ctx context.Context, c *Container
 	return nil
 }
 
-func (client dockerClient) stopNetemContainer(ctx context.Context, c *Container, netInterface string, ips []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
+func (client dockerClient) stopNetemContainer(ctx context.Context, c *Container, netInterface string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -644,15 +644,15 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		defer close(outerr)
 		defer attach.Close()
 		var stdout bytes.Buffer
-		_, err := io.Copy(&stdout, attach.Reader)
-		if err != nil {
-			outerr <- err
+		_, e := io.Copy(&stdout, attach.Reader)
+		if e != nil {
+			outerr <- e
 			return
 		}
 		// inspect stress-ng container
-		inspect, err := client.containerAPI.ContainerInspect(ctx, createResponse.ID)
-		if err != nil {
-			outerr <- errors.Wrap(err, "failed to inspect stress-ng container")
+		inspect, e := client.containerAPI.ContainerInspect(ctx, createResponse.ID)
+		if e != nil {
+			outerr <- errors.Wrap(e, "failed to inspect stress-ng container")
 			return
 		}
 		// get status of stress-ng command

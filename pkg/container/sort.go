@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ByCreated allows a list of Container structs to be sorted by the container's
+// ByCreated allows a list of Container structures to be sorted by the container's
 // created date.
 type ByCreated []Container
 

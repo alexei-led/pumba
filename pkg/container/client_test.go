@@ -25,10 +25,10 @@ func NewMockEngine() *mocks.APIClient {
 	return new(mocks.APIClient)
 }
 
-func mockAllContainers(c Container) bool {
+func mockAllContainers(c *Container) bool {
 	return true
 }
-func mockNoContainers(c Container) bool {
+func mockNoContainers(c *Container) bool {
 	return false
 }
 
@@ -158,7 +158,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
-	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("Not Found"))
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("not found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.StopContainer(context.TODO(), c, 1, true)
@@ -665,6 +665,7 @@ func TestStartContainer_DryRun(t *testing.T) {
 	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{})
 }
 
+//nolint:funlen
 func Test_dockerClient_execOnContainer(t *testing.T) {
 	type args struct {
 		c          *Container
@@ -837,6 +838,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func Test_dockerClient_stressContainerCommand(t *testing.T) {
 	type args struct {
 		ctx       context.Context

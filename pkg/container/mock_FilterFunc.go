@@ -10,11 +10,11 @@ type MockFilterFunc struct {
 }
 
 // Execute provides a mock function with given fields: _a0
-func (_m *MockFilterFunc) Execute(_a0 Container) bool {
+func (_m *MockFilterFunc) Execute(_a0 *Container) bool {
 	ret := _m.Called(_a0)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(Container) bool); ok {
+	if rf, ok := ret.Get(0).(func(*Container) bool); ok {
 		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(bool)

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+//nolint:funlen
 func TestNewDelayCommand(t *testing.T) {
 	type args struct {
 		names        []string
@@ -227,6 +228,7 @@ func TestNewDelayCommand(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func TestDelayCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError  bool
@@ -257,7 +259,7 @@ func TestDelayCommand_Run(t *testing.T) {
 		fields   fields
 		args     args
 		cmd      []string
-		expected []container.Container
+		expected []*container.Container
 		wantErr  bool
 		errs     wantErrors
 	}{

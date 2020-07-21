@@ -22,7 +22,7 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, names []string, pattern string, labels []string, force bool, links bool, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
+func NewRemoveCommand(client container.Client, names []string, pattern string, labels []string, force, links, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
 	remove := &RemoveCommand{client, names, pattern, labels, force, links, volumes, limit, dryRun}
 	return remove, nil
 }
@@ -49,7 +49,7 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
@@ -61,7 +61,7 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 			"volumes":   r.volumes,
 		}).Debug("removing container")
 		c := container
-		err = r.client.RemoveContainer(ctx, &c, r.force, r.links, r.volumes, r.dryRun)
+		err = r.client.RemoveContainer(ctx, c, r.force, r.links, r.volumes, r.dryRun)
 		if err != nil {
 			return err
 		}

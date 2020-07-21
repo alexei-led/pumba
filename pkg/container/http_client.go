@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
 	}
 	if u.Scheme == "" || u.Scheme == "tcp" {
 		if tlsConfig == nil {
+			//nolint:goconst
 			u.Scheme = "http"
 		} else {
 			u.Scheme = "https"
@@ -27,26 +29,26 @@ func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
 	return newHTTPClient(u, tlsConfig, defaultTimeout)
 }
 
-func newHTTPClient(url *url.URL, tlsConfig *tls.Config, timeout time.Duration) (*http.Client, error) {
+func newHTTPClient(address *url.URL, tlsConfig *tls.Config, timeout time.Duration) (*http.Client, error) {
 	httpTransport := &http.Transport{
 		TLSClientConfig: tlsConfig,
 	}
 
-	switch url.Scheme {
+	switch address.Scheme {
 	default:
-		httpTransport.Dial = func(proto, addr string) (net.Conn, error) {
-			return net.DialTimeout(proto, addr, timeout)
+		httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.DialTimeout(network, addr, timeout)
 		}
 	case "unix":
-		socketPath := url.Path
-		unixDial := func(proto, addr string) (net.Conn, error) {
+		socketPath := address.Path
+		unixDial := func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return net.DialTimeout("unix", socketPath, timeout)
 		}
-		httpTransport.Dial = unixDial
+		httpTransport.DialContext = unixDial
 		// Override the main URL object so the HTTP lib won't complain
-		url.Scheme = "http"
-		url.Host = "unix.sock"
-		url.Path = ""
+		address.Scheme = "http"
+		address.Host = "unix.sock"
+		address.Path = ""
 	}
 	return &http.Client{Transport: httpTransport}, nil
 }
