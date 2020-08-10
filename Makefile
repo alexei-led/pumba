@@ -50,7 +50,7 @@ release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch.
 	$(foreach GOOS, $(PLATFORMS),\
 		$(foreach GOARCH, $(ARCHITECTURES), \
 			$(shell \
-				if [ $(GOARCH) == "arm64" ] && [ $(GOOS) != "linux" ]; then exit 0; fi; \
+				if [ "$(GOARCH)" = "arm64" ] && [ "$(GOOS)" != "linux" ]; then exit 0; fi; \
 				$(GO) build \
 				-tags release \
 				-ldflags "$(LDFLAGS_VERSION)" \
@@ -108,10 +108,10 @@ COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
-.PHONY: test-coverage test-coverage-tools
+.PHONY: test-coverage build-tools
 
 test-coverage: COVERAGE_DIR := $(CURDIR)/.cover/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-test-coverage: fmt; $(info $(M) running coverage tests...) @ ## Run coverage tests
+test-coverage: fmt | build-tools; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
 	$Q $(GO) test \
 		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
