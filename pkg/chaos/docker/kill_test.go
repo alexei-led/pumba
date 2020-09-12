@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+//nolint:funlen
 func TestKillCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError bool
@@ -32,7 +33,7 @@ func TestKillCommand_Run(t *testing.T) {
 		name     string
 		fields   fields
 		args     args
-		expected []container.Container
+		expected []*container.Container
 		wantErr  bool
 		errs     wantErrors
 	}{
@@ -143,11 +144,11 @@ func TestKillCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal, tt.fields.dryRun).Return(nil)
+				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.signal, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.signal, tt.fields.dryRun)
+						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.signal, tt.fields.dryRun)
 						if tt.errs.killError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

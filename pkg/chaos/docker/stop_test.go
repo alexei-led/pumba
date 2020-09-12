@@ -83,6 +83,7 @@ func TestNewStopCommand(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func TestStopCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError  bool
@@ -105,7 +106,7 @@ func TestStopCommand_Run(t *testing.T) {
 		name     string
 		fields   fields
 		args     args
-		expected []container.Container
+		expected []*container.Container
 		wantErr  bool
 		errs     wantErrors
 	}{
@@ -242,14 +243,14 @@ func TestStopCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.waitTime, tt.fields.dryRun).Return(nil)
+				mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.waitTime, tt.fields.dryRun).Return(nil)
 				if tt.fields.restart {
-					mockClient.On("StartContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.dryRun).Return(nil)
+					mockClient.On("StartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil)
 				}
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.waitTime, tt.fields.dryRun)
+						call = mockClient.On("StopContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.waitTime, tt.fields.dryRun)
 						if tt.errs.stopError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
@@ -257,7 +258,7 @@ func TestStopCommand_Run(t *testing.T) {
 							call.Return(nil)
 						}
 						if tt.fields.restart {
-							call = mockClient.On("StartContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.dryRun)
+							call = mockClient.On("StartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun)
 							if tt.errs.startError {
 								call.Return(errors.New("ERROR"))
 								goto Invoke

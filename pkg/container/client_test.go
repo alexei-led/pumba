@@ -25,10 +25,10 @@ func NewMockEngine() *mocks.APIClient {
 	return new(mocks.APIClient)
 }
 
-func mockAllContainers(c Container) bool {
+func mockAllContainers(c *Container) bool {
 	return true
 }
-func mockNoContainers(c Container) bool {
+func mockNoContainers(c *Container) bool {
 	return false
 }
 
@@ -130,7 +130,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 		"ID", "abc123",
 		"Name", "foo",
 	))
-	c := Container{containerInfo: containerDetails}
+	c := &Container{containerInfo: containerDetails}
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
 	api := NewMockEngine()
@@ -145,7 +145,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 }
 
 func TestStopContainer_DryRun(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -158,7 +158,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGKILL").Return(nil)
-	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("Not Found"))
+	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("not found"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.StopContainer(context.TODO(), c, 1, true)
@@ -171,7 +171,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 }
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -189,7 +189,7 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 }
 
 func TestKillContainer_DryRun(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -207,7 +207,7 @@ func TestKillContainer_DryRun(t *testing.T) {
 }
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -229,7 +229,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 }
 
 func TestStopContainer_KillContainerError(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -248,7 +248,7 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 }
 
 func TestStopContainer_2ndKillContainerError(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -269,7 +269,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 }
 
 func TestRemoveContainer_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -285,7 +285,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 }
 
 func TestRemoveContainer_DryRun(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -301,7 +301,7 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 }
 
 func TestPauseContainer_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
@@ -315,7 +315,7 @@ func TestPauseContainer_Success(t *testing.T) {
 }
 
 func TestUnpauseContainer_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
@@ -329,7 +329,7 @@ func TestUnpauseContainer_Success(t *testing.T) {
 }
 
 func TestPauseContainer_DryRun(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -342,7 +342,7 @@ func TestPauseContainer_DryRun(t *testing.T) {
 }
 
 func TestPauseContainer_PauseError(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
@@ -357,7 +357,7 @@ func TestPauseContainer_PauseError(t *testing.T) {
 }
 
 func TestPauseContainer_UnpauseError(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
@@ -372,7 +372,7 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 }
 
 func TestNetemContainer_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -396,7 +396,7 @@ func TestNetemContainer_Success(t *testing.T) {
 }
 
 func TestStopNetemContainer_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -421,7 +421,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 }
 
 func TestNetemContainer_DryRun(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -435,7 +435,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 }
 
 func TestNetemContainerIPFilter_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -474,14 +474,14 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.On("ContainerExecInspect", ctx, "cmd5").Return(types.ContainerExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 0, 1}, Mask: net.IPMask{255, 255, 255, 255}}}, nil, nil, 1*time.Millisecond, "", false, false)
+	err := client.NetemContainer(context.TODO(), c, "eth0", []string{"delay", "500ms"}, []*net.IPNet{{IP: net.IP{10, 10, 0, 1}, Mask: net.IPMask{255, 255, 255, 255}}}, nil, nil, 1*time.Millisecond, "", false, false)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
 }
 
 func TestNetemContainerSportFilter_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -527,7 +527,7 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 }
 
 func TestNetemContainerDportFilter_Success(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
@@ -573,7 +573,7 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 }
 
 func Test_tcContainerCommand(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap("ID", "targetID")),
 	}
 
@@ -635,7 +635,7 @@ func TestStartContainer_DefaultSuccess(t *testing.T) {
 		"ID", "abc123",
 		"Name", "foo",
 	))
-	c := Container{containerInfo: containerDetails}
+	c := &Container{containerInfo: containerDetails}
 
 	api := NewMockEngine()
 	api.On("ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{}).Return(nil)
@@ -648,7 +648,7 @@ func TestStartContainer_DefaultSuccess(t *testing.T) {
 }
 
 func TestStartContainer_DryRun(t *testing.T) {
-	c := Container{
+	c := &Container{
 		containerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
@@ -665,9 +665,10 @@ func TestStartContainer_DryRun(t *testing.T) {
 	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{})
 }
 
+//nolint:funlen
 func Test_dockerClient_execOnContainer(t *testing.T) {
 	type args struct {
-		c          Container
+		c          *Container
 		ctx        context.Context
 		execCmd    string
 		execArgs   []string
@@ -682,7 +683,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "run non-privileged command with args",
 			args: args{
-				c:        Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:        &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:      context.TODO(),
 				execCmd:  "test-app",
 				execArgs: []string{"one", "two", "three"},
@@ -703,7 +704,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "run privileged command with args",
 			args: args{
-				c:          Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:          &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:        context.TODO(),
 				execCmd:    "test-app",
 				execArgs:   []string{"one", "two", "three"},
@@ -725,7 +726,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to find command",
 			args: args{
-				c:        Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:        &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:      context.TODO(),
 				execCmd:  "test-app",
 				execArgs: []string{"one", "two", "three"},
@@ -742,7 +743,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecCreate 'which'",
 			args: args{
-				c:       Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -755,7 +756,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecStart 'which'",
 			args: args{
-				c:       Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -769,7 +770,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecInspect 'which'",
 			args: args{
-				c:       Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -784,7 +785,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecCreate 'test-app'",
 			args: args{
-				c:       Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -802,7 +803,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecStart 'test-app'",
 			args: args{
-				c:       Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -837,6 +838,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func Test_dockerClient_stressContainerCommand(t *testing.T) {
 	type args struct {
 		ctx       context.Context
@@ -1044,7 +1046,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				if output != tt.wantOutput {
 					t.Errorf("dockerClient.stressContainerCommand() got = %v, from output channel, want %v", output, tt.wantOutput)
 				}
-			case err := <-got2:
+			case err = <-got2:
 				if (err != nil) != tt.wantErrCh {
 					t.Errorf("dockerClient.stressContainerCommand() error in error channel = %v, wantErrCh %v", err, tt.wantErrCh)
 				}

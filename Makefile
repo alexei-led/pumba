@@ -10,7 +10,7 @@ TESTPKGS = $(shell env GO111MODULE=on $(GO) list -f \
 			$(PKGS))
 LDFLAGS_VERSION = -X main.Version=$(VERSION) -X main.GitCommit=$(COMMIT) -X main.GitBranch=$(BRANCH) -X main.BuildTime=$(DATE) 
 BIN      = $(CURDIR)/.bin
-GOLANGCI_LINT_CONFIG = $(CURDIR)/.golangci.yaml
+GOLANGCI_LINT_CONFIG = $(CURDIR)/.golangci.yml
 
 PLATFORMS     = darwin linux windows
 ARCHITECTURES = amd64 arm64
@@ -18,6 +18,7 @@ ARCHITECTURES = amd64 arm64
 GO            = go
 DOCKER        = docker
 GOMOCK        = mockery
+BATS          = bats
 GOLANGCI_LINT = golangci-lint
 
 TIMEOUT = 15
@@ -49,7 +50,7 @@ release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch.
 	$(foreach GOOS, $(PLATFORMS),\
 		$(foreach GOARCH, $(ARCHITECTURES), \
 			$(shell \
-				if [ $(GOARCH) == "arm64" ] && [ $(GOOS) != "linux" ]; then exit 0; fi; \
+				if [ "$(GOARCH)" = "arm64" ] && [ "$(GOOS)" != "linux" ]; then exit 0; fi; \
 				$(GO) build \
 				-tags release \
 				-ldflags "$(LDFLAGS_VERSION)" \
@@ -107,10 +108,10 @@ COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
-.PHONY: test-coverage test-coverage-tools
+.PHONY: test-coverage build-tools
 
 test-coverage: COVERAGE_DIR := $(CURDIR)/.cover/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-test-coverage: fmt; $(info $(M) running coverage tests...) @ ## Run coverage tests
+test-coverage: fmt | build-tools; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
 	$Q $(GO) test \
 		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
@@ -121,8 +122,14 @@ test-coverage: fmt; $(info $(M) running coverage tests...) @ ## Run coverage tes
 	$Q $(GO) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
+# urun integration tests
+.PHONY: integration-tests
+integration-tests: build ; $(info $(M) running integration tests with bats...) @ ## Run bats tests
+	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
+	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(BATS) tests
+
 .PHONY: golangci-lint
-golangci-lint: | $(GOLANGCI_LINT) ; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
+golangci-lint: ; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
 
 .PHONY: lint
@@ -134,9 +141,8 @@ fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
 
 # generate test mock for interfaces
-
 .PHONY: mocks
-mocks: $(info $(M) generating mocks...) ## Run mockery
+mocks: ; $(info $(M) generating mocks...) @ ## Run mockery
 	$Q $(GOMOCK) --dir pkg/chaos/docker --all
 	$Q $(GOMOCK) --dir pkg/container --inpackage --all
 	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name ContainerAPIClient
@@ -144,7 +150,6 @@ mocks: $(info $(M) generating mocks...) ## Run mockery
 	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name APIClient
 
 # generate CHANGELOG.md changelog file
-
 .PHONY: changelog
 changelog: $(DOCKER) ; $(info $(M) generating changelog...)	@ ## Generating CAHNGELOG.md
 ifndef GITHUB_TOKEN

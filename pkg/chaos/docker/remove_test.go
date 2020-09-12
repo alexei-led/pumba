@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+//nolint:funlen
 func TestRemoveCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError   bool
@@ -33,7 +34,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 		name     string
 		fields   fields
 		args     args
-		expected []container.Container
+		expected []*container.Container
 		wantErr  bool
 		errs     wantErrors
 	}{
@@ -132,11 +133,11 @@ func TestRemoveCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun).Return(nil)
+				mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
+						call = mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
 						if tt.errs.removeError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

@@ -49,14 +49,14 @@ func NewDelayCommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
-	sportsList string, // list of comma separated target sports
-	dportsList string, // list of comma separated target dports
-	durationStr string, // chaos duration
+	sportsList, // list of comma separated target sports
+	dportsList, // list of comma separated target dports
+	durationStr, // chaos duration
 	intervalStr string, // repeatable chaos interval
-	time int, // delay time
+	delay, // delay time
 	jitter int, // delay jitter
 	correlation float64, // delay correlation
-	distribution string, // delay distribution
+	distribution, // delay distribution
 	image string, // traffic control image
 	pull bool, // pull tc image option
 	limit int, // limit chaos to containers
@@ -81,9 +81,9 @@ func NewDelayCommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip, err := util.ParseCIDR(str)
-		if err != nil {
-			return nil, err
+		ip, e := util.ParseCIDR(str)
+		if e != nil {
+			return nil, e
 		}
 		ips = append(ips, ip)
 	}
@@ -98,11 +98,11 @@ func NewDelayCommand(client container.Client,
 		return nil, err
 	}
 	// check delay time
-	if time <= 0 {
+	if delay <= 0 {
 		return nil, errors.New("non-positive delay time")
 	}
 	// get delay variation
-	if jitter < 0 || jitter > time {
+	if jitter < 0 || jitter > delay {
 		return nil, errors.New("invalid delay jitter: must be non-negative and smaller than delay time")
 	}
 	// get delay variation
@@ -124,7 +124,7 @@ func NewDelayCommand(client container.Client,
 		sports:       sports,
 		dports:       dports,
 		duration:     duration,
-		time:         time,
+		time:         delay,
 		jitter:       jitter,
 		correlation:  correlation,
 		distribution: distribution,
@@ -157,7 +157,7 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
@@ -184,7 +184,7 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 		netemCtx, cancel := context.WithCancel(ctx)
 		cancels[i] = cancel
 		wg.Add(1)
-		go func(i int, c container.Container) {
+		go func(i int, c *container.Container) {
 			defer wg.Done()
 			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {

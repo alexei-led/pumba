@@ -42,11 +42,11 @@ func NewCorruptCommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
-	sportsList string, // list of comma separated target sports
-	dportsList string, // list of comma separated target dports
-	durationStr string, // chaos duration
+	sportsList, // list of comma separated target sports
+	dportsList, // list of comma separated target dports
+	durationStr, // chaos duration
 	intervalStr string, // repeatable chaos interval
-	percent float64, // corrupt percent
+	percent, // corrupt percent
 	correlation float64, // corrupt correlation
 	image string, // traffic control image
 	pull bool, // pull tc image
@@ -72,9 +72,9 @@ func NewCorruptCommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip, err := util.ParseCIDR(str)
-		if err != nil {
-			return nil, err
+		ip, e := util.ParseCIDR(str)
+		if e != nil {
+			return nil, e
 		}
 		ips = append(ips, ip)
 	}
@@ -138,7 +138,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
@@ -159,7 +159,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels[i] = cancel
 		wg.Add(1)
-		go func(i int, c container.Container) {
+		go func(i int, c *container.Container) {
 			defer wg.Done()
 			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
@@ -179,7 +179,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, err := range errs {
+	for _, err = range errs {
 		// take first reported error
 		if err != nil {
 			return errors.Wrap(err, "failed to corrupt packets for one or more containers")

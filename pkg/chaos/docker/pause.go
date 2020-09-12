@@ -23,7 +23,7 @@ type PauseCommand struct {
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, names []string, pattern string, labels []string, intervalStr string, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
+func NewPauseCommand(client container.Client, names []string, pattern string, labels []string, intervalStr, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -60,19 +60,20 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
 	// keep paused containers
-	pausedContainers := []container.Container{}
+	pausedContainers := []*container.Container{}
 	// pause containers
 	for _, container := range containers {
 		log.WithFields(log.Fields{
 			"container": container,
 			"duration":  p.duration,
 		}).Debug("pausing container for duration")
-		err = p.client.PauseContainer(ctx, container, p.dryRun)
+		c := container
+		err = p.client.PauseContainer(ctx, c, p.dryRun)
 		if err != nil {
 			log.WithError(err).Warn("failed to pause container")
 			break
@@ -97,11 +98,12 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 }
 
 // unpause containers
-func (p *PauseCommand) unpauseContainers(ctx context.Context, containers []container.Container) error {
+func (p *PauseCommand) unpauseContainers(ctx context.Context, containers []*container.Container) error {
 	var err error
 	for _, container := range containers {
 		log.WithField("container", container).Debug("unpause container")
-		if e := p.client.UnpauseContainer(ctx, container, p.dryRun); e != nil {
+		c := container
+		if e := p.client.UnpauseContainer(ctx, c, p.dryRun); e != nil {
 			err = errors.Wrap(e, "failed to unpause container")
 		}
 	}

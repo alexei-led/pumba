@@ -1,8 +1,6 @@
 .bin
 .cover
 .git
-.glide
-.gtm
 .idea
 .vscode
 .github
@@ -11,9 +9,7 @@
 .env
 LICENSE
 
-*.lock
 *.md
-*.todo
 
 deploy
 docs

@@ -30,7 +30,7 @@ func matchNames(names []string, containerName string) bool {
 	return false
 }
 
-func matchPattern(pattern string, containerName string) bool {
+func matchPattern(pattern, containerName string) bool {
 	matched, err := regexp.MatchString(pattern, containerName)
 	if err != nil {
 		return false
@@ -46,7 +46,7 @@ func matchPattern(pattern string, containerName string) bool {
 }
 
 func applyContainerFilter(filter Filter) FilterFunc {
-	return func(c Container) bool {
+	return func(c *Container) bool {
 		// skip Pumba label
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
@@ -63,7 +63,7 @@ func applyContainerFilter(filter Filter) FilterFunc {
 	}
 }
 
-func listContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, all bool) ([]Container, error) {
+func listContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, all bool) ([]*Container, error) {
 	filter := Filter{
 		Names:   names,
 		Pattern: pattern,
@@ -76,17 +76,17 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 }
 
 // RandomContainer select random container
-func RandomContainer(containers []Container) *Container {
+func RandomContainer(containers []*Container) *Container {
 	if len(containers) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		i := r.Intn(len(containers))
-		return &containers[i]
+		return containers[i]
 	}
 	return nil
 }
 
 // ListNContainers list containers up to specified limit
-func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]Container, error) {
+func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]*Container, error) {
 	containers, err := listContainers(ctx, client, names, pattern, labels, false)
 	if err != nil {
 		return nil, err

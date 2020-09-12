@@ -7,10 +7,10 @@ FROM golang:1.14 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
-		curl \
-		git \
-		bash \
-	&& rm -rf /var/lib/apt/lists/*
+        curl \
+        git \
+        bash \
+    && rm -rf /var/lib/apt/lists/*
 # copy golangci-lint linter
 COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/local/bin
 # copy mockery mock generator
@@ -30,7 +30,7 @@ COPY Makefile .
 RUN make build-tools
 
 # copy go.mod/sum
-COPY go.* .
+COPY go.* ./
 RUN make dependency
 
 # copy sources
@@ -96,14 +96,14 @@ ARG RELEASE_TAG
 # Release Tag Message: `TAG_MESSAGE=$(git tag -l $RELEASE_TAG -n 20 | awk '{$1=""; print}')`
 ARG TAG_MESSAGE
 
-# release to GitHub; pass GITHUB_TOKEN as build-arg
+# release to GitHub; pass GITHUB_TOKEN ras build-arg
 ARG GITHUB_TOKEN
 
 # build pumba for all platforms
-RUN if [ $RELEASE ]; then make release; fi
+RUN if $RELEASE; then make release; fi
 
 # release to GitHub
-RUN if [ $RELEASE ]; then make github-release; fi
+RUN if $RELEASE; then make github-release; fi
 
 
 #

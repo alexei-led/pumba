@@ -450,13 +450,13 @@ git clone git@github.com:alexei-led/pumba.git
 cd pumba
 
 # build pumba binary
-./hack/build.sh
+make
 
 # run tests and create HTML coverage report
-./hack/test.sh --html
+make test-coverage
 
 # create pumba binaries for multiple platforms
-./hack/xbuild.sh
+make release
 ```
 
 ### Build using Docker

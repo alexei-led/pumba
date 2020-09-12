@@ -52,15 +52,6 @@ const (
 	DefaultInterface = "eth0"
 )
 
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 func init() {
 	// set log level
 	log.SetLevel(log.WarnLevel)
@@ -199,12 +190,12 @@ func before(c *cli.Context) error {
 		})
 	}
 	// Set-up container client
-	tls, err := tlsConfig(c)
+	tlsCfg, err := tlsConfig(c)
 	if err != nil {
 		return err
 	}
 	// create new Docker client
-	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tls)
+	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tlsCfg)
 	return err
 }
 
@@ -229,14 +220,14 @@ func handleSignals() context.Context {
 
 // tlsConfig translates the command-line options into a tls.Config struct
 func tlsConfig(c *cli.Context) (*tls.Config, error) {
-	var tlsConfig *tls.Config
+	var tlsCfg *tls.Config
 	var err error
 	caCertFlag := c.GlobalString("tlscacert")
 	certFlag := c.GlobalString("tlscert")
 	keyFlag := c.GlobalString("tlskey")
 
 	if c.GlobalBool("tls") || c.GlobalBool("tlsverify") {
-		tlsConfig = &tls.Config{
+		tlsCfg = &tls.Config{
 			InsecureSkipVerify: !c.GlobalBool("tlsverify"),
 		}
 
@@ -253,7 +244,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			}
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
-			tlsConfig.RootCAs = caCertPool
+			tlsCfg.RootCAs = caCertPool
 		}
 
 		// Load client certificate
@@ -270,10 +261,10 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 					return nil, err
 				}
 			}
-			tlsConfig.Certificates = []tls.Certificate{cert}
+			tlsCfg.Certificates = []tls.Certificate{cert}
 		}
 	}
-	return tlsConfig, nil
+	return tlsCfg, nil
 }
 
 func initializeCLICommands() []cli.Command {

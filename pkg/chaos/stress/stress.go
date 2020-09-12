@@ -27,11 +27,6 @@ type Command struct {
 	dryRun    bool
 }
 
-type stressedContainer struct {
-	stress    string              // stress container ID
-	container container.Container // target container
-}
-
 const (
 	defaultStopTimeout = 5 * time.Second
 )
@@ -76,16 +71,16 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
 	// stress containers
 	var eg errgroup.Group
 	for _, c := range containers {
-		container := c
+		cntr := c
 		eg.Go(func() error {
-			return s.stressContainer(ctx, container)
+			return s.stressContainer(ctx, cntr)
 		})
 	}
 	// wait till all stress tests complete
@@ -95,15 +90,15 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	return nil
 }
 
-func (s *Command) stressContainer(ctx context.Context, container container.Container) error {
+func (s *Command) stressContainer(ctx context.Context, c *container.Container) error {
 	log.WithFields(log.Fields{
-		"container":       container.ID(),
+		"container":       c.ID(),
 		"duration":        s.duration,
 		"stressors":       s.stressors,
 		"stress-ng image": s.image,
 		"pull image":      s.pull,
 	}).Debug("stress testing container for duration")
-	stress, output, outerr, err := s.client.StressContainer(ctx, container, s.stressors, s.image, s.pull, s.duration, s.dryRun)
+	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 	if err != nil {
 		return err
 	}

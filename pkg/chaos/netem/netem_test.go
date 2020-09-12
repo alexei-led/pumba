@@ -11,13 +11,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+//nolint:funlen
 func Test_runNetem(t *testing.T) {
 	type errs struct {
 		startErr bool
 		stopErr  bool
 	}
 	type args struct {
-		container    container.Container
+		container    *container.Container
 		netInterface string
 		cmd          []string
 		ips          []*net.IPNet
@@ -38,13 +39,13 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem with duration",
 			args: args{
-				container: *container.NewContainer(
+				container: container.NewContainer(
 					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
+				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
 				sports:       []string{"44"},
 				dports:       []string{"662"},
 				duration:     time.Microsecond * 10,
@@ -54,13 +55,13 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem with CIDR IP",
 			args: args{
-				container: *container.NewContainer(
+				container: container.NewContainer(
 					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 0, 255, 255}}},
+				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 0, 255, 255}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -68,13 +69,13 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem with abort",
 			args: args{
-				container: *container.NewContainer(
+				container: container.NewContainer(
 					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
+				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -83,13 +84,13 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem error in NetemContainer",
 			args: args{
-				container: *container.NewContainer(
+				container: container.NewContainer(
 					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
+				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},
@@ -99,13 +100,13 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem error in StopNetemContainer",
 			args: args{
-				container: *container.NewContainer(
+				container: container.NewContainer(
 					container.DetailsResponse(container.AsMap("Name", "c1")),
 					container.ImageDetailsResponse(container.AsMap()),
 				),
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
-				ips:          []*net.IPNet{&net.IPNet{IP: net.IP{10, 10, 10, 10}}},
+				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
 				duration:     time.Microsecond * 10,
 				tcimage:      "test/image",
 			},

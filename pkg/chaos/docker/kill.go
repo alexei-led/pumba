@@ -94,7 +94,7 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
@@ -103,7 +103,8 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 			"container": container,
 			"signal":    k.signal,
 		}).Debug("killing container")
-		err := k.client.KillContainer(ctx, container, k.signal, k.dryRun)
+		c := container
+		err = k.client.KillContainer(ctx, c, k.signal, k.dryRun)
 		if err != nil {
 			return errors.Wrap(err, "failed to kill container")
 		}

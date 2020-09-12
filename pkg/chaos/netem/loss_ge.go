@@ -44,13 +44,13 @@ func NewLossGECommand(client container.Client,
 	labels []string, // filter by labels
 	iface string, // network interface
 	ipsList []string, // list of target ips
-	sportsList string, // list of comma separated target sports
-	dportsList string, // list of comma separated target dports
-	durationStr string, // chaos duration
+	sportsList, // list of comma separated target sports
+	dportsList, // list of comma separated target dports
+	durationStr, // chaos duration
 	intervalStr string, // repeatable chaos interval
-	pg float64, // Good State transition probability
-	pb float64, // Bad State transition probability
-	oneH float64, // loss probability in Bad state
+	pg, // Good State transition probability
+	pb, // Bad State transition probability
+	oneH, // loss probability in Bad state
 	oneK float64, // loss probability in Good state
 	image string, // traffic control image
 	pull bool, // pull tc image
@@ -77,9 +77,9 @@ func NewLossGECommand(client container.Client,
 	// validate ips
 	var ips []*net.IPNet
 	for _, str := range ipsList {
-		ip, err := util.ParseCIDR(str)
-		if err != nil {
-			return nil, err
+		ip, e := util.ParseCIDR(str)
+		if e != nil {
+			return nil, e
 		}
 		ips = append(ips, ip)
 	}
@@ -95,19 +95,19 @@ func NewLossGECommand(client container.Client,
 	}
 	// get pg - Good State transition probability
 	if pg < 0.0 || pg > 100.0 {
-		return nil, errors.New("Invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
+		return nil, errors.New("invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
 	}
 	// get pb - Bad State transition probability
 	if pb < 0.0 || pb > 100.0 {
-		return nil, errors.New("Invalid pb (Bad State) transition probability: must be between 0.0 and 100.0")
+		return nil, errors.New("invalid pb (Bad State) transition probability: must be between 0.0 and 100.0")
 	}
 	// get (1-h) - loss probability in Bad state
 	if oneH < 0.0 || oneH > 100.0 {
-		return nil, errors.New("Invalid loss probability: must be between 0.0 and 100.0")
+		return nil, errors.New("invalid loss probability: must be between 0.0 and 100.0")
 	}
 	// get (1-k) - loss probability in Good state
 	if oneK < 0.0 || oneK > 100.0 {
-		return nil, errors.New("Invalid loss probability: must be between 0.0 and 100.0")
+		return nil, errors.New("invalid loss probability: must be between 0.0 and 100.0")
 	}
 
 	return &LossGECommand{
@@ -153,15 +153,13 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 	// select single random container from matching container and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
-			containers = []container.Container{*c}
+			containers = []*container.Container{c}
 		}
 	}
 
 	// prepare netem loss gemodel command
 	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.pb, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.oneH, 'f', 2, 64))
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.oneK, 'f', 2, 64))
+	netemCmd = append(netemCmd, strconv.FormatFloat(n.pb, 'f', 2, 64), strconv.FormatFloat(n.oneH, 'f', 2, 64), strconv.FormatFloat(n.oneK, 'f', 2, 64))
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
@@ -174,7 +172,7 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels[i] = cancel
 		wg.Add(1)
-		go func(i int, c container.Container) {
+		go func(i int, c *container.Container) {
 			defer wg.Done()
 			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
