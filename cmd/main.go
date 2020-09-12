@@ -150,6 +150,10 @@ func main() {
 			Usage:  "dry run does not create chaos, only logs planned chaos commands",
 			EnvVar: "DRY-RUN",
 		},
+		cli.BoolFlag{
+			Name:  "skip-error",
+			Usage: "skip chaos command error and retry to execute the command on next interval tick",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {

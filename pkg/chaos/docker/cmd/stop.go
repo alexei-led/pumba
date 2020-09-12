@@ -55,6 +55,8 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
+	// get skip error flag
+	skipError := c.GlobalBool("skip-error")
 	// get global chaos interval
 	interval := c.GlobalString("interval")
 	// get wait time
@@ -73,5 +75,5 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 		return err
 	}
 	// run stop command
-	return chaos.RunChaosCommand(cmd.context, stopCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, stopCommand, interval, random, skipError)
 }

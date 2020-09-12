@@ -57,6 +57,8 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
+	// get skip error flag
+	skipError := c.GlobalBool("skip-error")
 	// get names or pattern
 	names, pattern := chaos.GetNamesOrPattern(c)
 	// get global chaos interval
@@ -94,5 +96,5 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 		return err
 	}
 	// run netem command
-	return chaos.RunChaosCommand(cmd.context, lossGECommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, lossGECommand, interval, random, skipError)
 }

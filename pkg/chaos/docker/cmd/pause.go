@@ -43,6 +43,8 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	random := c.GlobalBool("random")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
+	// get skip error flag
+	skipError := c.GlobalBool("skip-error")
 	// get labels
 	labels := c.GlobalStringSlice("label")
 	// get global chaos interval
@@ -59,5 +61,5 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 		return err
 	}
 	// run pause command
-	return chaos.RunChaosCommand(cmd.context, pauseCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, pauseCommand, interval, random, skipError)
 }
