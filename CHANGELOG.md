@@ -1,8 +1,30 @@
 # Changelog
 
-## [0.7.3](https://github.com/alexei-led/pumba/tree/0.7.4) (2020-07-20)
+## [0.7.5](https://github.com/alexei-led/pumba/tree/0.7.5) (2020-09-12)
 
-[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.4...0.7.3)
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.4...0.7.5)
+
+**Implemented enhancements:**
+
+- Pumba Commands for chaos testing [\#89](https://github.com/alexei-led/pumba/issues/89)
+- Kubernetes Chaos Test [\#51](https://github.com/alexei-led/pumba/issues/51)
+
+**Closed issues:**
+
+- Build instructions are not correct for 0.7.4 [\#170](https://github.com/alexei-led/pumba/issues/170)
+- TC not found or failed [\#159](https://github.com/alexei-led/pumba/issues/159)
+- NetEm multiple targets ip's leads to fatal execption, unrecognized CIDR [\#158](https://github.com/alexei-led/pumba/issues/158)
+- pumba wildcard not working properly [\#133](https://github.com/alexei-led/pumba/issues/133)
+- Documentation doubts [\#119](https://github.com/alexei-led/pumba/issues/119)
+
+**Merged pull requests:**
+
+- Skip error [\#177](https://github.com/alexei-led/pumba/pull/177) ([alexei-led](https://github.com/alexei-led))
+- Linter fix [\#176](https://github.com/alexei-led/pumba/pull/176) ([alexei-led](https://github.com/alexei-led))
+
+## [0.7.4](https://github.com/alexei-led/pumba/tree/0.7.4) (2020-07-20)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.3...0.7.4)
 
 **Closed issues:**
 
@@ -11,11 +33,6 @@
 **Merged pull requests:**
 
 - Adding port targeting [\#163](https://github.com/alexei-led/pumba/pull/163) ([chuckkQ](https://github.com/chuckkQ))
-
-**Implemented enhancements:**
-
-- build with make
-- updated mockery: mock generation tool
 
 ## [0.7.3](https://github.com/alexei-led/pumba/tree/0.7.3) (2020-07-19)
 
@@ -185,10 +202,6 @@
 - Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 - Strange latency spikes on 4.15.0-36 kernel [\#103](https://github.com/alexei-led/pumba/issues/103)
 
-**Merged pull requests:**
-
-- Fixing tc image and more [\#107](https://github.com/alexei-led/pumba/pull/107) ([alexei-led](https://github.com/alexei-led))
-
 ## [0.6.0](https://github.com/alexei-led/pumba/tree/0.6.0) (2018-10-08)
 
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.5.2...0.6.0)
@@ -200,6 +213,7 @@
 
 **Merged pull requests:**
 
+- Fixing tc image and more [\#107](https://github.com/alexei-led/pumba/pull/107) ([alexei-led](https://github.com/alexei-led))
 - use SCRATCH image for base image [\#101](https://github.com/alexei-led/pumba/pull/101) ([alexei-led](https://github.com/alexei-led))
 - Better support for CI tool and Codecov [\#100](https://github.com/alexei-led/pumba/pull/100) ([alexei-led](https://github.com/alexei-led))
 - Refactor: Initialize CLI Commands in a separate func. [\#99](https://github.com/alexei-led/pumba/pull/99) ([nawazish-github](https://github.com/nawazish-github))

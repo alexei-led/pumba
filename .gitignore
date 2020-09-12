@@ -5,6 +5,7 @@
 .vscode
 .bin
 .env
+.in
 /.gtm/
 
 **/.DS_Store
