@@ -53,6 +53,8 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
+	// get skip error flag
+	skipError := c.GlobalBool("skip-error")
 	// get interval
 	interval := c.GlobalString("interval")
 	// get names or pattern
@@ -71,5 +73,5 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 		return err
 	}
 	// run remove command
-	return chaos.RunChaosCommand(cmd.context, removeCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, removeCommand, interval, random, skipError)
 }

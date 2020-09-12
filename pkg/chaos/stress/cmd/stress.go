@@ -54,6 +54,8 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	labels := c.GlobalStringSlice("label")
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
+	// get skip error flag
+	skipError := c.GlobalBool("skip-error")
 	// get interval
 	interval := c.GlobalString("interval")
 	// get names or pattern
@@ -74,5 +76,5 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 		return err
 	}
 	// run stress command
-	return chaos.RunChaosCommand(cmd.context, stressCommand, interval, random)
+	return chaos.RunChaosCommand(cmd.context, stressCommand, interval, random, skipError)
 }

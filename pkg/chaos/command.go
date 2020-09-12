@@ -52,7 +52,7 @@ func GetNamesOrPattern(c *cli.Context) ([]string, string) {
 }
 
 // RunChaosCommand run chaos command in go routine
-func RunChaosCommand(topContext context.Context, command Command, intervalStr string, random bool) error {
+func RunChaosCommand(topContext context.Context, command Command, intervalStr string, random, skipError bool) error {
 	// parse interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
@@ -75,7 +75,10 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 	for {
 		// run chaos function
 		if err := command.Run(ctx, random); err != nil {
-			return err
+			if !skipError {
+				return err
+			}
+			log.WithError(err).Warn("skipping error")
 		}
 		// wait for next timer tick or cancel
 		select {
