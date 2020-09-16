@@ -46,15 +46,35 @@ jobs:
         echo "::debug::prepare build args ${build_args}"
         echo "::set-env name=BUILD_ARGS::${build_args}"
 
+    - name: cache Docker layers
+      uses: actions/cache@v2
+      id: cache
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
     - name: build test images
       run: |
         echo "==> compile and test Go code"
-        docker buildx build --tag=pumba/build-and-test --target=build-and-test ${BUILD_ARGS}
+        docker buildx build --tag=pumba/build-and-test \
+          --target=build-and-test \
+          --cache-from "type=local,src=/tmp/.buildx-cache" \
+          --cache-to "type=local,dest=/tmp/.buildx-cache" \
+          --output "type=image,push=false" \
+          ${BUILD_ARGS}
         echo "==> prepare integration tests image"
-        docker buildx build --tag pumba/integration-tests --target=integration-tests ${BUILD_ARGS}
+        docker buildx build --tag pumba/integration-tests \
+          --target=integration-tests \
+          --cache-from "type=local,src=/tmp/.buildx-cache" \
+          --cache-to "type=local,dest=/tmp/.buildx-cache" \
+          --output "type=image,push=false" \
+          ${BUILD_ARGS}
 
     - name: run integration tests
       run: |
+        docker buildx ls
         docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba/integration-tests
 
     - name: upload coverage report
@@ -62,26 +82,23 @@ jobs:
         CI_BUILD_URL=https://github.com/${{ github.repository }}/commit/${{ github.sha }}/checks
         docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
 
-    - name: prepare final image
+    - name: login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_ACCOUNT }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+
+    - name: prepare release image
       if: github.event_name != 'pull_request'
       env:
         DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
       run: |
         docker buildx build \
           --platform linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6 \
-          --output "type=image,push=false" \
+          --cache-from "type=local,src=/tmp/.buildx-cache" \
+          --cache-to "type=local,dest=/tmp/.buildx-cache" \
+          --output "type=image,push=true" \
           --tag=${DOCKER_ORG}/pumba:${IMAGE_TAG} ${BUILD_ARGS}
-
-    - name: push Docker image
-      if: github.event_name != 'pull_request'
-      env:
-        DOCKER_ACCOUNT: ${{ secrets.DOCKER_ACCOUNT }}
-        DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-        DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
-      run: |
-        echo ${DOCKER_TOKEN} | docker login -u ${DOCKER_ACCOUNT} --password-stdin
-        docker push ${DOCKER_ORG}/pumba:${IMAGE_TAG}
-        docker logout
 
     - name: release to GitHub
       if: github.event_name != 'pull_request'
