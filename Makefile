@@ -93,7 +93,10 @@ TEST_TARGETS := test-default test-bench test-short test-verbose test-race
 test-bench:   ARGS=-run=__absolutelynothing__ -bench=. ## Run benchmarks
 test-short:   ARGS=-short        ## Run only short tests
 test-verbose: ARGS=-v            ## Run tests in verbose mode with coverage reporting
-test-race:    ARGS=-race         ## Run tests with race detector
+test-race:                       ## Run tests with race detector
+ifeq ($(GOOS)$(GOARCH),linuxamd64)
+  ARGS=-race 
+endif
 $(TEST_TARGETS): NAME=$(MAKECMDGOALS:test-%=%)
 $(TEST_TARGETS): test
 check test tests: fmt ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests

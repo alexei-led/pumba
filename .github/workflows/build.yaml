@@ -22,7 +22,17 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
  
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+
+    - name: set up Docker buildx
+      id: buildx
+      uses: crazy-max/ghaction-docker-buildx@v3
+      with:
+        buildx-version: latest
+        qemu-version: latest
+      
+    - name: list available platforms
+      run: echo ${{ steps.buildx.outputs.platforms }}
 
     - name: decide on tag
       run: |
@@ -39,9 +49,9 @@ jobs:
     - name: build test images
       run: |
         echo "==> compile and test Go code"
-        DOCKER_BUILDKIT=1 docker build --tag=pumba/build-and-test --target=build-and-test ${BUILD_ARGS}
+        docker buildx build --tag=pumba/build-and-test --target=build-and-test ${BUILD_ARGS}
         echo "==> prepare integration tests image"
-        DOCKER_BUILDKIT=1 docker build --tag pumba/integration-tests --target=integration-tests ${BUILD_ARGS}
+        docker buildx build --tag pumba/integration-tests --target=integration-tests ${BUILD_ARGS}
 
     - name: run integration tests
       run: |
@@ -57,7 +67,10 @@ jobs:
       env:
         DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
       run: |
-        DOCKER_BUILDKIT=1 docker build --tag=${DOCKER_ORG}/pumba:${IMAGE_TAG} ${BUILD_ARGS}
+        docker buildx build \
+          --platform linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6 \
+          --output "type=image,push=false" \
+          --tag=${DOCKER_ORG}/pumba:${IMAGE_TAG} ${BUILD_ARGS}
 
     - name: push Docker image
       if: github.event_name != 'pull_request'
@@ -73,4 +86,12 @@ jobs:
     - name: release to GitHub
       if: github.event_name != 'pull_request'
       run: |
-        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then DOCKER_BUILDKIT=1 docker build --tag pumba/github-release --target=github-release --build-arg=RELEASE=true --build-arg=RELEASE_TAG=${IMAGE_TAG} --build-arg=TAG_MESSAGE="Draft Release" --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} ${BUILD_ARGS}; fi
+        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then \
+          docker build buildx \
+            --tag pumba/github-release \
+            --target=github-release \
+            --build-arg=RELEASE=true \
+            --build-arg=RELEASE_TAG=${IMAGE_TAG} \
+            --build-arg=TAG_MESSAGE="Draft Release" \
+            --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} ${BUILD_ARGS} \
+        fi

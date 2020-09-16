@@ -3,7 +3,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.14 AS builder
+FROM golang:1.15 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -12,9 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         bash \
     && rm -rf /var/lib/apt/lists/*
 # copy golangci-lint linter
-COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/local/bin
+# COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/local/bin
+RUN GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.31.0
 # copy mockery mock generator
-COPY --from=vektra/mockery:v2.1 /usr/local/bin/mockery /usr/local/bin
+# COPY --from=vektra/mockery:v2.1 /usr/local/bin/mockery /usr/local/bin
+RUN GO111MODULE=on go get github.com/vektra/mockery/v2@v2.2.1
 
 #
 # ----- Build and Test Image -----
@@ -66,7 +68,7 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 #
 # ------ Pumba Integration Tests ------
 #
-FROM alpine:3.11 as integration-tests
+FROM alpine:3.12 as integration-tests
 
 # install required packages
 RUN apk add --no-cache bash bats docker iproute2
@@ -109,7 +111,7 @@ RUN if $RELEASE; then make github-release; fi
 #
 # ------ get latest CA certificates
 #
-FROM alpine:3.11 as certs
+FROM alpine:3.12 as certs
 RUN apk --update add ca-certificates
 
 
