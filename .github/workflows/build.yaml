@@ -60,14 +60,10 @@ jobs:
         echo "==> compile and test Go code"
         DOCKER_BUILDKIT=1 docker build --tag=pumba/build-and-test \
           --target=build-and-test \
-          --cache-from "type=local,src=/tmp/.buildx-cache" \
-          --cache-to "type=local,dest=/tmp/.buildx-cache" \
           ${BUILD_ARGS}
         echo "==> prepare integration tests image"
         DOCKER_BUILDKIT=1 docker build --tag pumba/integration-tests \
           --target=integration-tests \
-          --cache-from "type=local,src=/tmp/.buildx-cache" \
-          --cache-to "type=local,dest=/tmp/.buildx-cache" \
           ${BUILD_ARGS}
 
     - name: run integration tests
