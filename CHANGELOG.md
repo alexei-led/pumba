@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.6](https://github.com/alexei-led/pumba/tree/0.7.6) (2020-09-17)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.5...0.7.6)
+
+**Merged pull requests:**
+
+- Multi-architectutre Docker [\#178](https://github.com/alexei-led/pumba/pull/178) ([alexei-led](https://github.com/alexei-led))
+
 ## [0.7.5](https://github.com/alexei-led/pumba/tree/0.7.5) (2020-09-12)
 
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.4...0.7.5)
@@ -170,13 +178,10 @@
 
 - Deployment failed on Kubernetes 1.7 [\#42](https://github.com/alexei-led/pumba/issues/42)
 
-**Fixed bugs:**
-
-- Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
-
 **Closed issues:**
 
 - Pumba daemonset pods are crashing [\#110](https://github.com/alexei-led/pumba/issues/110)
+- Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 
 **Merged pull requests:**
 
@@ -194,13 +199,17 @@
 
 **Fixed bugs:**
 
+- Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
 - reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
 
 **Closed issues:**
 
 - when using --tc-image flag the sidekick image is not deleted after the command execution finishes [\#106](https://github.com/alexei-led/pumba/issues/106)
-- Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 - Strange latency spikes on 4.15.0-36 kernel [\#103](https://github.com/alexei-led/pumba/issues/103)
+
+**Merged pull requests:**
+
+- Fixing tc image and more [\#107](https://github.com/alexei-led/pumba/pull/107) ([alexei-led](https://github.com/alexei-led))
 
 ## [0.6.0](https://github.com/alexei-led/pumba/tree/0.6.0) (2018-10-08)
 
@@ -213,7 +222,6 @@
 
 **Merged pull requests:**
 
-- Fixing tc image and more [\#107](https://github.com/alexei-led/pumba/pull/107) ([alexei-led](https://github.com/alexei-led))
 - use SCRATCH image for base image [\#101](https://github.com/alexei-led/pumba/pull/101) ([alexei-led](https://github.com/alexei-led))
 - Better support for CI tool and Codecov [\#100](https://github.com/alexei-led/pumba/pull/100) ([alexei-led](https://github.com/alexei-led))
 - Refactor: Initialize CLI Commands in a separate func. [\#99](https://github.com/alexei-led/pumba/pull/99) ([nawazish-github](https://github.com/nawazish-github))
