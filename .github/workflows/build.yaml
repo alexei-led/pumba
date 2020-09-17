@@ -104,5 +104,5 @@ jobs:
             --build-arg=RELEASE=true \
             --build-arg=RELEASE_TAG=${IMAGE_TAG} \
             --build-arg=TAG_MESSAGE="Draft Release" \
-            --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} ${BUILD_ARGS} \
+            --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} ${BUILD_ARGS}; \
         fi
