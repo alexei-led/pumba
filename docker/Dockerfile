@@ -54,7 +54,7 @@ ENV VCS_BRANCH_NAME ${VCS_BRANCH_NAME}
 ARG VCS_SLUG
 ENV VCS_SLUG ${VCS_SLUG}
 # bild pumba binary for amd64 linux
-RUN --mount=type=cache,target=/root/.cache/go-build make
+RUN --mount=type=cache,target=/root/.cache/go-build make build
 
 # upload coverage reports to Codecov.io, if CODECOV_TOKEN set through build-arg
 ARG CODECOV_TOKEN
