@@ -70,7 +70,7 @@ func NewLossStateCommand(client container.Client,
 		return nil, err
 	}
 	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9_-]*")
+	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\.:_-]*")
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
 		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
