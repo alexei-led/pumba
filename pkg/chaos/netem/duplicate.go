@@ -64,7 +64,7 @@ func NewDuplicateCommand(client container.Client,
 		return nil, err
 	}
 	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\.:_-]*")
+	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\\.:_-]*")
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
 		err = errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
