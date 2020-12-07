@@ -3,7 +3,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.15 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.15 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,17 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         bash \
     && rm -rf /var/lib/apt/lists/*
-# copy golangci-lint linter
-# COPY --from=golangci/golangci-lint:v1.28-alpine /usr/bin/golangci-lint /usr/local/bin
-RUN --mount=type=cache,target=/root/.cache/go-build GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.31.0
-# copy mockery mock generator
-# COPY --from=vektra/mockery:v2.1 /usr/local/bin/mockery /usr/local/bin
-RUN --mount=type=cache,target=/root/.cache/go-build GO111MODULE=on  go get github.com/vektra/mockery/v2@v2.2.1
 
 #
 # ----- Build and Test Image -----
 #
-FROM builder as build-and-test
+FROM --platform=${BUILDPLATFORM} builder as build-and-test
 
 # set working directory
 RUN mkdir -p /go/src/pumba
@@ -29,7 +23,7 @@ WORKDIR /go/src/pumba
 
 # copy Makefile
 COPY Makefile .
-RUN --mount=type=cache,target=/root/.cache/go-build make build-tools
+RUN --mount=type=cache,target=/root/.cache/go-build make setup-tools
 
 # copy go.mod/sum
 COPY go.* ./
@@ -53,8 +47,12 @@ ENV VCS_BRANCH_NAME ${VCS_BRANCH_NAME}
 # VCS_SLUG: owner/repo slug
 ARG VCS_SLUG
 ENV VCS_SLUG ${VCS_SLUG}
-# bild pumba binary for amd64 linux
-RUN --mount=type=cache,target=/root/.cache/go-build make build
+
+# build pumba binary for TARGETOS/TARGETARCH (default: linux/amd64)
+# passed by buildkit
+ARG TARGETOS
+ARG TARGETARCH
+RUN --mount=type=cache,target=/root/.cache/go-build TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH} make build
 
 # upload coverage reports to Codecov.io, if CODECOV_TOKEN set through build-arg
 ARG CODECOV_TOKEN
@@ -86,7 +84,7 @@ CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
 #
 # ------ Pumba GitHub Release ------
 #
-FROM build-and-test as github-release
+FROM --platform=${BUILDPLATFORM} build-and-test as github-release
 
 # build argument to secify if to create a GitHub release
 ARG DEBUG=false

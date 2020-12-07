@@ -15,6 +15,10 @@ GOLANGCI_LINT_CONFIG = $(CURDIR)/.golangci.yml
 PLATFORMS     = darwin linux windows
 ARCHITECTURES = amd64 arm64
 
+TARGETOS   ?= linux
+TARGETARCH ?= amd64
+
+
 GO            = go
 DOCKER        = docker
 GOMOCK        = mockery
@@ -31,22 +35,22 @@ export CGO_ENABLED=0
 export GOPROXY=https://proxy.golang.org
 
 .PHONY: all
-all: fmt lint test build
+all: setup-tools fmt lint test build
 
 .PHONY: dependency
-dependency: $(BIN); $(info $(M) downloading dependencies...) @ ## Build program binary
+dependency: ; $(info $(M) downloading dependencies...) @ ## Build program binary
 	$Q $(GO) mod download
 
 
 .PHONY: build
-build: dependency | $(BIN) ; $(info $(M) building executable...) @ ## Build program binary
-	$Q $(GO) build \
+build: dependency | ; $(info $(M) building $(TARGETOS)/$(TARGETARCH) binary...) @ ## Build program binary
+	$Q env GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) $(GO) build \
 		-tags release \
 		-ldflags "$(LDFLAGS_VERSION)" \
 		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
 
 .PHONY: release
-release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch...) @ ## Build program binary for paltforms and os
+release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for paltforms and os
 	$(foreach GOOS, $(PLATFORMS),\
 		$(foreach GOARCH, $(ARCHITECTURES), \
 			$(shell \
@@ -56,35 +60,31 @@ release: clean | $(BIN) ; $(info $(M) building executables for multiple os/arch.
 				-ldflags "$(LDFLAGS_VERSION)" \
 				-o $(BIN)/$(basename $(MODULE))_$(GOOS)_$(GOARCH) ./cmd/main.go || true)))
 
-
-
 # Tools
 
-$(BIN):
-	@mkdir -p $@
-$(BIN)/%: | $(BIN) ; $(info $(M) building $(PACKAGE)...)
-	$Q tmp=$$(mktemp -d); \
-	   env GO111MODULE=off GOPATH=$$tmp GOBIN=$(BIN) $(GO) get $(PACKAGE) \
-		|| ret=$$?; \
-	   rm -rf $$tmp ; exit $$ret
+setup-tools: setup-golint setup-golangci-lint setup-gocov setup-gocov-xml setup-go2xunit
 
-GOCOV = $(BIN)/gocov
-$(BIN)/gocov: PACKAGE=github.com/axw/gocov/...
+setup-golint:
+	$(GO) get golang.org/x/lint/golint
+setup-golangci-lint:
+	$(GO) get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.33.0
+setup-gocov:
+	$(GO) get github.com/axw/gocov/...
+setup-gocov-xml:
+	$(GO) get github.com/AlekSi/gocov-xml
+setup-go2xunit:
+	$(GO) get github.com/tebeka/go2xunit
+setup-mockery:
+	$(GO) get github.com/vektra/mockery/v2/
+setup-ghr:
+	$(GO) get github.com/tcnksm/ghr
 
-GOLINT = $(BIN)/golint
-$(BIN)/golint: PACKAGE=golang.org/x/lint/golint
-
-GOCOVXML = $(BIN)/gocov-xml
-$(BIN)/gocov-xml: PACKAGE=github.com/AlekSi/gocov-xml
-
-GO2XUNIT = $(BIN)/go2xunit
-$(BIN)/go2xunit: PACKAGE=github.com/tebeka/go2xunit
-
-GHR = $(BIN)/ghr
-$(BIN)/ghr: PACKAGE=github.com/tcnksm/ghr
-
-# build tools
-build-tools: $(GOLINT) $(GOCOV) $(GOCOVXML) $(GO2XUNIT)
+GOLINT=golint
+GOCOV=gocov
+GOCOVXML=gocov-xml
+GO2XUNIT=go2xunit
+GOMOCK=mockery
+GHR=ghr
 
 # Tests
 
@@ -99,10 +99,10 @@ ifeq ($(GOOS)$(GOARCH),linuxamd64)
 endif
 $(TEST_TARGETS): NAME=$(MAKECMDGOALS:test-%=%)
 $(TEST_TARGETS): test
-check test tests: fmt ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
+check test tests: ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
 	$Q env CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
-test-xml: fmt lint | $(GO2XUNIT) ; $(info $(M) running xUnit tests...) @ ## Run tests with xUnit output
+test-xml: setup-go2xunit; $(info $(M) running xUnit tests...) @ ## Run tests with xUnit output
 	$Q mkdir -p test
 	$Q 2>&1 $(GO) test -timeout $(TIMEOUT)s -v $(TESTPKGS) | tee test/tests.output
 	$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
@@ -111,10 +111,9 @@ COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
-.PHONY: test-coverage build-tools
-
+.PHONY: test-coverage
 test-coverage: COVERAGE_DIR := $(CURDIR)/.cover/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-test-coverage: fmt | build-tools; $(info $(M) running coverage tests...) @ ## Run coverage tests
+test-coverage: setup-gocov setup-gocov-xml; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
 	$Q $(GO) test \
 		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
@@ -132,11 +131,11 @@ integration-tests: build ; $(info $(M) running integration tests with bats...) @
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(BATS) tests
 
 .PHONY: golangci-lint
-golangci-lint: ; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
+golangci-lint: setup-golangci-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
 
 .PHONY: lint
-lint: | $(GOLINT) ; $(info $(M) running golint...) @ ## Run golint
+lint: setup-golint; $(info $(M) running golint...) @ ## Run golint
 	$Q $(GOLINT) -set_exit_status $(PKGS)
 
 .PHONY: fmt
@@ -145,7 +144,7 @@ fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
 
 # generate test mock for interfaces
 .PHONY: mocks
-mocks: ; $(info $(M) generating mocks...) @ ## Run mockery
+mocks: setup-mockery; $(info $(M) generating mocks...) @ ## Run mockery
 	$Q $(GOMOCK) --dir pkg/chaos/docker --all
 	$Q $(GOMOCK) --dir pkg/container --inpackage --all
 	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name ContainerAPIClient
@@ -162,7 +161,7 @@ endif
 
 # generate github release
 .PHONY: github-release
-github-release: release | $(GHR) ;$(info $(M) generating github release...) @ ## run ghr tool
+github-release: setup-ghr | release ;$(info $(M) generating github release...) @ ## run ghr tool
 ifndef GITHUB_TOKEN
 	$(error GITHUB_TOKEN is undefined)
 endif
