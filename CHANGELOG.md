@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.7](https://github.com/alexei-led/pumba/tree/0.7.7) (2020-12-16)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.6...0.7.7)
+
+**Fixed bugs:**
+
+- How to run netem on VLAN tagged interfaces? [\#182](https://github.com/alexei-led/pumba/issues/182)
+
+**Closed issues:**
+
+- Suggestion for a kill tool [\#187](https://github.com/alexei-led/pumba/issues/187)
+- list of container names not working? [\#186](https://github.com/alexei-led/pumba/issues/186)
+- Setting Up Pumba on Kind Kubernetes Cluster [\#180](https://github.com/alexei-led/pumba/issues/180)
+
+**Merged pull requests:**
+
+- Fix Interface regex \(fixes issue \#182\) [\#184](https://github.com/alexei-led/pumba/pull/184) ([gpsingh-1991](https://github.com/gpsingh-1991))
+
 ## [0.7.6](https://github.com/alexei-led/pumba/tree/0.7.6) (2020-09-17)
 
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.5...0.7.6)
@@ -27,7 +45,6 @@
 
 **Merged pull requests:**
 
-- Skip error [\#177](https://github.com/alexei-led/pumba/pull/177) ([alexei-led](https://github.com/alexei-led))
 - Linter fix [\#176](https://github.com/alexei-led/pumba/pull/176) ([alexei-led](https://github.com/alexei-led))
 
 ## [0.7.4](https://github.com/alexei-led/pumba/tree/0.7.4) (2020-07-20)
@@ -79,6 +96,7 @@
 
 **Merged pull requests:**
 
+- Skip error [\#177](https://github.com/alexei-led/pumba/pull/177) ([alexei-led](https://github.com/alexei-led))
 - Refactor log errors [\#152](https://github.com/alexei-led/pumba/pull/152) ([alexei-led](https://github.com/alexei-led))
 
 ## [0.7.1](https://github.com/alexei-led/pumba/tree/0.7.1) (2020-02-10)
@@ -178,10 +196,13 @@
 
 - Deployment failed on Kubernetes 1.7 [\#42](https://github.com/alexei-led/pumba/issues/42)
 
+**Fixed bugs:**
+
+- Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
+
 **Closed issues:**
 
 - Pumba daemonset pods are crashing [\#110](https://github.com/alexei-led/pumba/issues/110)
-- Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 
 **Merged pull requests:**
 
@@ -199,12 +220,12 @@
 
 **Fixed bugs:**
 
-- Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
 - reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
 
 **Closed issues:**
 
 - when using --tc-image flag the sidekick image is not deleted after the command execution finishes [\#106](https://github.com/alexei-led/pumba/issues/106)
+- Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 - Strange latency spikes on 4.15.0-36 kernel [\#103](https://github.com/alexei-led/pumba/issues/103)
 
 **Merged pull requests:**
