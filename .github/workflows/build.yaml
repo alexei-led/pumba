@@ -100,7 +100,7 @@ jobs:
     - name: release to GitHub
       if: github.event_name != 'pull_request'
       run: |
-        if [[ "${IMAGE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then \
+        if [[ "${{ steps.tagger.outputs.tag }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then \
           DOCKER_BUILDKIT=1 docker build \
             --tag pumba/github-release \
             --target=github-release \
