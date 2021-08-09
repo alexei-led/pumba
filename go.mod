@@ -29,7 +29,7 @@ require (
 	github.com/tebeka/go2xunit v1.4.10 // indirect
 	github.com/urfave/cli v1.22.4
 	github.com/vektra/mockery/v2 v2.4.0 // indirect
-	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
