@@ -66,19 +66,19 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 setup-tools: setup-golint setup-golangci-lint setup-gocov setup-gocov-xml setup-go2xunit
 
 setup-golint:
-	$(GO) get golang.org/x/lint/golint
+	$(GO) install golang.org/x/lint/golint
 setup-golangci-lint:
-	$(GO) get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.33.0
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.33.0
 setup-gocov:
-	$(GO) get github.com/axw/gocov/...
+	$(GO) install github.com/axw/gocov/...
 setup-gocov-xml:
-	$(GO) get github.com/AlekSi/gocov-xml
+	$(GO) install github.com/AlekSi/gocov-xml
 setup-go2xunit:
-	$(GO) get github.com/tebeka/go2xunit
+	$(GO) install github.com/tebeka/go2xunit
 setup-mockery:
-	$(GO) get github.com/vektra/mockery/v2/
+	$(GO) install github.com/vektra/mockery/v2/
 setup-ghr:
-	$(GO) get github.com/tcnksm/ghr
+	$(GO) install github.com/tcnksm/ghr
 
 GOLINT=golint
 GOCOV=gocov
