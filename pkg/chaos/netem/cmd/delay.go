@@ -76,7 +76,7 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	// get traffic control image from parent `netem` command
 	image := c.Parent().String("tc-image")
 	// get pull tc image flag
-	pull := c.Parent().BoolT("pull-image")
+	pull := c.Parent().Bool("pull-image")
 	// get limit for number of containers to netem
 	limit := c.Parent().Int("limit")
 

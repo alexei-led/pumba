@@ -306,7 +306,7 @@ func initializeCLICommands() []cli.Command {
 					Name:  "tc-image",
 					Usage: "Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'",
 				},
-				cli.BoolTFlag{
+				cli.BoolFlag{
 					Name:  "pull-image",
 					Usage: "try to pull tc-image",
 				},
