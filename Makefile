@@ -53,7 +53,6 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 	$(foreach GOOS, $(PLATFORMS),\
 		$(foreach GOARCH, $(ARCHITECTURES), \
 			$(shell \
-				if [ "$(GOARCH)" = "arm64" ] && [ "$(GOOS)" != "linux" ]; then exit 0; fi; \
 				GOPROXY=$(GOPROXY) CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
 				$(GO) build \
 				-tags release \
