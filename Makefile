@@ -68,7 +68,7 @@ setup-golint:
 setup-golangci-lint:
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 setup-gocov:
-	$(GO) install github.com/axw/gocov/...
+	$(GO) install github.com/axw/gocov/gocov@latest
 setup-gocov-xml:
 	$(GO) install github.com/AlekSi/gocov-xml@latest
 setup-go2xunit:
