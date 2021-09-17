@@ -1,11 +1,11 @@
-MODULE   = $(shell env GO111MODULE=on $(GO) list -m)
+MODULE   = $(shell $(GO) list -m)
 DATE    ?= $(shell date +%FT%T%z)
 VERSION ?= $(shell git describe --tags --always --dirty 2> /dev/null || \
 			cat $(CURDIR)/VERSION 2> /dev/null || echo v0)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-PKGS     = $(or $(PKG),$(shell env GO111MODULE=on $(GO) list ./...))
-TESTPKGS = $(shell env GO111MODULE=on $(GO) list -f \
+PKGS     = $(or $(PKG),$(shell $(GO) list ./...))
+TESTPKGS = $(shell $(GO) list -f \
 			'{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' \
 			$(PKGS))
 LDFLAGS_VERSION = -X main.Version=$(VERSION) -X main.GitCommit=$(COMMIT) -X main.GitBranch=$(BRANCH) -X main.BuildTime=$(DATE) 
@@ -30,7 +30,6 @@ V = 0
 Q = $(if $(filter 1,$V),,@)
 M = $(shell printf "\033[34;1m▶\033[0m")
 
-export GO111MODULE=on
 export CGO_ENABLED=0
 export GOPROXY=https://proxy.golang.org
 

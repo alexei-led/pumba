@@ -3,7 +3,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM --platform=${BUILDPLATFORM} golang:1.15 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.17 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -66,7 +66,7 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 #
 # ------ Pumba Integration Tests ------
 #
-FROM alpine:3.12 as integration-tests
+FROM alpine:3.13 as integration-tests
 
 # install required packages
 RUN apk add --no-cache bash bats docker iproute2
@@ -109,7 +109,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build if $RELEASE; then make githu
 #
 # ------ get latest CA certificates
 #
-FROM alpine:3.12 as certs
+FROM alpine:3.13 as certs
 RUN apk --update add ca-certificates
 
 
