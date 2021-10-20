@@ -38,7 +38,7 @@ type Client interface {
 	StopContainer(context.Context, *Container, int, bool) error
 	KillContainer(context.Context, *Container, string, bool) error
 	ExecContainer(context.Context, *Container, string, bool) error
-	RestartContainer(context.Context, *Container, string, bool) error
+	RestartContainer(context.Context, *Container, time.Duration, bool) error
 	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
 	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
 	StopNetemContainer(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
@@ -186,56 +186,19 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 	return nil
 }
 
-func (client dockerClient) RestartContainer(ctx context.Context, c *Container, command string, dryrun bool) error {
+func (client dockerClient) RestartContainer(ctx context.Context, c *Container, timeout time.Duration, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
-		"command": command,
+		"timeout": timeout,
 		"dryrun":  dryrun,
 	}).Info("restart container")
 	if !dryrun {
-		createRes, err := client.containerAPI.ContainerRestartCreate(
-			ctx, c.ID(), types.RestartConfig{
-				User:         "root",
-				AttachStdout: true,
-				AttachStderr: true,
-				Cmd:          strings.Split(command, " "),
-			},
+		err := client.containerAPI.ContainerRestart(
+			ctx, c.ID(), &timeout,
 		)
 		if err != nil {
-			return errors.Wrap(err, "restart create failed")
-		}
-
-		attachRes, err := client.containerAPI.ContainerAttach(
-			ctx, createRes.ID, types.ContainerAttachOptions{},
-		)
-		if err != nil {
-			return errors.Wrap(err, "restart attach failed")
-		}
-
-		if err := client.containerAPI.ContainerRestartStart(
-			ctx, createRes.ID, types.RestartStartCheck{},
-		); err != nil {
-			return errors.Wrap(err, "restart start failed")
-		}
-
-		output, err := ioutil.ReadAll(attachRes.Reader)
-		if err != nil {
-			return errors.Wrap(err, "reading output from restart reader failed")
-		}
-		log.WithFields(log.Fields{
-			"name":    c.Name(),
-			"id":      c.ID(),
-			"command": command,
-			"dryrun":  dryrun,
-		}).Info(string(output))
-
-		res, err := client.containerAPI.ContainerRestartInspect(ctx, createRes.ID)
-		if err != nil {
-			return errors.Wrap(err, "restart inspect failed")
-		}
-		if res.ExitCode != 0 {
-			return errors.New("restart failed " + command + fmt.Sprintf(" %d", res.ExitCode))
+			return errors.Wrap(err, "restart failed")
 		}
 	}
 	return nil

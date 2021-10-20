@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -14,14 +15,14 @@ import (
 //nolint:funlen
 func TestRestartCommand_Run(t *testing.T) {
 	type wantErrors struct {
-		listError bool
+		listError    bool
 		restartError bool
 	}
 	type fields struct {
 		names   []string
 		pattern string
 		labels  []string
-		command string
+		timeout time.Duration
 		limit   int
 		dryRun  bool
 	}
@@ -41,7 +42,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			name: "restart matching containers by names",
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -53,7 +54,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
 				labels:  []string{"key=value"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -64,7 +65,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			name: "restart matching containers by filter with limit",
 			fields: fields{
 				pattern: "^c?",
-				command: "kill -STOP 1",
+				timeout: 1 * time.Second,
 				limit:   2,
 			},
 			args: args{
@@ -76,7 +77,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			name: "restart random matching container by names",
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 			args: args{
 				ctx:    context.TODO(),
@@ -88,7 +89,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			name: "no matching containers by names",
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -98,7 +99,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			name: "error listing containers",
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -110,7 +111,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			name: "error restarting container",
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -128,7 +129,7 @@ func TestRestartCommand_Run(t *testing.T) {
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
 				labels:  tt.fields.labels,
-				command: tt.fields.command,
+				timeout: 1 * time.Second,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
@@ -144,11 +145,11 @@ func TestRestartCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.dryRun).Return(nil)
+				mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.dryRun)
+						call = mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.dryRun)
 						if tt.errs.restartError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke
@@ -173,7 +174,7 @@ func TestNewRestartCommand(t *testing.T) {
 		names   []string
 		pattern string
 		labels  []string
-		command string
+		timeout time.Duration
 		limit   int
 		dryRun  bool
 	}
@@ -187,12 +188,12 @@ func TestNewRestartCommand(t *testing.T) {
 			name: "create new restart command",
 			args: args{
 				names:   []string{"c1", "c2"},
-				command: "kill -TERM 1",
+				timeout: 1 * time.Second,
 				limit:   10,
 			},
 			want: &RestartCommand{
 				names:   []string{"c1", "c2"},
-				command: "kill -TERM 1",
+				timeout: 1 * time.Second,
 				limit:   10,
 			},
 		},
@@ -200,17 +201,17 @@ func TestNewRestartCommand(t *testing.T) {
 			name: "empty command",
 			args: args{
 				names:   []string{"c1", "c2"},
-				command: "",
+				timeout: 1 * time.Second,
 			},
 			want: &RestartCommand{
 				names:   []string{"c1", "c2"},
-				command: "kill 1",
+				timeout: 1 * time.Second,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewRestartCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.command, tt.args.limit, tt.args.dryRun)
+			got, err := NewRestartCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.timeout, tt.args.limit, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewRestartCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/urfave/cli"
 
@@ -20,10 +21,10 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 	return &cli.Command{
 		Name: "restart",
 		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "command, s",
-				Usage: "shell command, that will be sent by Pumba to the target container(s)",
-				Value: "kill 1",
+			cli.IntFlag{
+				Name:  "timeout, s",
+				Usage: "restart timeout for target container(s)",
+				Value: 1000,
 			},
 			cli.IntFlag{
 				Name:  "limit, l",
@@ -53,11 +54,11 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// get names or pattern
 	names, pattern := chaos.GetNamesOrPattern(c)
 	// get command
-	command := c.String("command")
+	timeout := time.Duration(c.Int("timeout")) * time.Millisecond
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, names, pattern, labels, command, limit, dryRun)
+	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, names, pattern, labels, timeout, limit, dryRun)
 	if err != nil {
 		return err
 	}

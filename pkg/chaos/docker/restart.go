@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -15,17 +16,14 @@ type RestartCommand struct {
 	names   []string
 	pattern string
 	labels  []string
-	command string
+	timeout time.Duration
 	limit   int
 	dryRun  bool
 }
 
 // NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client container.Client, names []string, pattern string, labels []string, command string, limit int, dryRun bool) (chaos.Command, error) {
-	restart := &RestartCommand{client, names, pattern, labels, command, limit, dryRun}
-	if restart.command == "" {
-		restart.command = "kill 1"
-	}
+func NewRestartCommand(client container.Client, names []string, pattern string, labels []string, timeout time.Duration, limit int, dryRun bool) (chaos.Command, error) {
+	restart := &RestartCommand{client, names, pattern, labels, timeout, limit, dryRun}
 	return restart, nil
 }
 
@@ -58,10 +56,10 @@ func (k *RestartCommand) Run(ctx context.Context, random bool) error {
 	for _, container := range containers {
 		log.WithFields(log.Fields{
 			"container": container,
-			"command":   k.command,
+			"timeout":   k.timeout,
 		}).Debug("restarting container")
 		c := container
-		err = k.client.RestartContainer(ctx, c, k.command, k.dryRun)
+		err = k.client.RestartContainer(ctx, c, k.timeout, k.dryRun)
 		if err != nil {
 			return errors.Wrap(err, "failed to restart container")
 		}
