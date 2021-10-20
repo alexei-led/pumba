@@ -275,6 +275,7 @@ func initializeCLICommands() []cli.Command {
 	return []cli.Command{
 		*cmd.NewKillCLICommand(topContext),
 		*cmd.NewExecCLICommand(topContext),
+		*cmd.NewRestartCLICommand(topContext),
 		*cmd.NewStopCLICommand(topContext),
 		*cmd.NewPauseCLICommand(topContext),
 		*cmd.NewRemoveCLICommand(topContext),
