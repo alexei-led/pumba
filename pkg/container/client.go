@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -136,21 +138,48 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 		"dryrun":  dryrun,
 	}).Info("exec container")
 	if !dryrun {
-		_, err := client.containerAPI.ContainerExecCreate(
+		createRes, err := client.containerAPI.ContainerExecCreate(
 			ctx, c.ID(), types.ExecConfig{
-				Cmd: strings.Split(command, " "),
+				User:         "root",
+				AttachStdout: true,
+				AttachStderr: true,
+				Cmd:          strings.Split(command, " "),
 			},
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "exec create failed")
 		}
 
-		res, err := client.containerAPI.ContainerExecInspect(ctx, c.ID())
+		attachRes, err := client.containerAPI.ContainerAttach(
+			ctx, createRes.ID, types.ContainerAttachOptions{},
+		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "exec attach failed")
+		}
+
+		if err := client.containerAPI.ContainerExecStart(
+			ctx, createRes.ID, types.ExecStartCheck{},
+		); err != nil {
+			return errors.Wrap(err, "exec start failed")
+		}
+
+		output, err := ioutil.ReadAll(attachRes.Reader)
+		if err != nil {
+			return errors.Wrap(err, "reading output from exec reader failed")
+		}
+		log.WithFields(log.Fields{
+			"name":    c.Name(),
+			"id":      c.ID(),
+			"command": command,
+			"dryrun":  dryrun,
+		}).Info(string(output))
+
+		res, err := client.containerAPI.ContainerExecInspect(ctx, createRes.ID)
+		if err != nil {
+			return errors.Wrap(err, "exec inspect failed")
 		}
 		if res.ExitCode != 0 {
-			return errors.New("exec failed")
+			return errors.New("exec failed " + command + fmt.Sprintf(" %d", res.ExitCode))
 		}
 	}
 	return nil

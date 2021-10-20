@@ -38,7 +38,7 @@ func NewExecCLICommand(ctx context.Context) *cli.Command {
 	}
 }
 
-// KILL Command
+// EXEC Command
 func (cmd *execContext) exec(c *cli.Context) error {
 	// get random
 	random := c.GlobalBool("random")
