@@ -35,6 +35,7 @@ type Client interface {
 	ListContainers(context.Context, FilterFunc, ListOpts) ([]*Container, error)
 	StopContainer(context.Context, *Container, int, bool) error
 	KillContainer(context.Context, *Container, string, bool) error
+	ExecContainer(context.Context, *Container, string, bool) error
 	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
 	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
 	StopNetemContainer(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
@@ -123,6 +124,34 @@ func (client dockerClient) KillContainer(ctx context.Context, c *Container, sign
 	}).Info("killing container")
 	if !dryrun {
 		return client.containerAPI.ContainerKill(ctx, c.ID(), signal)
+	}
+	return nil
+}
+
+func (client dockerClient) ExecContainer(ctx context.Context, c *Container, command string, dryrun bool) error {
+	log.WithFields(log.Fields{
+		"name":    c.Name(),
+		"id":      c.ID(),
+		"command": command,
+		"dryrun":  dryrun,
+	}).Info("exec container")
+	if !dryrun {
+		_, err := client.containerAPI.ContainerExecCreate(
+			ctx, c.ID(), types.ExecConfig{
+				Cmd: strings.Split(command, " "),
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		res, err := client.containerAPI.ContainerExecInspect(ctx, c.ID())
+		if err != nil {
+			return err
+		}
+		if res.ExitCode != 0 {
+			return errors.New("exec failed")
+		}
 	}
 	return nil
 }
