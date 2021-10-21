@@ -27,6 +27,11 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 				Value: 1000,
 			},
 			cli.IntFlag{
+				Name:  "delay, d",
+				Usage: "restart delay for target container(s)",
+				Value: 1000,
+			},
+			cli.IntFlag{
 				Name:  "limit, l",
 				Usage: "limit number of container to restart (0: restart all matching)",
 				Value: 0,
@@ -53,12 +58,14 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	interval := c.GlobalString("interval")
 	// get names or pattern
 	names, pattern := chaos.GetNamesOrPattern(c)
-	// get command
+	// get timeout
 	timeout := time.Duration(c.Int("timeout")) * time.Millisecond
+	// get delay
+	delay := time.Duration(c.Int("delay")) * time.Millisecond
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, names, pattern, labels, timeout, limit, dryRun)
+	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, names, pattern, labels, timeout, delay, limit, dryRun)
 	if err != nil {
 		return err
 	}

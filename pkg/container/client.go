@@ -38,7 +38,7 @@ type Client interface {
 	StopContainer(context.Context, *Container, int, bool) error
 	KillContainer(context.Context, *Container, string, bool) error
 	ExecContainer(context.Context, *Container, string, bool) error
-	RestartContainer(context.Context, *Container, time.Duration, bool) error
+	RestartContainer(context.Context, *Container, time.Duration, time.Duration, bool) error
 	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
 	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
 	StopNetemContainer(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
@@ -186,7 +186,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 	return nil
 }
 
-func (client dockerClient) RestartContainer(ctx context.Context, c *Container, timeout time.Duration, dryrun bool) error {
+func (client dockerClient) RestartContainer(ctx context.Context, c *Container, timeout time.Duration, delay time.Duration, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -194,11 +194,18 @@ func (client dockerClient) RestartContainer(ctx context.Context, c *Container, t
 		"dryrun":  dryrun,
 	}).Info("restart container")
 	if !dryrun {
-		err := client.containerAPI.ContainerRestart(
+		if err := client.containerAPI.ContainerStop(
 			ctx, c.ID(), &timeout,
-		)
-		if err != nil {
-			return errors.Wrap(err, "restart failed")
+		); err != nil {
+			return errors.Wrap(err, "restart stop failed")
+		}
+
+		time.Sleep(delay)
+
+		if err := client.containerAPI.ContainerStart(
+			ctx, c.ID(), types.ContainerStartOptions{},
+		); err != nil {
+			return errors.Wrap(err, "restart start failed")
 		}
 	}
 	return nil
