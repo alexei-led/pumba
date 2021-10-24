@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.8.0](https://github.com/alexei-led/pumba/tree/0.8.0) (2021-10-21)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.8...0.8.0)
+
+**Closed issues:**
+
+- re2 doesn't work for netem plugin [\#206](https://github.com/alexei-led/pumba/issues/206)
+- always the argument --pull-image is true [\#203](https://github.com/alexei-led/pumba/issues/203)
+- Release binary for darwin arm64 [\#201](https://github.com/alexei-led/pumba/issues/201)
+- Missing golint dependency on make [\#198](https://github.com/alexei-led/pumba/issues/198)
+- check on the latest release [\#193](https://github.com/alexei-led/pumba/issues/193)
+- Unable to generate binaries on Mac [\#192](https://github.com/alexei-led/pumba/issues/192)
+- "cgroup change of group failed" issue is seen while using stress-ng [\#189](https://github.com/alexei-led/pumba/issues/189)
+
+**Merged pull requests:**
+
+- Container restart [\#208](https://github.com/alexei-led/pumba/pull/208) ([aodhan-domhnaill](https://github.com/aodhan-domhnaill))
+- Container exec [\#207](https://github.com/alexei-led/pumba/pull/207) ([aodhan-domhnaill](https://github.com/aodhan-domhnaill))
+- go 1.17 bump [\#205](https://github.com/alexei-led/pumba/pull/205) ([alexei-led](https://github.com/alexei-led))
+- ci: added support darwin arm64 [\#202](https://github.com/alexei-led/pumba/pull/202) ([karl-cardenas-coding](https://github.com/karl-cardenas-coding))
+- Replace `go get` with `go install` [\#199](https://github.com/alexei-led/pumba/pull/199) ([aminvakil](https://github.com/aminvakil))
+
+## [0.7.8](https://github.com/alexei-led/pumba/tree/0.7.8) (2021-04-07)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.7...0.7.8)
+
+**Closed issues:**
+
+- Issue with stress command [\#191](https://github.com/alexei-led/pumba/issues/191)
+- v0.7.7 tarball sha256 change? [\#190](https://github.com/alexei-led/pumba/issues/190)
+
 ## [0.7.7](https://github.com/alexei-led/pumba/tree/0.7.7) (2020-12-16)
 
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.6...0.7.7)
@@ -45,6 +76,7 @@
 
 **Merged pull requests:**
 
+- Skip error [\#177](https://github.com/alexei-led/pumba/pull/177) ([alexei-led](https://github.com/alexei-led))
 - Linter fix [\#176](https://github.com/alexei-led/pumba/pull/176) ([alexei-led](https://github.com/alexei-led))
 
 ## [0.7.4](https://github.com/alexei-led/pumba/tree/0.7.4) (2020-07-20)
@@ -96,7 +128,6 @@
 
 **Merged pull requests:**
 
-- Skip error [\#177](https://github.com/alexei-led/pumba/pull/177) ([alexei-led](https://github.com/alexei-led))
 - Refactor log errors [\#152](https://github.com/alexei-led/pumba/pull/152) ([alexei-led](https://github.com/alexei-led))
 
 ## [0.7.1](https://github.com/alexei-led/pumba/tree/0.7.1) (2020-02-10)
@@ -227,6 +258,7 @@
 - when using --tc-image flag the sidekick image is not deleted after the command execution finishes [\#106](https://github.com/alexei-led/pumba/issues/106)
 - Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 - Strange latency spikes on 4.15.0-36 kernel [\#103](https://github.com/alexei-led/pumba/issues/103)
+- cat: can't open 'VERSION': No such file or directory [\#87](https://github.com/alexei-led/pumba/issues/87)
 
 **Merged pull requests:**
 
@@ -265,7 +297,6 @@
 
 - Pumba attack - visualize the execution steps in command terminal  [\#91](https://github.com/alexei-led/pumba/issues/91)
 - Pumba run time startup issues [\#88](https://github.com/alexei-led/pumba/issues/88)
-- cat: can't open 'VERSION': No such file or directory [\#87](https://github.com/alexei-led/pumba/issues/87)
 - netem delay loses the first 3 packets  [\#72](https://github.com/alexei-led/pumba/issues/72)
 - Pumba container exiting without any error [\#70](https://github.com/alexei-led/pumba/issues/70)
 
