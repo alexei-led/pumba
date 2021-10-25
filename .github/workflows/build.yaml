@@ -18,18 +18,18 @@ jobs:
 
   full:
  
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
  
     steps:
     - uses: actions/checkout@v2
 
-    - name: set up Docker buildx
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+      
+    - name: Set up Docker Buildx
       id: buildx
-      uses: crazy-max/ghaction-docker-buildx@v3
-      with:
-        buildx-version: latest
-        qemu-version: latest
+      uses: docker/setup-buildx-action@v1
       
     - name: list available platforms
       run: echo ${{ steps.buildx.outputs.platforms }}
