@@ -17,11 +17,9 @@ import (
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
-	log "github.com/sirupsen/logrus"
-
-	"github.com/urfave/cli"
-
 	"github.com/johntdyer/slackrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 var (

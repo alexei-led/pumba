@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/urfave/cli"
 )
 
 type restartContext struct {
