@@ -764,7 +764,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *Container, ex
 		"privileged": privileged,
 	}).Debug("executing command in container")
 	// trim all spaces from cmd
-	execCmd = strings.Replace(execCmd, " ", "", -1)
+	execCmd = strings.ReplaceAll(execCmd, " ", "")
 
 	// check if command exists inside target container
 	checkExists := types.ExecConfig{

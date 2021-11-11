@@ -1,0 +1,109 @@
+linters-settings:
+  govet:
+    check-shadowing: true
+  gocyclo:
+    min-complexity: 15
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  misspell:
+    locale: US
+  goimports:
+    local-prefixes: github.com/golangci/golangci-lint
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - ifElseChain
+      - octalLiteral
+      - rangeValCopy
+      - unnamedResult
+      - whyNoLint
+      - wrapperFunc
+  funlen:
+    lines: 105
+    statements: 50
+
+linters:
+  # please, do not use `enable-all`: it's deprecated and will be removed soon.
+  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
+  disable-all: true
+  enable:
+    - asciicheck
+    - bodyclose
+    - deadcode
+    - depguard
+    - dogsled
+    - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - funlen
+    - gci
+    # - gochecknoglobals TODO: remove globals from code
+    # - gochecknoinits TODO: remove main.init
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    #    - godox
+    - goerr113
+    - gofmt
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gosec
+    - gosimple
+    - govet
+    - goprintffuncname
+    - ifshort
+    - importas
+    - ineffassign
+    - makezero
+    - misspell
+    - nakedret
+    # - nestif
+    - nilerr
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - wastedassign
+    - whitespace
+    - wrapcheck
+    # - wsl
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - bodyclose
+        - gosec
+        - dupl
+        - goconst
+        - goerr113
+  exclude:
+    - Using the variable on range scope `tt` in function literal
