@@ -613,7 +613,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target *Conta
 		var pullResponse *ImagePullResponse
 		for {
 			if err = d.Decode(&pullResponse); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return errors.Wrap(err, "failed to decode docker pull response for tc-image")
@@ -691,7 +691,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		var pullResponse *ImagePullResponse
 		for {
 			if err = d.Decode(&pullResponse); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				close(outerr)
