@@ -666,7 +666,6 @@ func TestStartContainer_DryRun(t *testing.T) {
 	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{})
 }
 
-//nolint:funlen
 func Test_dockerClient_execOnContainer(t *testing.T) {
 	type args struct {
 		c          *Container

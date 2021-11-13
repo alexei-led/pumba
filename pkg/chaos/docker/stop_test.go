@@ -83,7 +83,6 @@ func TestNewStopCommand(t *testing.T) {
 	}
 }
 
-//nolint:funlen
 func TestStopCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError  bool

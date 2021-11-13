@@ -60,7 +60,6 @@ func TestNewPauseCommand(t *testing.T) {
 	}
 }
 
-//nolint:funlen
 func TestPauseCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError    bool

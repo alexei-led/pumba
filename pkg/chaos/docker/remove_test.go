@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-//nolint:funlen
 func TestRemoveCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError   bool

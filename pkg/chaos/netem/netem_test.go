@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-//nolint:funlen
 func Test_runNetem(t *testing.T) {
 	type errs struct {
 		startErr bool
