@@ -78,7 +78,7 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 // RandomContainer select random container
 func RandomContainer(containers []*Container) *Container {
 	if len(containers) > 0 {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		r := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
 		i := r.Intn(len(containers))
 		return containers[i]
 	}
@@ -92,13 +92,10 @@ func ListNContainers(ctx context.Context, client Client, names []string, pattern
 		return nil, err
 	}
 
-	if len(containers) > limit && limit > 0 {
-		for i := range containers {
-			j := rand.Intn(i + 1)
-			containers[i], containers[j] = containers[j], containers[i]
-		}
-		return containers[0:limit], nil
-	}
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(containers), func(i, j int) {
+		containers[i], containers[j] = containers[j], containers[i]
+	})
 
-	return containers, nil
+	return containers[0:limit], nil
 }

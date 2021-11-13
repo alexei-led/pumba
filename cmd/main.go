@@ -230,7 +230,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 
 	if c.GlobalBool("tls") || c.GlobalBool("tlsverify") {
 		tlsCfg = &tls.Config{
-			InsecureSkipVerify: !c.GlobalBool("tlsverify"),
+			InsecureSkipVerify: !c.GlobalBool("tlsverify"), //nolint:gosec
 		}
 
 		// Load CA cert
