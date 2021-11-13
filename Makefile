@@ -74,7 +74,7 @@ setup-gocov-xml:
 setup-go2xunit:
 	$(GO) install github.com/tebeka/go2xunit@latest
 setup-mockery:
-	$(GO) install github.com/vektra/mockery/v2/
+	$(GO) get github.com/vektra/mockery/v2/
 setup-ghr:
 	$(GO) install github.com/tcnksm/ghr@latest
 
@@ -146,9 +146,9 @@ fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
 mocks: setup-mockery; $(info $(M) generating mocks...) @ ## Run mockery
 	$Q $(GOMOCK) --dir pkg/chaos/docker --all
 	$Q $(GOMOCK) --dir pkg/container --inpackage --all
-	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name ContainerAPIClient
-	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name ImageAPIClient
-	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/engine)/client --name APIClient
+	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name ContainerAPIClient
+	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name ImageAPIClient
+	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name APIClient
 
 # generate CHANGELOG.md changelog file
 .PHONY: changelog

@@ -621,7 +621,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target *Conta
 		}
 	}
 	log.WithField("image", config.Image).Debug("creating tc-container")
-	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
+	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	if err != nil {
 		return errors.Wrap(err, "failed to create tc-container from tc-image")
 	}
@@ -702,7 +702,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	}
 	// create stress-ng container
 	log.WithField("image", config.Image).Debug("creating stress-ng container")
-	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, "")
+	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	if err != nil {
 		close(outerr)
 		close(output)

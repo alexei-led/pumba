@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -619,7 +620,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	// pull image
 	engineClient.On("ImagePull", ctx, config.Image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
 	// create container
-	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
+	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
 	// start container
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
@@ -838,7 +839,6 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 	}
 }
 
-//nolint:funlen
 func Test_dockerClient_stressContainerCommand(t *testing.T) {
 	type args struct {
 		ctx       context.Context
@@ -882,7 +882,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				pullResponseByte, _ := json.Marshal(pullResponse)
 				readerResponse := bytes.NewReader(pullResponseByte)
 				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -917,7 +917,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -940,7 +940,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -963,7 +963,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -982,7 +982,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -1006,7 +1006,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{}, errors.New("failed to attach"))
 			},
 			wantErr: true,
@@ -1017,7 +1017,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{}, errors.New("failed to create"))
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{}, errors.New("failed to create"))
 			},
 			wantErr: true,
 		},
