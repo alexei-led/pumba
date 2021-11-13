@@ -59,7 +59,6 @@ func (ds *dependencySorter) Sort(containers []Container) ([]Container, error) {
 }
 
 func (ds *dependencySorter) visit(c Container) error {
-
 	if _, ok := ds.marked[c.Name()]; ok {
 		return errors.Errorf("Circular reference to %s", c.Name())
 	}
