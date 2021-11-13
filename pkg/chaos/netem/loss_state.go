@@ -75,7 +75,7 @@ func NewLossStateCommand(client container.Client,
 		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 	// validate ips
-	var ips []*net.IPNet
+	ips := make([]*net.IPNet, 0, len(ipsList))
 	for _, str := range ipsList {
 		ip, e := util.ParseCIDR(str)
 		if e != nil {

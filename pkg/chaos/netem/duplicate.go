@@ -70,7 +70,7 @@ func NewDuplicateCommand(client container.Client,
 		return nil, err
 	}
 	// validate ips
-	var ips []*net.IPNet
+	ips := make([]*net.IPNet, 0, len(ipsList))
 	for _, str := range ipsList {
 		ip, e := util.ParseCIDR(str)
 		if e != nil {
