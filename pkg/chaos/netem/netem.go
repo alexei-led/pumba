@@ -2,6 +2,7 @@ package netem
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"net"
 	"time"
 
@@ -26,7 +27,7 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 	var err error
 	err = client.NetemContainer(ctx, c, netInterface, cmd, ips, sports, dports, duration, tcimage, pull, dryRun)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "netem failed")
 	}
 
 	// create new context with timeout for canceling

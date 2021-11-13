@@ -55,38 +55,37 @@ func NewDuplicateCommand(client container.Client,
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get interval value")
 	}
 	// get duration
 	duration, err := util.GetDurationValue(durationStr, interval)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get duration value")
 	}
 	// protect from Command Injection, using Regexp
 	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		err = errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-		return nil, err
+		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 	// validate ips
 	ips := make([]*net.IPNet, 0, len(ipsList))
 	for _, str := range ipsList {
 		ip, e := util.ParseCIDR(str)
 		if e != nil {
-			return nil, e
+			return nil, errors.Wrap(e, "failed to parse ip")
 		}
 		ips = append(ips, ip)
 	}
-	// validate sports
+	// validate source ports
 	sports, err := util.GetPorts(sportsList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get source ports")
 	}
-	// validate dports
+	// validate destination ports
 	dports, err := util.GetPorts(dportsList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get destination ports")
 	}
 	// get netem duplicate percent
 	if percent < 0.0 || percent > 100.0 {

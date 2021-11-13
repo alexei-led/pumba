@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
@@ -58,8 +59,12 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// init kill command
 	killCommand, err := docker.NewKillCommand(chaos.DockerClient, names, pattern, labels, signal, limit, dryRun)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create kill command")
 	}
 	// run kill command
-	return chaos.RunChaosCommand(cmd.context, killCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, killCommand, interval, random, skipError)
+	if err != nil {
+		return errors.Wrap(err, "could not kill containers")
+	}
+	return nil
 }

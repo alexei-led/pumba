@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
@@ -57,8 +58,12 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	// init pause command
 	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, names, pattern, labels, interval, duration, limit, dryRun)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create pause command")
 	}
 	// run pause command
-	return chaos.RunChaosCommand(cmd.context, pauseCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, pauseCommand, interval, random, skipError)
+	if err != nil {
+		return errors.Wrap(err, "could not pause containers")
+	}
+	return nil
 }

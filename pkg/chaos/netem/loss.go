@@ -55,12 +55,12 @@ func NewLossCommand(client container.Client,
 	// get interval
 	interval, err := util.GetIntervalValue(intervalStr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get interval value")
 	}
 	// get duration
 	duration, err := util.GetDurationValue(durationStr, interval)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get duration value")
 	}
 	// protect from Command Injection, using Regexp
 	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
@@ -73,19 +73,19 @@ func NewLossCommand(client container.Client,
 	for _, str := range ipsList {
 		ip, e := util.ParseCIDR(str)
 		if e != nil {
-			return nil, e
+			return nil, errors.Wrap(e, "could not parse ip")
 		}
 		ips = append(ips, ip)
 	}
-	// validate sports
+	// validate source ports
 	sports, err := util.GetPorts(sportsList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get source ports")
 	}
-	// validate dports
+	// validate destination ports
 	dports, err := util.GetPorts(dportsList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get destination ports")
 	}
 	// get netem loss percent
 	if percent < 0.0 || percent > 100.0 {

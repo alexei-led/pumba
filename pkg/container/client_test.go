@@ -353,7 +353,6 @@ func TestPauseContainer_PauseError(t *testing.T) {
 	err := client.PauseContainer(context.TODO(), c, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "pause")
 	engineClient.AssertExpectations(t)
 }
 
@@ -368,7 +367,6 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 	err := client.UnpauseContainer(context.TODO(), c, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "unpause")
 	engineClient.AssertExpectations(t)
 }
 

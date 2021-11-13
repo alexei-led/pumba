@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	types "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
@@ -185,7 +185,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 	return nil
 }
 
-func (client dockerClient) RestartContainer(ctx context.Context, c *Container, timeout time.Duration, delay time.Duration, dryrun bool) error {
+func (client dockerClient) RestartContainer(ctx context.Context, c *Container, timeout, delay time.Duration, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -272,7 +272,10 @@ func (client dockerClient) StartContainer(ctx context.Context, c *Container, dry
 		"dryrun": dryrun,
 	}).Info("starting container")
 	if !dryrun {
-		return client.containerAPI.ContainerStart(ctx, c.ID(), types.ContainerStartOptions{})
+		err := client.containerAPI.ContainerStart(ctx, c.ID(), types.ContainerStartOptions{})
+		if err != nil {
+			return errors.Wrap(err, "failed to start container")
+		}
 	}
 
 	return nil
@@ -293,7 +296,10 @@ func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, fo
 			RemoveLinks:   links,
 			Force:         force,
 		}
-		return client.containerAPI.ContainerRemove(ctx, c.ID(), removeOpts)
+		err := client.containerAPI.ContainerRemove(ctx, c.ID(), removeOpts)
+		if err != nil {
+			return errors.Wrap(err, "failed to remove container")
+		}
 	}
 	return nil
 }
@@ -339,7 +345,10 @@ func (client dockerClient) PauseContainer(ctx context.Context, c *Container, dry
 		"dryrun": dryrun,
 	}).Info("pausing container")
 	if !dryrun {
-		return client.containerAPI.ContainerPause(ctx, c.ID())
+		err := client.containerAPI.ContainerPause(ctx, c.ID())
+		if err != nil {
+			return errors.Wrap(err, "failed to pause container")
+		}
 	}
 	return nil
 }
@@ -351,7 +360,10 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c *Container, d
 		"dryrun": dryrun,
 	}).Info("stop pausing container")
 	if !dryrun {
-		return client.containerAPI.ContainerUnpause(ctx, c.ID())
+		err := client.containerAPI.ContainerUnpause(ctx, c.ID())
+		if err != nil {
+			return errors.Wrap(err, "failed to unpause container")
+		}
 	}
 	return nil
 }

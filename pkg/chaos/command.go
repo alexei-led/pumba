@@ -2,6 +2,7 @@ package chaos
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
 
@@ -73,9 +74,9 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 	// run chaos command
 	for {
 		// run chaos function
-		if err := command.Run(ctx, random); err != nil {
+		if err = command.Run(ctx, random); err != nil {
 			if !skipError {
-				return err
+				return errors.Wrap(err, "error running chaos command")
 			}
 			log.WithError(err).Warn("skipping error")
 		}

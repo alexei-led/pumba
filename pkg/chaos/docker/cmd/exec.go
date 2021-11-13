@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
@@ -58,8 +59,12 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	// init exec command
 	execCommand, err := docker.NewExecCommand(chaos.DockerClient, names, pattern, labels, command, limit, dryRun)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create exec command")
 	}
 	// run exec command
-	return chaos.RunChaosCommand(cmd.context, execCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, execCommand, interval, random, skipError)
+	if err != nil {
+		return errors.Wrap(err, "could not run exec command")
+	}
+	return nil
 }
