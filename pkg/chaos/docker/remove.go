@@ -8,8 +8,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// RemoveCommand `docker kill` command
-type RemoveCommand struct {
+// `docker kill` command
+type removeCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
@@ -22,13 +22,23 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, names []string, pattern string, labels []string, force, links, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
-	remove := &RemoveCommand{client, names, pattern, labels, force, links, volumes, limit, dryRun}
+func NewRemoveCommand(client container.Client, params *chaos.GlobalParams, force, links, volumes bool, limit int) (chaos.Command, error) {
+	remove := &removeCommand{
+		client:  client,
+		names:   params.Names,
+		pattern: params.Pattern,
+		labels:  params.Labels,
+		force:   force,
+		links:   links,
+		volumes: volumes,
+		limit:   limit,
+		dryRun:  params.DryRun,
+	}
 	return remove, nil
 }
 
 // Run remove command
-func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
+func (r *removeCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("removing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   r.names,

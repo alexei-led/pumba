@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -39,29 +40,19 @@ func NewPauseCLICommand(ctx context.Context) *cli.Command {
 
 // PAUSE Command
 func (cmd *pauseContext) pause(c *cli.Context) error {
-	// get random flag
-	random := c.GlobalBool("random")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get global chaos interval
-	interval := c.GlobalString("interval")
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
 	// get chaos command duration
 	duration := c.String("duration")
 	// init pause command
-	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, names, pattern, labels, interval, duration, limit, dryRun)
+	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, params, duration, limit)
 	if err != nil {
 		return errors.Wrap(err, "could not create pause command")
 	}
 	// run pause command
-	err = chaos.RunChaosCommand(cmd.context, pauseCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
 	if err != nil {
 		return errors.Wrap(err, "could not pause containers")
 	}

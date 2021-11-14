@@ -295,12 +295,12 @@ func initializeCLICommands() []cli.Command {
 					Usage: "target IP filter; supports multiple IPs; supports CIDR notation",
 				},
 				cli.StringFlag{
-					Name:  "egressPort",
-					Usage: "target port filter for egress, or sport; supports multiple ports;",
+					Name:  "egress-port, egressPort",
+					Usage: "target port filter for egress, or sport; supports multiple ports (comma-separated)",
 				},
 				cli.StringFlag{
-					Name:  "ingressPort",
-					Usage: "target port filter for ingress, or dport; supports multiple ports;",
+					Name:  "ingress-port, ingressPort",
+					Usage: "target port filter for ingress, or dport; supports multiple ports (comma-separated)",
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
@@ -308,7 +308,7 @@ func initializeCLICommands() []cli.Command {
 				},
 				cli.BoolTFlag{
 					Name:  "pull-image",
-					Usage: "try to pull tc-image",
+					Usage: "force pull tc-image",
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/stress"
 	"github.com/urfave/cli"
@@ -45,20 +47,10 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 	}
 }
 
-// stress Command
+// stress stressNg
 func (cmd *stressContext) stress(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	globalParams, err := chaos.ParseGlobalParams(c)
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// get stress-ng stressors
@@ -70,10 +62,14 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// get pull tc image flag
 	pull := c.BoolT("pull-image")
 	// init stress command
-	stressCommand, err := stress.NewStressCommand(chaos.DockerClient, names, pattern, labels, image, pull, stressors, interval, duration, limit, dryRun)
+	stressCommand, err := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit)
 	if err != nil {
 		return err
 	}
 	// run stress command
-	return chaos.RunChaosCommand(cmd.context, stressCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
+	if err != nil {
+		return errors.Wrap(err, "error running stress command")
+	}
+	return nil
 }

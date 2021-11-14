@@ -14,9 +14,9 @@ const (
 	DefaultKillSignal = "SIGKILL"
 )
 
-// LinuxSignals valid Linux signal table
+// valid Linux signal table
 // http://www.comptechdoc.org/os/linux/programming/linux_pgsignals.html
-var LinuxSignals = map[string]int{
+var linuxSignals = map[string]int{
 	"SIGHUP":    1,
 	"SIGINT":    2,
 	"SIGQUIT":   3,
@@ -49,8 +49,8 @@ var LinuxSignals = map[string]int{
 	"SIGPWR":    30,
 }
 
-// KillCommand `docker kill` command
-type KillCommand struct {
+// `docker kill` command
+type killCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
@@ -61,19 +61,27 @@ type KillCommand struct {
 }
 
 // NewKillCommand create new Kill Command instance
-func NewKillCommand(client container.Client, names []string, pattern string, labels []string, signal string, limit int, dryRun bool) (chaos.Command, error) {
-	kill := &KillCommand{client, names, pattern, labels, signal, limit, dryRun}
+func NewKillCommand(client container.Client, params *chaos.GlobalParams, signal string, limit int) (chaos.Command, error) {
+	kill := &killCommand{
+		client:  client,
+		names:   params.Names,
+		pattern: params.Pattern,
+		labels:  params.Labels,
+		signal:  signal,
+		limit:   limit,
+		dryRun:  params.DryRun,
+	}
 	if kill.signal == "" {
 		kill.signal = DefaultKillSignal
 	}
-	if _, ok := LinuxSignals[kill.signal]; !ok {
+	if _, ok := linuxSignals[kill.signal]; !ok {
 		return nil, errors.Errorf("undefined Linux signal: %s", signal)
 	}
 	return kill, nil
 }
 
 // Run kill command
-func (k *KillCommand) Run(ctx context.Context, random bool) error {
+func (k *killCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("killing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,

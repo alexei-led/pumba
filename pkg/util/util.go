@@ -20,19 +20,6 @@ func SliceContains(slice []string, item string) bool {
 	return ok
 }
 
-// GetIntervalValue get interval value from string duration
-func GetIntervalValue(interval string) (time.Duration, error) {
-	// get recurrent time interval
-	if interval == "" {
-		return 0, nil
-	}
-	i, err := time.ParseDuration(interval)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to parse interval")
-	}
-	return i, nil
-}
-
 // GetPorts will split the string of comma separated ports and return a list of ports
 func GetPorts(ports string) ([]string, error) {
 	portList := strings.Split(ports, ",")

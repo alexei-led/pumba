@@ -131,7 +131,7 @@ func TestRestartCommand_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := new(container.MockClient)
-			k := &RestartCommand{
+			k := &restartCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
@@ -169,7 +169,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			}
 		Invoke:
 			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("RestartCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("restartCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
 		})
@@ -179,13 +179,10 @@ func TestRestartCommand_Run(t *testing.T) {
 func TestNewRestartCommand(t *testing.T) {
 	type args struct {
 		client  container.Client
-		names   []string
-		pattern string
-		labels  []string
+		params  *chaos.GlobalParams
 		timeout time.Duration
 		delay   time.Duration
 		limit   int
-		dryRun  bool
 	}
 	tests := []struct {
 		name    string
@@ -196,12 +193,14 @@ func TestNewRestartCommand(t *testing.T) {
 		{
 			name: "create new restart command",
 			args: args{
-				names:   []string{"c1", "c2"},
+				params: &chaos.GlobalParams{
+					Names: []string{"c1", "c2"},
+				},
 				timeout: 1 * time.Second,
 				delay:   1 * time.Second,
 				limit:   10,
 			},
-			want: &RestartCommand{
+			want: &restartCommand{
 				names:   []string{"c1", "c2"},
 				timeout: 1 * time.Second,
 				delay:   1 * time.Second,
@@ -211,11 +210,13 @@ func TestNewRestartCommand(t *testing.T) {
 		{
 			name: "empty command",
 			args: args{
-				names:   []string{"c1", "c2"},
+				params: &chaos.GlobalParams{
+					Names: []string{"c1", "c2"},
+				},
 				timeout: 1 * time.Second,
 				delay:   1 * time.Second,
 			},
-			want: &RestartCommand{
+			want: &restartCommand{
 				names:   []string{"c1", "c2"},
 				timeout: 1 * time.Second,
 				delay:   1 * time.Second,
@@ -224,7 +225,7 @@ func TestNewRestartCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewRestartCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.timeout, tt.args.delay, tt.args.limit, tt.args.dryRun)
+			got, err := NewRestartCommand(tt.args.client, tt.args.params, tt.args.timeout, tt.args.delay, tt.args.limit)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewRestartCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return

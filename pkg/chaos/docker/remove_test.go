@@ -111,7 +111,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := new(container.MockClient)
-			k := &RemoveCommand{
+			k := &removeCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
@@ -148,7 +148,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			}
 		Invoke:
 			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("RemoveCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("removeCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
 		})
@@ -158,14 +158,11 @@ func TestRemoveCommand_Run(t *testing.T) {
 func TestNewRemoveCommand(t *testing.T) {
 	type args struct {
 		client  container.Client
-		names   []string
-		pattern string
-		labels  []string
+		params  *chaos.GlobalParams
 		force   bool
 		links   bool
 		volumes bool
 		limit   int
-		dryRun  bool
 	}
 	tests := []struct {
 		name    string
@@ -176,13 +173,13 @@ func TestNewRemoveCommand(t *testing.T) {
 		{
 			name: "create new remove command",
 			args: args{
-				names:   []string{"c1", "c2"},
+				params:  &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				force:   true,
 				links:   true,
 				volumes: false,
 				limit:   10,
 			},
-			want: &RemoveCommand{
+			want: &removeCommand{
 				names:   []string{"c1", "c2"},
 				force:   true,
 				links:   true,
@@ -193,7 +190,7 @@ func TestNewRemoveCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewRemoveCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.force, tt.args.links, tt.args.volumes, tt.args.limit, tt.args.dryRun)
+			got, err := NewRemoveCommand(tt.args.client, tt.args.params, tt.args.force, tt.args.links, tt.args.volumes, tt.args.limit)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewRemoveCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return

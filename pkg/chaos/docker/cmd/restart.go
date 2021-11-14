@@ -45,18 +45,8 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 
 // RESTART Command
 func (cmd *restartContext) restart(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
 	// get timeout
 	timeout := time.Duration(c.Int("timeout")) * time.Millisecond
 	// get delay
@@ -64,10 +54,10 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, names, pattern, labels, timeout, delay, limit, dryRun)
+	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, params, timeout, delay, limit)
 	if err != nil {
 		return err
 	}
 	// run restart command
-	return chaos.RunChaosCommand(cmd.context, restartCommand, interval, random, skipError)
+	return chaos.RunChaosCommand(cmd.context, restartCommand, params)
 }

@@ -13,8 +13,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Command `stress-ng` command
-type Command struct {
+// `stress-ng` command
+type stressCommand struct {
 	client    container.Client
 	names     []string
 	pattern   string
@@ -31,24 +31,30 @@ const (
 	defaultStopTimeout = 5 * time.Second
 )
 
-// NewStressCommand create new Kill Command instance
-func NewStressCommand(client container.Client, names []string, pattern string, labels []string, image string, pull bool, stressors, interval, duration string, limit int, dryRun bool) (chaos.Command, error) {
-	// get interval
-	i, err := util.GetIntervalValue(interval)
-	if err != nil {
-		return nil, err
-	}
+// NewStressCommand create new Kill stressCommand instance
+func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors, duration string, limit int) (chaos.Command, error) {
 	// get duration
-	d, err := util.GetDurationValue(duration, i)
+	d, err := util.GetDurationValue(duration, globalParams.Interval)
 	if err != nil {
 		return nil, err
 	}
-	stress := &Command{client, names, pattern, labels, image, pull, strings.Fields(stressors), d, limit, dryRun}
+	stress := &stressCommand{
+		client:    client,
+		names:     globalParams.Names,
+		pattern:   globalParams.Pattern,
+		labels:    globalParams.Labels,
+		image:     image,
+		pull:      pull,
+		stressors: strings.Fields(stressors),
+		duration:  d,
+		limit:     limit,
+		dryRun:    globalParams.DryRun,
+	}
 	return stress, nil
 }
 
 // Run stress command
-func (s *Command) Run(ctx context.Context, random bool) error {
+func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("stress testing all matching containers")
 	log.WithFields(log.Fields{
 		"names":     s.names,
@@ -90,7 +96,7 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	return nil
 }
 
-func (s *Command) stressContainer(ctx context.Context, c *container.Container) error {
+func (s *stressCommand) stressContainer(ctx context.Context, c *container.Container) error {
 	log.WithFields(log.Fields{
 		"container":       c.ID(),
 		"duration":        s.duration,

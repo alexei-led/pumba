@@ -10,7 +10,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -25,8 +24,8 @@ func parseRate(rate string) (string, error) {
 	return rate, nil
 }
 
-// RateCommand `netem rate` command
-type RateCommand struct {
+// `netem rate` command
+type rateCommand struct {
 	client         container.Client
 	names          []string
 	pattern        string
@@ -48,64 +47,18 @@ type RateCommand struct {
 
 // NewRateCommand create new netem rate command
 func NewRateCommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	rate string, // delay outgoing packets; in common units
 	packetOverhead, // per packet overhead; in bytes
 	cellSize, // cell size of the simulated link layer scheme
 	cellOverhead int, // per cell overhead; in bytes
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-	}
-	// validate ips
-	ips := make([]*net.IPNet, 0, len(ipsList))
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, e
-		}
-		ips = append(ips, ip)
-	}
-	// validate sports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, err
-	}
-	// validate dports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, err
-	}
 	// validate target egress rate
 	if rate == "" {
 		return nil, errors.New("undefined rate limit")
 	}
-	rate, err = parseRate(rate)
+	rate, err := parseRate(rate)
 	if err != nil {
 		return nil, err
 	}
@@ -115,29 +68,29 @@ func NewRateCommand(client container.Client,
 		return nil, errors.New("invalid cell size: must be a non-negative integer")
 	}
 
-	return &RateCommand{
+	return &rateCommand{
 		client:         client,
-		names:          names,
-		pattern:        pattern,
-		labels:         labels,
-		iface:          iface,
-		ips:            ips,
-		sports:         sports,
-		dports:         dports,
-		duration:       duration,
+		names:          globalParams.Names,
+		pattern:        globalParams.Pattern,
+		labels:         globalParams.Labels,
+		iface:          netemParams.Iface,
+		ips:            netemParams.Ips,
+		sports:         netemParams.Sports,
+		dports:         netemParams.Dports,
+		duration:       netemParams.Duration,
 		rate:           rate,
 		packetOverhead: packetOverhead,
 		cellSize:       cellSize,
 		cellOverhead:   cellOverhead,
-		image:          image,
-		pull:           pull,
-		limit:          limit,
-		dryRun:         dryRun,
+		image:          netemParams.Image,
+		pull:           netemParams.Pull,
+		limit:          netemParams.Limit,
+		dryRun:         globalParams.DryRun,
 	}, nil
 }
 
 // Run netem rate command
-func (n *RateCommand) Run(ctx context.Context, random bool) error {
+func (n *rateCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("setting network rate to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -206,7 +159,7 @@ func (n *RateCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, err := range errs {
+	for _, err = range errs {
 		// take first found error
 		if err != nil {
 			return errors.Wrap(err, "failed to set network rate for one or more containers")

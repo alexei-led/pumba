@@ -46,18 +46,8 @@ func NewRemoveCLICommand(ctx context.Context) *cli.Command {
 
 // REMOVE Command
 func (cmd *removeContext) remove(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
 	// get force flag
 	force := c.BoolT("force")
 	// get links flag
@@ -67,10 +57,10 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// get limit for number of containers to remove
 	limit := c.Int("limit")
 	// init remove command
-	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, names, pattern, labels, force, links, volumes, limit, dryRun)
+	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, params, force, links, volumes, limit)
 	if err != nil {
 		return err
 	}
 	// run remove command
-	return chaos.RunChaosCommand(cmd.context, removeCommand, interval, random, skipError)
+	return chaos.RunChaosCommand(cmd.context, removeCommand, params)
 }

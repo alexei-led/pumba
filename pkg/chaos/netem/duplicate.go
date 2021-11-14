@@ -3,20 +3,22 @@ package netem
 import (
 	"context"
 	"net"
-	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-// DuplicateCommand `netem duplicate` command
-type DuplicateCommand struct {
+const (
+	duplicateCmd = "duplicate"
+)
+
+// `netem duplicate` command
+type duplicateCommand struct {
 	client      container.Client
 	names       []string
 	pattern     string
@@ -36,57 +38,11 @@ type DuplicateCommand struct {
 
 // NewDuplicateCommand create new netem duplicate command
 func NewDuplicateCommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	percent, // duplicate percent
 	correlation float64, // duplicate correlation
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get interval value")
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get duration value")
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-	}
-	// validate ips
-	ips := make([]*net.IPNet, 0, len(ipsList))
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, errors.Wrap(e, "failed to parse ip")
-		}
-		ips = append(ips, ip)
-	}
-	// validate source ports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get source ports")
-	}
-	// validate destination ports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get destination ports")
-	}
 	// get netem duplicate percent
 	if percent < 0.0 || percent > 100.0 {
 		return nil, errors.New("invalid duplicate percent: must be between 0.0 and 100.0")
@@ -95,28 +51,27 @@ func NewDuplicateCommand(client container.Client,
 	if correlation < 0.0 || correlation > 100.0 {
 		return nil, errors.New("invalid duplicate correlation: must be between 0.0 and 100.0")
 	}
-
-	return &DuplicateCommand{
+	return &duplicateCommand{
 		client:      client,
-		names:       names,
-		pattern:     pattern,
-		labels:      labels,
-		iface:       iface,
-		ips:         ips,
-		sports:      sports,
-		dports:      dports,
-		duration:    duration,
+		names:       globalParams.Names,
+		pattern:     globalParams.Pattern,
+		labels:      globalParams.Labels,
+		iface:       netemParams.Iface,
+		ips:         netemParams.Ips,
+		sports:      netemParams.Sports,
+		dports:      netemParams.Dports,
+		duration:    netemParams.Duration,
 		percent:     percent,
 		correlation: correlation,
-		image:       image,
-		limit:       limit,
-		pull:        pull,
-		dryRun:      dryRun,
+		image:       netemParams.Image,
+		limit:       netemParams.Limit,
+		pull:        netemParams.Pull,
+		dryRun:      globalParams.DryRun,
 	}, nil
 }
 
 // Run netem duplicate command
-func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
+func (n *duplicateCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet duplicates to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -142,7 +97,7 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem duplicate command
-	netemCmd := []string{"duplicate", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	netemCmd := []string{duplicateCmd, strconv.FormatFloat(n.percent, 'f', 2, 64)}
 	if n.correlation > 0 {
 		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
 	}
@@ -178,7 +133,7 @@ func (n *DuplicateCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, err := range errs {
+	for _, err = range errs {
 		// take first found error
 		if err != nil {
 			return errors.Wrap(err, "failed to set packet duplicates for one or more containers")

@@ -2,13 +2,33 @@ package netem
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"net"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
+
+// Params common params for netem traffic shaping command
+type Params struct {
+	// network interface
+	Iface string
+	// target IP addresses
+	Ips []*net.IPNet
+	// egress port list (comma separated)
+	Sports []string
+	// ingress port list (comma separated)
+	Dports []string
+	// duration of the traffic shaping
+	Duration time.Duration
+	// image name
+	Image string
+	// force pull image
+	Pull bool
+	// limit the number of target containers
+	Limit int
+}
 
 // run network emulation command, stop netem on timeout or abort
 func runNetem(ctx context.Context, client container.Client, c *container.Container, netInterface string, cmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimage string, pull, dryRun bool) error {
@@ -24,8 +44,7 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 		"tc-image": tcimage,
 		"pull":     pull,
 	}).Debug("running netem command")
-	var err error
-	err = client.NetemContainer(ctx, c, netInterface, cmd, ips, sports, dports, duration, tcimage, pull, dryRun)
+	err := client.NetemContainer(ctx, c, netInterface, cmd, ips, sports, dports, duration, tcimage, pull, dryRun)
 	if err != nil {
 		return errors.Wrap(err, "netem failed")
 	}
@@ -47,6 +66,9 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 		}).Debug("stopping netem command on abort")
 		// use different context to stop netem since parent context is canceled
 		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
+		if err != nil {
+			return errors.Wrap(err, "failed to stop netem container")
+		}
 	case <-stopCtx.Done():
 		log.WithFields(log.Fields{
 			"id":       c.ID(),
@@ -59,6 +81,9 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 		}).Debug("stopping netem command on timout")
 		// use parent context to stop netem in container
 		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
+		if err != nil {
+			return errors.Wrap(err, "failed to stop netem container")
+		}
 	}
-	return err
+	return nil
 }

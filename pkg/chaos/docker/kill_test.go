@@ -122,7 +122,7 @@ func TestKillCommand_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := new(container.MockClient)
-			k := &KillCommand{
+			k := &killCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
@@ -159,7 +159,7 @@ func TestKillCommand_Run(t *testing.T) {
 			}
 		Invoke:
 			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("KillCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("killCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
 		})
@@ -168,13 +168,10 @@ func TestKillCommand_Run(t *testing.T) {
 
 func TestNewKillCommand(t *testing.T) {
 	type args struct {
-		client  container.Client
-		names   []string
-		pattern string
-		labels  []string
-		signal  string
-		limit   int
-		dryRun  bool
+		client container.Client
+		params *chaos.GlobalParams
+		signal string
+		limit  int
 	}
 	tests := []struct {
 		name    string
@@ -185,11 +182,11 @@ func TestNewKillCommand(t *testing.T) {
 		{
 			name: "create new kill command",
 			args: args{
-				names:  []string{"c1", "c2"},
+				params: &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				signal: "SIGTERM",
 				limit:  10,
 			},
-			want: &KillCommand{
+			want: &killCommand{
 				names:  []string{"c1", "c2"},
 				signal: "SIGTERM",
 				limit:  10,
@@ -198,7 +195,7 @@ func TestNewKillCommand(t *testing.T) {
 		{
 			name: "invalid signal",
 			args: args{
-				names:  []string{"c1", "c2"},
+				params: &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				signal: "SIGNONE",
 			},
 			wantErr: true,
@@ -206,10 +203,10 @@ func TestNewKillCommand(t *testing.T) {
 		{
 			name: "empty signal",
 			args: args{
-				names:  []string{"c1", "c2"},
+				params: &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				signal: "",
 			},
-			want: &KillCommand{
+			want: &killCommand{
 				names:  []string{"c1", "c2"},
 				signal: DefaultKillSignal,
 			},
@@ -217,7 +214,7 @@ func TestNewKillCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewKillCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.signal, tt.args.limit, tt.args.dryRun)
+			got, err := NewKillCommand(tt.args.client, tt.args.params, tt.args.signal, tt.args.limit)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewKillCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return

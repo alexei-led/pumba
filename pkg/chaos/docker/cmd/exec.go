@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -40,29 +41,19 @@ func NewExecCLICommand(ctx context.Context) *cli.Command {
 
 // EXEC Command
 func (cmd *execContext) exec(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
 	// get command
 	command := c.String("command")
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand, err := docker.NewExecCommand(chaos.DockerClient, names, pattern, labels, command, limit, dryRun)
+	execCommand, err := docker.NewExecCommand(chaos.DockerClient, params, command, limit)
 	if err != nil {
 		return errors.Wrap(err, "could not create exec command")
 	}
 	// run exec command
-	err = chaos.RunChaosCommand(cmd.context, execCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {
 		return errors.Wrap(err, "could not run exec command")
 	}

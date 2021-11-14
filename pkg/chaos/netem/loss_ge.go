@@ -3,20 +3,18 @@ package netem
 import (
 	"context"
 	"net"
-	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-// LossGECommand `netem loss gemodel` (Gilbert-Elliot model) command
-type LossGECommand struct {
+// netem loss gemodel` (Gilbert-Elliot model) command
+type lossGECommand struct {
 	client   container.Client
 	names    []string
 	pattern  string
@@ -38,60 +36,13 @@ type LossGECommand struct {
 
 // NewLossGECommand create new netem loss gemodel (Gilbert-Elliot) command
 func NewLossGECommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	pg, // Good State transition probability
 	pb, // Bad State transition probability
 	oneH, // loss probability in Bad state
 	oneK float64, // loss probability in Good state
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, errors.Wrap(err, "bad interval value")
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, errors.Wrap(err, "bad duration value")
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		err = errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-		return nil, err
-	}
-	// validate ips
-	ips := make([]*net.IPNet, 0, len(ipsList))
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, errors.Wrap(e, "could not parse ip")
-		}
-		ips = append(ips, ip)
-	}
-	// validate source ports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get source ports")
-	}
-	// validate destination ports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get destination ports")
-	}
 	// get pg - Good State transition probability
 	if pg < 0.0 || pg > 100.0 {
 		return nil, errors.New("invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
@@ -109,29 +60,29 @@ func NewLossGECommand(client container.Client,
 		return nil, errors.New("invalid loss probability: must be between 0.0 and 100.0")
 	}
 
-	return &LossGECommand{
+	return &lossGECommand{
 		client:   client,
-		names:    names,
-		pattern:  pattern,
-		labels:   labels,
-		iface:    iface,
-		ips:      ips,
-		sports:   sports,
-		dports:   dports,
-		duration: duration,
+		names:    globalParams.Names,
+		pattern:  globalParams.Pattern,
+		labels:   globalParams.Labels,
+		iface:    netemParams.Iface,
+		ips:      netemParams.Ips,
+		sports:   netemParams.Sports,
+		dports:   netemParams.Dports,
+		duration: netemParams.Duration,
 		pg:       pg,
 		pb:       pb,
 		oneH:     oneH,
 		oneK:     oneK,
-		image:    image,
-		pull:     pull,
-		limit:    limit,
-		dryRun:   dryRun,
+		image:    netemParams.Image,
+		pull:     netemParams.Pull,
+		limit:    netemParams.Limit,
+		dryRun:   globalParams.DryRun,
 	}, nil
 }
 
 // Run netem loss state command
-func (n *LossGECommand) Run(ctx context.Context, random bool) error {
+func (n *lossGECommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according Gilbert-Elliot model to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,

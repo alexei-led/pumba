@@ -10,8 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// RestartCommand `docker restart` command
-type RestartCommand struct {
+// `docker restart` command
+type restartCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
@@ -23,13 +23,22 @@ type RestartCommand struct {
 }
 
 // NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client container.Client, names []string, pattern string, labels []string, timeout time.Duration, delay time.Duration, limit int, dryRun bool) (chaos.Command, error) {
-	restart := &RestartCommand{client, names, pattern, labels, timeout, delay, limit, dryRun}
+func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout time.Duration, delay time.Duration, limit int) (chaos.Command, error) {
+	restart := &restartCommand{
+		client:  client,
+		names:   params.Names,
+		pattern: params.Pattern,
+		labels:  params.Labels,
+		timeout: timeout,
+		delay:   delay,
+		limit:   limit,
+		dryRun:  params.DryRun,
+	}
 	return restart, nil
 }
 
 // Run restart command
-func (k *RestartCommand) Run(ctx context.Context, random bool) error {
+func (k *restartCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("restarting all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
