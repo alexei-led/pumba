@@ -2,10 +2,8 @@ package netem
 
 import (
 	"context"
-	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -21,23 +19,11 @@ var (
 
 // `netem delay` command
 type delayCommand struct {
-	client       container.Client
-	names        []string
-	pattern      string
-	labels       []string
-	iface        string
-	ips          []*net.IPNet
-	sports       []string
-	dports       []string
-	duration     time.Duration
+	netemCommand
 	time         int
 	jitter       int
 	correlation  float64
 	distribution string
-	image        string
-	pull         bool
-	limit        int
-	dryRun       bool
 }
 
 // NewDelayCommand create new netem delay command
@@ -66,23 +52,11 @@ func NewDelayCommand(client container.Client,
 		return nil, errors.New("invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
 	}
 	return &delayCommand{
-		client:       client,
-		names:        globalParams.Names,
-		pattern:      globalParams.Pattern,
-		labels:       globalParams.Labels,
-		iface:        netemParams.Iface,
-		ips:          netemParams.Ips,
-		sports:       netemParams.Sports,
-		dports:       netemParams.Dports,
-		duration:     netemParams.Duration,
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
 		time:         delay,
 		jitter:       jitter,
 		correlation:  correlation,
 		distribution: distribution,
-		image:        netemParams.Image,
-		pull:         netemParams.Pull,
-		limit:        netemParams.Limit,
-		dryRun:       globalParams.DryRun,
 	}, nil
 }
 

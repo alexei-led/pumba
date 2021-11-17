@@ -2,11 +2,9 @@ package netem
 
 import (
 	"context"
-	"net"
 	"regexp"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -26,23 +24,11 @@ func parseRate(rate string) (string, error) {
 
 // `netem rate` command
 type rateCommand struct {
-	client         container.Client
-	names          []string
-	pattern        string
-	labels         []string
-	iface          string
-	ips            []*net.IPNet
-	sports         []string
-	dports         []string
-	duration       time.Duration
+	netemCommand
 	rate           string
 	packetOverhead int
 	cellSize       int
 	cellOverhead   int
-	image          string
-	pull           bool
-	limit          int
-	dryRun         bool
 }
 
 // NewRateCommand create new netem rate command
@@ -69,23 +55,11 @@ func NewRateCommand(client container.Client,
 	}
 
 	return &rateCommand{
-		client:         client,
-		names:          globalParams.Names,
-		pattern:        globalParams.Pattern,
-		labels:         globalParams.Labels,
-		iface:          netemParams.Iface,
-		ips:            netemParams.Ips,
-		sports:         netemParams.Sports,
-		dports:         netemParams.Dports,
-		duration:       netemParams.Duration,
+		netemCommand:   newNetemCommand(client, globalParams, netemParams),
 		rate:           rate,
 		packetOverhead: packetOverhead,
 		cellSize:       cellSize,
 		cellOverhead:   cellOverhead,
-		image:          netemParams.Image,
-		pull:           netemParams.Pull,
-		limit:          netemParams.Limit,
-		dryRun:         globalParams.DryRun,
 	}, nil
 }
 

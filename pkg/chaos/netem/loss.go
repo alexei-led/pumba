@@ -2,10 +2,8 @@ package netem
 
 import (
 	"context"
-	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -15,21 +13,9 @@ import (
 
 // `netem loss` command
 type lossCommand struct {
-	client      container.Client
-	names       []string
-	pattern     string
-	labels      []string
-	iface       string
-	ips         []*net.IPNet
-	sports      []string
-	dports      []string
-	duration    time.Duration
+	netemCommand
 	percent     float64
 	correlation float64
-	image       string
-	pull        bool
-	limit       int
-	dryRun      bool
 }
 
 // NewLossCommand create new netem loss command
@@ -49,21 +35,9 @@ func NewLossCommand(client container.Client,
 	}
 
 	return &lossCommand{
-		client:      client,
-		names:       globalParams.Names,
-		pattern:     globalParams.Pattern,
-		labels:      globalParams.Labels,
-		iface:       netemParams.Iface,
-		ips:         netemParams.Ips,
-		sports:      netemParams.Sports,
-		dports:      netemParams.Dports,
-		duration:    netemParams.Duration,
-		percent:     percent,
-		correlation: correlation,
-		image:       netemParams.Image,
-		pull:        netemParams.Pull,
-		limit:       netemParams.Limit,
-		dryRun:      globalParams.DryRun,
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		percent:      percent,
+		correlation:  correlation,
 	}, nil
 }
 

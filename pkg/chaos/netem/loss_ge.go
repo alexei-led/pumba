@@ -2,10 +2,8 @@ package netem
 
 import (
 	"context"
-	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -15,23 +13,11 @@ import (
 
 // netem loss gemodel` (Gilbert-Elliot model) command
 type lossGECommand struct {
-	client   container.Client
-	names    []string
-	pattern  string
-	labels   []string
-	iface    string
-	ips      []*net.IPNet
-	sports   []string
-	dports   []string
-	duration time.Duration
-	pg       float64
-	pb       float64
-	oneH     float64
-	oneK     float64
-	image    string
-	pull     bool
-	limit    int
-	dryRun   bool
+	netemCommand
+	pg   float64
+	pb   float64
+	oneH float64
+	oneK float64
 }
 
 // NewLossGECommand create new netem loss gemodel (Gilbert-Elliot) command
@@ -61,23 +47,11 @@ func NewLossGECommand(client container.Client,
 	}
 
 	return &lossGECommand{
-		client:   client,
-		names:    globalParams.Names,
-		pattern:  globalParams.Pattern,
-		labels:   globalParams.Labels,
-		iface:    netemParams.Iface,
-		ips:      netemParams.Ips,
-		sports:   netemParams.Sports,
-		dports:   netemParams.Dports,
-		duration: netemParams.Duration,
-		pg:       pg,
-		pb:       pb,
-		oneH:     oneH,
-		oneK:     oneK,
-		image:    netemParams.Image,
-		pull:     netemParams.Pull,
-		limit:    netemParams.Limit,
-		dryRun:   globalParams.DryRun,
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		pg:           pg,
+		pb:           pb,
+		oneH:         oneH,
+		oneK:         oneK,
 	}, nil
 }
 

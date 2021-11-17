@@ -2,10 +2,8 @@ package netem
 
 import (
 	"context"
-	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -15,24 +13,12 @@ import (
 
 // `netem loss state` command
 type lossStateCommand struct {
-	client   container.Client
-	names    []string
-	pattern  string
-	labels   []string
-	iface    string
-	ips      []*net.IPNet
-	sports   []string
-	dports   []string
-	duration time.Duration
-	p13      float64
-	p31      float64
-	p32      float64
-	p23      float64
-	p14      float64
-	image    string
-	pull     bool
-	limit    int
-	dryRun   bool
+	netemCommand
+	p13 float64
+	p31 float64
+	p32 float64
+	p23 float64
+	p14 float64
 }
 
 // NewLossStateCommand create new netem loss state command
@@ -67,24 +53,12 @@ func NewLossStateCommand(client container.Client,
 	}
 
 	return &lossStateCommand{
-		client:   client,
-		names:    globalParams.Names,
-		pattern:  globalParams.Pattern,
-		labels:   globalParams.Labels,
-		iface:    netemParams.Iface,
-		ips:      netemParams.Ips,
-		sports:   netemParams.Sports,
-		dports:   netemParams.Dports,
-		duration: netemParams.Duration,
-		p13:      p13,
-		p31:      p31,
-		p32:      p32,
-		p23:      p23,
-		p14:      p14,
-		image:    netemParams.Image,
-		pull:     netemParams.Pull,
-		limit:    netemParams.Limit,
-		dryRun:   globalParams.DryRun,
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		p13:          p13,
+		p31:          p31,
+		p32:          p32,
+		p23:          p23,
+		p14:          p14,
 	}, nil
 }
 

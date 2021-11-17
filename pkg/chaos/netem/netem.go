@@ -5,10 +5,29 @@ import (
 	"net"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
+
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
+
+// `netem` base command
+type netemCommand struct {
+	client   container.Client
+	names    []string
+	pattern  string
+	labels   []string
+	iface    string
+	ips      []*net.IPNet
+	sports   []string
+	dports   []string
+	duration time.Duration
+	image    string
+	pull     bool
+	limit    int
+	dryRun   bool
+}
 
 // Params common params for netem traffic shaping command
 type Params struct {
@@ -28,6 +47,24 @@ type Params struct {
 	Pull bool
 	// limit the number of target containers
 	Limit int
+}
+
+func newNetemCommand(client container.Client, gparams *chaos.GlobalParams, params *Params) netemCommand {
+	return netemCommand{
+		client:   client,
+		names:    gparams.Names,
+		pattern:  gparams.Pattern,
+		labels:   gparams.Labels,
+		dryRun:   gparams.DryRun,
+		iface:    params.Iface,
+		ips:      params.Ips,
+		sports:   params.Sports,
+		dports:   params.Dports,
+		duration: params.Duration,
+		image:    params.Image,
+		pull:     params.Pull,
+		limit:    params.Limit,
+	}
 }
 
 // run network emulation command, stop netem on timeout or abort

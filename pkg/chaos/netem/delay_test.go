@@ -172,21 +172,23 @@ func TestDelayCommand_Run(t *testing.T) {
 		mockClient := new(container.MockClient)
 		t.Run(tt.name, func(t *testing.T) {
 			n := &delayCommand{
-				client:       mockClient,
-				names:        tt.fields.names,
-				pattern:      tt.fields.pattern,
-				iface:        tt.fields.iface,
-				ips:          tt.fields.ips,
-				sports:       tt.fields.sports,
-				dports:       tt.fields.dports,
-				duration:     tt.fields.duration,
+				netemCommand: netemCommand{
+					client:   mockClient,
+					names:    tt.fields.names,
+					pattern:  tt.fields.pattern,
+					iface:    tt.fields.iface,
+					ips:      tt.fields.ips,
+					sports:   tt.fields.sports,
+					dports:   tt.fields.dports,
+					duration: tt.fields.duration,
+					image:    tt.fields.image,
+					limit:    tt.fields.limit,
+					dryRun:   tt.fields.dryRun,
+				},
 				time:         tt.fields.time,
 				jitter:       tt.fields.jitter,
 				correlation:  tt.fields.correlation,
 				distribution: tt.fields.distribution,
-				image:        tt.fields.image,
-				limit:        tt.fields.limit,
-				dryRun:       tt.fields.dryRun,
 			}
 			// mock calls
 			call := mockClient.On("ListContainers", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
