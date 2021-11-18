@@ -12,7 +12,7 @@
 
     # and (container has been stopped)
     run docker inspect -f {{.State.Status}} stopping_victim
-    [[ $output == "exited" ]]
+    [ $output = "exited" ]
 
     # cleanup
     docker rm -f stopping_victim || true
@@ -30,7 +30,7 @@
 
     # and (container has been stopped)
     run docker inspect -f {{.State.Status}} stopping_victim
-    [[ $output == "exited" ]]
+    [ $output = "exited" ]
 
     # cleanup
     docker rm -f stopping_victim || true
@@ -40,7 +40,7 @@
     # given (stopped container)
     run docker run -d --name starting_victim alpine sh -c "trap : TERM INT; tail -f /dev/null & wait"
     run docker inspect -f {{.State.Status}} starting_victim
-    [[ $output == "running" ]]
+    [ $output = "running" ]
 
     # when (trying to stop container)
     run pumba stop --restart=true --duration=5s /starting_victim
@@ -49,7 +49,7 @@
 
     # and (container has been (re)started)
     run docker inspect -f {{.State.Status}} starting_victim
-    [[ $output == "running" ]]
+    [ $output = "running" ]
 
     # cleanup
     docker rm -f starting_victim || true
