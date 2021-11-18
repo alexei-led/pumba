@@ -1,3 +1,4 @@
+//nolint:dupl
 package cmd
 
 import (
