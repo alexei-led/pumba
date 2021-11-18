@@ -118,4 +118,4 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
-          tags: ${DOCKER_ORG}/pumba:${{ steps.tagger.outputs.tag }}
+          tags: ${{ secrets.DOCKER_ORG }}/pumba:${{ steps.tagger.outputs.tag }}
