@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type execContext struct {
@@ -40,27 +40,21 @@ func NewExecCLICommand(ctx context.Context) *cli.Command {
 
 // EXEC Command
 func (cmd *execContext) exec(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get command
 	command := c.String("command")
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand, err := docker.NewExecCommand(chaos.DockerClient, names, pattern, labels, command, limit, dryRun)
-	if err != nil {
-		return err
-	}
+	execCommand := docker.NewExecCommand(chaos.DockerClient, params, command, limit)
 	// run exec command
-	return chaos.RunChaosCommand(cmd.context, execCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
+	if err != nil {
+		return errors.Wrap(err, "could not run exec command")
+	}
+	return nil
 }

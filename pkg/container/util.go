@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"regexp"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // ListOpts list options
@@ -13,8 +15,8 @@ type ListOpts struct {
 	Labels []string
 }
 
-// Filter list filter
-type Filter struct {
+// list filter
+type filter struct {
 	Names   []string
 	Pattern string
 	Opts    ListOpts
@@ -45,26 +47,26 @@ func matchPattern(pattern, containerName string) bool {
 	return matched
 }
 
-func applyContainerFilter(filter Filter) FilterFunc {
+func applyContainerFilter(flt filter) FilterFunc {
 	return func(c *Container) bool {
 		// skip Pumba label
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
 		// if not requested all
-		if !filter.Opts.All {
+		if !flt.Opts.All {
 			// match names
-			if len(filter.Names) > 0 {
-				return matchNames(filter.Names, c.containerInfo.Name)
+			if len(flt.Names) > 0 {
+				return matchNames(flt.Names, c.ContainerInfo.Name)
 			}
-			return matchPattern(filter.Pattern, c.containerInfo.Name)
+			return matchPattern(flt.Pattern, c.ContainerInfo.Name)
 		}
 		return true
 	}
 }
 
 func listContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, all bool) ([]*Container, error) {
-	filter := Filter{
+	f := filter{
 		Names:   names,
 		Pattern: pattern,
 		Opts: ListOpts{
@@ -72,13 +74,17 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 			Labels: labels,
 		},
 	}
-	return client.ListContainers(ctx, applyContainerFilter(filter), filter.Opts)
+	containers, err := client.ListContainers(ctx, applyContainerFilter(f), f.Opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list containers")
+	}
+	return containers, nil
 }
 
 // RandomContainer select random container
 func RandomContainer(containers []*Container) *Container {
 	if len(containers) > 0 {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		r := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
 		i := r.Intn(len(containers))
 		return containers[i]
 	}
@@ -91,13 +97,12 @@ func ListNContainers(ctx context.Context, client Client, names []string, pattern
 	if err != nil {
 		return nil, err
 	}
-
-	if len(containers) > limit && limit > 0 {
-		for i := range containers {
-			j := rand.Intn(i + 1)
+	if limit > 0 && len(containers) > limit {
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(containers), func(i, j int) {
 			containers[i], containers[j] = containers[j], containers[i]
-		}
-		return containers[0:limit], nil
+		})
+		containers = containers[0:limit]
 	}
 
 	return containers, nil

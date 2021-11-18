@@ -10,26 +10,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// RestartCommand `docker restart` command
-type RestartCommand struct {
+// `docker restart` command
+type restartCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
 	labels  []string
 	timeout time.Duration
-	delay   time.Duration
 	limit   int
 	dryRun  bool
 }
 
 // NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client container.Client, names []string, pattern string, labels []string, timeout time.Duration, delay time.Duration, limit int, dryRun bool) (chaos.Command, error) {
-	restart := &RestartCommand{client, names, pattern, labels, timeout, delay, limit, dryRun}
-	return restart, nil
+func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
+	return &restartCommand{
+		client:  client,
+		names:   params.Names,
+		pattern: params.Pattern,
+		labels:  params.Labels,
+		timeout: timeout,
+		limit:   limit,
+		dryRun:  params.DryRun,
+	}
 }
 
 // Run restart command
-func (k *RestartCommand) Run(ctx context.Context, random bool) error {
+func (k *restartCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("restarting all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
@@ -40,7 +46,7 @@ func (k *RestartCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to restart")
@@ -54,13 +60,12 @@ func (k *RestartCommand) Run(ctx context.Context, random bool) error {
 		}
 	}
 
-	for _, container := range containers {
+	for _, c := range containers {
 		log.WithFields(log.Fields{
-			"container": container,
+			"container": c,
 			"timeout":   k.timeout,
 		}).Debug("restarting container")
-		c := container
-		err = k.client.RestartContainer(ctx, c, k.timeout, k.delay, k.dryRun)
+		err = k.client.RestartContainer(ctx, c, k.timeout, k.dryRun)
 		if err != nil {
 			return errors.Wrap(err, "failed to restart container")
 		}

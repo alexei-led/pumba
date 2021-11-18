@@ -1,14 +1,12 @@
 linters-settings:
   govet:
     check-shadowing: true
-  golint:
-    min-confidence: 0
   gocyclo:
     min-complexity: 15
   maligned:
     suggest-new: true
   dupl:
-    threshold: 100
+    threshold: 150
   goconst:
     min-len: 2
     min-occurrences: 2
@@ -32,7 +30,7 @@ linters-settings:
       - whyNoLint
       - wrapperFunc
   funlen:
-    lines: 100
+    lines: 105
     statements: 50
 
 linters:
@@ -40,28 +38,50 @@ linters:
   # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
   disable-all: true
   enable:
-    - rowserrcheck
+    - asciicheck
     - bodyclose
     - deadcode
     - depguard
     - dogsled
     - dupl
+    - durationcheck
     - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
     - funlen
+    - gci
+    # - gochecknoglobals TODO: remove globals from code
+    # - gochecknoinits TODO: remove main.init
+    - gocognit
     - goconst
     - gocritic
     - gocyclo
+    #    - godox
+    - goerr113
     - gofmt
     - goimports
-    - golint
+    - gomnd
+    - gomoddirectives
     - gosec
     - gosimple
     - govet
+    - goprintffuncname
+    - ifshort
+    - importas
     - ineffassign
-    - interfacer
+    - makezero
     - misspell
     - nakedret
-    - scopelint
+    # - nestif
+    - nilerr
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
     - staticcheck
     - structcheck
     - stylecheck
@@ -70,15 +90,24 @@ linters:
     - unparam
     - unused
     - varcheck
+    - wastedassign
     - whitespace
-
-  # don't enable:
-  # - gochecknoglobals
-  # - gocognit
-  # - godox
-  # - maligned
-  # - prealloc
+    - wrapcheck
+    # - wsl
 
 issues:
-    exclude:
-        - Using the variable on range scope `tt` in function literal
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - bodyclose
+        - gosec
+        - dupl
+        - gocognit
+        - goconst
+        - goerr113
+    - path: mocks\*\.go
+      linters:
+        - wrapcheck
+  exclude:
+    - Using the variable on range scope `tt` in function literal

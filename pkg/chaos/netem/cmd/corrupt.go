@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type corruptContext struct {
@@ -40,46 +40,29 @@ func NewCorruptCLICommand(ctx context.Context) *cli.Command {
 
 // NETEM Corrupt Command - network emulation corrupt
 func (cmd *corruptContext) corrupt(c *cli.Context) error {
-	// get random flag
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
-	// get global chaos interval
-	interval := c.GlobalString("interval")
-
-	// get network interface from parent `netem` command
-	iface := c.Parent().String("interface")
-	// get ips list from parent `netem`` command `target` flag
-	ips := c.Parent().StringSlice("target")
-	// get egress port list from parent `netem` command `egressPort` flag
-	sports := c.Parent().String("egressPort")
-	// get ingress port list from parent `netem` command `ingressPort` flag
-	dports := c.Parent().String("ingressPort")
-	// get duration from parent `netem`` command
-	duration := c.Parent().String("duration")
-	// get traffic control image from parent `netem` command
-	image := c.Parent().String("tc-image")
-	// get pull tc image flag
-	pull := c.Parent().BoolT("pull-image")
-	// get limit for number of containers to netem
-	limit := c.Parent().Int("limit")
-
+	// parse common chaos flags
+	globalParams, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
+	// parse netem flags
+	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
+	if err != nil {
+		return errors.Wrap(err, "error parsing netem parameters")
+	}
 	// get corrupt percentage
 	percent := c.Float64("percent")
 	// get delay variation
 	correlation := c.Float64("correlation")
-
 	// init netem corrupt command
-	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, names, pattern, labels, iface, ips, sports, dports, duration, interval, percent, correlation, image, pull, limit, dryRun)
+	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating netem corrupt command")
 	}
 	// run netem command
-	return chaos.RunChaosCommand(cmd.context, corruptCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, corruptCommand, globalParams)
+	if err != nil {
+		return errors.Wrap(err, "error running netem corrupt command")
+	}
+	return nil
 }

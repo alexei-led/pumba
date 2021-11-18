@@ -2,97 +2,33 @@ package netem
 
 import (
 	"context"
-	"net"
-	"regexp"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 )
 
-// LossGECommand `netem loss gemodel` (Gilbert-Elliot model) command
-type LossGECommand struct {
-	client   container.Client
-	names    []string
-	pattern  string
-	labels   []string
-	iface    string
-	ips      []*net.IPNet
-	sports   []string
-	dports   []string
-	duration time.Duration
-	pg       float64
-	pb       float64
-	oneH     float64
-	oneK     float64
-	image    string
-	pull     bool
-	limit    int
-	dryRun   bool
+// netem loss gemodel` (Gilbert-Elliot model) command
+type lossGECommand struct {
+	netemCommand
+	pg   float64
+	pb   float64
+	oneH float64
+	oneK float64
 }
 
 // NewLossGECommand create new netem loss gemodel (Gilbert-Elliot) command
 func NewLossGECommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	pg, // Good State transition probability
 	pb, // Bad State transition probability
 	oneH, // loss probability in Bad state
 	oneK float64, // loss probability in Good state
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\\.:_-]*")
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		err = errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-		return nil, err
-	}
-	// validate ips
-	var ips []*net.IPNet
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, e
-		}
-		ips = append(ips, ip)
-	}
-	// validate sports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, err
-	}
-	// validate dports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, err
-	}
 	// get pg - Good State transition probability
 	if pg < 0.0 || pg > 100.0 {
 		return nil, errors.New("invalid pg (Good State) transition probability: must be between 0.0 and 100.0")
@@ -110,29 +46,17 @@ func NewLossGECommand(client container.Client,
 		return nil, errors.New("invalid loss probability: must be between 0.0 and 100.0")
 	}
 
-	return &LossGECommand{
-		client:   client,
-		names:    names,
-		pattern:  pattern,
-		labels:   labels,
-		iface:    iface,
-		ips:      ips,
-		sports:   sports,
-		dports:   dports,
-		duration: duration,
-		pg:       pg,
-		pb:       pb,
-		oneH:     oneH,
-		oneK:     oneK,
-		image:    image,
-		pull:     pull,
-		limit:    limit,
-		dryRun:   dryRun,
+	return &lossGECommand{
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		pg:           pg,
+		pb:           pb,
+		oneH:         oneH,
+		oneK:         oneK,
 	}, nil
 }
 
 // Run netem loss state command
-func (n *LossGECommand) Run(ctx context.Context, random bool) error {
+func (n *lossGECommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according Gilbert-Elliot model to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -143,7 +67,7 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -158,8 +82,11 @@ func (n *LossGECommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem loss gemodel command
-	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.pb, 'f', 2, 64), strconv.FormatFloat(n.oneH, 'f', 2, 64), strconv.FormatFloat(n.oneK, 'f', 2, 64))
+	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)} //nolint:gomnd
+	netemCmd = append(netemCmd,
+		strconv.FormatFloat(n.pb, 'f', 2, 64),   //nolint:gomnd
+		strconv.FormatFloat(n.oneH, 'f', 2, 64), //nolint:gomnd
+		strconv.FormatFloat(n.oneK, 'f', 2, 64)) //nolint:gomnd
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup

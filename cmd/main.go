@@ -17,11 +17,10 @@ import (
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
-	log "github.com/sirupsen/logrus"
-
-	"github.com/urfave/cli"
-
 	"github.com/johntdyer/slackrus"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 var (
@@ -46,10 +45,10 @@ var (
 )
 
 const (
-	// Re2Prefix re2 regexp string prefix
-	Re2Prefix = "re2:"
-	// DefaultInterface default network interface
-	DefaultInterface = "eth0"
+	// re2 regexp string prefix
+	re2Prefix = "re2:"
+	// default network interface
+	defaultInterface = "eth0"
 )
 
 func init() {
@@ -79,7 +78,7 @@ func main() {
 	}
 	app.EnableBashCompletion = true
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
-	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
+	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
 	app.Before = before
 	app.Commands = initializeCLICommands()
 	app.Flags = []cli.Flag{
@@ -133,7 +132,7 @@ func main() {
 			Usage: "Slack channel (default #pumba)",
 			Value: "#pumba",
 		},
-		cli.StringFlag{
+		cli.DurationFlag{
 			Name:  "interval, i",
 			Usage: "recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'",
 		},
@@ -200,7 +199,10 @@ func before(c *cli.Context) error {
 	}
 	// create new Docker client
 	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tlsCfg)
-	return err
+	if err != nil {
+		return errors.Wrap(err, "could not create Docker client")
+	}
+	return nil
 }
 
 func handleSignals() context.Context {
@@ -232,7 +234,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 
 	if c.GlobalBool("tls") || c.GlobalBool("tlsverify") {
 		tlsCfg = &tls.Config{
-			InsecureSkipVerify: !c.GlobalBool("tlsverify"),
+			InsecureSkipVerify: !c.GlobalBool("tlsverify"), //nolint:gosec
 		}
 
 		// Load CA cert
@@ -241,7 +243,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			if strings.HasPrefix(caCertFlag, "/") {
 				caCert, err = ioutil.ReadFile(caCertFlag)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "unable to read CA certificate")
 				}
 			} else {
 				caCert = []byte(caCertFlag)
@@ -257,12 +259,12 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			if strings.HasPrefix(certFlag, "/") && strings.HasPrefix(keyFlag, "/") {
 				cert, err = tls.LoadX509KeyPair(certFlag, keyFlag)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "unable to load client certificate")
 				}
 			} else {
 				cert, err = tls.X509KeyPair([]byte(certFlag), []byte(keyFlag))
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "unable to load client certificate")
 				}
 			}
 			tlsCfg.Certificates = []tls.Certificate{cert}
@@ -283,26 +285,26 @@ func initializeCLICommands() []cli.Command {
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				cli.DurationFlag{
 					Name:  "duration, d",
 					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
 				},
 				cli.StringFlag{
 					Name:  "interface, i",
 					Usage: "network interface to apply delay on",
-					Value: DefaultInterface,
+					Value: defaultInterface,
 				},
 				cli.StringSliceFlag{
 					Name:  "target, t",
 					Usage: "target IP filter; supports multiple IPs; supports CIDR notation",
 				},
 				cli.StringFlag{
-					Name:  "egressPort",
-					Usage: "target port filter for egress, or sport; supports multiple ports;",
+					Name:  "egress-port, egressPort",
+					Usage: "target port filter for egress, or sport; supports multiple ports (comma-separated)",
 				},
 				cli.StringFlag{
-					Name:  "ingressPort",
-					Usage: "target port filter for ingress, or dport; supports multiple ports;",
+					Name:  "ingress-port, ingressPort",
+					Usage: "target port filter for ingress, or dport; supports multiple ports (comma-separated)",
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
@@ -310,11 +312,11 @@ func initializeCLICommands() []cli.Command {
 				},
 				cli.BoolTFlag{
 					Name:  "pull-image",
-					Usage: "try to pull tc-image",
+					Usage: "force pull tc-image",
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
 				*netemCmd.NewDelayCLICommand(topContext),

@@ -3,21 +3,18 @@ package netem
 import (
 	"context"
 	"net"
-	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 )
 
-// CorruptCommand `netem corrupt` command
-type CorruptCommand struct {
+// `netem corrupt` command
+type corruptCommand struct {
 	client      container.Client
 	names       []string
 	pattern     string
@@ -37,57 +34,11 @@ type CorruptCommand struct {
 
 // NewCorruptCommand create new netem corrupt command
 func NewCorruptCommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	percent, // corrupt percent
 	correlation float64, // corrupt correlation
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\\.:_-]*")
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-	}
-	// validate ips
-	var ips []*net.IPNet
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, e
-		}
-		ips = append(ips, ip)
-	}
-	// validate sports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, err
-	}
-	// validate dports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, err
-	}
 	// get netem corrupt percent
 	if percent < 0.0 || percent > 100.0 {
 		return nil, errors.New("invalid corrupt percent: must be between 0.0 and 100.0")
@@ -96,28 +47,27 @@ func NewCorruptCommand(client container.Client,
 	if correlation < 0.0 || correlation > 100.0 {
 		return nil, errors.New("invalid corrupt correlation: must be between 0.0 and 100.0")
 	}
-
-	return &CorruptCommand{
+	return &corruptCommand{
 		client:      client,
-		names:       names,
-		labels:      labels,
-		pattern:     pattern,
-		iface:       iface,
-		ips:         ips,
-		sports:      sports,
-		dports:      dports,
-		duration:    duration,
+		names:       globalParams.Names,
+		labels:      globalParams.Labels,
+		pattern:     globalParams.Pattern,
+		iface:       netemParams.Iface,
+		ips:         netemParams.Ips,
+		sports:      netemParams.Sports,
+		dports:      netemParams.Dports,
+		duration:    netemParams.Duration,
 		percent:     percent,
 		correlation: correlation,
-		image:       image,
-		pull:        pull,
-		limit:       limit,
-		dryRun:      dryRun,
+		image:       netemParams.Image,
+		pull:        netemParams.Pull,
+		limit:       netemParams.Limit,
+		dryRun:      globalParams.DryRun,
 	}, nil
 }
 
 // Run netem corrupt command
-func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
+func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet corrupt to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -128,7 +78,7 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -143,9 +93,9 @@ func (n *CorruptCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem corrupt command
-	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 
 	// run netem corrupt command for selected containers

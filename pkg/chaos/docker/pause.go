@@ -6,13 +6,12 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-// PauseCommand `docker pause` command
-type PauseCommand struct {
+// `docker pause` command
+type pauseCommand struct {
 	client   container.Client
 	names    []string
 	pattern  string
@@ -23,22 +22,19 @@ type PauseCommand struct {
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, names []string, pattern string, labels []string, intervalStr, durationStr string, limit int, dryRun bool) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	return &PauseCommand{client, names, pattern, labels, duration, limit, dryRun}, nil
+func NewPauseCommand(client container.Client, params *chaos.GlobalParams, duration time.Duration, limit int) chaos.Command {
+	return &pauseCommand{
+		client:   client,
+		names:    params.Names,
+		pattern:  params.Pattern,
+		labels:   params.Labels,
+		duration: duration,
+		limit:    limit,
+		dryRun:   params.DryRun}
 }
 
 // Run pause command
-func (p *PauseCommand) Run(ctx context.Context, random bool) error {
+func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("pausing all matching containers")
 	log.WithFields(log.Fields{
 		"names":    p.names,
@@ -50,7 +46,7 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, p.client, p.names, p.pattern, p.labels, p.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to stop")
@@ -98,7 +94,7 @@ func (p *PauseCommand) Run(ctx context.Context, random bool) error {
 }
 
 // unpause containers
-func (p *PauseCommand) unpauseContainers(ctx context.Context, containers []*container.Container) error {
+func (p *pauseCommand) unpauseContainers(ctx context.Context, containers []*container.Container) error {
 	var err error
 	for _, container := range containers {
 		log.WithField("container", container).Debug("unpause container")

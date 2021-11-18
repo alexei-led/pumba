@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const defaultTimeout = 30 * time.Second
@@ -15,7 +17,7 @@ const defaultTimeout = 30 * time.Second
 func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
 	u, err := url.Parse(daemonURL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse docker daemon url")
 	}
 	if u.Scheme == "" || u.Scheme == "tcp" {
 		if tlsConfig == nil {
@@ -37,12 +39,12 @@ func newHTTPClient(address *url.URL, tlsConfig *tls.Config, timeout time.Duratio
 	switch address.Scheme {
 	default:
 		httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.DialTimeout(network, addr, timeout)
+			return net.DialTimeout(network, addr, timeout) //nolint:wrapcheck
 		}
 	case "unix":
 		socketPath := address.Path
 		unixDial := func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.DialTimeout("unix", socketPath, timeout)
+			return net.DialTimeout("unix", socketPath, timeout) //nolint:wrapcheck
 		}
 		httpTransport.DialContext = unixDial
 		// Override the main URL object so the HTTP lib won't complain

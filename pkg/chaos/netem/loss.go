@@ -2,92 +2,29 @@ package netem
 
 import (
 	"context"
-	"net"
-	"regexp"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 )
 
-// LossCommand `netem loss` command
-type LossCommand struct {
-	client      container.Client
-	names       []string
-	pattern     string
-	labels      []string
-	iface       string
-	ips         []*net.IPNet
-	sports      []string
-	dports      []string
-	duration    time.Duration
+// `netem loss` command
+type lossCommand struct {
+	netemCommand
 	percent     float64
 	correlation float64
-	image       string
-	pull        bool
-	limit       int
-	dryRun      bool
 }
 
 // NewLossCommand create new netem loss command
 func NewLossCommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	percent, // loss percent
 	correlation float64, // loss correlation
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\\.:_-]*")
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-	}
-	// validate ips
-	var ips []*net.IPNet
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, e
-		}
-		ips = append(ips, ip)
-	}
-	// validate sports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, err
-	}
-	// validate dports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, err
-	}
 	// get netem loss percent
 	if percent < 0.0 || percent > 100.0 {
 		return nil, errors.New("invalid loss percent: must be between 0.0 and 100.0")
@@ -97,27 +34,15 @@ func NewLossCommand(client container.Client,
 		return nil, errors.New("invalid loss correlation: must be between 0.0 and 100.0")
 	}
 
-	return &LossCommand{
-		client:      client,
-		names:       names,
-		pattern:     pattern,
-		labels:      labels,
-		iface:       iface,
-		ips:         ips,
-		sports:      sports,
-		dports:      dports,
-		duration:    duration,
-		percent:     percent,
-		correlation: correlation,
-		image:       image,
-		pull:        pull,
-		limit:       limit,
-		dryRun:      dryRun,
+	return &lossCommand{
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		percent:      percent,
+		correlation:  correlation,
 	}, nil
 }
 
 // Run netem loss command
-func (n *LossCommand) Run(ctx context.Context, random bool) error {
+func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet loss to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -128,7 +53,7 @@ func (n *LossCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -143,9 +68,9 @@ func (n *LossCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem loss command
-	netemCmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	netemCmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 
 	// run netem loss command for selected containers
@@ -154,7 +79,7 @@ func (n *LossCommand) Run(ctx context.Context, random bool) error {
 	cancels := make([]context.CancelFunc, len(containers))
 	for i, c := range containers {
 		log.WithFields(log.Fields{
-			"container": c,
+			"container": *c,
 		}).Debug("adding network random packet loss for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		cancels[i] = cancel
@@ -179,7 +104,7 @@ func (n *LossCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, err := range errs {
+	for _, err = range errs {
 		// take first found error
 		if err != nil {
 			return errors.Wrap(err, "failed to add packet loss for one or more containers")

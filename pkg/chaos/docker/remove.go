@@ -5,11 +5,12 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-// RemoveCommand `docker kill` command
-type RemoveCommand struct {
+// `docker kill` command
+type removeCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
@@ -22,13 +23,23 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, names []string, pattern string, labels []string, force, links, volumes bool, limit int, dryRun bool) (chaos.Command, error) {
-	remove := &RemoveCommand{client, names, pattern, labels, force, links, volumes, limit, dryRun}
-	return remove, nil
+func NewRemoveCommand(client container.Client, params *chaos.GlobalParams, force, links, volumes bool, limit int) chaos.Command {
+	remove := &removeCommand{
+		client:  client,
+		names:   params.Names,
+		pattern: params.Pattern,
+		labels:  params.Labels,
+		force:   force,
+		links:   links,
+		volumes: volumes,
+		limit:   limit,
+		dryRun:  params.DryRun,
+	}
+	return remove
 }
 
 // Run remove command
-func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
+func (r *removeCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("removing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   r.names,
@@ -39,7 +50,7 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.labels, r.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to remove")
@@ -63,7 +74,7 @@ func (r *RemoveCommand) Run(ctx context.Context, random bool) error {
 		c := container
 		err = r.client.RemoveContainer(ctx, c, r.force, r.links, r.volumes, r.dryRun)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to remove container")
 		}
 	}
 	return nil

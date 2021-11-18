@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
-
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -27,9 +26,45 @@ type Command interface {
 	Run(ctx context.Context, random bool) error
 }
 
-// GetNamesOrPattern get names list of filter pattern from command line
-func GetNamesOrPattern(c *cli.Context) ([]string, string) {
-	names := []string{}
+// GlobalParams global parameters passed through CLI flags
+type GlobalParams struct {
+	Random     bool
+	Labels     []string
+	Pattern    string
+	Names      []string
+	Interval   time.Duration
+	DryRun     bool
+	SkipErrors bool
+}
+
+// ParseGlobalParams parse global parameters
+func ParseGlobalParams(c *cli.Context) (*GlobalParams, error) {
+	// get random flag
+	random := c.GlobalBool("random")
+	// get labels
+	labels := c.GlobalStringSlice("label")
+	// get dry-run mode
+	dryRun := c.GlobalBool("dry-run")
+	// get skip error flag
+	skipError := c.GlobalBool("skip-error")
+	// get names or pattern
+	names, pattern := getNamesOrPattern(c)
+	// get global chaos interval
+	interval := c.GlobalDuration("interval")
+	return &GlobalParams{
+		Random:     random,
+		Labels:     labels,
+		Pattern:    pattern,
+		Names:      names,
+		DryRun:     dryRun,
+		SkipErrors: skipError,
+		Interval:   interval,
+	}, nil
+}
+
+// get names list of filter pattern from command line
+func getNamesOrPattern(c *cli.Context) ([]string, string) {
+	var names []string
 	pattern := ""
 	// get container names or pattern: no Args means ALL containers
 	if c.Args().Present() {
@@ -52,19 +87,13 @@ func GetNamesOrPattern(c *cli.Context) ([]string, string) {
 }
 
 // RunChaosCommand run chaos command in go routine
-func RunChaosCommand(topContext context.Context, command Command, intervalStr string, random, skipError bool) error {
-	// parse interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return err
-	}
-
+func RunChaosCommand(topContext context.Context, command Command, params *GlobalParams) error {
 	// create Time channel for specified interval
 	var tick <-chan time.Time
-	if interval == 0 {
-		tick = time.NewTimer(interval).C
+	if params.Interval == 0 {
+		tick = time.NewTimer(params.Interval).C
 	} else {
-		tick = time.NewTicker(interval).C
+		tick = time.NewTicker(params.Interval).C
 	}
 
 	// handle the 'chaos' command
@@ -74,9 +103,9 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 	// run chaos command
 	for {
 		// run chaos function
-		if err := command.Run(ctx, random); err != nil {
-			if !skipError {
-				return err
+		if err := command.Run(ctx, params.Random); err != nil {
+			if !params.SkipErrors {
+				return errors.Wrap(err, "error running chaos command")
 			}
 			log.WithError(err).Warn("skipping error")
 		}
@@ -85,7 +114,7 @@ func RunChaosCommand(topContext context.Context, command Command, intervalStr st
 		case <-topContext.Done():
 			return nil // not to leak the goroutine
 		case <-tick:
-			if interval == 0 {
+			if params.Interval == 0 {
 				return nil // not to leak the goroutine
 			}
 			log.Debug("next chaos execution (tick) ...")

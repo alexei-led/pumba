@@ -3,64 +3,12 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
-	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestNewPauseCommand(t *testing.T) {
-	type args struct {
-		client   container.Client
-		names    []string
-		pattern  string
-		labels   []string
-		interval string
-		duration string
-		limit    int
-		dryRun   bool
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "new pause command",
-			args: args{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				interval: "20s",
-				duration: "10s",
-				limit:    15,
-			},
-			want: &PauseCommand{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				duration: 10 * time.Second,
-				limit:    15,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewPauseCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.interval, tt.args.duration, tt.args.limit, tt.args.dryRun)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewPauseCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewPauseCommand() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-//nolint:funlen
 func TestPauseCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError    bool
@@ -165,7 +113,7 @@ func TestPauseCommand_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := new(container.MockClient)
-			s := &PauseCommand{
+			s := &pauseCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,

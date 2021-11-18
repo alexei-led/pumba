@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"syscall"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -14,43 +15,43 @@ const (
 	DefaultKillSignal = "SIGKILL"
 )
 
-// LinuxSignals valid Linux signal table
+// valid Linux signal table
 // http://www.comptechdoc.org/os/linux/programming/linux_pgsignals.html
-var LinuxSignals = map[string]int{
-	"SIGHUP":    1,
-	"SIGINT":    2,
-	"SIGQUIT":   3,
-	"SIGILL":    4,
-	"SIGTRAP":   5,
-	"SIGIOT":    6,
-	"SIGBUS":    7,
-	"SIGFPE":    8,
-	"SIGKILL":   9,
-	"SIGUSR1":   10,
-	"SIGSEGV":   11,
-	"SIGUSR2":   12,
-	"SIGPIPE":   13,
-	"SIGALRM":   14,
-	"SIGTERM":   15,
-	"SIGSTKFLT": 16,
-	"SIGCHLD":   17,
-	"SIGCONT":   18,
-	"SIGSTOP":   19,
-	"SIGTSTP":   20,
-	"SIGTTIN":   21,
-	"SIGTTOU":   22,
-	"SIGURG":    23,
-	"SIGXCPU":   24,
-	"SIGXFSZ":   25,
-	"SIGVTALRM": 26,
-	"SIGPROF":   27,
-	"SIGWINCH":  28,
-	"SIGIO":     29,
-	"SIGPWR":    30,
+var linuxSignals = map[string]syscall.Signal{
+	"SIGHUP":    syscall.SIGHUP,
+	"SIGINT":    syscall.SIGINT,
+	"SIGQUIT":   syscall.SIGQUIT,
+	"SIGILL":    syscall.SIGILL,
+	"SIGTRAP":   syscall.SIGTRAP,
+	"SIGIOT":    syscall.SIGIOT,
+	"SIGBUS":    syscall.SIGBUS,
+	"SIGFPE":    syscall.SIGFPE,
+	"SIGKILL":   syscall.SIGKILL,
+	"SIGUSR1":   syscall.SIGUSR1,
+	"SIGSEGV":   syscall.SIGSEGV,
+	"SIGUSR2":   syscall.SIGUSR2,
+	"SIGPIPE":   syscall.SIGPIPE,
+	"SIGALRM":   syscall.SIGALRM,
+	"SIGTERM":   syscall.SIGTERM,
+	"SIGSTKFLT": 16, //nolint:gomnd
+	"SIGCHLD":   syscall.SIGCHLD,
+	"SIGCONT":   syscall.SIGCONT,
+	"SIGSTOP":   syscall.SIGSTOP,
+	"SIGTSTP":   syscall.SIGTSTP,
+	"SIGTTIN":   syscall.SIGTTIN,
+	"SIGTTOU":   syscall.SIGTTOU,
+	"SIGURG":    syscall.SIGURG,
+	"SIGXCPU":   syscall.SIGXCPU,
+	"SIGXFSZ":   syscall.SIGXFSZ,
+	"SIGVTALRM": syscall.SIGVTALRM,
+	"SIGPROF":   syscall.SIGPROF,
+	"SIGWINCH":  syscall.SIGWINCH,
+	"SIGIO":     syscall.SIGIO,
+	"SIGPWR":    30, //nolint:gomnd
 }
 
-// KillCommand `docker kill` command
-type KillCommand struct {
+// `docker kill` command
+type killCommand struct {
 	client  container.Client
 	names   []string
 	pattern string
@@ -61,19 +62,27 @@ type KillCommand struct {
 }
 
 // NewKillCommand create new Kill Command instance
-func NewKillCommand(client container.Client, names []string, pattern string, labels []string, signal string, limit int, dryRun bool) (chaos.Command, error) {
-	kill := &KillCommand{client, names, pattern, labels, signal, limit, dryRun}
+func NewKillCommand(client container.Client, params *chaos.GlobalParams, signal string, limit int) (chaos.Command, error) {
+	kill := &killCommand{
+		client:  client,
+		names:   params.Names,
+		pattern: params.Pattern,
+		labels:  params.Labels,
+		signal:  signal,
+		limit:   limit,
+		dryRun:  params.DryRun,
+	}
 	if kill.signal == "" {
 		kill.signal = DefaultKillSignal
 	}
-	if _, ok := LinuxSignals[kill.signal]; !ok {
+	if _, ok := linuxSignals[kill.signal]; !ok {
 		return nil, errors.Errorf("undefined Linux signal: %s", signal)
 	}
 	return kill, nil
 }
 
 // Run kill command
-func (k *KillCommand) Run(ctx context.Context, random bool) error {
+func (k *killCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("killing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
@@ -84,7 +93,7 @@ func (k *KillCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to kill")

@@ -2,98 +2,35 @@ package netem
 
 import (
 	"context"
-	"net"
-	"regexp"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 )
 
-// LossStateCommand `netem loss state` command
-type LossStateCommand struct {
-	client   container.Client
-	names    []string
-	pattern  string
-	labels   []string
-	iface    string
-	ips      []*net.IPNet
-	sports   []string
-	dports   []string
-	duration time.Duration
-	p13      float64
-	p31      float64
-	p32      float64
-	p23      float64
-	p14      float64
-	image    string
-	pull     bool
-	limit    int
-	dryRun   bool
+// `netem loss state` command
+type lossStateCommand struct {
+	netemCommand
+	p13 float64
+	p31 float64
+	p32 float64
+	p23 float64
+	p14 float64
 }
 
 // NewLossStateCommand create new netem loss state command
 func NewLossStateCommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	p13, // probability to go from state (1) to state (3)
 	p31, // probability to go from state (3) to state (1)
 	p32, // probability to go from state (3) to state (2)
 	p23, // probability to go from state (2) to state (3)
 	p14 float64, // probability to go from state (1) to state (4)
-	image string, // traffic control image
-	pull bool, // pull tc image
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not netem just log
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\\.:_-]*")
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-	}
-	// validate ips
-	var ips []*net.IPNet
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, e
-		}
-		ips = append(ips, ip)
-	}
-	// validate sports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, err
-	}
-	// validate dports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, err
-	}
 	// validate p13
 	if p13 < 0.0 || p13 > 100.0 {
 		return nil, errors.New("invalid p13 percentage: : must be between 0.0 and 100.0")
@@ -115,30 +52,18 @@ func NewLossStateCommand(client container.Client,
 		return nil, errors.New("invalid p14 percentage: : must be between 0.0 and 100.0")
 	}
 
-	return &LossStateCommand{
-		client:   client,
-		names:    names,
-		pattern:  pattern,
-		labels:   labels,
-		iface:    iface,
-		ips:      ips,
-		sports:   sports,
-		dports:   dports,
-		duration: duration,
-		p13:      p13,
-		p31:      p31,
-		p32:      p32,
-		p23:      p23,
-		p14:      p14,
-		image:    image,
-		pull:     pull,
-		limit:    limit,
-		dryRun:   dryRun,
+	return &lossStateCommand{
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		p13:          p13,
+		p31:          p31,
+		p32:          p32,
+		p23:          p23,
+		p14:          p14,
 	}, nil
 }
 
 // Run netem loss state command
-func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
+func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according 4-state Markov model to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -149,7 +74,7 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -164,8 +89,12 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem loss state command
-	netemCmd := []string{"loss", "state", strconv.FormatFloat(n.p13, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.p31, 'f', 2, 64), strconv.FormatFloat(n.p32, 'f', 2, 64), strconv.FormatFloat(n.p23, 'f', 2, 64), strconv.FormatFloat(n.p14, 'f', 2, 64))
+	netemCmd := []string{"loss", "state", strconv.FormatFloat(n.p13, 'f', 2, 64)} //nolint:gomnd
+	netemCmd = append(netemCmd,
+		strconv.FormatFloat(n.p31, 'f', 2, 64), //nolint:gomnd
+		strconv.FormatFloat(n.p32, 'f', 2, 64), //nolint:gomnd
+		strconv.FormatFloat(n.p23, 'f', 2, 64), //nolint:gomnd
+		strconv.FormatFloat(n.p14, 'f', 2, 64)) //nolint:gomnd
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
@@ -198,7 +127,7 @@ func (n *LossStateCommand) Run(ctx context.Context, random bool) error {
 	}()
 
 	// scan through all errors in goroutines
-	for _, err := range errs {
+	for _, err = range errs {
 		// take first found error
 		if err != nil {
 			return errors.Wrap(err, "failed to add packet loss (4-state Markov model) for one or more containers")

@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type killContext struct {
@@ -40,27 +40,24 @@ func NewKillCLICommand(ctx context.Context) *cli.Command {
 
 // KILL Command
 func (cmd *killContext) kill(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get signal
 	signal := c.String("signal")
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// init kill command
-	killCommand, err := docker.NewKillCommand(chaos.DockerClient, names, pattern, labels, signal, limit, dryRun)
+	killCommand, err := docker.NewKillCommand(chaos.DockerClient, params, signal, limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create kill command")
 	}
 	// run kill command
-	return chaos.RunChaosCommand(cmd.context, killCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, killCommand, params)
+	if err != nil {
+		return errors.Wrap(err, "could not kill containers")
+	}
+	return nil
 }

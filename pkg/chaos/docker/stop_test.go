@@ -3,87 +3,12 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
-	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestNewStopCommand(t *testing.T) {
-	type args struct {
-		client   container.Client
-		names    []string
-		pattern  string
-		labels   []string
-		restart  bool
-		interval string
-		duration string
-		waitTime int
-		limit    int
-		dryRun   bool
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "new stop command",
-			args: args{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				restart:  true,
-				interval: "20s",
-				duration: "10s",
-				waitTime: 100,
-				limit:    15,
-			},
-			want: &StopCommand{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				restart:  true,
-				duration: 10 * time.Second,
-				waitTime: 100,
-				limit:    15,
-			},
-		},
-		{
-			name: "new stop command with default wait",
-			args: args{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				duration: "10s",
-				waitTime: 0,
-				limit:    15,
-			},
-			want: &StopCommand{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				duration: 10 * time.Second,
-				waitTime: DeafultWaitTime,
-				limit:    15,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewStopCommand(tt.args.client, tt.args.names, tt.args.pattern, tt.args.labels, tt.args.restart, tt.args.interval, tt.args.duration, tt.args.waitTime, tt.args.limit, tt.args.dryRun)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewStopCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewStopCommand() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-//nolint:funlen
 func TestStopCommand_Run(t *testing.T) {
 	type wantErrors struct {
 		listError  bool
@@ -223,7 +148,7 @@ func TestStopCommand_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := new(container.MockClient)
-			s := &StopCommand{
+			s := &stopCommand{
 				client:   mockClient,
 				names:    tt.fields.names,
 				pattern:  tt.fields.pattern,
@@ -271,7 +196,7 @@ func TestStopCommand_Run(t *testing.T) {
 			}
 		Invoke:
 			if err := s.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("StopCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("stopCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
 		})

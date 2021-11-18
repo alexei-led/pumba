@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,8 +15,8 @@ const (
 	DeafultWaitTime = 5
 )
 
-// StopCommand `docker stop` command
-type StopCommand struct {
+// `docker stop` command
+type stopCommand struct {
 	client   container.Client
 	names    []string
 	pattern  string
@@ -30,25 +29,24 @@ type StopCommand struct {
 }
 
 // NewStopCommand create new Stop Command instance
-func NewStopCommand(client container.Client, names []string, pattern string, labels []string, restart bool, intervalStr, durationStr string, waitTime, limit int, dryRun bool) (chaos.Command, error) {
+func NewStopCommand(client container.Client, params *chaos.GlobalParams, restart bool, duration time.Duration, waitTime, limit int) chaos.Command {
 	if waitTime <= 0 {
 		waitTime = DeafultWaitTime
 	}
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	return &StopCommand{client, names, pattern, labels, restart, duration, waitTime, limit, dryRun}, nil
+	return &stopCommand{
+		client:   client,
+		names:    params.Names,
+		pattern:  params.Pattern,
+		labels:   params.Labels,
+		dryRun:   params.DryRun,
+		restart:  restart,
+		duration: duration,
+		waitTime: waitTime,
+		limit:    limit}
 }
 
 // Run stop command
-func (s *StopCommand) Run(ctx context.Context, random bool) error {
+func (s *stopCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("stopping all matching containers")
 	log.WithFields(log.Fields{
 		"names":    s.names,
@@ -61,7 +59,7 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to stop")
@@ -109,7 +107,7 @@ func (s *StopCommand) Run(ctx context.Context, random bool) error {
 }
 
 // start previously stopped containers after duration on exit
-func (s *StopCommand) startStoppedContainers(ctx context.Context, containers []*container.Container) error {
+func (s *stopCommand) startStoppedContainers(ctx context.Context, containers []*container.Container) error {
 	var err error
 	for _, container := range containers {
 		c := container

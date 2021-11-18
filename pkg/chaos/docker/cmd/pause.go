@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type pauseContext struct {
@@ -39,27 +39,24 @@ func NewPauseCLICommand(ctx context.Context) *cli.Command {
 
 // PAUSE Command
 func (cmd *pauseContext) pause(c *cli.Context) error {
-	// get random flag
-	random := c.GlobalBool("random")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get global chaos interval
-	interval := c.GlobalString("interval")
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
-	// get chaos command duration
-	duration := c.String("duration")
-	// init pause command
-	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, names, pattern, labels, interval, duration, limit, dryRun)
-	if err != nil {
-		return err
+	// get duration
+	duration := c.Duration("duration")
+	if duration == 0 {
+		return errors.New("unset or invalid duration value")
 	}
+	// init pause command
+	pauseCommand := docker.NewPauseCommand(chaos.DockerClient, params, duration, limit)
 	// run pause command
-	return chaos.RunChaosCommand(cmd.context, pauseCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
+	if err != nil {
+		return errors.Wrap(err, "error running pause command")
+	}
+	return nil
 }

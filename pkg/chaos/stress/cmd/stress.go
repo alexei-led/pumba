@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/stress"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type stressContext struct {
@@ -46,35 +46,32 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 	}
 }
 
-// stress Command
+// stress stressNg
 func (cmd *stressContext) stress(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	globalParams, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// get stress-ng stressors
 	stressors := c.String("stressors")
 	// get stress duration
-	duration := c.String("duration")
+	duration := c.Duration("duration")
+	if duration == 0 {
+		return errors.New("unset or invalid duration value")
+	}
 	// get stress-ng image
 	image := c.String("stress-image")
 	// get pull tc image flag
 	pull := c.BoolT("pull-image")
 	// init stress command
-	stressCommand, err := stress.NewStressCommand(chaos.DockerClient, names, pattern, labels, image, pull, stressors, interval, duration, limit, dryRun)
-	if err != nil {
-		return err
-	}
+	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit)
 	// run stress command
-	return chaos.RunChaosCommand(cmd.context, stressCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
+	if err != nil {
+		return errors.Wrap(err, "error running stress command")
+	}
+	return nil
 }

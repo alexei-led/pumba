@@ -2,17 +2,13 @@ package netem
 
 import (
 	"context"
-	"net"
-	"regexp"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,82 +17,24 @@ var (
 	delayDistribution = []string{"", "uniform", "normal", "pareto", "paretonormal"}
 )
 
-// DelayCommand `netem delay` command
-type DelayCommand struct {
-	client       container.Client
-	names        []string
-	pattern      string
-	labels       []string
-	iface        string
-	ips          []*net.IPNet
-	sports       []string
-	dports       []string
-	duration     time.Duration
+// `netem delay` command
+type delayCommand struct {
+	netemCommand
 	time         int
 	jitter       int
 	correlation  float64
 	distribution string
-	image        string
-	pull         bool
-	limit        int
-	dryRun       bool
 }
 
 // NewDelayCommand create new netem delay command
 func NewDelayCommand(client container.Client,
-	names []string, // containers
-	pattern string, // re2 regex pattern
-	labels []string, // filter by labels
-	iface string, // network interface
-	ipsList []string, // list of target ips
-	sportsList, // list of comma separated target sports
-	dportsList, // list of comma separated target dports
-	durationStr, // chaos duration
-	intervalStr string, // repeatable chaos interval
+	globalParams *chaos.GlobalParams,
+	netemParams *Params,
 	delay, // delay time
 	jitter int, // delay jitter
 	correlation float64, // delay correlation
-	distribution, // delay distribution
-	image string, // traffic control image
-	pull bool, // pull tc image option
-	limit int, // limit chaos to containers
-	dryRun bool, // dry-run do not delay just log
+	distribution string, // delay distribution
 ) (chaos.Command, error) {
-	// get interval
-	interval, err := util.GetIntervalValue(intervalStr)
-	if err != nil {
-		return nil, err
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, interval)
-	if err != nil {
-		return nil, err
-	}
-	// protect from Command Injection, using Regexp
-	reInterface := regexp.MustCompile("[a-zA-Z][a-zA-Z0-9\\.:_-]*")
-	validIface := reInterface.FindString(iface)
-	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
-	}
-	// validate ips
-	var ips []*net.IPNet
-	for _, str := range ipsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, e
-		}
-		ips = append(ips, ip)
-	}
-	// validate sports
-	sports, err := util.GetPorts(sportsList)
-	if err != nil {
-		return nil, err
-	}
-	// validate dports
-	dports, err := util.GetPorts(dportsList)
-	if err != nil {
-		return nil, err
-	}
 	// check delay time
 	if delay <= 0 {
 		return nil, errors.New("non-positive delay time")
@@ -113,30 +51,17 @@ func NewDelayCommand(client container.Client,
 	if ok := util.SliceContains(delayDistribution, distribution); !ok {
 		return nil, errors.New("invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
 	}
-
-	return &DelayCommand{
-		client:       client,
-		names:        names,
-		pattern:      pattern,
-		labels:       labels,
-		iface:        iface,
-		ips:          ips,
-		sports:       sports,
-		dports:       dports,
-		duration:     duration,
+	return &delayCommand{
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
 		time:         delay,
 		jitter:       jitter,
 		correlation:  correlation,
 		distribution: distribution,
-		image:        image,
-		pull:         pull,
-		limit:        limit,
-		dryRun:       dryRun,
 	}, nil
 }
 
 // Run netem delay command
-func (n *DelayCommand) Run(ctx context.Context, random bool) error {
+func (n *delayCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network delay to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.names,
@@ -147,7 +72,7 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -167,7 +92,7 @@ func (n *DelayCommand) Run(ctx context.Context, random bool) error {
 		netemCmd = append(netemCmd, strconv.Itoa(n.jitter)+"ms")
 	}
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 	if n.distribution != "" {
 		netemCmd = append(netemCmd, []string{"distribution", n.distribution}...)

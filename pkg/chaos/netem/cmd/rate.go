@@ -1,13 +1,14 @@
+//nolint:dupl
 package cmd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type rateContext struct {
@@ -50,36 +51,16 @@ func NewRateCLICommand(ctx context.Context) *cli.Command {
 
 // NETEM RATE Command - network emulation rate
 func (cmd *rateContext) rate(c *cli.Context) error {
-	// get random flag
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
-	// get global chaos interval
-	interval := c.GlobalString("interval")
-
-	// get network interface from parent `netem` command
-	iface := c.Parent().String("interface")
-	// get ips list from parent `netem`` command `target` flag
-	ips := c.Parent().StringSlice("target")
-	// get egress port list from parent `netem` command `egressPort` flag
-	sports := c.Parent().String("egressPort")
-	// get ingress port list from parent `netem` command `ingressPort` flag
-	dports := c.Parent().String("ingressPort")
-	// get duration from parent `netem`` command
-	duration := c.Parent().String("duration")
-	// get traffic control image from parent `netem` command
-	image := c.Parent().String("tc-image")
-	// get pull tc image flag
-	pull := c.Parent().BoolT("pull-image")
-	// get limit for number of containers to netem command
-	limit := c.Parent().Int("limit")
-
+	// parse common chaos flags
+	globalParams, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
+	// parse netem flags
+	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
+	if err != nil {
+		return errors.Wrap(err, "error parsing netem parameters")
+	}
 	// get target egress rate
 	rate := c.String("rate")
 	// get packet overhead
@@ -90,10 +71,14 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	cellOverhead := c.Int("celloverhead")
 
 	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, names, pattern, labels, iface, ips, sports, dports, duration, interval, rate, packetOverhead, cellSize, cellOverhead, image, pull, limit, dryRun)
+	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating netem rate command")
 	}
 	// run netem command
-	return chaos.RunChaosCommand(cmd.context, lossCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)
+	if err != nil {
+		return errors.Wrap(err, "error running netem rate command")
+	}
+	return nil
 }

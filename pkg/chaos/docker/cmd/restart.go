@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/urfave/cli"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 type restartContext struct {
@@ -21,15 +21,10 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 	return &cli.Command{
 		Name: "restart",
 		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:  "timeout, s",
-				Usage: "restart timeout for target container(s)",
-				Value: 1000,
-			},
-			cli.IntFlag{
-				Name:  "delay, d",
-				Usage: "restart delay for target container(s)",
-				Value: 1000,
+			cli.DurationFlag{
+				Name:  "timeout, t",
+				Usage: "time to wait before killing the container",
+				Value: 1 * time.Second,
 			},
 			cli.IntFlag{
 				Name:  "limit, l",
@@ -46,29 +41,21 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 
 // RESTART Command
 func (cmd *restartContext) restart(c *cli.Context) error {
-	// get random
-	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get interval
-	interval := c.GlobalString("interval")
-	// get names or pattern
-	names, pattern := chaos.GetNamesOrPattern(c)
+	// parse common chaos flags
+	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get timeout
-	timeout := time.Duration(c.Int("timeout")) * time.Millisecond
-	// get delay
-	delay := time.Duration(c.Int("delay")) * time.Millisecond
+	timeout := c.Duration("timeout")
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, names, pattern, labels, timeout, delay, limit, dryRun)
-	if err != nil {
-		return err
-	}
+	restartCommand := docker.NewRestartCommand(chaos.DockerClient, params, timeout, limit)
 	// run restart command
-	return chaos.RunChaosCommand(cmd.context, restartCommand, interval, random, skipError)
+	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
+	if err != nil {
+		return errors.Wrap(err, "error running restart command")
+	}
+	return nil
 }

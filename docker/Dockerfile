@@ -3,7 +3,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM --platform=${BUILDPLATFORM} golang:1.17 AS builder
+FROM golang:1.17 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #
 # ----- Build and Test Image -----
 #
-FROM --platform=${BUILDPLATFORM} builder as build-and-test
+FROM builder as build-and-test
 
 # set working directory
 RUN mkdir -p /go/src/pumba
@@ -33,7 +33,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build make dependency
 COPY mocks ./mocks
 COPY cmd ./cmd
 COPY pkg ./pkg
-COPY VERSION ./VERSION
+COPY .golangci.yml .
+COPY VERSION .
 
 # run lint, test race and calculate coverage
 RUN --mount=type=cache,target=/root/.cache/go-build make lint test-race test-coverage
@@ -66,25 +67,26 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 #
 # ------ Pumba Integration Tests ------
 #
-FROM alpine:3.13 as integration-tests
+FROM bats/bats:1.5.0 as integration-tests
 
 # install required packages
-RUN apk add --no-cache bash bats docker iproute2
+RUN apk add --no-cache docker iproute2
 
 # copy bats tests
-COPY ./tests /tests
+COPY ./tests /code/tests
 COPY VERSION .
 
 # copy compiled binary
 COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/local/bin/pumba
 
 # mount docker.sock and run pumba tests
-CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
+ENTRYPOINT [ "bash", "-c" ]
+CMD [ "[ -e /var/run/docker.sock ] && bats --print-output-on-failure /tests" ]
 
 #
 # ------ Pumba GitHub Release ------
 #
-FROM --platform=${BUILDPLATFORM} build-and-test as github-release
+FROM build-and-test as github-release
 
 # build argument to secify if to create a GitHub release
 ARG DEBUG=false
@@ -109,7 +111,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build if $RELEASE; then make githu
 #
 # ------ get latest CA certificates
 #
-FROM alpine:3.13 as certs
+FROM alpine:3.14 as certs
 RUN apk --update add ca-certificates
 
 
@@ -121,7 +123,7 @@ FROM scratch
 # copy CA certificates
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-# this is the last commabd since it's never cached
+# this is the last command since it's never cached
 COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /pumba
 
 ENTRYPOINT ["/pumba"]

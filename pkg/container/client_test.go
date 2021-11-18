@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -50,8 +51,8 @@ func TestListContainers_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 1)
-	assert.Equal(t, containerDetails, containers[0].containerInfo)
-	assert.Equal(t, imageDetails, containers[0].imageInfo)
+	assert.Equal(t, containerDetails, containers[0].ContainerInfo)
+	assert.Equal(t, imageDetails, containers[0].ImageInfo)
 	api.AssertExpectations(t)
 }
 
@@ -130,7 +131,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 		"ID", "abc123",
 		"Name", "foo",
 	))
-	c := &Container{containerInfo: containerDetails}
+	c := &Container{ContainerInfo: containerDetails}
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
 	api := NewMockEngine()
@@ -146,7 +147,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 
 func TestStopContainer_DryRun(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 		)),
@@ -172,7 +173,7 @@ func TestStopContainer_DryRun(t *testing.T) {
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 		)),
@@ -190,7 +191,7 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 
 func TestKillContainer_DryRun(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 		)),
@@ -208,7 +209,7 @@ func TestKillContainer_DryRun(t *testing.T) {
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 			"Labels", map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"},
@@ -230,7 +231,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 
 func TestStopContainer_KillContainerError(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 		)),
@@ -243,13 +244,12 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "oops")
 	api.AssertExpectations(t)
 }
 
 func TestStopContainer_2ndKillContainerError(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 		)),
@@ -270,7 +270,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 
 func TestRemoveContainer_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	engineClient := NewMockEngine()
@@ -286,7 +286,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 
 func TestRemoveContainer_DryRun(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	engineClient := NewMockEngine()
@@ -302,7 +302,7 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 
 func TestPauseContainer_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(nil)
@@ -316,7 +316,7 @@ func TestPauseContainer_Success(t *testing.T) {
 
 func TestUnpauseContainer_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(nil)
@@ -330,7 +330,7 @@ func TestUnpauseContainer_Success(t *testing.T) {
 
 func TestPauseContainer_DryRun(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	engineClient := NewMockEngine()
@@ -343,7 +343,7 @@ func TestPauseContainer_DryRun(t *testing.T) {
 
 func TestPauseContainer_PauseError(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerPause", mock.Anything, "abc123").Return(errors.New("pause"))
@@ -352,13 +352,12 @@ func TestPauseContainer_PauseError(t *testing.T) {
 	err := client.PauseContainer(context.TODO(), c, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "pause")
 	engineClient.AssertExpectations(t)
 }
 
 func TestPauseContainer_UnpauseError(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 	engineClient := NewMockEngine()
 	engineClient.On("ContainerUnpause", mock.Anything, "abc123").Return(errors.New("unpause"))
@@ -367,13 +366,12 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 	err := client.UnpauseContainer(context.TODO(), c, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "unpause")
 	engineClient.AssertExpectations(t)
 }
 
 func TestNetemContainer_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	engineClient := NewMockEngine()
@@ -397,7 +395,7 @@ func TestNetemContainer_Success(t *testing.T) {
 
 func TestStopNetemContainer_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	ctx := mock.Anything
@@ -422,7 +420,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 
 func TestNetemContainer_DryRun(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	engineClient := NewMockEngine()
@@ -436,7 +434,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 func TestNetemContainerIPFilter_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	ctx := mock.Anything
@@ -482,7 +480,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 
 func TestNetemContainerSportFilter_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	ctx := mock.Anything
@@ -528,7 +526,7 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 
 func TestNetemContainerDportFilter_Success(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "abc123")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "abc123")),
 	}
 
 	ctx := mock.Anything
@@ -574,7 +572,7 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 
 func Test_tcContainerCommand(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap("ID", "targetID")),
+		ContainerInfo: DetailsResponse(AsMap("ID", "targetID")),
 	}
 
 	config := container.Config{
@@ -598,7 +596,7 @@ func Test_tcContainerCommand(t *testing.T) {
 		DNSSearch:    []string{},
 	}
 	// pull response
-	pullResponse := ImagePullResponse{
+	pullResponse := imagePullResponse{
 		Status:   "ok",
 		Error:    "no error",
 		Progress: "done",
@@ -619,7 +617,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	// pull image
 	engineClient.On("ImagePull", ctx, config.Image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
 	// create container
-	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
+	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
 	// start container
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
@@ -635,7 +633,7 @@ func TestStartContainer_DefaultSuccess(t *testing.T) {
 		"ID", "abc123",
 		"Name", "foo",
 	))
-	c := &Container{containerInfo: containerDetails}
+	c := &Container{ContainerInfo: containerDetails}
 
 	api := NewMockEngine()
 	api.On("ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{}).Return(nil)
@@ -649,7 +647,7 @@ func TestStartContainer_DefaultSuccess(t *testing.T) {
 
 func TestStartContainer_DryRun(t *testing.T) {
 	c := &Container{
-		containerInfo: DetailsResponse(AsMap(
+		ContainerInfo: DetailsResponse(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 		)),
@@ -665,7 +663,6 @@ func TestStartContainer_DryRun(t *testing.T) {
 	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", types.ContainerStartOptions{})
 }
 
-//nolint:funlen
 func Test_dockerClient_execOnContainer(t *testing.T) {
 	type args struct {
 		c          *Container
@@ -683,7 +680,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "run non-privileged command with args",
 			args: args{
-				c:        &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:        &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:      context.TODO(),
 				execCmd:  "test-app",
 				execArgs: []string{"one", "two", "three"},
@@ -704,7 +701,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "run privileged command with args",
 			args: args{
-				c:          &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:          &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:        context.TODO(),
 				execCmd:    "test-app",
 				execArgs:   []string{"one", "two", "three"},
@@ -726,7 +723,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to find command",
 			args: args{
-				c:        &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:        &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:      context.TODO(),
 				execCmd:  "test-app",
 				execArgs: []string{"one", "two", "three"},
@@ -743,7 +740,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecCreate 'which'",
 			args: args{
-				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -756,7 +753,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecStart 'which'",
 			args: args{
-				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -770,7 +767,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecInspect 'which'",
 			args: args{
-				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -785,7 +782,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecCreate 'test-app'",
 			args: args{
-				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -803,7 +800,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecStart 'test-app'",
 			args: args{
-				c:       &Container{containerInfo: DetailsResponse(AsMap("ID", "abc123"))},
+				c:       &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123"))},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -827,7 +824,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				containerAPI: mockClient,
 			}
 			// init mock engine
-			tt.mockInit(tt.args.ctx, mockClient, tt.args.c.containerInfo.ID, tt.args.execCmd, tt.args.execArgs)
+			tt.mockInit(tt.args.ctx, mockClient, tt.args.c.ContainerInfo.ID, tt.args.execCmd, tt.args.execArgs)
 			err := client.execOnContainer(tt.args.ctx, tt.args.c, tt.args.execCmd, tt.args.execArgs, tt.args.privileged)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.execOnContainer() error = %v, wantErr %v", err, tt.wantErr)
@@ -838,7 +835,6 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 	}
 }
 
-//nolint:funlen
 func Test_dockerClient_stressContainerCommand(t *testing.T) {
 	type args struct {
 		ctx       context.Context
@@ -867,7 +863,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
 				// pull response
-				pullResponse := ImagePullResponse{
+				pullResponse := imagePullResponse{
 					Status:   "ok",
 					Error:    "no error",
 					Progress: "done",
@@ -882,7 +878,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				pullResponseByte, _ := json.Marshal(pullResponse)
 				readerResponse := bytes.NewReader(pullResponseByte)
 				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -917,7 +913,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -940,7 +936,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -963,7 +959,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -982,7 +978,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
@@ -1006,7 +1002,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{}, errors.New("failed to attach"))
 			},
 			wantErr: true,
@@ -1017,7 +1013,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{}, errors.New("failed to create"))
+				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{}, errors.New("failed to create"))
 			},
 			wantErr: true,
 		},

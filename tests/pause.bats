@@ -1,3 +1,5 @@
+#!/usr/bin/env bats
+
 @test "Should pause running container" {
     # given (started container)
     docker run -d --name pausing_victim alpine tail -f /dev/null
@@ -8,13 +10,14 @@
 
     # then (container has been paused)
     run docker inspect -f {{.State.Status}} pausing_victim
-    [[ $output == "paused" ]]
+    [ $output == "paused" ]
 
     # and (container has been resumed)
     sleep 4
     run docker inspect -f {{.State.Status}} pausing_victim
-    [[ $output == "running" ]]
+    [ $output = "running" ]
+}
 
-    # cleanup
+teardown() {
     docker rm -f pausing_victim || true
 }

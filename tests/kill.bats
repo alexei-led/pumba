@@ -12,10 +12,7 @@
 
     # and (container has been killed)
     run docker inspect -f {{.State.Status}} killing_victim
-    [[ $output == "exited" ]]
-
-    # cleanup
-    docker rm -f killing_victim || true
+    [ $output = "exited" ]
 }
 
 @test "Should kill running labeled container with default signal" {
@@ -32,14 +29,16 @@
 
     # and (container has been killed)
     run docker inspect -f {{.State.Status}} killing_victim_1
-    [[ $output == "exited" ]]
+    [ $output = "exited" ]
     # and (container has been killed)
     run docker inspect -f {{.State.Status}} killing_victim_2
-    [[ $output == "exited" ]]
+    [ $output = "exited" ]
     # and (container has not been killed)
     run docker inspect -f {{.State.Status}} killing_victim_3
-    [[ $output == "running" ]]
+    [ $output = "running" ]
+}
 
-    # cleanup
+teardown() {
+    docker rm -f killing_victim || true
     docker rm -f killing_victim_1 killing_victim_2 killing_victim_3 || true
 }

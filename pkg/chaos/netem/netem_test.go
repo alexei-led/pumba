@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-//nolint:funlen
 func Test_runNetem(t *testing.T) {
 	type errs struct {
 		startErr bool
@@ -39,10 +38,10 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem with duration",
 			args: args{
-				container: container.NewContainer(
-					container.DetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
+				container: &container.Container{
+					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
+					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
 				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
@@ -55,10 +54,10 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem with CIDR IP",
 			args: args{
-				container: container.NewContainer(
-					container.DetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
+				container: &container.Container{
+					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
+					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
 				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 0, 255, 255}}},
@@ -69,10 +68,10 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem with abort",
 			args: args{
-				container: container.NewContainer(
-					container.DetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
+				container: &container.Container{
+					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
+					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
 				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
@@ -84,10 +83,10 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem error in NetemContainer",
 			args: args{
-				container: container.NewContainer(
-					container.DetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
+				container: &container.Container{
+					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
+					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
 				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
@@ -100,10 +99,10 @@ func Test_runNetem(t *testing.T) {
 		{
 			name: "netem error in StopNetemContainer",
 			args: args{
-				container: container.NewContainer(
-					container.DetailsResponse(container.AsMap("Name", "c1")),
-					container.ImageDetailsResponse(container.AsMap()),
-				),
+				container: &container.Container{
+					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
+					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
 				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},

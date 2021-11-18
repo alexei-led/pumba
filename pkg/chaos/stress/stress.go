@@ -7,14 +7,13 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
-// Command `stress-ng` command
-type Command struct {
+// `stress-ng` command
+type stressCommand struct {
 	client    container.Client
 	names     []string
 	pattern   string
@@ -31,24 +30,25 @@ const (
 	defaultStopTimeout = 5 * time.Second
 )
 
-// NewStressCommand create new Kill Command instance
-func NewStressCommand(client container.Client, names []string, pattern string, labels []string, image string, pull bool, stressors, interval, duration string, limit int, dryRun bool) (chaos.Command, error) {
-	// get interval
-	i, err := util.GetIntervalValue(interval)
-	if err != nil {
-		return nil, err
+// NewStressCommand create new Kill stressCommand instance
+func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int) chaos.Command {
+	stress := &stressCommand{
+		client:    client,
+		names:     globalParams.Names,
+		pattern:   globalParams.Pattern,
+		labels:    globalParams.Labels,
+		image:     image,
+		pull:      pull,
+		stressors: strings.Fields(stressors),
+		duration:  duration,
+		limit:     limit,
+		dryRun:    globalParams.DryRun,
 	}
-	// get duration
-	d, err := util.GetDurationValue(duration, i)
-	if err != nil {
-		return nil, err
-	}
-	stress := &Command{client, names, pattern, labels, image, pull, strings.Fields(stressors), d, limit, dryRun}
-	return stress, nil
+	return stress
 }
 
 // Run stress command
-func (s *Command) Run(ctx context.Context, random bool) error {
+func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("stress testing all matching containers")
 	log.WithFields(log.Fields{
 		"names":     s.names,
@@ -61,7 +61,7 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to stress test")
@@ -90,7 +90,7 @@ func (s *Command) Run(ctx context.Context, random bool) error {
 	return nil
 }
 
-func (s *Command) stressContainer(ctx context.Context, c *container.Container) error {
+func (s *stressCommand) stressContainer(ctx context.Context, c *container.Container) error {
 	log.WithFields(log.Fields{
 		"container":       c.ID(),
 		"duration":        s.duration,
@@ -100,7 +100,7 @@ func (s *Command) stressContainer(ctx context.Context, c *container.Container) e
 	}).Debug("stress testing container for duration")
 	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "stress test failed")
 	}
 	select {
 	case out := <-output:

@@ -22,5 +22,5 @@ func (_m *Command) Run(ctx context.Context, random bool) error {
 		r0 = ret.Error(0)
 	}
 
-	return r0
+	return r0 //nolint:wrapcheck
 }
