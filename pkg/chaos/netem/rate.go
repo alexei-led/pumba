@@ -46,7 +46,7 @@ func NewRateCommand(client container.Client,
 	}
 	rate, err := parseRate(rate)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid rate")
 	}
 
 	// validate cell size
@@ -75,7 +75,7 @@ func (n *rateCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")

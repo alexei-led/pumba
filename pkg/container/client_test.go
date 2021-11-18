@@ -244,7 +244,6 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 	err := client.StopContainer(context.TODO(), c, 1, false)
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "oops")
 	api.AssertExpectations(t)
 }
 

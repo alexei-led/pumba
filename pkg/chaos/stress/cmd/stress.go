@@ -51,6 +51,9 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 func (cmd *stressContext) stress(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// get stress-ng stressors
@@ -65,10 +68,7 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// get pull tc image flag
 	pull := c.BoolT("pull-image")
 	// init stress command
-	stressCommand, err := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit)
-	if err != nil {
-		return err
-	}
+	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit)
 	// run stress command
 	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
 	if err != nil {

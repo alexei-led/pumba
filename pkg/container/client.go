@@ -67,7 +67,7 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 
 	apiClient, err := dockerapi.NewClientWithOpts(dockerapi.WithHost(dockerHost), dockerapi.WithHTTPClient(httpClient), dockerapi.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create docker client")
 	}
 
 	return dockerClient{containerAPI: apiClient, imageAPI: apiClient}, nil
@@ -230,7 +230,7 @@ func (client dockerClient) StopContainer(ctx context.Context, c *Container, time
 	}).Info("stopping container")
 	if !dryrun {
 		if err := client.containerAPI.ContainerKill(ctx, c.ID(), signal); err != nil {
-			return err
+			return errors.Wrap(err, "failed to kill container")
 		}
 
 		// Wait for container to exit, but proceed anyway after the timeout elapses
@@ -845,6 +845,9 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *Container, ex
 }
 
 func (client dockerClient) waitForStop(ctx context.Context, c *Container, waitTime int) error {
+	// check status every 100 ms
+	const checkInterval = 100 * time.Microsecond
+	// timeout after waitTime seconds
 	timeout := time.After(time.Duration(waitTime) * time.Second)
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
@@ -864,7 +867,6 @@ func (client dockerClient) waitForStop(ctx context.Context, c *Container, waitTi
 				return nil
 			}
 		}
-		// check status every 100 ms
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(checkInterval)
 	}
 }

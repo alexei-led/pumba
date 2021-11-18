@@ -73,7 +73,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	// init netem loss gemodel command
 	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, globalParams, netemParams, pg, pb, oneH, oneK)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating loss gemodel command")
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, lossGECommand, globalParams)

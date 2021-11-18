@@ -31,7 +31,7 @@ const (
 )
 
 // NewStressCommand create new Kill stressCommand instance
-func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int) (chaos.Command, error) {
+func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int) chaos.Command {
 	stress := &stressCommand{
 		client:    client,
 		names:     globalParams.Names,
@@ -44,7 +44,7 @@ func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams,
 		limit:     limit,
 		dryRun:    globalParams.DryRun,
 	}
-	return stress, nil
+	return stress
 }
 
 // Run stress command
@@ -61,7 +61,7 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing containers")
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to stress test")
@@ -100,7 +100,7 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 	}).Debug("stress testing container for duration")
 	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "stress test failed")
 	}
 	select {
 	case out := <-output:

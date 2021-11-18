@@ -66,7 +66,7 @@ func ParseCIDR(ip string) (*net.IPNet, error) {
 	cidr := cidrNotation(ip)
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse CIDR")
 	}
 	return ipNet, nil
 }

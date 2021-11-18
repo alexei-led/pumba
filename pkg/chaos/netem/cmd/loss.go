@@ -58,7 +58,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	// init netem loss command
 	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating netem loss command")
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)

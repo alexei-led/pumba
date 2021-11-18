@@ -58,7 +58,7 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// init netem corrupt command
 	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating netem corrupt command")
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, corruptCommand, globalParams)
