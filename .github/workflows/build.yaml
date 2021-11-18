@@ -65,7 +65,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           load: true
-          tag: pumba/build-and-test
+          tags: pumba/build-and-test
           target: build-and-test
 
       - name: Build integration test image
@@ -83,7 +83,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           load: true
-          tag: pumba/integration-tests
+          tags: pumba/integration-tests
           target: integration-tests
 
       - name: Run integration tests
@@ -118,4 +118,4 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
-          tag: ${DOCKER_ORG}/pumba:${{ steps.tagger.outputs.tag }}
+          tags: ${DOCKER_ORG}/pumba:${{ steps.tagger.outputs.tag }}
