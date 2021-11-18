@@ -12,7 +12,7 @@
     docker pull alexeiled/stress-ng:latest-ubuntu
 
     # when (trying to stress container)
-    run pumba stress --duration=20s --stressors="--cpu 1 --timeout 10s" stress_victim &
+    run pumba stress --duration=20s --stressors="--cpu 1 --timeout 20s" stress_victim &
     # wait a bit for stress test to start (download image and inject side container)
     sleep 10
 
@@ -21,7 +21,7 @@
     [ "$stress_count" -eq 2 ]
 
     # sleep till stress test is completed
-    sleep 10
+    sleep 20
 
     # check number of stress-ng processes
     stress_count=$(docker top stress_victim -o pid,command | grep stress-ng | wc -l)
