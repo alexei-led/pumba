@@ -67,7 +67,7 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 #
 # ------ Pumba Integration Tests ------
 #
-FROM alpine:3.13 as integration-tests
+FROM bats/bats:1.5.0 as integration-tests
 
 # install required packages
 RUN apk add --no-cache bash bats docker iproute2
@@ -80,7 +80,8 @@ COPY VERSION .
 COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/local/bin/pumba
 
 # mount docker.sock and run pumba tests
-CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
+ENTRYPOINT [ "bash" ]
+CMD [ "[ -e /var/run/docker.sock ] && bats --trace ----verbose-run /tests" ]
 
 #
 # ------ Pumba GitHub Release ------
@@ -110,7 +111,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build if $RELEASE; then make githu
 #
 # ------ get latest CA certificates
 #
-FROM alpine:3.13 as certs
+FROM alpine:3.14 as certs
 RUN apk --update add ca-certificates
 
 
