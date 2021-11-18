@@ -73,15 +73,15 @@ FROM bats/bats:1.5.0 as integration-tests
 RUN apk add --no-cache docker iproute2
 
 # copy bats tests
-COPY ./tests /tests
+COPY ./tests /code/tests
 COPY VERSION .
 
 # copy compiled binary
 COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/local/bin/pumba
 
 # mount docker.sock and run pumba tests
-ENTRYPOINT [ "bash" ]
-CMD [ "[ -e /var/run/docker.sock ] && bats --trace --verbose-run /tests" ]
+ENTRYPOINT [ "bash", "-c" ]
+CMD [ "[ -e /var/run/docker.sock ] && bats --trace --show-output-of-passing-tests --print-output-on-failure /tests" ]
 
 #
 # ------ Pumba GitHub Release ------
