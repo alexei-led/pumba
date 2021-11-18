@@ -1,11 +1,11 @@
 package util
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // SliceContains checks if slice contains value
@@ -42,12 +42,12 @@ func verifyPort(port string) error {
 	if port == "" {
 		return nil
 	}
-	portNum, err := strconv.ParseInt(port, 10, 64)
+	portNum, err := strconv.ParseInt(port, 10, 64) //nolint:gomnd
 	if err != nil {
 		return errors.Wrap(err, "failed to parse port as number")
 	}
 	if portNum < 0 || portNum > 65535 {
-		return fmt.Errorf("Port is either below 0 or greater than 65535: " + port)
+		return errors.Errorf("Port is either below 0 or greater than 65535: %s", port)
 	}
 
 	return nil

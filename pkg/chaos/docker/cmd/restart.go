@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -21,15 +21,15 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 	return &cli.Command{
 		Name: "restart",
 		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:  "timeout, s",
+			cli.DurationFlag{
+				Name:  "timeout, t",
 				Usage: "restart timeout for target container(s)",
-				Value: 1000,
+				Value: 1 * time.Second,
 			},
-			cli.IntFlag{
+			cli.DurationFlag{
 				Name:  "delay, d",
 				Usage: "restart delay for target container(s)",
-				Value: 1000,
+				Value: 1 * time.Second,
 			},
 			cli.IntFlag{
 				Name:  "limit, l",
@@ -52,9 +52,9 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 		return errors.Wrap(err, "error parsing global parameters")
 	}
 	// get timeout
-	timeout := time.Duration(c.Int("timeout")) * time.Millisecond
+	timeout := c.Duration("timeout")
 	// get delay
-	delay := time.Duration(c.Int("delay")) * time.Millisecond
+	delay := c.Duration("delay")
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command

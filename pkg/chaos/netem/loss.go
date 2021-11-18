@@ -68,9 +68,9 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem loss command
-	netemCmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	netemCmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 
 	// run netem loss command for selected containers

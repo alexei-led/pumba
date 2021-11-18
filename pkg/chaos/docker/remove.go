@@ -3,10 +3,9 @@ package docker
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 

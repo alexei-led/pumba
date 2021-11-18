@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"syscall"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -16,37 +17,37 @@ const (
 
 // valid Linux signal table
 // http://www.comptechdoc.org/os/linux/programming/linux_pgsignals.html
-var linuxSignals = map[string]int{
-	"SIGHUP":    1,
-	"SIGINT":    2,
-	"SIGQUIT":   3,
-	"SIGILL":    4,
-	"SIGTRAP":   5,
-	"SIGIOT":    6,
-	"SIGBUS":    7,
-	"SIGFPE":    8,
-	"SIGKILL":   9,
-	"SIGUSR1":   10,
-	"SIGSEGV":   11,
-	"SIGUSR2":   12,
-	"SIGPIPE":   13,
-	"SIGALRM":   14,
-	"SIGTERM":   15,
-	"SIGSTKFLT": 16,
-	"SIGCHLD":   17,
-	"SIGCONT":   18,
-	"SIGSTOP":   19,
-	"SIGTSTP":   20,
-	"SIGTTIN":   21,
-	"SIGTTOU":   22,
-	"SIGURG":    23,
-	"SIGXCPU":   24,
-	"SIGXFSZ":   25,
-	"SIGVTALRM": 26,
-	"SIGPROF":   27,
-	"SIGWINCH":  28,
-	"SIGIO":     29,
-	"SIGPWR":    30,
+var linuxSignals = map[string]syscall.Signal{
+	"SIGHUP":    syscall.SIGHUP,
+	"SIGINT":    syscall.SIGINT,
+	"SIGQUIT":   syscall.SIGQUIT,
+	"SIGILL":    syscall.SIGILL,
+	"SIGTRAP":   syscall.SIGTRAP,
+	"SIGIOT":    syscall.SIGIOT,
+	"SIGBUS":    syscall.SIGBUS,
+	"SIGFPE":    syscall.SIGFPE,
+	"SIGKILL":   syscall.SIGKILL,
+	"SIGUSR1":   syscall.SIGUSR1,
+	"SIGSEGV":   syscall.SIGSEGV,
+	"SIGUSR2":   syscall.SIGUSR2,
+	"SIGPIPE":   syscall.SIGPIPE,
+	"SIGALRM":   syscall.SIGALRM,
+	"SIGTERM":   syscall.SIGTERM,
+	"SIGSTKFLT": 16, //nolint:gomnd
+	"SIGCHLD":   syscall.SIGCHLD,
+	"SIGCONT":   syscall.SIGCONT,
+	"SIGSTOP":   syscall.SIGSTOP,
+	"SIGTSTP":   syscall.SIGTSTP,
+	"SIGTTIN":   syscall.SIGTTIN,
+	"SIGTTOU":   syscall.SIGTTOU,
+	"SIGURG":    syscall.SIGURG,
+	"SIGXCPU":   syscall.SIGXCPU,
+	"SIGXFSZ":   syscall.SIGXFSZ,
+	"SIGVTALRM": syscall.SIGVTALRM,
+	"SIGPROF":   syscall.SIGPROF,
+	"SIGWINCH":  syscall.SIGWINCH,
+	"SIGIO":     syscall.SIGIO,
+	"SIGPWR":    30, //nolint:gomnd
 }
 
 // `docker kill` command

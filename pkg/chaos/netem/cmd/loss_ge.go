@@ -28,12 +28,12 @@ func NewLossGECLICommand(ctx context.Context) *cli.Command {
 			cli.Float64Flag{
 				Name:  "pb, r",
 				Usage: "transition probability into the good state",
-				Value: 100.0,
+				Value: 100.0, //nolint:gomnd
 			},
 			cli.Float64Flag{
 				Name:  "one-h",
 				Usage: "loss probability in the bad state",
-				Value: 100.0,
+				Value: 100.0, //nolint:gomnd
 			},
 			cli.Float64Flag{
 				Name:  "one-k",

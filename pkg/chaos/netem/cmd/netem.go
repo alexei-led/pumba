@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-
 	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"

@@ -23,8 +23,8 @@ type restartCommand struct {
 }
 
 // NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout time.Duration, delay time.Duration, limit int) chaos.Command {
-	restart := &restartCommand{
+func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout, delay time.Duration, limit int) chaos.Command {
+	return &restartCommand{
 		client:  client,
 		names:   params.Names,
 		pattern: params.Pattern,
@@ -34,7 +34,6 @@ func NewRestartCommand(client container.Client, params *chaos.GlobalParams, time
 		limit:   limit,
 		dryRun:  params.DryRun,
 	}
-	return restart
 }
 
 // Run restart command

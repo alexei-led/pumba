@@ -3,9 +3,10 @@ package docker
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
-	"testing"
 )
 
 func TestPauseCommand_Run(t *testing.T) {

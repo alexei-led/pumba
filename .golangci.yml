@@ -43,7 +43,7 @@ linters:
     - deadcode
     - depguard
     - dogsled
-    - dupl
+    # - dupl
     - durationcheck
     - errcheck
     - errname
@@ -103,6 +103,7 @@ issues:
         - bodyclose
         - gosec
         - dupl
+        - gocognit
         - goconst
         - goerr113
     - path: mocks\*\.go

@@ -108,7 +108,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to inspect container image")
 		}
-		c := &Container{containerInfo: containerInfo, imageInfo: imageInfo}
+		c := &Container{ContainerInfo: containerInfo, ImageInfo: imageInfo}
 		if fn(c) {
 			cs = append(cs, c)
 		}
@@ -482,6 +482,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c *Container,
 	return nil
 }
 
+//nolint:funlen
 func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c *Container, netInterface string, netemCmd []string,
 	ips []*net.IPNet, sports []string, dports []string, tcimage string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
@@ -662,6 +663,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target *Conta
 	return nil
 }
 
+//nolint:funlen
 // execute a stress-ng command in stress-ng Docker container in target container cgroup
 func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, image string, pull bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{

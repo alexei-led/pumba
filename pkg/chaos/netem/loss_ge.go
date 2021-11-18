@@ -82,8 +82,11 @@ func (n *lossGECommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem loss gemodel command
-	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)}
-	netemCmd = append(netemCmd, strconv.FormatFloat(n.pb, 'f', 2, 64), strconv.FormatFloat(n.oneH, 'f', 2, 64), strconv.FormatFloat(n.oneK, 'f', 2, 64))
+	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)} //nolint:gomnd
+	netemCmd = append(netemCmd,
+		strconv.FormatFloat(n.pb, 'f', 2, 64),   //nolint:gomnd
+		strconv.FormatFloat(n.oneH, 'f', 2, 64), //nolint:gomnd
+		strconv.FormatFloat(n.oneK, 'f', 2, 64)) //nolint:gomnd
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup

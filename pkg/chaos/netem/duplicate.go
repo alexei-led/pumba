@@ -97,9 +97,9 @@ func (n *duplicateCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem duplicate command
-	netemCmd := []string{duplicateCmd, strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	netemCmd := []string{duplicateCmd, strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 
 	// run netem duplicate command for selected containers

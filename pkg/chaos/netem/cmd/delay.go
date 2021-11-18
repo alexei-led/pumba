@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -24,17 +23,17 @@ func NewDelayCLICommand(ctx context.Context) *cli.Command {
 			cli.IntFlag{
 				Name:  "time, t",
 				Usage: "delay time; in milliseconds",
-				Value: 100,
+				Value: 100, //nolint:gomnd
 			},
 			cli.IntFlag{
 				Name:  "jitter, j",
 				Usage: "random delay variation (jitter); in milliseconds; example: 100ms ± 10ms",
-				Value: 10,
+				Value: 10, //nolint:gomnd
 			},
 			cli.Float64Flag{
 				Name:  "correlation, c",
 				Usage: "delay correlation; in percentage",
-				Value: 20,
+				Value: 20, //nolint:gomnd
 			},
 			cli.StringFlag{
 				Name:  "distribution, d",

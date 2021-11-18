@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 

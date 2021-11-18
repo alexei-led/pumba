@@ -92,7 +92,7 @@ func (n *delayCommand) Run(ctx context.Context, random bool) error {
 		netemCmd = append(netemCmd, strconv.Itoa(n.jitter)+"ms")
 	}
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 	if n.distribution != "" {
 		netemCmd = append(netemCmd, []string{"distribution", n.distribution}...)

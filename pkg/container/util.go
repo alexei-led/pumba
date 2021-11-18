@@ -57,9 +57,9 @@ func applyContainerFilter(flt filter) FilterFunc {
 		if !flt.Opts.All {
 			// match names
 			if len(flt.Names) > 0 {
-				return matchNames(flt.Names, c.containerInfo.Name)
+				return matchNames(flt.Names, c.ContainerInfo.Name)
 			}
-			return matchPattern(flt.Pattern, c.containerInfo.Name)
+			return matchPattern(flt.Pattern, c.ContainerInfo.Name)
 		}
 		return true
 	}

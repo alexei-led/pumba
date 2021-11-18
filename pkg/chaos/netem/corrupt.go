@@ -93,9 +93,9 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem corrupt command
-	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
 	}
 
 	// run netem corrupt command for selected containers
