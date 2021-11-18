@@ -8,7 +8,7 @@
     run docker pull alexeiled/stress-ng:latest-ubuntu
 
     # when (trying to stress container)
-    run pumba -l=info stress --duration=20s --stressors="--cpu 1 --timeout 10s" stress_victim
+    run pumba --log-level=debug stress --duration=20s --stressors="--cpu 1 --timeout 10s" stress_victim
     [ $status -eq 0 ]
     [[ $output =~ "stress testing container" ]]
 
