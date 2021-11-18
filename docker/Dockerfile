@@ -80,7 +80,7 @@ COPY VERSION .
 COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/local/bin/pumba
 
 # mount docker.sock and run pumba tests
-CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats --trace /tests" ]
+CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
 
 #
 # ------ Pumba GitHub Release ------
