@@ -3,6 +3,8 @@ package docker
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
@@ -73,7 +75,7 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		c := container
 		err = r.client.RemoveContainer(ctx, c, r.force, r.links, r.volumes, r.dryRun)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to remove container")
 		}
 	}
 	return nil

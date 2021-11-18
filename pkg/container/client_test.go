@@ -597,7 +597,7 @@ func Test_tcContainerCommand(t *testing.T) {
 		DNSSearch:    []string{},
 	}
 	// pull response
-	pullResponse := ImagePullResponse{
+	pullResponse := imagePullResponse{
 		Status:   "ok",
 		Error:    "no error",
 		Progress: "done",
@@ -864,7 +864,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
 				// pull response
-				pullResponse := ImagePullResponse{
+				pullResponse := imagePullResponse{
 					Status:   "ok",
 					Error:    "no error",
 					Progress: "done",

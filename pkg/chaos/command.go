@@ -26,6 +26,7 @@ type Command interface {
 	Run(ctx context.Context, random bool) error
 }
 
+// GlobalParams global parameters passed through CLI flags
 type GlobalParams struct {
 	Random     bool
 	Labels     []string
@@ -36,6 +37,7 @@ type GlobalParams struct {
 	SkipErrors bool
 }
 
+// ParseGlobalParams parse global parameters
 func ParseGlobalParams(c *cli.Context) (*GlobalParams, error) {
 	// get random flag
 	random := c.GlobalBool("random")

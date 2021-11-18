@@ -61,10 +61,8 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 
 # Tools
 
-setup-tools: setup-golint setup-golangci-lint setup-gocov setup-gocov-xml setup-go2xunit
+setup-tools: setup-golangci-lint setup-gocov setup-gocov-xml setup-go2xunit
 
-setup-golint:
-	$(GO) install golang.org/x/lint/golint@latest
 setup-golangci-lint:
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 setup-gocov:
@@ -129,13 +127,9 @@ integration-tests: build ; $(info $(M) running integration tests with bats...) @
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(BATS) tests
 
-.PHONY: golangci-lint
-golangci-lint: setup-golangci-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
-	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
-
 .PHONY: lint
-lint: setup-golint; $(info $(M) running golint...) @ ## Run golint
-	$Q $(GOLINT) -set_exit_status $(PKGS)
+lint: setup-golangci-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
+	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
 
 .PHONY: fmt
 fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files

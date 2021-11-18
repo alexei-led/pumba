@@ -27,7 +27,7 @@ func NewPauseCommand(client container.Client, params *chaos.GlobalParams, durati
 	// get duration
 	duration, err := util.GetDurationValue(durationStr, params.Interval)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get duration value")
 	}
 	return &pauseCommand{
 		client:   client,

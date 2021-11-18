@@ -48,8 +48,7 @@ type Client interface {
 	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
-// ImagePullResponse - response from ImagePull
-type ImagePullResponse struct {
+type imagePullResponse struct {
 	Status         string `json:"status"`
 	Error          string `json:"error"`
 	Progress       string `json:"progress"`
@@ -59,8 +58,7 @@ type ImagePullResponse struct {
 	} `json:"progressDetail"`
 }
 
-// NewClient returns a new Client instance which can be used to interact with
-// the Docker API.
+// NewClient returns a new Client instance which can be used to interact with the Docker API.
 func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 	httpClient, err := HTTPClient(dockerHost, tlsConfig)
 	if err != nil {
@@ -80,6 +78,7 @@ type dockerClient struct {
 	imageAPI     dockerapi.ImageAPIClient
 }
 
+// ListContainers returns a list of containers that match the given filter
 func (client dockerClient) ListContainers(ctx context.Context, fn FilterFunc, opts ListOpts) ([]*Container, error) {
 	filterArgs := filters.NewArgs()
 	for _, label := range opts.Labels {
@@ -117,6 +116,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 	return cs, nil
 }
 
+// KillContainer kills a container with the given signal
 func (client dockerClient) KillContainer(ctx context.Context, c *Container, signal string, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
@@ -125,11 +125,15 @@ func (client dockerClient) KillContainer(ctx context.Context, c *Container, sign
 		"dryrun": dryrun,
 	}).Info("killing container")
 	if !dryrun {
-		return client.containerAPI.ContainerKill(ctx, c.ID(), signal)
+		err := client.containerAPI.ContainerKill(ctx, c.ID(), signal)
+		if err != nil {
+			return errors.Wrap(err, "failed to kill container")
+		}
 	}
 	return nil
 }
 
+// ExecContainer executes a command in a container
 func (client dockerClient) ExecContainer(ctx context.Context, c *Container, command string, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
@@ -157,7 +161,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 			return errors.Wrap(err, "exec attach failed")
 		}
 
-		if err := client.containerAPI.ContainerExecStart(
+		if err = client.containerAPI.ContainerExecStart(
 			ctx, createRes.ID, types.ExecStartCheck{},
 		); err != nil {
 			return errors.Wrap(err, "exec start failed")
@@ -185,6 +189,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 	return nil
 }
 
+// RestartContainer restarts a container
 func (client dockerClient) RestartContainer(ctx context.Context, c *Container, timeout, delay time.Duration, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
@@ -210,6 +215,7 @@ func (client dockerClient) RestartContainer(ctx context.Context, c *Container, t
 	return nil
 }
 
+// StopContainer stops a container
 func (client dockerClient) StopContainer(ctx context.Context, c *Container, timeout int, dryrun bool) error {
 	signal := c.StopSignal()
 	if signal == "" {
@@ -253,6 +259,7 @@ func (client dockerClient) StopContainer(ctx context.Context, c *Container, time
 	return nil
 }
 
+// StopContainerWithID stops a container with a timeout
 func (client dockerClient) StopContainerWithID(ctx context.Context, containerID string, timeout time.Duration, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"id":      containerID,
@@ -260,11 +267,15 @@ func (client dockerClient) StopContainerWithID(ctx context.Context, containerID 
 		"dryrun":  dryrun,
 	}).Info("stopping container")
 	if !dryrun {
-		return client.containerAPI.ContainerStop(ctx, containerID, &timeout)
+		err := client.containerAPI.ContainerStop(ctx, containerID, &timeout)
+		if err != nil {
+			return errors.Wrap(err, "failed to stop container")
+		}
 	}
 	return nil
 }
 
+// StartContainer starts a container
 func (client dockerClient) StartContainer(ctx context.Context, c *Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
@@ -281,6 +292,7 @@ func (client dockerClient) StartContainer(ctx context.Context, c *Container, dry
 	return nil
 }
 
+// RemoveContainer removes a container
 func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, force, links, volumes, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
@@ -304,6 +316,7 @@ func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, fo
 	return nil
 }
 
+// NetemContainer injects sidecar netem container into the given container network namespace
 func (client dockerClient) NetemContainer(ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimage string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
@@ -323,6 +336,7 @@ func (client dockerClient) NetemContainer(ctx context.Context, c *Container, net
 	return client.startNetemContainerIPFilter(ctx, c, netInterface, netemCmd, ips, sports, dports, tcimage, pull, dryrun)
 }
 
+// StopNetemContainer stops the netem container injected into the given container network namespace
 func (client dockerClient) StopNetemContainer(ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":     c.Name(),
@@ -338,6 +352,7 @@ func (client dockerClient) StopNetemContainer(ctx context.Context, c *Container,
 	return client.stopNetemContainer(ctx, c, netInterface, ip, sports, dports, tcimage, pull, dryrun)
 }
 
+// PauseContainer pauses a container main process
 func (client dockerClient) PauseContainer(ctx context.Context, c *Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
@@ -353,6 +368,7 @@ func (client dockerClient) PauseContainer(ctx context.Context, c *Container, dry
 	return nil
 }
 
+// UnpauseContainer unpauses a container main process
 func (client dockerClient) UnpauseContainer(ctx context.Context, c *Container, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
@@ -368,6 +384,7 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c *Container, d
 	return nil
 }
 
+// StressContainer starts stress test on a container (CPU, memory, network, io)
 func (client dockerClient) StressContainer(ctx context.Context, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"name":      c.Name(),
@@ -621,7 +638,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target *Conta
 		}
 		defer events.Close()
 		d := json.NewDecoder(events)
-		var pullResponse *ImagePullResponse
+		var pullResponse *imagePullResponse
 		for {
 			if err = d.Decode(&pullResponse); err != nil {
 				if errors.Is(err, io.EOF) {
@@ -699,7 +716,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		}
 		defer events.Close()
 		d := json.NewDecoder(events)
-		var pullResponse *ImagePullResponse
+		var pullResponse *imagePullResponse
 		for {
 			if err = d.Decode(&pullResponse); err != nil {
 				if errors.Is(err, io.EOF) {
