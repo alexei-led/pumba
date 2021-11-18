@@ -13,7 +13,7 @@
 @test "Netem Delay Undefined Duration" {
   run pumba netem delay --time 100
   [ $status -eq 1 ]
-  [[ ${lines[0]} =~ "undefined duration" ]]
+  [[ ${lines[0]} =~ "unset or invalid duration value" ]]
 }
 
 @test "Netem Delay 200ms" {
