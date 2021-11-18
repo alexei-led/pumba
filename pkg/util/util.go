@@ -53,8 +53,8 @@ func verifyPort(port string) error {
 	return nil
 }
 
-// CIDRNotation Ensure IP string is in CIDR notation
-func CIDRNotation(ip string) string {
+// ensure IP string is in CIDR notation
+func cidrNotation(ip string) string {
 	if !strings.Contains(ip, "/") {
 		return ip + "/32"
 	}
@@ -63,7 +63,7 @@ func CIDRNotation(ip string) string {
 
 // ParseCIDR Parse IP string to IPNet
 func ParseCIDR(ip string) (*net.IPNet, error) {
-	cidr := CIDRNotation(ip)
+	cidr := cidrNotation(ip)
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, err
