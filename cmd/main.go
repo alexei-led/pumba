@@ -45,10 +45,10 @@ var (
 )
 
 const (
-	// Re2Prefix re2 regexp string prefix
-	Re2Prefix = "re2:"
-	// DefaultInterface default network interface
-	DefaultInterface = "eth0"
+	// re2 regexp string prefix
+	re2Prefix = "re2:"
+	// default network interface
+	defaultInterface = "eth0"
 )
 
 func init() {
@@ -78,7 +78,7 @@ func main() {
 	}
 	app.EnableBashCompletion = true
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
-	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", Re2Prefix)
+	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
 	app.Before = before
 	app.Commands = initializeCLICommands()
 	app.Flags = []cli.Flag{
@@ -132,7 +132,7 @@ func main() {
 			Usage: "Slack channel (default #pumba)",
 			Value: "#pumba",
 		},
-		cli.StringFlag{
+		cli.DurationFlag{
 			Name:  "interval, i",
 			Usage: "recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'",
 		},
@@ -292,7 +292,7 @@ func initializeCLICommands() []cli.Command {
 				cli.StringFlag{
 					Name:  "interface, i",
 					Usage: "network interface to apply delay on",
-					Value: DefaultInterface,
+					Value: defaultInterface,
 				},
 				cli.StringSliceFlag{
 					Name:  "target, t",
@@ -316,7 +316,7 @@ func initializeCLICommands() []cli.Command {
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", Re2Prefix),
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
 				*netemCmd.NewDelayCLICommand(topContext),

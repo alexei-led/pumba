@@ -50,10 +50,7 @@ func ParseGlobalParams(c *cli.Context) (*GlobalParams, error) {
 	// get names or pattern
 	names, pattern := getNamesOrPattern(c)
 	// get global chaos interval
-	interval, err := getIntervalValue(c.GlobalString("interval"))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get interval value")
-	}
+	interval := c.GlobalDuration("interval")
 	return &GlobalParams{
 		Random:     random,
 		Labels:     labels,
@@ -65,22 +62,9 @@ func ParseGlobalParams(c *cli.Context) (*GlobalParams, error) {
 	}, nil
 }
 
-// get interval value from string duration
-func getIntervalValue(interval string) (time.Duration, error) {
-	// get recurrent time interval
-	if interval == "" {
-		return 0, nil
-	}
-	i, err := time.ParseDuration(interval)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to parse interval")
-	}
-	return i, nil
-}
-
 // get names list of filter pattern from command line
 func getNamesOrPattern(c *cli.Context) ([]string, string) {
-	names := []string{}
+	var names []string
 	pattern := ""
 	// get container names or pattern: no Args means ALL containers
 	if c.Args().Present() {
