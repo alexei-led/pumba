@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -173,62 +172,6 @@ func TestExecCommand_Run(t *testing.T) {
 				t.Errorf("ExecCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
-		})
-	}
-}
-
-func TestNewExecCommand(t *testing.T) {
-	type args struct {
-		client  container.Client
-		params  *chaos.GlobalParams
-		command string
-		limit   int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "create new exec command",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names: []string{"c1", "c2"},
-				},
-				command: "kill -TERM 1",
-				limit:   10,
-			},
-			want: &execCommand{
-				names:   []string{"c1", "c2"},
-				command: "kill -TERM 1",
-				limit:   10,
-			},
-		},
-		{
-			name: "empty command",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names: []string{"c1", "c2"},
-				},
-				command: "",
-			},
-			want: &execCommand{
-				names:   []string{"c1", "c2"},
-				command: "kill 1",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewExecCommand(tt.args.client, tt.args.params, tt.args.command, tt.args.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewExecCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewExecCommand() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

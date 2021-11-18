@@ -42,19 +42,22 @@ func NewPauseCLICommand(ctx context.Context) *cli.Command {
 func (cmd *pauseContext) pause(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
-	// get chaos command duration
-	duration := c.String("duration")
-	// init pause command
-	pauseCommand, err := docker.NewPauseCommand(chaos.DockerClient, params, duration, limit)
-	if err != nil {
-		return errors.Wrap(err, "could not create pause command")
+	// get duration
+	duration := c.Duration("duration")
+	if duration == 0 {
+		return errors.New("unset or invalid duration value")
 	}
+	// init pause command
+	pauseCommand := docker.NewPauseCommand(chaos.DockerClient, params, duration, limit)
 	// run pause command
 	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "could not pause containers")
+		return errors.Wrap(err, "error running pause command")
 	}
 	return nil
 }

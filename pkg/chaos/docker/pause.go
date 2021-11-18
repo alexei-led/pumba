@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -23,12 +22,7 @@ type pauseCommand struct {
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, params *chaos.GlobalParams, durationStr string, limit int) (chaos.Command, error) {
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, params.Interval)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get duration value")
-	}
+func NewPauseCommand(client container.Client, params *chaos.GlobalParams, duration time.Duration, limit int) chaos.Command {
 	return &pauseCommand{
 		client:   client,
 		names:    params.Names,
@@ -36,7 +30,7 @@ func NewPauseCommand(client container.Client, params *chaos.GlobalParams, durati
 		labels:   params.Labels,
 		duration: duration,
 		limit:    limit,
-		dryRun:   params.DryRun}, nil
+		dryRun:   params.DryRun}
 }
 
 // Run pause command

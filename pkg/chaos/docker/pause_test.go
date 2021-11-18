@@ -3,61 +3,10 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
-	"testing"
-	"time"
-
-	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
+	"testing"
 )
-
-func TestNewPauseCommand(t *testing.T) {
-	type args struct {
-		client   container.Client
-		params   *chaos.GlobalParams
-		interval string
-		duration string
-		limit    int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "new pause command",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names:   []string{"c1", "c2"},
-					Pattern: "pattern",
-				},
-				interval: "20s",
-				duration: "10s",
-				limit:    15,
-			},
-			want: &pauseCommand{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				duration: 10 * time.Second,
-				limit:    15,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewPauseCommand(tt.args.client, tt.args.params, tt.args.duration, tt.args.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewPauseCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewPauseCommand() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestPauseCommand_Run(t *testing.T) {
 	type wantErrors struct {

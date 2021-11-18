@@ -43,6 +43,9 @@ func NewKillCLICommand(ctx context.Context) *cli.Command {
 func (cmd *killContext) kill(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get signal
 	signal := c.String("signal")
 	// get limit for number of containers to kill

@@ -7,7 +7,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -32,12 +31,7 @@ const (
 )
 
 // NewStressCommand create new Kill stressCommand instance
-func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors, duration string, limit int) (chaos.Command, error) {
-	// get duration
-	d, err := util.GetDurationValue(duration, globalParams.Interval)
-	if err != nil {
-		return nil, err
-	}
+func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int) (chaos.Command, error) {
 	stress := &stressCommand{
 		client:    client,
 		names:     globalParams.Names,
@@ -46,7 +40,7 @@ func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams,
 		image:     image,
 		pull:      pull,
 		stressors: strings.Fields(stressors),
-		duration:  d,
+		duration:  duration,
 		limit:     limit,
 		dryRun:    globalParams.DryRun,
 	}

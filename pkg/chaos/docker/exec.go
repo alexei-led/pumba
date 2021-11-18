@@ -21,7 +21,7 @@ type execCommand struct {
 }
 
 // NewExecCommand create new Exec Command instance
-func NewExecCommand(client container.Client, params *chaos.GlobalParams, command string, limit int) (chaos.Command, error) {
+func NewExecCommand(client container.Client, params *chaos.GlobalParams, command string, limit int) chaos.Command {
 	exec := &execCommand{
 		client:  client,
 		names:   params.Names,
@@ -34,7 +34,7 @@ func NewExecCommand(client container.Client, params *chaos.GlobalParams, command
 	if exec.command == "" {
 		exec.command = "kill 1"
 	}
-	return exec, nil
+	return exec
 }
 
 // Run exec command

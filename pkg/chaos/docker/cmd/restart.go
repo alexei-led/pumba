@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -47,6 +48,9 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 func (cmd *restartContext) restart(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get timeout
 	timeout := time.Duration(c.Int("timeout")) * time.Millisecond
 	// get delay
@@ -54,10 +58,11 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand, err := docker.NewRestartCommand(chaos.DockerClient, params, timeout, delay, limit)
-	if err != nil {
-		return err
-	}
+	restartCommand := docker.NewRestartCommand(chaos.DockerClient, params, timeout, delay, limit)
 	// run restart command
-	return chaos.RunChaosCommand(cmd.context, restartCommand, params)
+	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
+	if err != nil {
+		return errors.Wrap(err, "error running restart command")
+	}
+	return nil
 }

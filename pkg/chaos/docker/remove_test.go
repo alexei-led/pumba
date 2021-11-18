@@ -3,10 +3,8 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 
-	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -151,53 +149,6 @@ func TestRemoveCommand_Run(t *testing.T) {
 				t.Errorf("removeCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
-		})
-	}
-}
-
-func TestNewRemoveCommand(t *testing.T) {
-	type args struct {
-		client  container.Client
-		params  *chaos.GlobalParams
-		force   bool
-		links   bool
-		volumes bool
-		limit   int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "create new remove command",
-			args: args{
-				params:  &chaos.GlobalParams{Names: []string{"c1", "c2"}},
-				force:   true,
-				links:   true,
-				volumes: false,
-				limit:   10,
-			},
-			want: &removeCommand{
-				names:   []string{"c1", "c2"},
-				force:   true,
-				links:   true,
-				volumes: false,
-				limit:   10,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewRemoveCommand(tt.args.client, tt.args.params, tt.args.force, tt.args.links, tt.args.volumes, tt.args.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewRemoveCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewRemoveCommand() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

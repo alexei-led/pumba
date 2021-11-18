@@ -3,85 +3,10 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
-	"testing"
-	"time"
-
-	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
+	"testing"
 )
-
-func TestNewStopCommand(t *testing.T) {
-	type args struct {
-		client   container.Client
-		params   *chaos.GlobalParams
-		restart  bool
-		duration string
-		waitTime int
-		limit    int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "new stop command",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names:    []string{"c1", "c2"},
-					Pattern:  "pattern",
-					Interval: 20 * time.Second,
-				},
-				restart:  true,
-				duration: "10s",
-				waitTime: 100,
-				limit:    15,
-			},
-			want: &stopCommand{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				restart:  true,
-				duration: 10 * time.Second,
-				waitTime: 100,
-				limit:    15,
-			},
-		},
-		{
-			name: "new stop command with default wait",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names:   []string{"c1", "c2"},
-					Pattern: "pattern",
-				},
-				duration: "10s",
-				waitTime: 0,
-				limit:    15,
-			},
-			want: &stopCommand{
-				names:    []string{"c1", "c2"},
-				pattern:  "pattern",
-				duration: 10 * time.Second,
-				waitTime: DeafultWaitTime,
-				limit:    15,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewStopCommand(tt.args.client, tt.args.params, tt.args.restart, tt.args.duration, tt.args.waitTime, tt.args.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewStopCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewStopCommand() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestStopCommand_Run(t *testing.T) {
 	type wantErrors struct {

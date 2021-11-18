@@ -14,9 +14,12 @@ import (
 
 func parseNetemParams(c *cli.Context, interval time.Duration) (*netem.Params, error) {
 	// get duration
-	duration, err := util.GetDurationValue(c.String("duration"), interval)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get duration value")
+	duration := c.Duration("duration")
+	if duration == 0 {
+		return nil, errors.New("unset or invalid duration value")
+	}
+	if interval != 0 && duration >= interval {
+		return nil, errors.New("duration must be shorter than interval")
 	}
 	// protect from Command Injection, using Regexp
 	iface := c.String("interface")

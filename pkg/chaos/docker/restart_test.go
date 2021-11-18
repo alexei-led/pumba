@@ -3,11 +3,9 @@ package docker
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -172,67 +170,6 @@ func TestRestartCommand_Run(t *testing.T) {
 				t.Errorf("restartCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			mockClient.AssertExpectations(t)
-		})
-	}
-}
-
-func TestNewRestartCommand(t *testing.T) {
-	type args struct {
-		client  container.Client
-		params  *chaos.GlobalParams
-		timeout time.Duration
-		delay   time.Duration
-		limit   int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    chaos.Command
-		wantErr bool
-	}{
-		{
-			name: "create new restart command",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names: []string{"c1", "c2"},
-				},
-				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
-				limit:   10,
-			},
-			want: &restartCommand{
-				names:   []string{"c1", "c2"},
-				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
-				limit:   10,
-			},
-		},
-		{
-			name: "empty command",
-			args: args{
-				params: &chaos.GlobalParams{
-					Names: []string{"c1", "c2"},
-				},
-				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
-			},
-			want: &restartCommand{
-				names:   []string{"c1", "c2"},
-				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewRestartCommand(tt.args.client, tt.args.params, tt.args.timeout, tt.args.delay, tt.args.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewRestartCommand() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewRestartCommand() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

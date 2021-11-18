@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
@@ -48,6 +49,9 @@ func NewRemoveCLICommand(ctx context.Context) *cli.Command {
 func (cmd *removeContext) remove(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get force flag
 	force := c.BoolT("force")
 	// get links flag
@@ -57,10 +61,11 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// get limit for number of containers to remove
 	limit := c.Int("limit")
 	// init remove command
-	removeCommand, err := docker.NewRemoveCommand(chaos.DockerClient, params, force, links, volumes, limit)
-	if err != nil {
-		return err
-	}
+	removeCommand := docker.NewRemoveCommand(chaos.DockerClient, params, force, links, volumes, limit)
 	// run remove command
-	return chaos.RunChaosCommand(cmd.context, removeCommand, params)
+	err = chaos.RunChaosCommand(cmd.context, removeCommand, params)
+	if err != nil {
+		return errors.Wrap(err, "error running remove command")
+	}
+	return nil
 }

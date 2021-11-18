@@ -43,15 +43,15 @@ func NewExecCLICommand(ctx context.Context) *cli.Command {
 func (cmd *execContext) exec(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
+	if err != nil {
+		return errors.Wrap(err, "error parsing global parameters")
+	}
 	// get command
 	command := c.String("command")
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand, err := docker.NewExecCommand(chaos.DockerClient, params, command, limit)
-	if err != nil {
-		return errors.Wrap(err, "could not create exec command")
-	}
+	execCommand := docker.NewExecCommand(chaos.DockerClient, params, command, limit)
 	// run exec command
 	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {

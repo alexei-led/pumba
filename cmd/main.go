@@ -286,7 +286,7 @@ func initializeCLICommands() []cli.Command {
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				cli.DurationFlag{
 					Name:  "duration, d",
 					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
 				},

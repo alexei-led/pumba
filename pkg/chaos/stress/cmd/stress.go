@@ -56,7 +56,10 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// get stress-ng stressors
 	stressors := c.String("stressors")
 	// get stress duration
-	duration := c.String("duration")
+	duration := c.Duration("duration")
+	if duration == 0 {
+		return errors.New("unset or invalid duration value")
+	}
 	// get stress-ng image
 	image := c.String("stress-image")
 	// get pull tc image flag

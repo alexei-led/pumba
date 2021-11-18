@@ -24,7 +24,7 @@ type removeCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, params *chaos.GlobalParams, force, links, volumes bool, limit int) (chaos.Command, error) {
+func NewRemoveCommand(client container.Client, params *chaos.GlobalParams, force, links, volumes bool, limit int) chaos.Command {
 	remove := &removeCommand{
 		client:  client,
 		names:   params.Names,
@@ -36,7 +36,7 @@ func NewRemoveCommand(client container.Client, params *chaos.GlobalParams, force
 		limit:   limit,
 		dryRun:  params.DryRun,
 	}
-	return remove, nil
+	return remove
 }
 
 // Run remove command

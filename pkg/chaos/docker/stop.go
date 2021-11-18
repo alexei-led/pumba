@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,14 +29,9 @@ type stopCommand struct {
 }
 
 // NewStopCommand create new Stop Command instance
-func NewStopCommand(client container.Client, params *chaos.GlobalParams, restart bool, durationStr string, waitTime, limit int) (chaos.Command, error) {
+func NewStopCommand(client container.Client, params *chaos.GlobalParams, restart bool, duration time.Duration, waitTime, limit int) chaos.Command {
 	if waitTime <= 0 {
 		waitTime = DeafultWaitTime
-	}
-	// get duration
-	duration, err := util.GetDurationValue(durationStr, params.Interval)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get duration value")
 	}
 	return &stopCommand{
 		client:   client,
@@ -48,7 +42,7 @@ func NewStopCommand(client container.Client, params *chaos.GlobalParams, restart
 		restart:  restart,
 		duration: duration,
 		waitTime: waitTime,
-		limit:    limit}, nil
+		limit:    limit}
 }
 
 // Run stop command

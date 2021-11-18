@@ -2,12 +2,10 @@ package util
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"net"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/pkg/errors"
 )
 
 // SliceContains checks if slice contains value
@@ -53,25 +51,6 @@ func verifyPort(port string) error {
 	}
 
 	return nil
-}
-
-// GetDurationValue get duration and make sure it's smaller than interval
-func GetDurationValue(durationStr string, interval time.Duration) (time.Duration, error) {
-	var err error
-	var duration time.Duration
-	if durationStr == "" {
-		return 0, errors.New("undefined duration")
-	}
-	if durationStr != "" {
-		duration, err = time.ParseDuration(durationStr)
-		if err != nil {
-			return 0, errors.Wrap(err, "failed to parse duration")
-		}
-	}
-	if interval != 0 && duration >= interval {
-		return 0, errors.New("duration must be shorter than interval")
-	}
-	return duration, nil
 }
 
 // CIDRNotation Ensure IP string is in CIDR notation
