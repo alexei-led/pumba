@@ -3,7 +3,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM --platform=${BUILDPLATFORM} golang:1.17 AS builder
+FROM golang:1.17 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #
 # ----- Build and Test Image -----
 #
-FROM --platform=${BUILDPLATFORM} builder as build-and-test
+FROM builder as build-and-test
 
 # set working directory
 RUN mkdir -p /go/src/pumba
@@ -85,7 +85,7 @@ CMD [ "bash", "-c", "[ -e /var/run/docker.sock ] && bats /tests" ]
 #
 # ------ Pumba GitHub Release ------
 #
-FROM --platform=${BUILDPLATFORM} build-and-test as github-release
+FROM build-and-test as github-release
 
 # build argument to secify if to create a GitHub release
 ARG DEBUG=false
@@ -122,7 +122,7 @@ FROM scratch
 # copy CA certificates
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-# this is the last commabd since it's never cached
+# this is the last command since it's never cached
 COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /pumba
 
 ENTRYPOINT ["/pumba"]

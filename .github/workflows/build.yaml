@@ -16,13 +16,13 @@ on:
 
 jobs:
 
-  full:
+  build:
 
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -31,24 +31,17 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: list available platforms
+      - name: List available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
-      - name: decide on tag
+      - name: Decide on tag
         id: tagger
         run: |
           tag=$(echo "${{ github.ref }}" | sed -e 's/^refs\/heads\///g' -e 's/^refs\/tags\///g' -e 's/^refs\/pull\///g' -e 's/\/merge$//g' | sed -e 's/master/latest/g')
           echo "::set-output name=tag::${tag}"
           echo "::debug::docker image tag ${tag}"
 
-      - name: prepare build arguments
-        id: prepare
-        run: |
-          args=$(echo "--progress=plain --build-arg=CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }} --build-arg=VCS_COMMIT_ID=${{ github.sha }} --build-arg=VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }} --build-arg=VCS_SLUG=${{ github.repository }} --file=docker/Dockerfile .")
-          echo "::debug::prepare build args ${args}"
-          echo "::set-output name=args::${args}"
-
-      - name: cache Docker layers
+      - name: Cache Docker layers
         uses: actions/cache@v2
         id: cache
         with:
@@ -57,51 +50,70 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: build test images
-        run: |
-          echo "==> compile and test Go code"
-          docker build --tag=pumba/build-and-test --target=build-and-test ${{ steps.prepare.outputs.args }}
-          echo "==> prepare integration tests image"
-          docker build --tag pumba/integration-tests --target=integration-tests ${{ steps.prepare.outputs.args }}
+      - name: Build test image
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          context: .
+          build-args: |
+            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
+            VCS_COMMIT_ID=${{ github.sha }}
+            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
+            VCS_SLUG=${{ github.repository }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          tag: pumba/build-and-test
+          target: build-and-test
 
-      - name: run integration tests
+      - name: Build integration test image
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          context: .
+          build-args: |
+            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
+            VCS_COMMIT_ID=${{ github.sha }}
+            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
+            VCS_SLUG=${{ github.repository }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          tag: pumba/integration-tests
+          target: integration-tests
+
+      - name: Run integration tests
         run: |
           docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba/integration-tests
 
-      - name: upload coverage report
+      - name: Upload coverage report
         run: |
           CI_BUILD_URL=https://github.com/${{ github.repository }}/commit/${{ github.sha }}/checks
           docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
 
-      - name: login to DockerHub
+      - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: prepare release image
+      - name: Build and push release image
         if: github.event_name != 'pull_request'
         env:
           DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
-        run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6 \
-            --cache-from "type=local,src=/tmp/.buildx-cache" \
-            --cache-to "type=local,dest=/tmp/.buildx-cache" \
-            --output "type=image,push=true" \
-            --tag=${DOCKER_ORG}/pumba:${{ steps.tagger.outputs.tag }} \
-            ${{ steps.prepare.outputs.args }}
-
-      - name: release to GitHub
-        if: github.event_name != 'pull_request'
-        run: |
-          if [[ "${{ steps.tagger.outputs.tag }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then \
-            docker build \
-              --tag pumba/github-release \
-              --target=github-release \
-              --build-arg=RELEASE=true \
-              --build-arg=RELEASE_TAG=${{ steps.tagger.outputs.tag }} \
-              --build-arg=TAG_MESSAGE="Draft Release" \
-              --build-arg=GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} \
-              ${{ steps.prepare.outputs.args }}; \
-          fi
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          build-args: |
+            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
+            VCS_COMMIT_ID=${{ github.sha }}
+            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
+            VCS_SLUG=${{ github.repository }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          push: true
+          tag: ${DOCKER_ORG}/pumba:${{ steps.tagger.outputs.tag }}
