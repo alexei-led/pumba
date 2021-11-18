@@ -36,6 +36,8 @@
   [ $status -eq 0 ]
   [[ $output =~ "running netem on container" ]]
   [[ $output =~ "stopping netem on container" ]]
-  # cleanup
-  docker rm -f pingtest || true
+}
+
+teardown() {
+    docker rm -f pingtest || true
 }

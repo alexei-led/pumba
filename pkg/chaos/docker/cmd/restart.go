@@ -23,12 +23,7 @@ func NewRestartCLICommand(ctx context.Context) *cli.Command {
 		Flags: []cli.Flag{
 			cli.DurationFlag{
 				Name:  "timeout, t",
-				Usage: "restart timeout for target container(s)",
-				Value: 1 * time.Second,
-			},
-			cli.DurationFlag{
-				Name:  "delay, d",
-				Usage: "restart delay for target container(s)",
+				Usage: "time to wait before killing the container",
 				Value: 1 * time.Second,
 			},
 			cli.IntFlag{
@@ -53,12 +48,10 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	}
 	// get timeout
 	timeout := c.Duration("timeout")
-	// get delay
-	delay := c.Duration("delay")
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand := docker.NewRestartCommand(chaos.DockerClient, params, timeout, delay, limit)
+	restartCommand := docker.NewRestartCommand(chaos.DockerClient, params, timeout, limit)
 	// run restart command
 	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
 	if err != nil {

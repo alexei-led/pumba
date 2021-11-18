@@ -109,13 +109,13 @@ func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 b
 	return r0
 }
 
-// RestartContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4
-func (_m *MockClient) RestartContainer(_a0 context.Context, _a1 *Container, _a2 time.Duration, _a3 time.Duration, _a4 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4)
+// RestartContainer provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *MockClient) RestartContainer(_a0 context.Context, _a1 *Container, _a2 time.Duration, _a3 bool) error {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, time.Duration, time.Duration, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4)
+	if rf, ok := ret.Get(0).(func(context.Context, *Container, time.Duration, bool) error); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Error(0)
 	}

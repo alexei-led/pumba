@@ -20,7 +20,6 @@ func TestRestartCommand_Run(t *testing.T) {
 		pattern string
 		labels  []string
 		timeout time.Duration
-		delay   time.Duration
 		limit   int
 		dryRun  bool
 	}
@@ -41,7 +40,6 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -54,7 +52,6 @@ func TestRestartCommand_Run(t *testing.T) {
 				names:   []string{"c1", "c2", "c3"},
 				labels:  []string{"key=value"},
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -66,7 +63,6 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				pattern: "^c?",
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 				limit:   2,
 			},
 			args: args{
@@ -79,7 +75,6 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 			},
 			args: args{
 				ctx:    context.TODO(),
@@ -92,7 +87,6 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -103,7 +97,6 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -116,7 +109,6 @@ func TestRestartCommand_Run(t *testing.T) {
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -135,7 +127,6 @@ func TestRestartCommand_Run(t *testing.T) {
 				pattern: tt.fields.pattern,
 				labels:  tt.fields.labels,
 				timeout: 1 * time.Second,
-				delay:   1 * time.Second,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
@@ -151,11 +142,11 @@ func TestRestartCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.delay, tt.fields.dryRun).Return(nil)
+				mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.delay, tt.fields.dryRun)
+						call = mockClient.On("RestartContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.dryRun)
 						if tt.errs.restartError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

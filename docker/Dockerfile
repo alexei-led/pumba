@@ -70,7 +70,7 @@ CMD ["./codecov.sh", "-e", "VCS_COMMIT_ID,VCS_BRANCH_NAME,VCS_SLUG,CI_BUILD_ID,C
 FROM alpine:3.13 as integration-tests
 
 # install required packages
-RUN apk add --no-cache bash bats docker iproute2
+RUN apk add --no-cache bash bats-core docker iproute2
 
 # copy bats tests
 COPY ./tests /tests

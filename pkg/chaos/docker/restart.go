@@ -17,20 +17,18 @@ type restartCommand struct {
 	pattern string
 	labels  []string
 	timeout time.Duration
-	delay   time.Duration
 	limit   int
 	dryRun  bool
 }
 
 // NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout, delay time.Duration, limit int) chaos.Command {
+func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
 	return &restartCommand{
 		client:  client,
 		names:   params.Names,
 		pattern: params.Pattern,
 		labels:  params.Labels,
 		timeout: timeout,
-		delay:   delay,
 		limit:   limit,
 		dryRun:  params.DryRun,
 	}
@@ -67,7 +65,7 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 			"container": c,
 			"timeout":   k.timeout,
 		}).Debug("restarting container")
-		err = k.client.RestartContainer(ctx, c, k.timeout, k.delay, k.dryRun)
+		err = k.client.RestartContainer(ctx, c, k.timeout, k.dryRun)
 		if err != nil {
 			return errors.Wrap(err, "failed to restart container")
 		}
