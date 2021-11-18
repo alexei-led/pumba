@@ -1,28 +1,28 @@
 #!/usr/bin/env bats
 
-@test "Netem Help" {
+@test "Should display netem help" {
   run pumba netem --help
   [ $status -eq 0 ]
 }
 
-@test "Netem Delay Help" {
+@test "Should display netem delay help" {
   run pumba netem delay --help
   [ $status -eq 0 ]
 }
 
-@test "Netem Delay Undefined Duration" {
+@test "Should fail when Duration is unset for netem delay" {
   run pumba netem delay --time 100
   [ $status -eq 1 ]
   [[ ${lines[0]} =~ "unset or invalid duration value" ]]
 }
 
-@test "Netem Delay 200ms" {
+@test "Should delay egress traffic from container" {
   run pumba netem --duration 200ms delay --time 100 test
   [ $status -eq 0 ]
   [[ $output =~ "no containers found" ]]
 }
 
-@test "Netem Delay 200ms External Image" {
+@test "Should delay egress traffic from container with external tc image" {
   # start ping container in background
   docker run -dit --name pingtest alpine ping 1.1.1.1
   cid=$(docker ps -q --filter "name=pingtest")
