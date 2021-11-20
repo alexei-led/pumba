@@ -129,7 +129,7 @@ integration-tests: build ; $(info $(M) running integration tests with bats...) @
 
 .PHONY: lint
 lint: setup-golangci-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
-	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
+	$Q $(GOLANGCI_LINT) run -v --timeout 3m -c $(GOLANGCI_LINT_CONFIG) ./...
 
 .PHONY: fmt
 fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
