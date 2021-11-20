@@ -37,8 +37,8 @@ COPY .golangci.yml .
 COPY VERSION .
 
 # run lint, test race and calculate coverage
-ARG SKIP_TEST
-RUN --mount=type=cache,target=/root/.cache/go-build if [ -z "$SKIP_TEST" -o "$SKIP_TEST" = false ]; then make lint test-race test-coverage; fi
+ARG SKIP_TESTS
+RUN --mount=type=cache,target=/root/.cache/go-build if [ -z "$SKIP_TESTS" -o "$SKIP_TESTS" = false ]; then make lint test-race test-coverage; fi
 
 # `VCS_COMMIT_ID=$(git rev-parse --short HEAD 2>/dev/null)`
 ARG VCS_COMMIT_ID
