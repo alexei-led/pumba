@@ -57,10 +57,7 @@ jobs:
             RELEASE_TOKEN=${{ secrets.RELEASE_TOKEN }}
             TAG_MESSAGE="Draft Release"
             GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }}
-            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
             VCS_COMMIT_ID=${{ github.sha }}
             VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
             VCS_SLUG=${{ github.repository }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
           target: github-release
