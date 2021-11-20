@@ -104,7 +104,7 @@ jobs:
         with:
           file: docker/Dockerfile
           context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          platforms: linux/amd64,linux/arm64
           build-args: |
             CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
             VCS_COMMIT_ID=${{ github.sha }}
