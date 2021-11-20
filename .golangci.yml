@@ -1,3 +1,10 @@
+run:
+  # timeout for analysis
+  timeout: 3m
+  # which dirs to skip
+  skip-dirs:
+    - mocks
+
 linters-settings:
   govet:
     check-shadowing: true
@@ -106,8 +113,6 @@ issues:
         - gocognit
         - goconst
         - goerr113
-    - path: mocks\*\.go
-      linters:
-        - wrapcheck
+
   exclude:
     - Using the variable on range scope `tt` in function literal
