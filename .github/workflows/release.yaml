@@ -17,21 +17,21 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: set up Docker buildx
+      - name: Set up Docker buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: decide on tag
+      - name: Decide on tag
         id: tagger
         run: |
           tag=$(echo "${{ github.ref }}" | sed -e 's/^refs\/heads\///g' -e 's/^refs\/tags\///g' -e 's/^refs\/pull\///g' -e 's/\/merge$//g' | sed -e 's/master/latest/g')
           echo "::set-output name=tag::${tag}"
           echo "::debug::docker image tag ${tag}"
 
-      - name: release to GitHub
+      - name: Release to GitHub
         if: startsWith(github.ref, 'refs/tags/')
         uses: docker/build-push-action@v2
         with:
