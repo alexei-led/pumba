@@ -1,6 +1,6 @@
 run:
   # timeout for analysis
-  timeout: 3m
+  timeout: 10m
   # which dirs to skip
   skip-dirs:
     - mocks
