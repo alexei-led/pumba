@@ -5,14 +5,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
-	types "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
@@ -26,10 +26,10 @@ func NewMockEngine() *mocks.APIClient {
 	return new(mocks.APIClient)
 }
 
-func mockAllContainers(c *Container) bool {
+func mockAllContainers(_ *Container) bool {
 	return true
 }
-func mockNoContainers(c *Container) bool {
+func mockNoContainers(_ *Container) bool {
 	return false
 }
 
@@ -111,11 +111,11 @@ func TestListContainers_InspectImageError(t *testing.T) {
 		"ID", "foo",
 		"Names", []string{"bar"})),
 	)
-	DetailsResponse := DetailsResponse(AsMap("Image", "abc123"))
+	resp := DetailsResponse(AsMap("Image", "abc123"))
 	imageDetailsResponse := ImageDetailsResponse(AsMap())
 	api := NewMockEngine()
 	api.On("ContainerList", mock.Anything, mock.Anything).Return(allContainersResponse, nil)
-	api.On("ContainerInspect", mock.Anything, "foo").Return(DetailsResponse, nil)
+	api.On("ContainerInspect", mock.Anything, "foo").Return(resp, nil)
 	api.On("ImageInspectWithRaw", mock.Anything, "abc123").Return(imageDetailsResponse, []byte{}, errors.New("whoops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -615,7 +615,7 @@ func Test_tcContainerCommand(t *testing.T) {
 	engineClient := NewMockEngine()
 
 	// pull image
-	engineClient.On("ImagePull", ctx, config.Image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
+	engineClient.On("ImagePull", ctx, config.Image, types.ImagePullOptions{}).Return(io.NopCloser(readerResponse), nil)
 	// create container
 	engineClient.On("ContainerCreate", ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(container.ContainerCreateCreatedBody{ID: "tcID"}, nil)
 	// start container
@@ -877,7 +877,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				}
 				pullResponseByte, _ := json.Marshal(pullResponse)
 				readerResponse := bytes.NewReader(pullResponseByte)
-				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(ioutil.NopCloser(readerResponse), nil)
+				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(io.NopCloser(readerResponse), nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.ContainerCreateCreatedBody{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
@@ -903,7 +903,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				pull:  true,
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
-				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(ioutil.NopCloser(bytes.NewReader([]byte("{}"))), errors.New("failed to pull image"))
+				engine.On("ImagePull", ctx, image, types.ImagePullOptions{}).Return(io.NopCloser(bytes.NewReader([]byte("{}"))), errors.New("failed to pull image"))
 			},
 			wantErr: true,
 		},
