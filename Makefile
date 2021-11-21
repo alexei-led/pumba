@@ -166,6 +166,8 @@ endif
 		-b "$(TAG_MESSAGE)" \
 		-prerelease \
 		-draft \
+		-debug \
+		-recreate \
 		$(RELEASE_TAG) \
 		$(BIN)/$(dir $(MODULE))
 

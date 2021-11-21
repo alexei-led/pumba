@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/alexei-led/pumba/tree/0.9.0) (2021-11-20)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.8.0...0.9.0)
+
+**Implemented enhancements:**
+
+- significant code refactoring [\#211](https://github.com/alexei-led/pumba/pull/211) ([alexei-led](https://github.com/alexei-led))
+
+**Merged pull requests:**
+
+- Restart with delay [\#209](https://github.com/alexei-led/pumba/pull/209) ([aodhan-domhnaill](https://github.com/aodhan-domhnaill))
+
 ## [0.8.0](https://github.com/alexei-led/pumba/tree/0.8.0) (2021-10-21)
 
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.7.8...0.8.0)
@@ -230,6 +242,7 @@
 **Fixed bugs:**
 
 - Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
+- reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
 
 **Closed issues:**
 
@@ -249,16 +262,11 @@
 - Better killing and respawing options  [\#46](https://github.com/alexei-led/pumba/issues/46)
 - No such image: gaiadocker/iproute2 [\#40](https://github.com/alexei-led/pumba/issues/40)
 
-**Fixed bugs:**
-
-- reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
-
 **Closed issues:**
 
 - when using --tc-image flag the sidekick image is not deleted after the command execution finishes [\#106](https://github.com/alexei-led/pumba/issues/106)
 - Cannot connect to the Docker daemon [\#105](https://github.com/alexei-led/pumba/issues/105)
 - Strange latency spikes on 4.15.0-36 kernel [\#103](https://github.com/alexei-led/pumba/issues/103)
-- cat: can't open 'VERSION': No such file or directory [\#87](https://github.com/alexei-led/pumba/issues/87)
 
 **Merged pull requests:**
 
@@ -297,6 +305,7 @@
 
 - Pumba attack - visualize the execution steps in command terminal  [\#91](https://github.com/alexei-led/pumba/issues/91)
 - Pumba run time startup issues [\#88](https://github.com/alexei-led/pumba/issues/88)
+- cat: can't open 'VERSION': No such file or directory [\#87](https://github.com/alexei-led/pumba/issues/87)
 - netem delay loses the first 3 packets  [\#72](https://github.com/alexei-led/pumba/issues/72)
 - Pumba container exiting without any error [\#70](https://github.com/alexei-led/pumba/issues/70)
 
@@ -349,7 +358,6 @@
 - add requests/limits so container does not be come too greedy [\#67](https://github.com/alexei-led/pumba/pull/67) ([grosser](https://github.com/grosser))
 - avoid self-killing on kubernetes [\#66](https://github.com/alexei-led/pumba/pull/66) ([grosser](https://github.com/grosser))
 - prefer regular nodes by default [\#65](https://github.com/alexei-led/pumba/pull/65) ([grosser](https://github.com/grosser))
-- do not spam extra shell / make killing soft by default [\#64](https://github.com/alexei-led/pumba/pull/64) ([grosser](https://github.com/grosser))
 - support specifying multiple target IP's [\#58](https://github.com/alexei-led/pumba/pull/58) ([Dieterbe](https://github.com/Dieterbe))
 - fix logging of configs [\#56](https://github.com/alexei-led/pumba/pull/56) ([Dieterbe](https://github.com/Dieterbe))
 
@@ -423,6 +431,7 @@
 
 **Merged pull requests:**
 
+- do not spam extra shell / make killing soft by default [\#64](https://github.com/alexei-led/pumba/pull/64) ([grosser](https://github.com/grosser))
 - Added basic e2e tests [\#37](https://github.com/alexei-led/pumba/pull/37) ([slnowak](https://github.com/slnowak))
 - Pumba is now able to remove container [\#34](https://github.com/alexei-led/pumba/pull/34) ([slnowak](https://github.com/slnowak))
 
