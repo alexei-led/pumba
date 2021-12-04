@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -241,7 +240,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 		if caCertFlag != "" {
 			var caCert []byte
 			if strings.HasPrefix(caCertFlag, "/") {
-				caCert, err = ioutil.ReadFile(caCertFlag)
+				caCert, err = os.ReadFile(caCertFlag)
 				if err != nil {
 					return nil, errors.Wrap(err, "unable to read CA certificate")
 				}
