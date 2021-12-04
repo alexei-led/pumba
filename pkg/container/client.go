@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -167,7 +166,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 			return errors.Wrap(err, "exec start failed")
 		}
 
-		output, err := ioutil.ReadAll(attachRes.Reader)
+		output, err := io.ReadAll(attachRes.Reader)
 		if err != nil {
 			return errors.Wrap(err, "reading output from exec reader failed")
 		}
