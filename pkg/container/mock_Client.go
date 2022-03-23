@@ -18,7 +18,7 @@ type MockClient struct {
 
 // ExecContainer provides a mock function with given fields: _a0, _a1, _a2, _a3
 func (_m *MockClient) ExecContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, bool) error); ok {
@@ -32,7 +32,7 @@ func (_m *MockClient) ExecContainer(_a0 context.Context, _a1 *Container, _a2 str
 
 // KillContainer provides a mock function with given fields: _a0, _a1, _a2, _a3
 func (_m *MockClient) KillContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, bool) error); ok {
@@ -46,7 +46,7 @@ func (_m *MockClient) KillContainer(_a0 context.Context, _a1 *Container, _a2 str
 
 // ListContainers provides a mock function with given fields: _a0, _a1, _a2
 func (_m *MockClient) ListContainers(_a0 context.Context, _a1 FilterFunc, _a2 ListOpts) ([]*Container, error) {
-	ret := _m.Called(_a0, _a1, _a2)
+	ret := _m.Mock.Called(_a0, _a1, _a2)
 
 	var r0 []*Container
 	if rf, ok := ret.Get(0).(func(context.Context, FilterFunc, ListOpts) []*Container); ok {
@@ -69,7 +69,7 @@ func (_m *MockClient) ListContainers(_a0 context.Context, _a1 FilterFunc, _a2 Li
 
 // NetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10
 func (_m *MockClient) NetemContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 []string, _a4 []*net.IPNet, _a5 []string, _a6 []string, _a7 time.Duration, _a8 string, _a9 bool, _a10 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error); ok {
@@ -83,7 +83,7 @@ func (_m *MockClient) NetemContainer(_a0 context.Context, _a1 *Container, _a2 st
 
 // PauseContainer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *MockClient) PauseContainer(_a0 context.Context, _a1 *Container, _a2 bool) error {
-	ret := _m.Called(_a0, _a1, _a2)
+	ret := _m.Mock.Called(_a0, _a1, _a2)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, bool) error); ok {
@@ -97,7 +97,7 @@ func (_m *MockClient) PauseContainer(_a0 context.Context, _a1 *Container, _a2 bo
 
 // RemoveContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5
 func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 bool, _a3 bool, _a4 bool, _a5 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3, _a4, _a5)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, bool, bool, bool, bool) error); ok {
@@ -111,7 +111,7 @@ func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 b
 
 // RestartContainer provides a mock function with given fields: _a0, _a1, _a2, _a3
 func (_m *MockClient) RestartContainer(_a0 context.Context, _a1 *Container, _a2 time.Duration, _a3 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, time.Duration, bool) error); ok {
@@ -125,7 +125,7 @@ func (_m *MockClient) RestartContainer(_a0 context.Context, _a1 *Container, _a2 
 
 // StartContainer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *MockClient) StartContainer(_a0 context.Context, _a1 *Container, _a2 bool) error {
-	ret := _m.Called(_a0, _a1, _a2)
+	ret := _m.Mock.Called(_a0, _a1, _a2)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, bool) error); ok {
@@ -139,7 +139,7 @@ func (_m *MockClient) StartContainer(_a0 context.Context, _a1 *Container, _a2 bo
 
 // StopContainer provides a mock function with given fields: _a0, _a1, _a2, _a3
 func (_m *MockClient) StopContainer(_a0 context.Context, _a1 *Container, _a2 int, _a3 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, int, bool) error); ok {
@@ -153,7 +153,7 @@ func (_m *MockClient) StopContainer(_a0 context.Context, _a1 *Container, _a2 int
 
 // StopContainerWithID provides a mock function with given fields: _a0, _a1, _a2, _a3
 func (_m *MockClient) StopContainerWithID(_a0 context.Context, _a1 string, _a2 time.Duration, _a3 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, time.Duration, bool) error); ok {
@@ -167,7 +167,7 @@ func (_m *MockClient) StopContainerWithID(_a0 context.Context, _a1 string, _a2 t
 
 // StopNetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8
 func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 []*net.IPNet, _a4 []string, _a5 []string, _a6 string, _a7 bool, _a8 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error); ok {
@@ -181,7 +181,7 @@ func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 *Container, _a
 
 // StressContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6
 func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool) (string, <-chan string, <-chan error, error) {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	ret := _m.Mock.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
 
 	var r0 string
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool) string); ok {
@@ -220,7 +220,7 @@ func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *Container, _a2 [
 
 // UnpauseContainer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *MockClient) UnpauseContainer(_a0 context.Context, _a1 *Container, _a2 bool) error {
-	ret := _m.Called(_a0, _a1, _a2)
+	ret := _m.Mock.Called(_a0, _a1, _a2)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *Container, bool) error); ok {

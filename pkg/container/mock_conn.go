@@ -17,7 +17,7 @@ type mockConn struct {
 
 // Close provides a mock function with given fields:
 func (_m *mockConn) Close() error {
-	ret := _m.Called()
+	ret := _m.Mock.Called()
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func() error); ok {
@@ -31,7 +31,7 @@ func (_m *mockConn) Close() error {
 
 // LocalAddr provides a mock function with given fields:
 func (_m *mockConn) LocalAddr() net.Addr {
-	ret := _m.Called()
+	ret := _m.Mock.Called()
 
 	var r0 net.Addr
 	if rf, ok := ret.Get(0).(func() net.Addr); ok {
@@ -47,7 +47,7 @@ func (_m *mockConn) LocalAddr() net.Addr {
 
 // Read provides a mock function with given fields: b
 func (_m *mockConn) Read(b []byte) (int, error) {
-	ret := _m.Called(b)
+	ret := _m.Mock.Called(b)
 
 	var r0 int
 	if rf, ok := ret.Get(0).(func([]byte) int); ok {
@@ -68,7 +68,7 @@ func (_m *mockConn) Read(b []byte) (int, error) {
 
 // RemoteAddr provides a mock function with given fields:
 func (_m *mockConn) RemoteAddr() net.Addr {
-	ret := _m.Called()
+	ret := _m.Mock.Called()
 
 	var r0 net.Addr
 	if rf, ok := ret.Get(0).(func() net.Addr); ok {
@@ -84,7 +84,7 @@ func (_m *mockConn) RemoteAddr() net.Addr {
 
 // SetDeadline provides a mock function with given fields: t
 func (_m *mockConn) SetDeadline(t time.Time) error {
-	ret := _m.Called(t)
+	ret := _m.Mock.Called(t)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(time.Time) error); ok {
@@ -98,7 +98,7 @@ func (_m *mockConn) SetDeadline(t time.Time) error {
 
 // SetReadDeadline provides a mock function with given fields: t
 func (_m *mockConn) SetReadDeadline(t time.Time) error {
-	ret := _m.Called(t)
+	ret := _m.Mock.Called(t)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(time.Time) error); ok {
@@ -112,7 +112,7 @@ func (_m *mockConn) SetReadDeadline(t time.Time) error {
 
 // SetWriteDeadline provides a mock function with given fields: t
 func (_m *mockConn) SetWriteDeadline(t time.Time) error {
-	ret := _m.Called(t)
+	ret := _m.Mock.Called(t)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(time.Time) error); ok {
@@ -126,7 +126,7 @@ func (_m *mockConn) SetWriteDeadline(t time.Time) error {
 
 // Write provides a mock function with given fields: b
 func (_m *mockConn) Write(b []byte) (int, error) {
-	ret := _m.Called(b)
+	ret := _m.Mock.Called(b)
 
 	var r0 int
 	if rf, ok := ret.Get(0).(func([]byte) int); ok {

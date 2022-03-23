@@ -889,7 +889,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 						State: &types.ContainerState{},
 					},
 				}
-				conn.On("Close").Return(nil)
+				conn.Mock.On("Close").Return(nil)
 				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
 			},
 			want:       "000",
@@ -925,7 +925,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 					},
 				}
 				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
-				conn.On("Close").Return(nil)
+				conn.Mock.On("Close").Return(nil)
 			},
 			want:       "000",
 			wantOutput: "stress completed",
@@ -947,7 +947,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 						State: &types.ContainerState{ExitCode: 1},
 					},
 				}
-				conn.On("Close").Return(nil)
+				conn.Mock.On("Close").Return(nil)
 				engine.On("ContainerInspect", ctx, "000").Return(inspect, nil)
 			},
 			want:      "000",
@@ -965,7 +965,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
 				}, nil)
 				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(nil)
-				conn.On("Close").Return(nil)
+				conn.Mock.On("Close").Return(nil)
 				engine.On("ContainerInspect", ctx, "000").Return(types.ContainerJSON{}, errors.New("filed to inspect"))
 			},
 			want:       "000",
@@ -984,7 +984,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
 				}, nil)
 				engine.On("ContainerStart", ctx, "000", mock.Anything).Return(errors.New("failed to start"))
-				conn.On("Close").Return(nil)
+				conn.Mock.On("Close").Return(nil)
 				inspect := types.ContainerJSON{
 					ContainerJSONBase: &types.ContainerJSONBase{
 						State: &types.ContainerState{},
@@ -1048,7 +1048,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				}
 			}
 			mockClient.AssertExpectations(t)
-			mConn.AssertExpectations(t)
+			mConn.Mock.AssertExpectations(t)
 		})
 	}
 }
