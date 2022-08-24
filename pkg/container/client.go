@@ -43,7 +43,7 @@ type Client interface {
 	PauseContainer(context.Context, *Container, bool) error
 	UnpauseContainer(context.Context, *Container, bool) error
 	StartContainer(context.Context, *Container, bool) error
-	StressContainer(context.Context, *Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
+	StressContainer(context.Context, string, *Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
 	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
@@ -374,7 +374,7 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c *Container, d
 }
 
 // StressContainer starts stress test on a container (CPU, memory, network, io)
-func (client dockerClient) StressContainer(ctx context.Context, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error) {
+func (client dockerClient) StressContainer(ctx context.Context, hostSocket string, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"name":      c.Name(),
 		"id":        c.ID(),
@@ -385,7 +385,7 @@ func (client dockerClient) StressContainer(ctx context.Context, c *Container, st
 		"dryrun":    dryrun,
 	}).Info("stress testing container")
 	if !dryrun {
-		return client.stressContainerCommand(ctx, c.ID(), stressors, image, pull)
+		return client.stressContainerCommand(ctx, hostSocket, c.ID(), stressors, image, pull)
 	}
 	return "", nil, nil, nil
 }
@@ -654,7 +654,7 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target *Conta
 
 //nolint:funlen
 // execute a stress-ng command in stress-ng Docker container in target container cgroup
-func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, image string, pull bool) (string, <-chan string, <-chan error, error) {
+func (client dockerClient) stressContainerCommand(ctx context.Context, hostSocket string, targetID string, stressors []string, image string, pull bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"target":    targetID,
 		"stressors": stressors,
@@ -674,7 +674,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	// docker socket mount
 	dockerSocket := mount.Mount{
 		Type:   mount.TypeBind,
-		Source: "/var/run/docker.sock",
+		Source: hostSocket,
 		Target: "/var/run/docker.sock",
 	}
 	fsCgroup := mount.Mount{

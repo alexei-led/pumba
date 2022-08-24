@@ -5,25 +5,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/container"
 )
 
 // `stress-ng` command
 type stressCommand struct {
-	client    container.Client
-	names     []string
-	pattern   string
-	labels    []string
-	image     string
-	pull      bool
-	stressors []string
-	duration  time.Duration
-	limit     int
-	dryRun    bool
+	client     container.Client
+	hostSocket string
+	names      []string
+	pattern    string
+	labels     []string
+	image      string
+	pull       bool
+	stressors  []string
+	duration   time.Duration
+	limit      int
+	dryRun     bool
 }
 
 const (
@@ -31,18 +32,19 @@ const (
 )
 
 // NewStressCommand create new Kill stressCommand instance
-func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int) chaos.Command {
+func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, hostSocket string, image string, pull bool, stressors string, duration time.Duration, limit int) chaos.Command {
 	stress := &stressCommand{
-		client:    client,
-		names:     globalParams.Names,
-		pattern:   globalParams.Pattern,
-		labels:    globalParams.Labels,
-		image:     image,
-		pull:      pull,
-		stressors: strings.Fields(stressors),
-		duration:  duration,
-		limit:     limit,
-		dryRun:    globalParams.DryRun,
+		client:     client,
+		hostSocket: hostSocket,
+		names:      globalParams.Names,
+		pattern:    globalParams.Pattern,
+		labels:     globalParams.Labels,
+		image:      image,
+		pull:       pull,
+		stressors:  strings.Fields(stressors),
+		duration:   duration,
+		limit:      limit,
+		dryRun:     globalParams.DryRun,
 	}
 	return stress
 }
@@ -98,7 +100,7 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		"stress-ng image": s.image,
 		"pull image":      s.pull,
 	}).Debug("stress testing container for duration")
-	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
+	stress, output, outerr, err := s.client.StressContainer(ctx, s.hostSocket, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 	if err != nil {
 		return errors.Wrap(err, "stress test failed")
 	}

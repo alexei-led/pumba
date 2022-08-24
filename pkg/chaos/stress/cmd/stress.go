@@ -6,6 +6,7 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/stress"
+
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
@@ -33,6 +34,11 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 				Name:  "pull-image",
 				Usage: "pull stress-image form Docker registry",
 			},
+                        cli.StringFlag{
+                                Name:  "host-socket",
+                                Usage: "daemon socket to connect to",
+                                Value: "/var/run/docker.sock",
+                        },
 			cli.StringFlag{
 				Name:  "stressors",
 				Usage: "stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/",
@@ -53,6 +59,8 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error parsing global parameters")
 	}
+	// get host socket to connect to
+	hostSocket := c.String("host-socket")
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// get stress-ng stressors
@@ -67,7 +75,7 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// get pull tc image flag
 	pull := c.BoolT("pull-image")
 	// init stress command
-	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit)
+	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, hostSocket, image, pull, stressors, duration, limit)
 	// run stress command
 	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
 	if err != nil {
