@@ -34,11 +34,11 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 				Name:  "pull-image",
 				Usage: "pull stress-image form Docker registry",
 			},
-                        cli.StringFlag{
-                                Name:  "host-socket",
-                                Usage: "daemon socket to connect to",
-                                Value: "/var/run/docker.sock",
-                        },
+			cli.StringFlag{
+				Name:  "host-socket",
+				Usage: "daemon socket to connect to",
+				Value: "/var/run/docker.sock",
+			},
 			cli.StringFlag{
 				Name:  "stressors",
 				Usage: "stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/",
