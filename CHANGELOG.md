@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased](https://github.com/alexei-led/pumba/tree/HEAD)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.9.1...HEAD)
+
+**Closed issues:**
+
+- GHSA-77vh-xpmg-72qh: Clarify `mediaType` handling [\#225](https://github.com/alexei-led/pumba/issues/225)
+- GHSA-qq97-vm5h-rrhg: OCI Manifest Type Confusion Issue [\#224](https://github.com/alexei-led/pumba/issues/224)
+
+**Merged pull requests:**
+
+- Bump github.com/opencontainers/image-spec from 1.0.1 to 1.0.2 [\#229](https://github.com/alexei-led/pumba/pull/229) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Bump github.com/containerd/containerd from 1.5.7 to 1.5.16 [\#228](https://github.com/alexei-led/pumba/pull/228) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Bump github.com/docker/distribution from 2.7.1+incompatible to 2.8.0+incompatible [\#227](https://github.com/alexei-led/pumba/pull/227) ([dependabot[bot]](https://github.com/apps/dependabot))
+
+## [0.9.1](https://github.com/alexei-led/pumba/tree/0.9.1) (2023-01-09)
+
+[Full Changelog](https://github.com/alexei-led/pumba/compare/0.9.0...0.9.1)
+
+**Closed issues:**
+
+- Netem Functionalities not working ? [\#221](https://github.com/alexei-led/pumba/issues/221)
+- IO-Stress: bind source path does not exist [\#218](https://github.com/alexei-led/pumba/issues/218)
+- command 'tc' failed in /TargetContainer [\#215](https://github.com/alexei-led/pumba/issues/215)
+- golangci-lint fails on 0.9.0 [\#213](https://github.com/alexei-led/pumba/issues/213)
+- Binary for 0.9.0 [\#212](https://github.com/alexei-led/pumba/issues/212)
+- Persistent or "daemon" mode [\#196](https://github.com/alexei-led/pumba/issues/196)
+
+**Merged pull requests:**
+
+- update/go-libs [\#226](https://github.com/alexei-led/pumba/pull/226) ([alexei-led](https://github.com/alexei-led))
+- Get the client source docker socket path dynamically [\#219](https://github.com/alexei-led/pumba/pull/219) ([Vr00mm](https://github.com/Vr00mm))
+- Replace deprecated ioutil with other functions [\#214](https://github.com/alexei-led/pumba/pull/214) ([aminvakil](https://github.com/aminvakil))
+
 ## [0.9.0](https://github.com/alexei-led/pumba/tree/0.9.0) (2021-11-20)
 
 [Full Changelog](https://github.com/alexei-led/pumba/compare/0.8.0...0.9.0)
@@ -242,7 +276,6 @@
 **Fixed bugs:**
 
 - Multiple matching container `netem` commands executed in sequentially when triggered with `docker run` [\#112](https://github.com/alexei-led/pumba/issues/112)
-- reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
 
 **Closed issues:**
 
@@ -261,6 +294,10 @@
 
 - Better killing and respawing options  [\#46](https://github.com/alexei-led/pumba/issues/46)
 - No such image: gaiadocker/iproute2 [\#40](https://github.com/alexei-led/pumba/issues/40)
+
+**Fixed bugs:**
+
+- reuse tc container [\#97](https://github.com/alexei-led/pumba/issues/97)
 
 **Closed issues:**
 
@@ -351,13 +388,14 @@
 **Merged pull requests:**
 
 - moving git repo to alexei-led [\#78](https://github.com/alexei-led/pumba/pull/78) ([alexei-led](https://github.com/alexei-led))
-- Limit the number of container to kill \#46 [\#77](https://github.com/alexei-led/pumba/pull/77) ([camilocot](https://github.com/camilocot))
-- Add Start command. \#59 [\#76](https://github.com/alexei-led/pumba/pull/76) ([camilocot](https://github.com/camilocot))
-- very minor min corrections [\#74](https://github.com/alexei-led/pumba/pull/74) ([lazerion](https://github.com/lazerion))
+- Limit the number of container to kill \#46 [\#77](https://github.com/alexei-led/pumba/pull/77) ([ccronca](https://github.com/ccronca))
+- Add Start command. \#59 [\#76](https://github.com/alexei-led/pumba/pull/76) ([ccronca](https://github.com/ccronca))
+- very minor min corrections [\#74](https://github.com/alexei-led/pumba/pull/74) ([ghost](https://github.com/ghost))
 - use dumb-init and su-exec [\#71](https://github.com/alexei-led/pumba/pull/71) ([grosser](https://github.com/grosser))
 - add requests/limits so container does not be come too greedy [\#67](https://github.com/alexei-led/pumba/pull/67) ([grosser](https://github.com/grosser))
 - avoid self-killing on kubernetes [\#66](https://github.com/alexei-led/pumba/pull/66) ([grosser](https://github.com/grosser))
 - prefer regular nodes by default [\#65](https://github.com/alexei-led/pumba/pull/65) ([grosser](https://github.com/grosser))
+- do not spam extra shell / make killing soft by default [\#64](https://github.com/alexei-led/pumba/pull/64) ([grosser](https://github.com/grosser))
 - support specifying multiple target IP's [\#58](https://github.com/alexei-led/pumba/pull/58) ([Dieterbe](https://github.com/Dieterbe))
 - fix logging of configs [\#56](https://github.com/alexei-led/pumba/pull/56) ([Dieterbe](https://github.com/Dieterbe))
 
@@ -431,7 +469,6 @@
 
 **Merged pull requests:**
 
-- do not spam extra shell / make killing soft by default [\#64](https://github.com/alexei-led/pumba/pull/64) ([grosser](https://github.com/grosser))
 - Added basic e2e tests [\#37](https://github.com/alexei-led/pumba/pull/37) ([slnowak](https://github.com/slnowak))
 - Pumba is now able to remove container [\#34](https://github.com/alexei-led/pumba/pull/34) ([slnowak](https://github.com/slnowak))
 
