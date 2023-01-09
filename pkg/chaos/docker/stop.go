@@ -74,7 +74,7 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// keep stopped containers
-	stoppedContainers := []*container.Container{}
+	stoppedContainers := make([]*container.Container, 0, len(containers))
 	// pause containers
 	for _, container := range containers {
 		log.WithFields(log.Fields{

@@ -39,6 +39,8 @@ func NewLossCLICommand(ctx context.Context) *cli.Command {
 }
 
 // NETEM LOSS Command - network emulation loss
+//
+//nolint:dupl
 func (cmd *lossContext) loss(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)

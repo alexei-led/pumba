@@ -64,7 +64,7 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 setup-tools: setup-golangci-lint setup-gocov setup-gocov-xml setup-go2xunit
 
 setup-golangci-lint:
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
 setup-gocov:
 	$(GO) install github.com/axw/gocov/gocov@latest
 setup-gocov-xml:

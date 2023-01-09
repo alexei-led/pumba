@@ -89,17 +89,19 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem loss state command
-	netemCmd := []string{"loss", "state", strconv.FormatFloat(n.p13, 'f', 2, 64)} //nolint:gomnd
+	netemCmd := []string{"loss", "state", strconv.FormatFloat(n.p13, 'f', 2, 64)}
 	netemCmd = append(netemCmd,
-		strconv.FormatFloat(n.p31, 'f', 2, 64), //nolint:gomnd
-		strconv.FormatFloat(n.p32, 'f', 2, 64), //nolint:gomnd
-		strconv.FormatFloat(n.p23, 'f', 2, 64), //nolint:gomnd
-		strconv.FormatFloat(n.p14, 'f', 2, 64)) //nolint:gomnd
+		strconv.FormatFloat(n.p31, 'f', 2, 64),
+		strconv.FormatFloat(n.p32, 'f', 2, 64),
+		strconv.FormatFloat(n.p23, 'f', 2, 64),
+		strconv.FormatFloat(n.p14, 'f', 2, 64))
 
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
 	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
+
+	//nolint:dupl
 	for i, c := range containers {
 		log.WithFields(log.Fields{
 			"container": c,

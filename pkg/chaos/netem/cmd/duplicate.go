@@ -43,6 +43,8 @@ func NewDuplicateCLICommand(ctx context.Context) *cli.Command {
 }
 
 // NETEM Duplicate Command - network emulation duplicate
+//
+//nolint:dupl
 func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)

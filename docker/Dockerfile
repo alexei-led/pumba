@@ -3,7 +3,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.17 AS builder
+FROM golang:1.19 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \

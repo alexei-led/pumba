@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-//---- TESTS
-
 type mainTestSuite struct {
 	suite.Suite
 }

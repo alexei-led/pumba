@@ -31,6 +31,8 @@ const (
 type FilterFunc func(*Container) bool
 
 // Client interface
+//
+//nolint:interfacebloat
 type Client interface {
 	ListContainers(context.Context, FilterFunc, ListOpts) ([]*Container, error)
 	StopContainer(context.Context, *Container, int, bool) error
@@ -652,8 +654,9 @@ func (client dockerClient) tcContainerCommand(ctx context.Context, target *Conta
 	return nil
 }
 
-//nolint:funlen
 // execute a stress-ng command in stress-ng Docker container in target container cgroup
+//
+//nolint:funlen
 func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, image string, pull bool) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
 		"target":    targetID,
