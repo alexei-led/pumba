@@ -37,6 +37,8 @@ type duplicateCommand struct {
 }
 
 // NewDuplicateCommand create new netem duplicate command
+//
+//nolint:dupl
 func NewDuplicateCommand(client container.Client,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
@@ -97,15 +99,17 @@ func (n *duplicateCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem duplicate command
-	netemCmd := []string{duplicateCmd, strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
+	netemCmd := []string{duplicateCmd, strconv.FormatFloat(n.percent, 'f', 2, 64)}
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
 	}
 
 	// run netem duplicate command for selected containers
 	var wg sync.WaitGroup
 	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
+
+	//nolint:dupl
 	for i, c := range containers {
 		log.WithFields(log.Fields{
 			"container": c,

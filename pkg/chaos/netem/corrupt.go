@@ -33,6 +33,8 @@ type corruptCommand struct {
 }
 
 // NewCorruptCommand create new netem corrupt command
+//
+//nolint:dupl
 func NewCorruptCommand(client container.Client,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
@@ -93,15 +95,17 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare netem corrupt command
-	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)} //nolint:gomnd
+	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)}
 	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64)) //nolint:gomnd
+		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
 	}
 
 	// run netem corrupt command for selected containers
 	var wg sync.WaitGroup
 	errs := make([]error, len(containers))
 	cancels := make([]context.CancelFunc, len(containers))
+
+	//nolint:dupl
 	for i, c := range containers {
 		log.WithFields(log.Fields{
 			"container": c,

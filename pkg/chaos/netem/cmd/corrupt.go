@@ -39,6 +39,8 @@ func NewCorruptCLICommand(ctx context.Context) *cli.Command {
 }
 
 // NETEM Corrupt Command - network emulation corrupt
+//
+//nolint:dupl
 func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)

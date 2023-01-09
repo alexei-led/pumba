@@ -42,7 +42,7 @@ func verifyPort(port string) error {
 	if port == "" {
 		return nil
 	}
-	portNum, err := strconv.ParseInt(port, 10, 64) //nolint:gomnd
+	portNum, err := strconv.ParseInt(port, 10, 64)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse port as number")
 	}
