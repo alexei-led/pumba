@@ -168,8 +168,8 @@ endif
 		-draft \
 		-debug \
 		-recreate \
-		$(RELEASE_TAG) \
-		$(BIN)/$(dir $(MODULE))
+		"$(RELEASE_TAG)" \
+		"$(BIN)/$(dir $(MODULE))"
 
 # Misc
 
