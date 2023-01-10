@@ -4,6 +4,7 @@
 .idea
 .vscode
 .github
+.test
 
 .gitignore
 .env
