@@ -1,29 +1,31 @@
 MODULE   = $(shell $(GO) list -m)
-DATE    ?= $(shell date +%FT%T%z)
+DATE    ?= $(shell date "+%Y-%m-%d %H:%M %Z")
 VERSION ?= $(shell git describe --tags --always --dirty 2> /dev/null || \
 			cat $(CURDIR)/VERSION 2> /dev/null || echo v0)
-COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
-BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null)
+BRANCH  ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 PKGS     = $(or $(PKG),$(shell $(GO) list ./...))
 TESTPKGS = $(shell $(GO) list -f \
 			'{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' \
 			$(PKGS))
-LDFLAGS_VERSION = -X main.Version=$(VERSION) -X main.GitCommit=$(COMMIT) -X main.GitBranch=$(BRANCH) -X main.BuildTime=$(DATE) 
+LINT_CONFIG = $(CURDIR)/.golangci.yaml
+LDFLAGS_VERSION = -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.branch=$(BRANCH) -X \"main.buildTime=$(DATE)\"
 BIN      = $(CURDIR)/.bin
-GOLANGCI_LINT_CONFIG = $(CURDIR)/.golangci.yml
+TARGETOS   ?= $(GOOS)
+TARGETARCH ?= $(GOARCH)
 
 PLATFORMS     = darwin linux windows
 ARCHITECTURES = amd64 arm64
 
-TARGETOS   ?= linux
-TARGETARCH ?= amd64
-
-
-GO            = go
-DOCKER        = docker
-GOMOCK        = mockery
-BATS          = bats
-GOLANGCI_LINT = golangci-lint
+GO       = go
+DOCKER   = docker
+MOCK     = mockery
+BATS     = bats
+LINT     = golangci-lint
+GOCOV    = gocov
+GOCOVXML = gocov-xml
+GOUNIT   = go-junit-report
+GOMOCK   = mockery
 
 TIMEOUT = 15
 V = 0
@@ -39,7 +41,6 @@ all: setup-tools fmt lint test build
 .PHONY: dependency
 dependency: ; $(info $(M) downloading dependencies...) @ ## Build program binary
 	$Q $(GO) mod download
-
 
 .PHONY: build
 build: dependency | ; $(info $(M) building $(TARGETOS)/$(TARGETARCH) binary...) @ ## Build program binary
@@ -61,27 +62,18 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 
 # Tools
 
-setup-tools: setup-golangci-lint setup-gocov setup-gocov-xml setup-go2xunit
+setup-tools: setup-lint setup-gocov setup-gocov-xml setup-go-junit-report
 
-setup-golangci-lint:
+setup-lint:
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
 setup-gocov:
-	$(GO) install github.com/axw/gocov/gocov@latest
+	$(GO) install github.com/axw/gocov/gocov@v1.1.0
 setup-gocov-xml:
 	$(GO) install github.com/AlekSi/gocov-xml@latest
-setup-go2xunit:
-	$(GO) install github.com/tebeka/go2xunit@latest
+setup-go-junit-report:
+	$(GO) install github.com/jstemmer/go-junit-report/v2@latest
 setup-mockery:
-	$(GO) get github.com/vektra/mockery/v2/
-setup-ghr:
-	$(GO) install github.com/tcnksm/ghr@latest
-
-GOLINT=golint
-GOCOV=gocov
-GOCOVXML=gocov-xml
-GO2XUNIT=go2xunit
-GOMOCK=mockery
-GHR=ghr
+	$(GO) get github.com/vektra/mockery/v2@latest
 
 # Tests
 
@@ -99,26 +91,27 @@ $(TEST_TARGETS): test
 check test tests: ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
 	$Q env CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
-test-xml: setup-go2xunit; $(info $(M) running xUnit tests...) @ ## Run tests with xUnit output
-	$Q mkdir -p test
-	$Q 2>&1 $(GO) test -timeout $(TIMEOUT)s -v $(TESTPKGS) | tee test/tests.output
-	$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
+test-xml: TEST_DIR := $(CURDIR)/.test
+test-xml: setup-go-junit-report; $(info $(M) running unit tests...) @ ## Run tests with xUnit output
+	$Q mkdir -p $(TEST_DIR)
+	$Q 2>&1 $(GO) test -timeout $(TIMEOUT)s -v $(TESTPKGS) > $(TEST_DIR)/tests.output
+	$(GOUNIT) -set-exit-code -in $(TEST_DIR)/tests.output -out $(TEST_DIR)/tests.xml
 
 COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
 .PHONY: test-coverage
-test-coverage: COVERAGE_DIR := $(CURDIR)/.cover/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+test-coverage: COVERAGE_DIR := $(CURDIR)/.cover
 test-coverage: setup-gocov setup-gocov-xml; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
-	$Q $(GO) test \
+	$Q $(GO) test -v -cover \
 		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
 					grep '^$(MODULE)/' | grep -v mocks | \
 					tr '\n' ',' | sed 's/,$$//') \
 		-covermode=$(COVERAGE_MODE) \
-		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS)
-	$Q $(GO) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
+		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS) -json > $(COVERAGE_DIR)/test-report.json
+	$Q $(GO) tool cover -func="$(COVERAGE_PROFILE)"
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
 # urun integration tests
@@ -128,8 +121,8 @@ integration-tests: build ; $(info $(M) running integration tests with bats...) @
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(BATS) tests
 
 .PHONY: lint
-lint: setup-golangci-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
-	$Q $(GOLANGCI_LINT) run -v -c $(GOLANGCI_LINT_CONFIG) ./...
+lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
+	$Q $(LINT) run -v -c $(LINT_CONFIG) ./...
 
 .PHONY: fmt
 fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
@@ -143,33 +136,6 @@ mocks: setup-mockery; $(info $(M) generating mocks...) @ ## Run mockery
 	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name ContainerAPIClient
 	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name ImageAPIClient
 	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name APIClient
-
-# generate CHANGELOG.md changelog file
-.PHONY: changelog
-changelog: $(DOCKER) ; $(info $(M) generating changelog...)	@ ## Generating CAHNGELOG.md
-ifndef GITHUB_TOKEN
-	$(error GITHUB_TOKEN is undefined)
-endif
-	$Q $(DOCKER) run -it --rm -v $(CURDIR):/usr/local/src/pumba -w /usr/local/src/pumba ferrarimarco/github-changelog-generator --user alexei-led --project pumba --token $(GITHUB_TOKEN)
-
-# generate github release
-.PHONY: github-release
-github-release: setup-ghr | release ;$(info $(M) generating github release...) @ ## run ghr tool
-ifndef GITHUB_TOKEN
-	$(error GITHUB_TOKEN is undefined)
-endif
-	$Q $(GHR) \
-		-t $(GITHUB_TOKEN) \
-		-u alexei-led \
-		-r pumba \
-		-n "v$(RELEASE_TAG)" \
-		-b "$(TAG_MESSAGE)" \
-		-prerelease \
-		-draft \
-		-debug \
-		-recreate \
-		"$(RELEASE_TAG)" \
-		"$(BIN)/$(dir $(MODULE))"
 
 # Misc
 
@@ -190,6 +156,7 @@ version:
 .PHONY: debug
 debug:
 	@echo $(LDFLAGS_VERSION)
+	@echo $(BIN)/$(basename $(MODULE))
 
 # helper function: find module path
 define source_of

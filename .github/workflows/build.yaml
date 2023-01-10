@@ -1,117 +1,55 @@
-name: "Continuous Integration"
+name: "Build and Test"
 
 on:
-  push:
-    branches:
-      - '*'
-    tags:
-      - '*'
+  pull_request:
     paths-ignore:
       - 'docs/**'
       - 'deploy/**'
+      - 'examples/**'
       - '*.md'
-  pull_request:
-    branches:
-      - '*'
 
 jobs:
 
-  buildx:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: checkout
+        uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-
-      - name: Set up Docker buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        id: cache
+      - name: setup Go
+        uses: actions/setup-go@v3
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+          go-version: 1.19
 
-      - name: Build, lint and test
-        env:
-          DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
-        uses: docker/build-push-action@v2
+      - name: lint and test
+        shell: sh
+        run: |
+          make lint
+          make test
+          make test-coverage
+
+      - name: publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          file: docker/Dockerfile
-          context: .
-          build-args: |
-            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
-            VCS_COMMIT_ID=${{ github.sha }}
-            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
-            VCS_SLUG=${{ github.repository }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-          load: true
-          tags: pumba/build-and-test
-          target: build-and-test
+          xunit_files: ".test/*.xml"
 
-      - name: Build integration tests image
-        env:
-          DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
-        uses: docker/build-push-action@v2
+      - name: upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: .cover/coverage.xml
+
+      - name: build image
+        uses: docker/build-push-action@v3
         with:
           file: docker/Dockerfile
           context: .
-          build-args: |
-            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
-            VCS_COMMIT_ID=${{ github.sha }}
-            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
-            VCS_SLUG=${{ github.repository }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-          load: true
-          tags: pumba/integration-tests
+          tags: test/pumba
           target: integration-tests
 
-      - name: Run integration tests
+      - name: integration tests
         run: |
-          docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba/integration-tests
-
-      - name: Upload coverage report
-        run: |
-          CI_BUILD_URL=https://github.com/${{ github.repository }}/commit/${{ github.sha }}/checks
-          docker run -i --rm --name upload-coverage -e CI_BUILD_URL=${CI_BUILD_URL} -e CI_BUILD_ID=${RUNNER_TRACKING_ID} pumba/build-and-test
-
-      - name: Decide on tag
-        id: tagger
-        run: |
-          tag=$(echo "${{ github.ref }}" | sed -e 's/^refs\/heads\///g' -e 's/^refs\/tags\///g' -e 's/^refs\/pull\///g' -e 's/\/merge$//g' | sed -e 's/master/latest/g')
-          echo "::set-output name=tag::${tag}"
-          echo "::debug::docker image tag ${tag}"
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_ACCOUNT }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-
-      - name: Build and push Docker image
-        if: github.event_name != 'pull_request'
-        env:
-          DOCKER_ORG: ${{ secrets.DOCKER_ORG }}
-        uses: docker/build-push-action@v2
-        with:
-          file: docker/Dockerfile
-          context: .
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
-            VCS_COMMIT_ID=${{ github.sha }}
-            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
-            VCS_SLUG=${{ github.repository }}
-            SKIP_TESTS=true
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-          push: true
-          tags: ${{ secrets.DOCKER_ORG }}/pumba:${{ steps.tagger.outputs.tag }}
+          docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock test/pumba

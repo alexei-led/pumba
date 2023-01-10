@@ -1,4 +1,4 @@
-name: "Release to GitHub"
+name: "Release"
 
 on:
   workflow_dispatch:
@@ -10,40 +10,70 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'deploy/**'
+      - 'examples/**'
+      - 'test/**'
       - '*.md'
+      - '*.yaml'
 
 jobs:
-
-  release:
+  if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+  build:
+    runs-on: ubuntu-latest
+    container: golang:1.19-alpine
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: build
+        shell: sh
+        env:
+          GOPROXY: https://proxy.golang.org
+          CGO_ENABLED: 0
+        run: |
+          apk --update add ca-certificates tzdata make git bash
+          make release
+  create-release:
+    name: release
+    needs: [ build ]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Docker buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Decide on tag
-        id: tagger
-        run: |
-          tag=$(echo "${{ github.ref }}" | sed -e 's/^refs\/heads\///g' -e 's/^refs\/tags\///g' -e 's/^refs\/pull\///g' -e 's/\/merge$//g' | sed -e 's/master/latest/g')
-          echo "::set-output name=tag::${tag}"
-          echo "::debug::docker image tag ${tag}"
-
-      - name: Release to GitHub
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: docker/build-push-action@v2
+      - name: tag
+        id: get_tag
+        run: echo ::set-output name=git_tag::${GITHUB_REF/refs\/tags\//}
+      - name: changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v3.6.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: release
+        uses: softprops/action-gh-release@v1
         with:
-          file: docker/Dockerfile
-          context: .
-          build-args: |
-            RELEASE=true
-            RELEASE_TAG=${{ steps.tagger.outputs.tag }}
-            RELEASE_TOKEN=${{ secrets.RELEASE_TOKEN }}
-            TAG_MESSAGE="Draft Release"
-            GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }}
-            VCS_COMMIT_ID=${{ github.sha }}
-            VCS_BRANCH_NAME=${{ steps.tagger.outputs.tag }}
-            VCS_SLUG=${{ github.repository }}
-          target: github-release
+          name: ${{ steps.get_tag.outputs.git_tag }}
+          tag_name: ${{ steps.get_tag.outputs.git_tag }}
+          body: ${{steps.build_changelog.outputs.changelog}}
+          files: |
+            .bin/*
+  push:
+    name:
+      steps:
+        - name: checkout
+          uses: actions/checkout@v3
+        - name: get tag
+          id: get_tag
+          run: echo ::set-output name=git_tag::${GITHUB_REF/refs\/tags\//}
+        - name: setup QEMU
+          uses: docker/setup-qemu-action@v2
+        - name: setup buildx
+          uses: docker/setup-buildx-action@v2
+        - name: login to registry
+          uses: docker/login-action@v2
+          with:
+            username: ${{ secrets.DOCKER_ACCOUNT }}
+            password: ${{ secrets.DOCKER_TOKEN }}
+        - name: build and push
+          uses: docker/build-push-action@v3
+          with:
+            file: docker/Dockerfile
+            context: .
+            platforms: linux/amd64,linux/arm64
+            push: true
+            tags: ${{ secrets.DOCKER_ORG }}/pumba:${{ steps.get_tag.outputs.git_tag }}

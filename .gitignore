@@ -6,7 +6,7 @@
 .bin
 .env
 .in
-/.gtm/
+.test
 
 **/.DS_Store
 **/debug
