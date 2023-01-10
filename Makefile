@@ -91,26 +91,22 @@ $(TEST_TARGETS): test
 check test tests: ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
 	$Q env CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
-test-xml: TEST_DIR := $(CURDIR)/.test
-test-xml: setup-go-junit-report; $(info $(M) running unit tests...) @ ## Run tests with xUnit output
-	$Q mkdir -p $(TEST_DIR)
-	$Q 2>&1 $(GO) test -timeout $(TIMEOUT)s -v $(TESTPKGS) > $(TEST_DIR)/tests.output
-	$(GOUNIT) -set-exit-code -in $(TEST_DIR)/tests.output -out $(TEST_DIR)/tests.xml
-
 COVERAGE_MODE    = atomic
+COVERAGE_DIR 	 = $(CURDIR)/.cover
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
+
 .PHONY: test-coverage
-test-coverage: COVERAGE_DIR := $(CURDIR)/.cover
-test-coverage: setup-gocov setup-gocov-xml; $(info $(M) running coverage tests...) @ ## Run coverage tests
+test-coverage: setup-go-junit-report setup-gocov setup-gocov-xml; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
 	$Q $(GO) test -v -cover \
 		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
 					grep '^$(MODULE)/' | grep -v mocks | \
 					tr '\n' ',' | sed 's/,$$//') \
 		-covermode=$(COVERAGE_MODE) \
-		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS) -json > $(COVERAGE_DIR)/test-report.json
+		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS) > $(COVERAGE_DIR)/tests.output
+	$(GOUNIT) -set-exit-code -in $(COVERAGE_DIR)/tests.output -out $(COVERAGE_DIR)/tests.xml
 	$Q $(GO) tool cover -func="$(COVERAGE_PROFILE)"
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 

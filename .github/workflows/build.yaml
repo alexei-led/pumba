@@ -10,7 +10,8 @@ on:
 
 jobs:
 
-  build:
+  test:
+    name: "lint and test"
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -29,19 +30,23 @@ jobs:
         shell: sh
         run: |
           make lint
-          make test
           make test-coverage
 
       - name: publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          xunit_files: ".test/*.xml"
+          xunit_files: ".cover/tests.xml"
 
       - name: upload coverage
         uses: codecov/codecov-action@v3
         with:
-          files: .cover/coverage.xml
+          files: ".cover/coverage.xml"
 
+  integration:
+    name: "integration tests"
+    runs-on: ubuntu-latest
+
+    steps:
       - name: build image
         uses: docker/build-push-action@v3
         with:

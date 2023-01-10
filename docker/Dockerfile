@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build make dependency
 COPY mocks ./mocks
 COPY cmd ./cmd
 COPY pkg ./pkg
-COPY .golangci.yml .
+COPY .golangci.yaml .
 COPY VERSION .
 
 # run lint, test race and calculate coverage
