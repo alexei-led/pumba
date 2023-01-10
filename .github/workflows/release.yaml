@@ -47,6 +47,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        
       - name: tag
         id: get_tag
         run: echo ::set-output name=git_tag::${GITHUB_REF/refs\/tags\//}
