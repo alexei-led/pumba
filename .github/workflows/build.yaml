@@ -46,11 +46,6 @@ jobs:
   integration:
     name: "integration tests"
     runs-on: ubuntu-latest
-    services:
-      registry:
-        image: registry:2
-        ports:
-          - 5000:5000
 
     steps:
       - name: checkout
@@ -67,10 +62,11 @@ jobs:
           build-args: SKIP_TESTS=true
           file: docker/Dockerfile
           context: .
-          tags: localhost:5000/pumba/test:latest
+          tags: pumba:test
           target: integration-tests
+          outputs: type=docker,dest=/tmp/image.tar
 
       - name: integration tests
         run: |
-          docker image ls
-          docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock localhost:5000/pumba/test:latest
+          docker load -i /tmp/image.tar 
+          docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba:test
