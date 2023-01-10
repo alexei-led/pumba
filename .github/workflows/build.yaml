@@ -34,8 +34,9 @@ jobs:
 
       - name: publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
         with:
-          xunit_files: ".cover/tests.xml"
+          junit_files: ".cover/tests.xml"
 
       - name: upload coverage
         uses: codecov/codecov-action@v3
@@ -47,6 +48,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: setup buildx
+        uses: docker/setup-buildx-action@v2
+
       - name: build image
         uses: docker/build-push-action@v3
         with:
