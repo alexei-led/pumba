@@ -23,7 +23,6 @@ WORKDIR /go/src/pumba
 
 # copy Makefile
 COPY Makefile .
-RUN --mount=type=cache,target=/root/.cache/go-build make setup-tools
 
 # copy go.mod/sum
 COPY go.* ./
