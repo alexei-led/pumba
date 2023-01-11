@@ -1,39 +1,41 @@
-MODULE   = $(shell $(GO) list -m)
-DATE    ?= $(shell date "+%Y-%m-%d %H:%M %Z")
-VERSION ?= $(shell git describe --tags --always --dirty 2> /dev/null || \
-			cat $(CURDIR)/VERSION 2> /dev/null || echo v0)
-COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null)
-BRANCH  ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-PKGS     = $(or $(PKG),$(shell $(GO) list ./...))
-TESTPKGS = $(shell $(GO) list -f \
+GO       := go
+DOCKER   := docker
+MOCK     := mockery
+BATS     := bats
+LINT     := golangci-lint
+GOCOV    := gocov
+GOCOVXML := gocov-xml
+GOUNIT   := go-junit-report
+GOMOCK   := mockery
+TIMEOUT  := 15
+
+MODULE   := $(shell $(GO) list -m)
+DATE     ?= $(shell date "+%Y-%m-%d %H:%M %Z")
+VERSION  ?= $(shell git describe --tags --always --dirty 2> /dev/null || cat $(CURDIR)/VERSION 2> /dev/null || echo v0)
+COMMIT   ?= $(or $(shell git rev-parse --short HEAD 2>/dev/null), $(or $(subst 1,7,$(GITHUB_SHA)), unknown))
+BRANCH   ?= $(or $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null), $(or $(GITHUB_REF_NAME), master))
+PKGS     := $(or $(shell $(GO) list ./...), $(PKG))
+TESTPKGS := $(shell $(GO) list -f \
 			'{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' \
 			$(PKGS))
-LINT_CONFIG = $(CURDIR)/.golangci.yaml
-LDFLAGS_VERSION = -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.branch=$(BRANCH) -X \"main.buildTime=$(DATE)\"
-BIN      = $(CURDIR)/.bin
-TARGETOS   ?= $(GOOS)
-TARGETARCH ?= $(GOARCH)
+LINT_CONFIG := $(CURDIR)/.golangci.yaml
+LDFLAGS_VERSION := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.branch=$(BRANCH) -X \"main.buildTime=$(DATE)\"
+BIN        := $(CURDIR)/.bin
+TARGETOS   := $(or $(TARGETOS), linux)
+TARGETARCH := $(or $(TARGETARCH), amd64)
 
+# platforms and architectures for release
 PLATFORMS     = darwin linux windows
 ARCHITECTURES = amd64 arm64
 
-GO       = go
-DOCKER   = docker
-MOCK     = mockery
-BATS     = bats
-LINT     = golangci-lint
-GOCOV    = gocov
-GOCOVXML = gocov-xml
-GOUNIT   = go-junit-report
-GOMOCK   = mockery
-
-TIMEOUT = 15
 V = 0
 Q = $(if $(filter 1,$V),,@)
 M = $(shell printf "\033[34;1m▶\033[0m")
 
 export CGO_ENABLED=0
 export GOPROXY=https://proxy.golang.org
+export GOOS=$(TARGETOS)
+export GOARCH=$(TARGETARCH)
 
 .PHONY: all
 all: setup-tools fmt lint test build
@@ -43,8 +45,8 @@ dependency: ; $(info $(M) downloading dependencies...) @ ## Build program binary
 	$Q $(GO) mod download
 
 .PHONY: build
-build: dependency | ; $(info $(M) building $(TARGETOS)/$(TARGETARCH) binary...) @ ## Build program binary
-	$Q env GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) $(GO) build \
+build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Build program binary
+	$Q $(GO) build \
 		-tags release \
 		-ldflags "$(LDFLAGS_VERSION)" \
 		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
@@ -153,6 +155,7 @@ version:
 debug:
 	@echo $(LDFLAGS_VERSION)
 	@echo $(BIN)/$(basename $(MODULE))
+	@echo $(TARGETOS)/$(TARGETARCH)
 
 # helper function: find module path
 define source_of

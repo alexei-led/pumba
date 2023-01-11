@@ -1,7 +1,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM golang:1.19 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.19 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,19 +37,29 @@ COPY VERSION .
 
 # run lint, test race and calculate coverage
 ARG SKIP_TESTS
-RUN --mount=type=cache,target=/root/.cache/go-build if [ -z "$SKIP_TESTS" -o "$SKIP_TESTS" = false ]; then make lint test-race test-coverage; fi
+RUN --mount=type=cache,target=/root/.cache/go-build if [ -z "$SKIP_TESTS" ] || [ "$SKIP_TESTS" = false ]; then make lint test-coverage; fi
+# run test race only on amd64
+RUN if ([ -z "$SKIP_TESTS" ] || [ "$SKIP_TESTS" = false ]) && [ "$TARGETARCH" = "amd64" ]; then make test-race; fi
 
 # build pumba binary for TARGETOS/TARGETARCH (default: linux/amd64)
 # passed by buildkit
 ARG TARGETOS
 ARG TARGETARCH
-RUN --mount=type=cache,target=/root/.cache/go-build TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH} make build
+# commit short hash is expected, can be discovered only if .git folder is present
+ARG COMMIT
+# branch name is expected, can be discovered only if .git folder is present
+ARG BRANCH
+# build date is expected, will be disovered by Makefile
+ARG DATE
+# version is expected, will be discovered from VERSION file
+ARG VERSION
+RUN --mount=type=cache,target=/root/.cache/go-build make build TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}
 
 
 #
 # ------ Pumba Integration Tests ------
 #
-FROM bats/bats:1.8.2 as integration-tests
+FROM --platform=$TARGETPLATFORM bats/bats:1.8.2 as integration-tests
 
 # install required packages
 RUN apk add --no-cache docker iproute2
