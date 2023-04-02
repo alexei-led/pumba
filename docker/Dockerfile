@@ -35,16 +35,17 @@ COPY pkg ./pkg
 COPY .golangci.yaml .
 COPY VERSION .
 
-# run lint, test race and calculate coverage
-ARG SKIP_TESTS
-RUN --mount=type=cache,target=/root/.cache/go-build if [ -z "$SKIP_TESTS" ] || [ "$SKIP_TESTS" = false ]; then make lint test-coverage; fi
-# run test race only on amd64
-RUN if ([ -z "$SKIP_TESTS" ] || [ "$SKIP_TESTS" = false ]) && [ "$TARGETARCH" = "amd64" ]; then make test-race; fi
-
 # build pumba binary for TARGETOS/TARGETARCH (default: linux/amd64)
 # passed by buildkit
 ARG TARGETOS
 ARG TARGETARCH
+
+# run lint, test race and calculate coverage
+ARG SKIP_TESTS
+RUN --mount=type=cache,target=/root/.cache/go-build if [ -z "$SKIP_TESTS" ] || [ "$SKIP_TESTS" = false ]; then make lint test-coverage TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}; fi
+# run test race only on amd64
+RUN if ([ -z "$SKIP_TESTS" ] || [ "$SKIP_TESTS" = false ]) && [ "$TARGETARCH" = "amd64" ]; then make test-race TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}; fi
+
 # commit short hash is expected, can be discovered only if .git folder is present
 ARG COMMIT
 # branch name is expected, can be discovered only if .git folder is present
