@@ -570,7 +570,7 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 	engineClient.AssertExpectations(t)
 }
 
-func Test_tcContainerCommand(t *testing.T) {
+func Test_tcContainerCommands(t *testing.T) {
 	c := &Container{
 		ContainerInfo: DetailsResponse(AsMap("ID", "targetID")),
 	}
@@ -578,13 +578,14 @@ func Test_tcContainerCommand(t *testing.T) {
 	config := container.Config{
 		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
 		Entrypoint: []string{"tc"},
-		Cmd:        []string{"test", "me"},
-		Image:      "pumba/tcimage",
+		// Used as long-running entry-point to keep container alive between commands
+		Cmd:   []string{"monitor"},
+		Image: "pumba/tcimage",
 	}
 	// host config
 	hconfig := container.HostConfig{
-		// auto remove container on tc command exit
-		AutoRemove: true,
+		// Don't auto-remove, since we may want to run multiple commands
+		AutoRemove: false,
 		// NET_ADMIN is required for "tc netem"
 		CapAdd: []string{"NET_ADMIN"},
 		// use target container network stack
@@ -621,8 +622,21 @@ func Test_tcContainerCommand(t *testing.T) {
 	// start container
 	engineClient.On("ContainerStart", ctx, "tcID", types.ContainerStartOptions{}).Return(nil)
 
+	// create exec for first command
+	engineClient.On("ContainerExecCreate", ctx, "tcID", types.ExecConfig{Cmd: []string{"tc", "test", "one"}}).Return(types.IDResponse{ID: "execID1"}, nil)
+	// start exec for first command
+	engineClient.On("ContainerExecStart", ctx, "execID1", types.ExecStartCheck{}).Return(nil)
+
+	// create exec for second command
+	engineClient.On("ContainerExecCreate", ctx, "tcID", types.ExecConfig{Cmd: []string{"tc", "test", "two"}}).Return(types.IDResponse{ID: "execID2"}, nil)
+	// start exec for second command
+	engineClient.On("ContainerExecStart", ctx, "execID2", types.ExecStartCheck{}).Return(nil)
+
+	// remove container
+	engineClient.On("ContainerRemove", ctx, "tcID", types.ContainerRemoveOptions{Force: true}).Return(nil)
+
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
-	err := client.tcContainerCommand(context.TODO(), c, []string{"test", "me"}, "pumba/tcimage", true)
+	err := client.tcContainerCommands(context.TODO(), c, [][]string{{"test", "one"}, {"test", "two"}}, "pumba/tcimage", true)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
