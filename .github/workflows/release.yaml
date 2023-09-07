@@ -99,6 +99,7 @@ jobs:
         with:
           file: docker/Dockerfile
           context: .
+          # skip tests since emulator fails on multi-arch build due to buildx open issue https://github.com/docker/buildx/issues/1986
           build-args: |
             BRANCH=${{ github.ref-name }}
             COMMIT=${{ steps.short-sha.outputs.sha }}
