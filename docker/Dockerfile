@@ -74,7 +74,7 @@ COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/l
 
 # mount docker.sock and run pumba tests
 ENTRYPOINT [ "bash", "-c" ]
-CMD [ "[ -e /var/run/docker.sock ] && bats --print-output-on-failure /tests" ]
+CMD [ "[ -e /var/run/docker.sock ] && bats --print-output-on-failure /code/tests" ]
 
 #
 # ------ Pumba release Docker image ------
