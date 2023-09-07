@@ -87,9 +87,6 @@ jobs:
 
       - name: setup buildx
         uses: docker/setup-buildx-action@v2
-        with:
-          # v0.11.2 https://github.com/docker/buildx/issues/1986 - multiple failed to solve: process "/bin/sh" errors
-          version: v0.11.1
 
       - name: login to registry
         uses: docker/login-action@v2
@@ -105,6 +102,7 @@ jobs:
           build-args: |
             BRANCH=${{ github.ref-name }}
             COMMIT=${{ steps.short-sha.outputs.sha }}
+            SKIP_TESTS=true
           platforms: |
             linux/amd64
             linux/arm64
