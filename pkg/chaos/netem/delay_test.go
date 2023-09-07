@@ -191,7 +191,7 @@ func TestDelayCommand_Run(t *testing.T) {
 				distribution: tt.fields.distribution,
 			}
 			// mock calls
-			call := mockClient.On("ListContainers", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
+			call := mockClient.On("ListContainers", context.TODO(), mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
 			if tt.errs.listError {
 				call.Return(tt.expected, errors.New("ERROR"))
 				goto Invoke
@@ -203,7 +203,7 @@ func TestDelayCommand_Run(t *testing.T) {
 			}
 			if tt.args.random {
 				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
-				mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
+				mockClient.On("StopNetemContainer", context.Background(), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
@@ -214,7 +214,7 @@ func TestDelayCommand_Run(t *testing.T) {
 						} else {
 							call.Return(nil)
 						}
-						mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
+						mockClient.On("StopNetemContainer", context.Background(), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
 					}
 				}
 			}

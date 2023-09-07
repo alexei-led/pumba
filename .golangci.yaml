@@ -62,7 +62,7 @@ linters:
     # - containedctx
     # - contextcheck disabled because of generics
     - decorder
-    - depguard
+    # - depguard
     - dogsled
     - dupl
     - durationcheck

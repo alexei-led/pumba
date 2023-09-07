@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/stretchr/testify/mock"
 )
 
 func Test_runNetem(t *testing.T) {
@@ -128,7 +127,7 @@ func Test_runNetem(t *testing.T) {
 				call.Return(nil)
 			}
 			// set StopNetemContainer mock call
-			call = mockClient.On("StopNetemContainer", mock.AnythingOfType("*context.emptyCtx"), tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun)
+			call = mockClient.On("StopNetemContainer", context.Background(), tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun)
 			if tt.errs.stopErr {
 				call.Return(errors.New("test error"))
 			} else {
