@@ -161,7 +161,9 @@ func (client dockerClient) RestartContainer(ctx context.Context, c *Container, t
 		"dryrun":  dryrun,
 	}).Info("restart container")
 	if !dryrun {
-		if err := client.containerAPI.ContainerRestart(ctx, c.ID(), &timeout); err != nil {
+		// convert timeout to seconds
+		timeoutSec := int(timeout.Seconds())
+		if err := client.containerAPI.ContainerRestart(ctx, c.ID(), ctypes.StopOptions{Timeout: &timeoutSec}); err != nil {
 			return errors.Wrap(err, "failed to restart container")
 		}
 	}
@@ -220,7 +222,9 @@ func (client dockerClient) StopContainerWithID(ctx context.Context, containerID 
 		"dryrun":  dryrun,
 	}).Info("stopping container")
 	if !dryrun {
-		err := client.containerAPI.ContainerStop(ctx, containerID, &timeout)
+		// convert timeout to seconds
+		timeoutSec := int(timeout.Seconds())
+		err := client.containerAPI.ContainerStop(ctx, containerID, ctypes.StopOptions{Timeout: &timeoutSec})
 		if err != nil {
 			return errors.Wrap(err, "failed to stop container")
 		}

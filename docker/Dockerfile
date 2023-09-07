@@ -1,7 +1,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM --platform=$BUILDPLATFORM golang:1.19 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.21 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -60,7 +60,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build make build TARGETOS=${TARGET
 #
 # ------ Pumba Integration Tests ------
 #
-FROM --platform=$TARGETPLATFORM bats/bats:1.8.2 as integration-tests
+FROM --platform=$TARGETPLATFORM bats/bats:v1.10.0 as integration-tests
 
 # install required packages
 RUN apk add --no-cache docker iproute2
@@ -74,7 +74,7 @@ COPY --from=build-and-test /go/src/pumba/.bin/github.com/alexei-led/pumba /usr/l
 
 # mount docker.sock and run pumba tests
 ENTRYPOINT [ "bash", "-c" ]
-CMD [ "[ -e /var/run/docker.sock ] && bats --print-output-on-failure /tests" ]
+CMD [ "[ -e /var/run/docker.sock ] && bats --print-output-on-failure /code/tests" ]
 
 #
 # ------ Pumba release Docker image ------

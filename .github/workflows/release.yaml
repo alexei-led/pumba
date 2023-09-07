@@ -19,7 +19,7 @@ jobs:
   build:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    container: golang:1.19-alpine
+    container: golang:1.21-alpine
 
     steps:
       - name: checkout
