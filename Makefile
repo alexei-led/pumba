@@ -52,7 +52,7 @@ build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Bui
 		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
 
 .PHONY: release
-release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for paltforms and os
+release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for platforms and os
 	$(foreach GOOS, $(PLATFORMS),\
 		$(foreach GOARCH, $(ARCHITECTURES), \
 			$(shell \
