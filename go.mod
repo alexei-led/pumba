@@ -1,7 +1,7 @@
 module github.com/alexei-led/pumba
 
 require (
-	github.com/docker/docker v23.0.3+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/johntdyer/slackrus v0.0.0-20210521205746-42486fb4c48c
 	github.com/opencontainers/image-spec v1.1.0-rc4
