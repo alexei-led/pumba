@@ -39,12 +39,16 @@ func newHTTPClient(address *url.URL, tlsConfig *tls.Config, timeout time.Duratio
 	switch address.Scheme {
 	default:
 		httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.DialTimeout(network, addr, timeout) //nolint:wrapcheck
+			_ = ctx
+			return net.DialTimeout(network, addr, timeout)
 		}
 	case "unix":
 		socketPath := address.Path
 		unixDial := func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.DialTimeout("unix", socketPath, timeout) //nolint:wrapcheck
+			_ = ctx
+			_ = network
+			_ = addr
+			return net.DialTimeout("unix", socketPath, timeout)
 		}
 		httpTransport.DialContext = unixDial
 		// Override the main URL object so the HTTP lib won't complain
