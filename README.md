@@ -441,19 +441,21 @@ In order to build Pumba, you need to have Go 1.6+ setup on your machine.
 Here is the approximate list of commands you will need to run:
 
 ```sh
-# create required folder
-cd $GOPATH
-mkdir github.com/alexei-led && cd github.com/alexei-led
+# navigate to gopath
+cd $(go env GOPATH)
+mkdir src
+cd src && mkdir example.org
+cd example.org && mkdir alexei-led && cd alexei-led
 
 # clone pumba
 git clone git@github.com:alexei-led/pumba.git
 cd pumba
 
+# install golangci-lint
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
 # build pumba binary
 make
-
-# run tests and create HTML coverage report
-make test-coverage
 
 # create pumba binaries for multiple platforms
 make release
