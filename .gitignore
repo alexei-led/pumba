@@ -13,3 +13,6 @@
 **/debug.test
 
 vendor
+
+result
+.direnv/
