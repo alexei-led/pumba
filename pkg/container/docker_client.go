@@ -558,6 +558,7 @@ func (client dockerClient) tcCommands(ctx context.Context, c *Container, argsLis
 	return client.tcContainerCommands(ctx, c, argsList, tcimage, pull)
 }
 
+//nolint:dupl
 func (client dockerClient) tcExecCommand(ctx context.Context, execID string, args []string) error {
 	execConfig := types.ExecConfig{
 		Cmd: append([]string{"tc"}, args...),
@@ -948,6 +949,7 @@ func (client dockerClient) ipTablesCommands(ctx context.Context, c *Container, a
 	return client.ipTablesContainerCommands(ctx, c, argsList, tcimage, pull)
 }
 
+//nolint:dupl
 func (client dockerClient) ipTablesExecCommand(ctx context.Context, execID string, args []string) error {
 	execConfig := types.ExecConfig{
 		Cmd: append([]string{"iptables"}, args...),
