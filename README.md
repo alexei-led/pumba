@@ -1,15 +1,23 @@
 # Pumba: chaos testing tool for Docker [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Breaking%20Docker%20containers%20on%20purpose%20with%20Pumba&url=https://github.com/alexei-led/pumba&via=alexeiled&hashtags=docker,chaosengineering,chaos,breakthingsonpurpose,kubernetes)
 
-Pumba is a chaos testing command line tool for Docker containers. Pumba disturbs your containers by crashing containerized application, emulating network failures and stress-testing container resources (cpu, memory, fs, io, and others).
+Pumba is a chaos testing command line tool for Docker containers.
+Pumba disturbs your containers by crashing containerized application, emulating
+network failures and stress-testing container resources (cpu, memory, fs, io,
+and others).
 
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba) [![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Pumba+CI") [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba) [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba) [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) 
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Pumba+CI")
+                                                                                           [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba)
+                                                                                           [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
+                                                                                           [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba)
+                                                                                           [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) 
 
 
 ![pumba](docs/img/pumba_logo.png "They CALL me... MISTER PIG!")
 
 ## Prerequisites
 
-**Important:**: Minimal required Docker version `v18.06.0`.
+**Important:**:
+Minimal required Docker version `v18.06.0`.
 
 ## Demo
 
@@ -17,7 +25,8 @@ Pumba is a chaos testing command line tool for Docker containers. Pumba disturbs
 
 ## Usage
 
-You can download Pumba binary for your OS from [release](https://github.com/alexei-led/pumba/releases) page.
+You can download Pumba binary for your OS from
+[release](https://github.com/alexei-led/pumba/releases) page.
 
 ```text
 $ pumba help
@@ -33,30 +42,34 @@ VERSION:
    [VERSION](./blob/master/VERSION) - `git rev-parse HEAD --short` and `build time`
 
 COMMANDS:
-     kill     kill specified containers
-     netem    emulate the properties of wide area networks
-     pause    pause all processes
-     stop     stop containers
-     rm       remove containers
-     help, h  Shows a list of commands or help for one command
-
+   kill      kill specified containers
+   exec      exec specified containers
+   restart   restart specified containers
+   stop      stop containers
+   pause     pause all processes
+   rm        remove containers
+   stress    stress test a specified containers
+   netem     emulate the properties of wide area networks
+   iptables  apply IPv4 packet filter on incoming IP packets
+   help, h   Shows a list of commands or help for one command
 GLOBAL OPTIONS:
-   --host value, -H value      daemon socket to connect to (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
-   --tls                       use TLS; implied by --tlsverify
-   --tlsverify                 use TLS and verify the remote [$DOCKER_TLS_VERIFY]
-   --tlscacert value           trust certs signed only by this CA (default: "/etc/ssl/docker/ca.pem")
-   --tlscert value             client certificate for TLS authentication (default: "/etc/ssl/docker/cert.pem")
-   --tlskey value              client key for TLS authentication (default: "/etc/ssl/docker/key.pem")
+   --host value, -H value       daemon socket to connect to (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
+   --tls                        use TLS; implied by --tlsverify
+   --tlsverify                  use TLS and verify the remote [$DOCKER_TLS_VERIFY]
+   --tlscacert value            trust certs signed only by this CA (default: "/etc/ssl/docker/ca.pem")
+   --tlscert value              client certificate for TLS authentication (default: "/etc/ssl/docker/cert.pem")
+   --tlskey value               client key for TLS authentication (default: "/etc/ssl/docker/key.pem")
    --log-level value, -l value  set log level (debug, info, warning(*), error, fatal, panic) (default: "warning") [$LOG_LEVEL]
-   --json                      produce log in JSON format: Logstash and Splunk friendly
-   --slackhook value           web hook url; send Pumba log events to Slack
-   --slackchannel value        Slack channel (default #pumba) (default: "#pumba")
-   --interval value, -i value  recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h'
-   --label value               filter containers by labels, e.g '--label key=value' (multiple labels supported)
-   --random, -r                randomly select single matching container from list of target containers
-   --dry-run                   does not create chaos, only logs planned chaos commands
-   --help, -h                  show help
-   --version, -v               print the version
+   --json, -j                   produce log in JSON format: Logstash and Splunk friendly [$LOG_JSON]
+   --slackhook value            web hook url; send Pumba log events to Slack
+   --slackchannel value         Slack channel (default #pumba) (default: "#pumba")
+   --interval value, -i value   recurrent interval for chaos command; use with optional unit suffix: 'ms/s/m/h' (default: 0s)
+   --label value                filter containers by labels, e.g '--label key=value' (multiple labels supported)
+   --random, -r                 randomly select single matching container from list of target containers
+   --dry-run                    dry run does not create chaos, only logs planned chaos commands [$DRY-RUN]
+   --skip-error                 skip chaos command error and retry to execute the command on next interval tick
+   --help, -h                   show help
+   --version, -v                print the version
 ```
 
 ### Kill Container command
@@ -345,16 +358,87 @@ pumba netem --duration 5m corrupt --percent 10 mydb
 
 ##### `tc` tool
 
-Pumba uses `tc` Linux tool for network emulation. You have two options:
+Pumba uses `tc` Linux tool for network emulation.
+You have two options:
 
-1. Make sure that container, you want to disturb, has `tc` tool available and properly installed (install `iproute2` package)
-2. Use `--tc-image` option, with any `netem` command, to specify external Docker image with `tc` tool available. Pumba will create a new container from this image, adding `NET_ADMIN` capability to it and reusing target container network stack. You can try to use [gaiadocker/iproute2](https://hub.docker.com/r/gaiadocker/iproute2/) image (it's just Alpine Linux 3.3 with `iproute2` package installed)
+1. Make sure that container, you want to disturb, has `tc` tool available and
+   properly installed (install `iproute2` package)
+2. Use `--tc-image` option, with any `netem` command, to specify external Docker
+   image with `tc` tool available.
+   Pumba will create a new container from this image, adding `NET_ADMIN`
+   capability to it and reusing target container network stack.
+   You can try to use
+   [gaiadocker/iproute2](https://hub.docker.com/r/gaiadocker/iproute2/) image
+   (it's just Alpine Linux 3.3 with `iproute2` package installed)
 
-**Note:** For Alpine Linux based image, you need to install `iproute2` package and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc /lib/tc`.
+**Note:** For Alpine Linux based image, you need to install `iproute2` package
+and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc
+/lib/tc`.
+
+### IPTables command
+
+```text
+pumba iptables -h
+NAME:
+   Pumba iptables - emulate loss of incoming packets, all ports and address arguments will result in seperate rules
+USAGE:
+   Pumba iptables command [command options] containers (name, list of names, or RE2 regex if prefixed with "re2:"
+COMMANDS:
+   loss  adds iptables rules to generate packet loss on ingress traffic
+OPTIONS:
+   --duration value, -d value             network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h' (default: 0s)
+   --interface value, -i value            network interface to apply input rules on (default: "eth0")
+   --protocol value, -p value             protocol to apply input rules on (any, udp, tcp or icmp) (default: "any")
+   --source value, --src value, -s value  source IP filter; supports multiple IPs; supports CIDR notation
+   --destination value, --dest value      destination IP filter; supports multiple IPs; supports CIDR notation
+   --src-port value, --sport value        source port filter; supports multiple ports (comma-separated)
+   --dst-port value, --dport value        destination port filter; supports multiple ports (comma-separated)
+   --iptables-image value                 Docker image with iptables (iptables package); try 'rancher/mirrored-kube-vip-kube-vip-iptables:v0.8.9'",
+   --pull-image                           force pull iptables-image
+   --help, -h                             show help
+```
+
+#### IPTables loss command
+
+```text
+pumba iptables loss -h
+NAME:
+   Pumba iptables loss - adds iptables rules to generate packet loss on ingress traffic
+USAGE:
+   Pumba iptables loss [command options] containers (name, list of names, or RE2 regex if prefixed with "re2:"
+DESCRIPTION:
+   adds packet losses on ingress traffic by setting iptable statistic rules
+   see:  https://www.man7.org/linux/man-pages/man8/iptables-extensions.8.html
+OPTIONS:
+   --mode value         matching mode, supported modes are random and nth (default: "random")
+   --probability value  set the probability for a packet to me matched in random mode, between 0.0 and 1.0 (default: 0)
+   --every value        match one packet every nth packet, works only with nth mode (default: 0)
+   --packet value       set the initial counter value (0 <= packet <= n-1, default 0) for nth mode (default: 0)
+```
+
+#### `iptables` tool
+
+Pumba uses `iptables` Linux tool for filtering incoming network traffic.
+You have two options:
+
+1. Make sure that container, you want to disturb, has `iptables` tool available
+   and properly installed (install `iptables` package)
+2. Use `--iptables-image` option, to specify external Docker image with
+   `iptables` tool available.
+   Pumba will create a new container from this image, adding `NET_ADMIN`
+   capability to it and reusing target container network stack.
+   You can try to use
+   [rancher/mirrored-kube-vip-kube-vip-iptables:v0.8.9](https://hub.docker.com/layers/rancher/mirrored-kube-vip-kube-vip-iptables/v0.8.9/images/sha256-2ea34a063ef0c28c5cf0e53221e49c8469a1b00d5877ec951d50ca41c9c090d5)
+   image (it's an official Rancher package based on Alpine Linux v3 with
+   `iptables` package installed)
+
+> Note that the `biarca/iptables` container is an `amd64` image. If you want it to alter tables
+  on image for another platform you need to use a container that is build for that platform.
 
 ### Stress testing Docker containers
 
-Pumba can inject [stress-ng](https://kernel.ubuntu.com/~cking/stress-ng/) testing tool into a target container(s) `cgroup` and control stress test run.
+Pumba can inject [stress-ng](https://kernel.ubuntu.com/~cking/stress-ng/)
+testing tool into a target container(s) `cgroup` and control stress test run.
 
 ```text
 NAME:
@@ -375,19 +459,24 @@ OPTIONS:
 
 #### stress-ng image requirements
 
-Pumba uses [alexeiled/stress-ng:latest-ubuntu](https://hub.docker.com/r/alexeiled/stress-ng/) `stress-ng` Ubuntu-based Docker image with statically linked `stress-ng` tool.
+Pumba uses
+[alexeiled/stress-ng:latest-ubuntu](https://hub.docker.com/r/alexeiled/stress-ng/)
+`stress-ng` Ubuntu-based Docker image with statically linked `stress-ng` tool.
 
 You can provide your own image, but it must include the following tools:
 
 1. `stress-ng` tool (in `$PATH`)
 1. Bash shell
-1. [`dockhack`](https://github.com/tavisrudd/dockhack) helper Bash script (in `$PATH`)
+1. [`dockhack`](https://github.com/tavisrudd/dockhack) helper Bash script (in
+   `$PATH`)
 1. `docker` client CLI tool (runnable without `sudo`)
 1. `cgexec` tool, available from `cgroups-tools` or/and `cgroup-bin` packages
 
 ### Running inside Docker container
 
-If you choose to use Pumba Docker [image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following command:
+If you choose to use Pumba Docker
+[image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following
+command:
 
 ```text
 # run 10 Docker containers named test_(index)
@@ -400,13 +489,19 @@ $ docker run -it --rm  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumb
 
 ```
 
-**Note:** from version `0.6` Pumba Docker image is a `scratch` Docker image, that contains only single `pumba` binary file and `ENTRYPOINT` set to the `pumba` command.
+**Note:** from version `0.6` Pumba Docker image is a `scratch` Docker image,
+that contains only single `pumba` binary file and `ENTRYPOINT` set to the
+`pumba` command.
 
-**Note:** For Windows and OS X you will need to use `--host` argument, since there is no unix socket `/var/run/docker.sock` to mount.
+**Note:** For Windows and OS X you will need to use `--host` argument, since
+there is no unix socket `/var/run/docker.sock` to mount.
 
 ### Running Pumba on Kubernetes cluster
 
-If you are running Kubernetes, you can take advantage of DaemonSets to automatically deploy the Pumba on selected K8s nodes, using `nodeSelector` or `nodeAffinity`, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
+If you are running Kubernetes, you can take advantage of DaemonSets to
+automatically deploy the Pumba on selected K8s nodes, using `nodeSelector` or
+`nodeAffinity`, see
+[Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
 
 You'll then be able to deploy the DaemonSet with the command:
 
@@ -414,7 +509,8 @@ You'll then be able to deploy the DaemonSet with the command:
 kubectl create -f deploy/pumba_kube.yml
 ```
 
-K8s automatically assigns labels to Docker container, and you can use Pumba `--label` filter to create chaos for specific Pods and Namespaces.
+K8s automatically assigns labels to Docker container, and you can use Pumba
+`--label` filter to create chaos for specific Pods and Namespaces.
 
 K8s auto-assigned container labels, than can be used by Pumba:
 
@@ -424,11 +520,15 @@ K8s auto-assigned container labels, than can be used by Pumba:
 "io.kubernetes.pod.namespace": "test-namespace"
 ```
 
-It's possible to run multiple Pumba commands in the same DaemonSet using multiple Pumba containers, see `deploy/pumba_kube.yml` example.
+It's possible to run multiple Pumba commands in the same DaemonSet using
+multiple Pumba containers, see `deploy/pumba_kube.yml` example.
 
-If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos (see above)
+If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you
+can also run the Pumba as a regular docker container on each node you want to
+make chaos (see above)
 
-**Note:** running `pumba netem` commands on minikube clusters will not work, because the sch_netem kernel module is missing in the minikube VM!
+**Note:** running `pumba netem` commands on minikube clusters will not work,
+because the sch_netem kernel module is missing in the minikube VM!
 
 ## Build instructions
 
@@ -461,7 +561,9 @@ make release
 
 ### Build using Docker
 
-You do not have to install and configure Go in order to build and test Pumba project. Pumba uses Docker multistage build to create final tiny Docker image.
+You do not have to install and configure Go in order to build and test Pumba
+project.
+Pumba uses Docker multistage build to create final tiny Docker image.
 
 First of all clone Pumba git repository:
 
@@ -478,4 +580,5 @@ DOCKER_BUILDKIT=1 docker build -t pumba -f docker/Dockerfile .
 
 ## License
 
-Code is under the [Apache License v2](https://www.apache.org/licenses/LICENSE-2.0.txt).
+Code is under the
+[Apache License v2](https://www.apache.org/licenses/LICENSE-2.0.txt).
