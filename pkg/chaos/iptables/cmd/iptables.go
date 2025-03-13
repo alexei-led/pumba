@@ -53,7 +53,7 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 		dstIPs = append(dstIPs, ip)
 	}
 	// validate source ports
-	sports, err := util.GetPorts(c.String("source-port"))
+	sports, err := util.GetPorts(c.String("src-port"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get source ports")
 	}
@@ -63,7 +63,7 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 		}
 	}
 	// validate destination ports
-	dports, err := util.GetPorts(c.String("destination-port"))
+	dports, err := util.GetPorts(c.String("dst-port"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get destination ports")
 	}
