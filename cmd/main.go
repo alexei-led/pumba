@@ -372,7 +372,7 @@ func initializeCLICommands() []cli.Command {
 			},
 			Usage:       "apply IPv4 packet filter on incoming IP packets",
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
-			Description: "emulate loss of incoming packets, all ports and address arguments will result in seperate rules",
+			Description: "emulate loss of incoming packets, all ports and address arguments will result in separate rules",
 			Subcommands: []cli.Command{
 				*ipTablesCmd.NewLossCLICommand(topContext),
 			},
