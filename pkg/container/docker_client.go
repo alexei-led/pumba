@@ -328,7 +328,7 @@ func (client dockerClient) IPTablesContainer(ctx context.Context, c *Container, 
 	if len(srcIPs) == 0 && len(dstIPs) == 0 && len(sports) == 0 && len(dports) == 0 {
 		return client.ipTablesContainer(ctx, c, cmdPrefix, cmdSuffix, image, pull, dryrun)
 	}
-	return client.ipTablesContainerIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryrun)
+	return client.ipTablesContainerWithIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryrun)
 }
 
 // StopIPTablesContainer stops the iptables container injected into the given container network namespace
@@ -349,7 +349,7 @@ func (client dockerClient) StopIPTablesContainer(ctx context.Context, c *Contain
 	if len(srcIPs) == 0 && len(dstIPs) == 0 && len(sports) == 0 && len(dports) == 0 {
 		return client.ipTablesContainer(ctx, c, cmdPrefix, cmdSuffix, image, pull, dryrun)
 	}
-	return client.ipTablesContainerIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryrun)
+	return client.ipTablesContainerWithIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryrun)
 }
 
 // PauseContainer pauses a container main process
@@ -882,7 +882,7 @@ func (client dockerClient) ipTablesContainer(ctx context.Context, c *Container, 
 	return nil
 }
 
-func (client dockerClient) ipTablesContainerIPFilter(ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string,
+func (client dockerClient) ipTablesContainerWithIPFilter(ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string,
 	srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull bool, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":   c.Name(),
@@ -903,28 +903,28 @@ func (client dockerClient) ipTablesContainerIPFilter(ctx context.Context, c *Con
 		// # drop traffic to a specific source address
 		for _, ip := range srcIPs {
 			cmd := append(cmdPrefix, "-s", ip.String())
-			cmd = append(cmdPrefix, cmdSuffix...)
+			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination address
 		for _, ip := range dstIPs {
 			cmd := append(cmdPrefix, "-d", ip.String())
-			cmd = append(cmdPrefix, cmdSuffix...)
+			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific source port
 		for _, sport := range sports {
 			cmd := append(cmdPrefix, "-sport", sport)
-			cmd = append(cmdPrefix, cmdSuffix...)
+			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination port
 		for _, dport := range dports {
 			cmd := append(cmdPrefix, "-dport", dport)
-			cmd = append(cmdPrefix, cmdSuffix...)
+			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 

@@ -30,20 +30,22 @@ func NewLossCommand(client container.Client,
 	packet int, // start budget for every nth
 ) (chaos.Command, error) {
 	// get mode
-	if mode != "random" && mode != "nth" {
-		return nil, errors.New("invalid loss mode: must be either random or nth")
-	}
-	// get loss probability
-	if probability < 0.0 || probability > 1.0 {
-		return nil, errors.New("invalid loss probability: must be between 0.0 and 1.0")
-	}
-	// get every
-	if every < 0 {
-		return nil, errors.New("invalid loss every value: must be >= 0")
-	}
-	// get packet
-	if packet < 0 || (packet > every-1 && every > 0) {
-		return nil, errors.New("invalid loss packet value: must be 0 <= packet <= every-1")
+	if mode == "random" {
+		// get loss probability
+		if probability < 0.0 || probability > 1.0 {
+			return nil, errors.Errorf("invalid loss probability: must be between 0.0 and 1.0")
+		}
+	} else if mode == "nth" {
+		// get every
+		if every < 0 {
+			return nil, errors.Errorf("invalid loss every value: must be >= 0")
+		}
+		// get packet
+		if packet < 0 || (packet > every-1 && every > 0) {
+			return nil, errors.Errorf("invalid loss packet value: must be 0 <= packet <= every-1")
+		}
+	} else {
+		return nil, errors.Errorf("invalid loss mode: must be either random or nth")
 	}
 
 	return &lossCommand{
