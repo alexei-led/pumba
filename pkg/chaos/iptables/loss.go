@@ -37,12 +37,12 @@ func NewLossCommand(client container.Client,
 		}
 	} else if mode == "nth" {
 		// get every
-		if every < 0 {
-			return nil, errors.Errorf("invalid loss every value: must be >= 0")
+		if every <= 0 {
+			return nil, errors.Errorf("invalid loss every: must be > 0")
 		}
 		// get packet
-		if packet < 0 || (packet > every-1 && every > 0) {
-			return nil, errors.Errorf("invalid loss packet value: must be 0 <= packet <= every-1")
+		if packet < 0 || (packet > every-1) {
+			return nil, errors.Errorf("invalid loss packet: must be 0 <= packet <= every-1")
 		}
 	} else {
 		return nil, errors.Errorf("invalid loss mode: must be either random or nth")

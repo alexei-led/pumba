@@ -917,14 +917,14 @@ func (client dockerClient) ipTablesContainerWithIPFilter(ctx context.Context, c 
 
 		// # drop traffic to a specific source port
 		for _, sport := range sports {
-			cmd := append(cmdPrefix, "-sport", sport)
+			cmd := append(cmdPrefix, "--sport", sport)
 			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination port
 		for _, dport := range dports {
-			cmd := append(cmdPrefix, "-dport", dport)
+			cmd := append(cmdPrefix, "--dport", dport)
 			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
