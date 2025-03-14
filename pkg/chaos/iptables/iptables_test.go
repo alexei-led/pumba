@@ -129,8 +129,8 @@ func Test_runIPTables(t *testing.T) {
 			} else {
 				call.Return(nil)
 			}
-			// set StopIPTablesContainer mock call
-			call = mockClient.On("StopIPTablesContainer", context.Background(), tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun)
+			// set StopContainer mock call
+			call = mockClient.On("StopIPTablesContainer", context.Background(), tt.args.container, tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun)
 			if tt.errs.stopErr {
 				call.Return(errors.New("test error"))
 			} else {
