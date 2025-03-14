@@ -11,6 +11,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	ProtocolAny  = "any"
+	ProtocolTCP  = "tcp"
+	ProtocolUDP  = "udp"
+	ProtocolICMP = "icmp"
+)
+
 // `iptable` base command
 type ipTablesCommand struct {
 	client   container.Client
@@ -75,7 +82,7 @@ func newIPTablesCommand(client container.Client, gparams *chaos.GlobalParams, pa
 }
 
 // run iptables command, stop iptables on timeout or abort
-func runIPTables(ctx context.Context, client container.Client, c *container.Container, addCmdPrefix []string, delCmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, image string, pull, dryRun bool) error {
+func runIPTables(ctx context.Context, client container.Client, c *container.Container, addCmdPrefix, delCmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, image string, pull, dryRun bool) error {
 	logger := log.WithFields(log.Fields{
 		"id":           c.ID(),
 		"name":         c.Name(),

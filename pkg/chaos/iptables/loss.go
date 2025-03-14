@@ -20,6 +20,11 @@ type lossCommand struct {
 	packet      int
 }
 
+const (
+	ModeRandom = "random"
+	ModeNTH    = "nth"
+)
+
 // NewLossCommand create new iptables loss command
 func NewLossCommand(client container.Client,
 	globalParams *chaos.GlobalParams,
@@ -30,12 +35,12 @@ func NewLossCommand(client container.Client,
 	packet int, // start budget for every nth
 ) (chaos.Command, error) {
 	// get mode
-	if mode == "random" {
+	if mode == ModeRandom {
 		// get loss probability
 		if probability < 0.0 || probability > 1.0 {
 			return nil, errors.Errorf("invalid loss probability: must be between 0.0 and 1.0")
 		}
-	} else if mode == "nth" {
+	} else if mode == ModeNTH {
 		// get every
 		if every <= 0 {
 			return nil, errors.Errorf("invalid loss every: must be > 0")
@@ -114,7 +119,8 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 		log.WithFields(log.Fields{
 			"container": *c,
 		}).Debug("adding network random packet loss for container")
-		ctx, cancel := context.WithTimeout(ctx, n.duration)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, n.duration)
 		cancels[i] = cancel
 		wg.Add(1)
 		go func(i int, c *container.Container) {

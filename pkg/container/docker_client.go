@@ -876,7 +876,9 @@ func (client dockerClient) ipTablesContainer(ctx context.Context, c *Container, 
 		"dryrun":    dryrun,
 	}).Debug("execute iptables for container")
 	if !dryrun {
-		command := append(cmdPrefix, cmdSuffix...)
+		var command []string
+		command = append(command, cmdPrefix...)
+		command = append(command, cmdSuffix...)
 		log.WithField("iptables", strings.Join(command, " ")).Debug("executing iptables")
 		return client.ipTablesCommands(ctx, c, [][]string{command}, image, pull)
 	}
@@ -902,29 +904,38 @@ func (client dockerClient) ipTablesContainerWithIPFilter(ctx context.Context, c 
 
 		// See more about the iptables statistics extension: https://www.man7.org/linux/man-pages/man8/iptables-extensions.8.html
 		// # drop traffic to a specific source address
+
 		for _, ip := range srcIPs {
-			cmd := append(cmdPrefix, "-s", ip.String())
+			cmd := []string{}
+			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, "-s", ip.String())
 			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination address
 		for _, ip := range dstIPs {
-			cmd := append(cmdPrefix, "-d", ip.String())
+			cmd := []string{}
+			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, "-d", ip.String())
 			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific source port
 		for _, sport := range sports {
-			cmd := append(cmdPrefix, "--sport", sport)
+			cmd := []string{}
+			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, "--sport", sport)
 			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination port
 		for _, dport := range dports {
-			cmd := append(cmdPrefix, "--dport", dport)
+			cmd := []string{}
+			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, "--dport", dport)
 			cmd = append(cmd, cmdSuffix...)
 			commands = append(commands, cmd)
 		}

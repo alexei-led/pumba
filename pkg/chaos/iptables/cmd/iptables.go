@@ -3,6 +3,7 @@ package cmd
 import (
 	"net"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos/iptables"
@@ -10,6 +11,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
+
+func validateIPList(list []string) (ips []*net.IPNet, err error) {
+	ips = make([]*net.IPNet, 0, len(list))
+	for _, s := range list {
+		ip, e := util.ParseCIDR(s)
+		if e != nil {
+			return ips, errors.Wrap(e, "failed to parse ip")
+		}
+		ips = append(ips, ip)
+	}
+	return
+}
 
 func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Params, error) {
 	// get duration
@@ -20,6 +33,7 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 	if interval != 0 && duration >= interval {
 		return nil, errors.New("duration must be shorter than interval")
 	}
+
 	// protect from Command Injection, using Regexp
 	iface := c.String("interface")
 	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
@@ -27,51 +41,43 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 	if iface != validIface {
 		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
+
 	// check for valid protocol
 	protocol := c.String("protocol")
-	if protocol != "any" && protocol != "tcp" && protocol != "udp" && protocol != "icmp" {
+	if !slices.Contains([]string{iptables.ProtocolAny, iptables.ProtocolTCP, iptables.ProtocolUDP, iptables.ProtocolICMP}, protocol) {
 		return nil, errors.Errorf("bad protocol name: must be one of any, tcp, udp or icmp")
 	}
+
 	// validate src ips
-	srcIPsList := c.StringSlice("source")
-	srcIPs := make([]*net.IPNet, 0, len(srcIPsList))
-	for _, str := range srcIPsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, errors.Wrap(e, "failed to parse ip")
-		}
-		srcIPs = append(srcIPs, ip)
+	srcIPs, err := validateIPList(c.StringSlice("source"))
+	if err != nil {
+		return nil, err
 	}
 	// validate dst ips
-	dstIPsList := c.StringSlice("destination")
-	dstIPs := make([]*net.IPNet, 0, len(dstIPsList))
-	for _, str := range dstIPsList {
-		ip, e := util.ParseCIDR(str)
-		if e != nil {
-			return nil, errors.Wrap(e, "failed to parse ip")
-		}
-		dstIPs = append(dstIPs, ip)
+	dstIPs, err := validateIPList(c.StringSlice("destination"))
+	if err != nil {
+		return nil, err
 	}
+
 	// validate source ports
 	sports, err := util.GetPorts(c.String("src-port"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get source ports")
-	}
-	if len(sports) > 0 {
-		if protocol != "udp" && protocol != "tcp" {
-			return nil, errors.Errorf("using source port is only supported for tcp and udp protocol")
-		}
 	}
 	// validate destination ports
 	dports, err := util.GetPorts(c.String("dst-port"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get destination ports")
 	}
-	if len(dports) > 0 {
-		if protocol != "udp" && protocol != "tcp" {
-			return nil, errors.Errorf("using destination port is only supported for tcp and udp protocol")
+	if protocol != iptables.ProtocolUDP && protocol != iptables.ProtocolTCP {
+		if len(sports) > 0 {
+			return nil, errors.Errorf("using source port is only supported for %s and %s protocol", iptables.ProtocolTCP, iptables.ProtocolUDP)
+		}
+		if len(dports) > 0 {
+			return nil, errors.Errorf("using destination port is only supported for %s and %s protocol", iptables.ProtocolTCP, iptables.ProtocolUDP)
 		}
 	}
+
 	return &iptables.Params{
 		Iface:    iface,
 		Protocol: protocol,

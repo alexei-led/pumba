@@ -23,7 +23,7 @@ func NewLossCLICommand(ctx context.Context) *cli.Command {
 			cli.StringFlag{
 				Name:  "mode",
 				Usage: "matching mode, supported modes are random and nth",
-				Value: "random",
+				Value: iptables.ModeRandom,
 			},
 			cli.Float64Flag{
 				Name:  "probability",
