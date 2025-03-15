@@ -60,7 +60,7 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 				$(GO) build \
 				-tags release \
 				-ldflags "$(LDFLAGS_VERSION)" \
-				-o $(BIN)/$(basename $(MODULE))_$(GOOS)_$(GOARCH) ./cmd/main.go || true)))
+				-o $(BIN)/pumba_$(GOOS)_$(GOARCH) ./cmd/main.go)))
 
 # Tools
 
