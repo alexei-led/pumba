@@ -38,6 +38,9 @@ jobs:
           CGO_ENABLED: 0
         run: |
           make release
+      - name: Debug Directory Contents
+        run: |
+          ls -la .bin/ || echo "Directory .bin/ is empty or does not exist"
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
