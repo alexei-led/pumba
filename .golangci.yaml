@@ -1,7 +1,4 @@
 run:
-  # which dirs to skip
-  skip-dirs:
-    - mocks
   # Timeout for analysis, e.g. 30s, 5m.
   # Default: 1m
   timeout: 5m
@@ -15,12 +12,12 @@ run:
   allow-parallel-runners: true
 
 linters-settings:
-  govet:
-    check-shadowing: true
+  # shadow linter replaces govet's check-shadowing
+  shadow:
+    strict: false
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
+  # maligned is deprecated
   dupl:
     threshold: 100
   goconst:
@@ -72,7 +69,6 @@ linters:
     - errorlint
     - exhaustive
     # - exhaustivestruct TODO: check how to fix it
-    - exportloopref
     # - forbidigo TODO: configure forbidden code patterns
     # - forcetypeassert
     - funlen
@@ -84,10 +80,10 @@ linters:
     - gocritic
     - gocyclo
     #    - godox
-    - goerr113
+    - err113
     - gofmt
     - goimports
-    - gomnd
+    - mnd
     # - gomoddirectives
     - gosec
     - gosimple
@@ -117,7 +113,7 @@ linters:
     # - staticcheck doesn't work with go1.19
     # - structcheck disabled because of generics
     - stylecheck
-    - tenv
+    - usetesting
     - testableexamples
     - typecheck
     - unconvert
@@ -127,10 +123,13 @@ linters:
     # - varcheck depricated 1.49
     # - wastedassign disabled because of generics
     - whitespace
-    - wrapcheck
+    # - wrapcheck # Temporarily disabled due to false positives
     # - wsl
 
 issues:
+  # Exclude specific directories from linting
+  exclude-dirs:
+    - mocks
   exclude-rules:
     - path: _test\.go
       linters:
