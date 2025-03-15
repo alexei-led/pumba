@@ -40,14 +40,22 @@ jobs:
           make release
       - name: Debug Directory Contents
         run: |
-          ls -la .bin/ || echo "Directory .bin/ is empty or does not exist"
+          echo "Current working directory:"
+          pwd
+          echo "Listing contents of .bin/ recursively:"
+          find .bin/ -type f -ls || echo "No files found in .bin/"
+          echo "Directory structure:"
+          ls -laR .bin/ || echo "Directory .bin/ is empty or does not exist"
+          echo "Testing glob expansion:"
+          ls .bin/* || echo "Glob .bin/* found no files"
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: pumba-binaries
-          path: .bin/**
+          path: .bin/*
           retention-days: 7
           compression-level: 6
+          include-hidden-files: true
 
   create-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -61,34 +69,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Get Tag Name
-        id: get_tag
-        run: echo "git_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           name: pumba-binaries
           path: ${{ github.workspace }}/.bin/
-          job-id: build
       - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ steps.get_tag.outputs.git_tag }}
-          release_name: ${{ steps.get_tag.outputs.git_tag }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: "Automated release for ${{ github.ref_name }}"
+          generateReleaseNotes: true
           prerelease: true
-          generate_release_notes: true
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/.bin/**
-          asset_name: pumba-binaries-${{ steps.get_tag.outputs.git_tag }}.tar.gz
-          asset_content_type: application/gzip
+          artifacts: ${{ github.workspace }}/.bin/*
+          allowUpdates: false
+          commit: ${{ github.sha }}
+          draft: false
+          removeArtifacts: false
+          replacesArtifacts: true
 
   push-docker:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
