@@ -1,4 +1,4 @@
-name: "Release"
+name: Release
 
 on:
   push:
@@ -21,32 +21,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up Go
+      - name: Set Up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
           cache: true
-
-      - name: Build release binaries
+          cache-dependency-path: go.sum
+      - name: Build Release Binaries
         env:
           GOPROXY: https://proxy.golang.org
           CGO_ENABLED: 0
         run: |
           make release
-
-      - name: Upload build artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 'pumba-binaries'
+          name: pumba-binaries
           path: .bin/**
           retention-days: 7
+          compression-level: 6
 
   create-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -54,31 +52,40 @@ jobs:
     needs: [ build ]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required for creating releases
-
+      contents: write
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Get tag name
+        with:
+          fetch-depth: 0
+      - name: Get Tag Name
         id: get_tag
         run: echo "git_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Download artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: 'pumba-binaries'
+          name: pumba-binaries
           path: ${{ github.workspace }}/.bin/
-
+          job-id: build
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ steps.get_tag.outputs.git_tag }}
           tag_name: ${{ steps.get_tag.outputs.git_tag }}
+          release_name: ${{ steps.get_tag.outputs.git_tag }}
           prerelease: true
           generate_release_notes: true
-          files: |
-            ${{ github.workspace }}/.bin/**
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/.bin/**
+          asset_name: pumba-binaries-${{ steps.get_tag.outputs.git_tag }}.tar.gz
+          asset_content_type: application/gzip
 
   push-docker:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -86,35 +93,33 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Required if pushing to GHCR
-
+      packages: write
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Get tag name
+        with:
+          fetch-depth: 0
+      - name: Get Tag Name
         id: get_tag
         run: echo "git_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Get short SHA
-        id: short-sha
+      - name: Get Short SHA
+        id: short_sha
         run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Set up Docker Buildx
+      - name: Set Up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
+          driver: docker-container
           platforms: linux/amd64,linux/arm64
-
-      - name: Set up QEMU
+      - name: Set Up QEMU
         uses: docker/setup-qemu-action@v3
-
-      - name: Login to Docker registry
+        with:
+          platforms: linux/amd64,linux/arm64
+      - name: Login to Docker Registry
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
-
-      - name: Build metadata
+      - name: Build Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -122,19 +127,16 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
         with:
           file: docker/Dockerfile
           context: .
           build-args: |
             BRANCH=${{ github.ref_name }}
-            COMMIT=${{ steps.short-sha.outputs.sha }}
+            COMMIT=${{ steps.short_sha.outputs.sha }}
             SKIP_TESTS=true
-          platforms: |
-            linux/amd64
-            linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
