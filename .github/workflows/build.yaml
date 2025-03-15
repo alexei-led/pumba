@@ -1,4 +1,4 @@
-name: "Build and Test"
+name: Build and Test
 on:
   pull_request:
     paths-ignore:
@@ -8,21 +8,24 @@ on:
       - '*.md'
 jobs:
   test:
-    name: "lint and test"
+    name: Lint and Test
     runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
       contents: read
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
-      - name: Setup Go
+        with:
+          fetch-depth: 0
+      - name: Setup Go Environment
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
           cache: true
-      - name: Lint and Test
+          cache-dependency-path: go.sum
+      - name: Run Lint and Test Coverage
         shell: bash
         run: |
           make lint
@@ -31,27 +34,29 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-          junit_files: ".cover/tests.xml"
+          files: ".cover/tests.xml"
+          commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: ".cover/coverage.xml"
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
   integration:
-    name: "integration tests"
+    name: Integration Tests
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
-      - name: Set up Docker Buildx
+        with:
+          fetch-depth: 0
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: network=host
       - name: Build and Export Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           build-args: SKIP_TESTS=true
           file: docker/Dockerfile
@@ -63,5 +68,5 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Run Integration Tests
         run: |
-          docker load -i /tmp/image.tar 
+          docker load -i /tmp/image.tar
           docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba:test
