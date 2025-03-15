@@ -75,7 +75,7 @@ setup-gocov-xml:
 setup-go-junit-report:
 	$(GO) install github.com/jstemmer/go-junit-report/v2@latest
 setup-mockery:
-	$(GO) get github.com/vektra/mockery/v2@latest
+	$(GO) get github.com/vektra/mockery/v2@v2.40.3
 
 # Tests
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
+	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -325,6 +326,55 @@ func initializeCLICommands() []cli.Command {
 				*netemCmd.NewRateCLICommand(topContext),
 				*netemCmd.NewDuplicateCLICommand(topContext),
 				*netemCmd.NewCorruptCLICommand(topContext),
+			},
+		},
+		{
+			Name: "iptables",
+			Flags: []cli.Flag{
+				cli.DurationFlag{
+					Name:  "duration, d",
+					Usage: "network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
+				},
+				cli.StringFlag{
+					Name:  "interface, i",
+					Usage: "network interface to apply input rules on",
+					Value: defaultInterface,
+				},
+				cli.StringFlag{
+					Name:  "protocol, p",
+					Usage: "protocol to apply input rules on (any, udp, tcp or icmp)",
+					Value: "any",
+				},
+				cli.StringSliceFlag{
+					Name:  "source, src, s",
+					Usage: "source IP filter; supports multiple IPs; supports CIDR notation",
+				},
+				cli.StringSliceFlag{
+					Name:  "destination, dest",
+					Usage: "destination IP filter; supports multiple IPs; supports CIDR notation",
+				},
+				cli.StringFlag{
+					Name:  "src-port, sport",
+					Usage: "source port filter; supports multiple ports (comma-separated)",
+				},
+				cli.StringFlag{
+					Name:  "dst-port, dport",
+					Usage: "destination port filter; supports multiple ports (comma-separated)",
+				},
+				cli.StringFlag{
+					Name:  "iptables-image",
+					Usage: "Docker image with iptables (iptables package); try 'rancher/mirrored-kube-vip-kube-vip-iptables:v0.8.9'",
+				},
+				cli.BoolTFlag{
+					Name:  "pull-image",
+					Usage: "force pull iptables-image",
+				},
+			},
+			Usage:       "apply IPv4 packet filter on incoming IP packets",
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
+			Description: "emulate loss of incoming packets, all ports and address arguments will result in separate rules",
+			Subcommands: []cli.Command{
+				*ipTablesCmd.NewLossCLICommand(topContext),
 			},
 		},
 	}
