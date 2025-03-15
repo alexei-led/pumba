@@ -1,5 +1,4 @@
 name: "Build and Test"
-
 on:
   pull_request:
     paths-ignore:
@@ -7,57 +6,58 @@ on:
       - 'deploy/**'
       - 'examples/**'
       - '*.md'
-
 jobs:
-
   test:
     name: "lint and test"
     runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
-
+      contents: read
     steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: setup Go
-        uses: actions/setup-go@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.21
-
-      - name: lint and test
-        shell: sh
+          go-version: '1.21'
+          cache: true
+      - name: Lint and Test
+        shell: bash
         run: |
           make lint
           make test-coverage
-
-      - name: publish test results
+      - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           junit_files: ".cover/tests.xml"
-
-      - name: upload coverage
-        uses: codecov/codecov-action@v3
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
         with:
           files: ".cover/coverage.xml"
-
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: .cover/
+          retention-days: 7
   integration:
     name: "integration tests"
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
     steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: setup buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
         with:
           driver-opts: network=host
-
-      - name: build image
-        uses: docker/build-push-action@v3
+      - name: Build and Export Docker Image
+        uses: docker/build-push-action@v5
         with:
           build-args: SKIP_TESTS=true
           file: docker/Dockerfile
@@ -65,8 +65,9 @@ jobs:
           tags: pumba:test
           target: integration-tests
           outputs: type=docker,dest=/tmp/image.tar
-
-      - name: integration tests
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run Integration Tests
         run: |
           docker load -i /tmp/image.tar 
           docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba:test
