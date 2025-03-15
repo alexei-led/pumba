@@ -67,7 +67,7 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 setup-tools: setup-lint setup-gocov setup-gocov-xml setup-go-junit-report
 
 setup-lint:
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 setup-gocov:
 	$(GO) install github.com/axw/gocov/gocov@v1.1.0
 setup-gocov-xml:
@@ -75,7 +75,7 @@ setup-gocov-xml:
 setup-go-junit-report:
 	$(GO) install github.com/jstemmer/go-junit-report/v2@latest
 setup-mockery:
-	$(GO) get github.com/vektra/mockery/v2@v2.40.3
+	$(GO) install github.com/vektra/mockery/v2@latest
 
 # Tests
 

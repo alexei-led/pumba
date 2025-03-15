@@ -28,7 +28,7 @@ func NewLossStateCLICommand(ctx context.Context) *cli.Command {
 			cli.Float64Flag{
 				Name:  "p31",
 				Usage: "probability to go from state (3) to state (1)",
-				Value: 100.0, //nolint:gomnd
+				Value: 100.0, //nolint:mnd
 			},
 			cli.Float64Flag{
 				Name:  "p32",
@@ -38,7 +38,7 @@ func NewLossStateCLICommand(ctx context.Context) *cli.Command {
 			cli.Float64Flag{
 				Name:  "p23",
 				Usage: "probability to go from state (2) to state (3)",
-				Value: 100.0, //nolint:gomnd
+				Value: 100.0, //nolint:mnd
 			},
 			cli.Float64Flag{
 				Name:  "p14",

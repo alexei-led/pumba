@@ -23,29 +23,29 @@ var linuxSignals = map[string]syscall.Signal{
 	"SIGQUIT":   syscall.SIGQUIT,
 	"SIGILL":    syscall.SIGILL,
 	"SIGTRAP":   syscall.SIGTRAP,
-	"SIGIOT":    syscall.Signal(0x6), //nolint:gomnd // SIGIOT (use number since this signal is not defined for Windows)
+	"SIGIOT":    syscall.Signal(0x6), //nolint:mnd // SIGIOT (use number since this signal is not defined for Windows)
 	"SIGBUS":    syscall.SIGBUS,
 	"SIGFPE":    syscall.SIGFPE,
 	"SIGKILL":   syscall.SIGKILL,
-	"SIGUSR1":   syscall.Signal(0x1e), //nolint:gomnd // SIGUSR1 (use number since this signal is not defined for Windows)
+	"SIGUSR1":   syscall.Signal(0x1e), //nolint:mnd // SIGUSR1 (use number since this signal is not defined for Windows)
 	"SIGSEGV":   syscall.SIGSEGV,
-	"SIGUSR2":   syscall.Signal(0x1f), //nolint:gomnd // SIGUSR2 (use number since this signal is not defined for Windows)
+	"SIGUSR2":   syscall.Signal(0x1f), //nolint:mnd // SIGUSR2 (use number since this signal is not defined for Windows)
 	"SIGPIPE":   syscall.SIGPIPE,
 	"SIGALRM":   syscall.SIGALRM,
 	"SIGTERM":   syscall.SIGTERM,
-	"SIGCHLD":   syscall.Signal(0x14), //nolint:gomnd // SIGCHLD (use number since this signal is not defined for Windows)
-	"SIGCONT":   syscall.Signal(0x13), //nolint:gomnd // SIGCONT (use number since this signal is not defined for Windows)
-	"SIGSTOP":   syscall.Signal(0x11), //nolint:gomnd // SIGSTOP (use number since this signal is not defined for Windows)
-	"SIGTSTP":   syscall.Signal(0x12), //nolint:gomnd // SIGTSTP (use number since this signal is not defined for Windows)
-	"SIGTTIN":   syscall.Signal(0x15), //nolint:gomnd // SIGTTIN (use number since this signal is not defined for Windows)
-	"SIGTTOU":   syscall.Signal(0x16), //nolint:gomnd // SIGTTOU (use number since this signal is not defined for Windows)
-	"SIGURG":    syscall.Signal(0x10), //nolint:gomnd // SIGURG (use number since this signal is not defined for Windows)
-	"SIGXCPU":   syscall.Signal(0x18), //nolint:gomnd // SIGXCPU (use number since this signal is not defined for Windows)
-	"SIGXFSZ":   syscall.Signal(0x19), //nolint:gomnd // SIGXFSZ (use number since this signal is not defined for Windows)
-	"SIGVTALRM": syscall.Signal(0x1a), //nolint:gomnd // SIGVTALRM (use number since this signal is not defined for Windows)
-	"SIGPROF":   syscall.Signal(0x1b), //nolint:gomnd // SIGPROF (use number since this signal is not defined for Windows)
-	"SIGWINCH":  syscall.Signal(0x1c), //nolint:gomnd // SIGWINCH (use number since this signal is not defined for Windows)
-	"SIGIO":     syscall.Signal(0x17), //nolint:gomnd // SIGIO (use number since this signal is not defined for Windows)
+	"SIGCHLD":   syscall.Signal(0x14), //nolint:mnd // SIGCHLD (use number since this signal is not defined for Windows)
+	"SIGCONT":   syscall.Signal(0x13), //nolint:mnd // SIGCONT (use number since this signal is not defined for Windows)
+	"SIGSTOP":   syscall.Signal(0x11), //nolint:mnd // SIGSTOP (use number since this signal is not defined for Windows)
+	"SIGTSTP":   syscall.Signal(0x12), //nolint:mnd // SIGTSTP (use number since this signal is not defined for Windows)
+	"SIGTTIN":   syscall.Signal(0x15), //nolint:mnd // SIGTTIN (use number since this signal is not defined for Windows)
+	"SIGTTOU":   syscall.Signal(0x16), //nolint:mnd // SIGTTOU (use number since this signal is not defined for Windows)
+	"SIGURG":    syscall.Signal(0x10), //nolint:mnd // SIGURG (use number since this signal is not defined for Windows)
+	"SIGXCPU":   syscall.Signal(0x18), //nolint:mnd // SIGXCPU (use number since this signal is not defined for Windows)
+	"SIGXFSZ":   syscall.Signal(0x19), //nolint:mnd // SIGXFSZ (use number since this signal is not defined for Windows)
+	"SIGVTALRM": syscall.Signal(0x1a), //nolint:mnd // SIGVTALRM (use number since this signal is not defined for Windows)
+	"SIGPROF":   syscall.Signal(0x1b), //nolint:mnd // SIGPROF (use number since this signal is not defined for Windows)
+	"SIGWINCH":  syscall.Signal(0x1c), //nolint:mnd // SIGWINCH (use number since this signal is not defined for Windows)
+	"SIGIO":     syscall.Signal(0x17), //nolint:mnd // SIGIO (use number since this signal is not defined for Windows)
 }
 
 // `docker kill` command
@@ -98,22 +98,22 @@ func (k *killCommand) Run(ctx context.Context, random bool) error {
 		return nil
 	}
 
-	// select single random container from matching container and replace list with selected item
+	// select single random ctr from matching ctr and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []*container.Container{c}
 		}
 	}
 
-	for _, container := range containers {
+	for _, ctr := range containers {
 		log.WithFields(log.Fields{
-			"container": container,
-			"signal":    k.signal,
-		}).Debug("killing container")
-		c := container
+			"ctr":    ctr,
+			"signal": k.signal,
+		}).Debug("killing ctr")
+		c := ctr
 		err = k.client.KillContainer(ctx, c, k.signal, k.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to kill container")
+			return errors.Wrap(err, "failed to kill ctr")
 		}
 	}
 	return nil

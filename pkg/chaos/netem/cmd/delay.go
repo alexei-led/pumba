@@ -24,17 +24,17 @@ func NewDelayCLICommand(ctx context.Context) *cli.Command {
 			cli.IntFlag{
 				Name:  "time, t",
 				Usage: "delay time; in milliseconds",
-				Value: 100, //nolint:gomnd
+				Value: 100, //nolint:mnd
 			},
 			cli.IntFlag{
 				Name:  "jitter, j",
 				Usage: "random delay variation (jitter); in milliseconds; example: 100ms ± 10ms",
-				Value: 10, //nolint:gomnd
+				Value: 10, //nolint:mnd
 			},
 			cli.Float64Flag{
 				Name:  "correlation, c",
 				Usage: "delay correlation; in percentage",
-				Value: 20, //nolint:gomnd
+				Value: 20, //nolint:mnd
 			},
 			cli.StringFlag{
 				Name:  "distribution, d",
