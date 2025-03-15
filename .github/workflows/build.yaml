@@ -38,12 +38,6 @@ jobs:
           files: ".cover/coverage.xml"
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: .cover/
-          retention-days: 7
   integration:
     name: "integration tests"
     runs-on: ubuntu-latest
