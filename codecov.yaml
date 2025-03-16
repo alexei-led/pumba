@@ -2,4 +2,6 @@ coverage:
   ignore:
     - "mocks"
     - "**/mock*.go"
-
+    - "**/*_test.go"
+    - "**/test_helper.go"
+    - "**/testdata/**"
