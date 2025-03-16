@@ -576,10 +576,8 @@ func Test_tcContainerCommands(t *testing.T) {
 	}
 
 	config := container.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		Entrypoint: []string{"tc"},
-		// Used as long-running entry-point to keep container alive between commands
-		Cmd:   []string{"monitor"},
+		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		// Use default entrypoint and cmd from image (new version doesn't set these)
 		Image: "pumba/tcimage",
 	}
 	// host config
