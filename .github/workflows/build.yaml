@@ -37,10 +37,10 @@ jobs:
           files: ".cover/tests.xml"
           commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ".cover/coverage.xml"
-          token: ${{ secrets.CODECOV_TOKEN }}
+          # Token is not required with v5 when using GitHub Actions
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
