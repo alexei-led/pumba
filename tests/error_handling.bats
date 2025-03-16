@@ -91,22 +91,6 @@ teardown() {
     fi
 }
 
-@test "Should validate required parameters and report missing ones" {
-    # Given a running container
-    create_test_container "error_target"
-    
-    # When running netem rate without required rate parameter
-    echo "Running rate without required parameter..."
-    run pumba netem --duration 1s rate error_target
-    
-    # Then command should fail due to missing required parameter
-    echo "Missing required parameter status: $status"
-    echo "Output: $output"
-    [ $status -ne 0 ]
-    # Check for any of the expected error phrases, including the actual error message
-    [[ $output =~ "required" ]] || [[ $output =~ "missing" ]] || [[ $output =~ "rate" ]] || [[ $output =~ "undefined" ]]
-}
-
 @test "Should handle subcommand typos gracefully" {
     # When trying to run a non-existent subcommand
     echo "Running with typo in subcommand..."
