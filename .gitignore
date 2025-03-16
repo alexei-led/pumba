@@ -5,8 +5,10 @@
 .vscode
 .bin
 .env
+.envrc
 .in
 .test
+.aider*
 
 **/.DS_Store
 **/debug
