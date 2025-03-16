@@ -4,20 +4,23 @@ This guide provides detailed instructions for creating advanced network chaos te
 
 ## Overview
 
-Pumba now offers support for both outgoing traffic manipulation (using `tc` with `netem`) and incoming traffic manipulation (using `iptables`). By combining these tools, you can create more realistic and complex network chaos scenarios.
+Pumba now offers support for both outgoing traffic manipulation (using `tc` with `netem`) and incoming traffic manipulation (using
+`iptables`). By combining these tools, you can create more realistic and complex network chaos scenarios.
 
 ![Pumba Network Chaos Testing](img/nettools-diagram.svg)
 
-The diagram above illustrates how Pumba uses a single nettools container to manipulate both incoming traffic (via iptables) and outgoing traffic (via tc/netem) for the target application container.
+The diagram above illustrates how Pumba uses a single nettools container to manipulate both incoming traffic (via iptables) and outgoing
+traffic (via tc/netem) for the target application container.
 
 ## Nettools Images
 
 Pumba uses multi-architecture container images that include both `tc` and `iptables` tools:
 
-- `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` - Alpine-based (smaller size)
-- `ghcr.io/alexei-led/pumba/pumba-debian-nettools:latest` - Debian-based (better compatibility)
+- `ghcr.io/alexei-led/pumba-alpine-nettools:latest` - Alpine-based (smaller size)
+- `ghcr.io/alexei-led/pumba-debian-nettools:latest` - Debian-based (better compatibility)
 
 Both images support:
+
 - amd64 (x86_64) architecture
 - arm64 (aarch64) architecture
 
@@ -29,13 +32,13 @@ In real networks, upload and download characteristics often differ. You can simu
 
 ```bash
 # Slow uploads: Add 500ms delay to outgoing traffic
-pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --duration 5m \
   delay --time 500 --jitter 50 \
   myapp &
 
 # Unreliable downloads: Add 10% packet loss to incoming traffic
-pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --duration 5m \
   loss --probability 0.1 \
   myapp &
@@ -47,13 +50,13 @@ Test how your application handles both bandwidth limitations and occasional pack
 
 ```bash
 # Limit bandwidth to 1Mbit/s
-pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --duration 10m \
   rate --rate 1mbit \
   myapp &
 
 # Add 5% packet loss to incoming traffic
-pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --duration 10m \
   loss --probability 0.05 \
   myapp &
@@ -65,13 +68,13 @@ You can target specific protocols for different types of network chaos:
 
 ```bash
 # Add latency to all outgoing HTTP traffic
-pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --duration 15m \
   delay --time 200 \
   myapp &
 
 # Drop 20% of incoming UDP packets only
-pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --duration 15m \
   --protocol udp \
   loss --probability 0.2 \
@@ -84,14 +87,14 @@ Test how your microservices handle degraded network conditions between specific 
 
 ```bash
 # Add high latency between Service A and Service B
-pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --target service-b-ip \
   --duration 10m \
   delay --time 1000 --jitter 200 \
   service-a &
 
 # Add packet loss from Service B to Service C
-pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --source service-c-ip \
   --duration 10m \
   loss --probability 0.15 \
@@ -104,14 +107,14 @@ You can target specific ports to simulate more targeted network issues:
 
 ```bash
 # Add packet corruption to outgoing database traffic (port 5432)
-pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --target db-server-ip \
   --duration 5m \
   corrupt --percent 5 \
   myapp &
 
 # Add packet loss to incoming HTTP traffic (port 80)
-pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
   --dst-port 80 \
   --duration 5m \
   loss --probability 0.1 \
@@ -128,29 +131,29 @@ spec:
   template:
     spec:
       containers:
-      - name: pumba-netem
-        image: gaiaadm/pumba:latest
-        args:
-        - --random
-        - --interval=30s
-        - netem
-        - --tc-image=ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest
-        - --duration=5m
-        - delay
-        - --time=500
-        - "re2:app-.*"
-      - name: pumba-iptables
-        image: gaiaadm/pumba:latest
-        args:
-        - --random
-        - --interval=30s
-        - iptables
-        - --iptables-image=ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest
-        - --duration=5m
-        - --protocol=tcp
-        - loss
-        - --probability=0.1
-        - "re2:app-.*"
+        - name: pumba-netem
+          image: gaiaadm/pumba:latest
+          args:
+            - --random
+            - --interval=30s
+            - netem
+            - --tc-image=ghcr.io/alexei-led/pumba-alpine-nettools:latest
+            - --duration=5m
+            - delay
+            - --time=500
+            - "re2:app-.*"
+        - name: pumba-iptables
+          image: gaiaadm/pumba:latest
+          args:
+            - --random
+            - --interval=30s
+            - iptables
+            - --iptables-image=ghcr.io/alexei-led/pumba-alpine-nettools:latest
+            - --duration=5m
+            - --protocol=tcp
+            - loss
+            - --probability=0.1
+            - "re2:app-.*"
 ```
 
 ## Best Practices

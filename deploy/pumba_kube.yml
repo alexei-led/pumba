@@ -68,7 +68,7 @@ spec:
             - --duration
             - 20s
             - --tc-image
-            - ghcr.io/alexei-led/pumba/pumba-debian-nettools
+            - ghcr.io/alexei-led/pumba-debian-nettools
             - delay
             - --time
             - "3000"

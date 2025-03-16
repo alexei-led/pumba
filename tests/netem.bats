@@ -10,7 +10,7 @@ setup() {
     cleanup_containers "rate_limit_target"
     
     # Also cleanup any nettools containers that might be left running
-    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba/pumba-alpine-nettools" | xargs -r docker rm -f
+    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba-alpine-nettools" | xargs -r docker rm -f
 }
 
 teardown() {
@@ -20,7 +20,7 @@ teardown() {
     cleanup_containers "rate_limit_target"
     
     # Also cleanup any nettools containers that might be left running
-    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba/pumba-alpine-nettools" | xargs -r docker rm -f
+    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba-alpine-nettools" | xargs -r docker rm -f
 }
 
 @test "Should display netem help" {
@@ -76,7 +76,7 @@ teardown() {
     echo "Ensuring nettools image is available..."
     
     # Default image name
-    NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest"
+    NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba-alpine-nettools:latest"
     
     # In CI environment, we'll use a local image
     if [ "${CI:-}" = "true" ]; then

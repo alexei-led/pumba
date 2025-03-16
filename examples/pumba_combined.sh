@@ -4,7 +4,7 @@
 # to create more complex and realistic network chaos scenarios.
 
 # Common image for both commands
-NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest"
+NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba-alpine-nettools:latest"
 
 # Pull the image in advance (optional)
 docker pull $NETTOOLS_IMAGE

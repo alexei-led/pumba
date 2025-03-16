@@ -9,7 +9,7 @@ setup() {
     cleanup_containers "iptables_loss_target"
     
     # Also cleanup any nettools containers that might be left running
-    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba/pumba-alpine-nettools" | xargs -r docker rm -f
+    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba-alpine-nettools" | xargs -r docker rm -f
 }
 
 teardown() {
@@ -18,7 +18,7 @@ teardown() {
     cleanup_containers "iptables_loss_target"
     
     # Also cleanup any nettools containers that might be left running
-    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba/pumba-alpine-nettools" | xargs -r docker rm -f
+    docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba-alpine-nettools" | xargs -r docker rm -f
 }
 
 # Helper function to ensure nettools image is available
@@ -26,7 +26,7 @@ ensure_nettools_image() {
     echo "Ensuring nettools image is available..."
     
     # Default image name
-    NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest"
+    NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba-alpine-nettools:latest"
     
     # In CI environment, we'll use a local image
     if [ "${CI:-}" = "true" ]; then
