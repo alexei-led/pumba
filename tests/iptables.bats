@@ -24,13 +24,39 @@ teardown() {
 # Helper function to ensure nettools image is available
 ensure_nettools_image() {
     echo "Ensuring nettools image is available..."
-    # Check if image exists locally, pull only if not present
-    if ! docker image inspect ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest &>/dev/null; then
+    
+    # Default image name
+    NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest"
+    
+    # In CI environment, we'll use a local image
+    if [ "${CI:-}" = "true" ]; then
+        echo "CI environment detected, using pumba-alpine-nettools:local"
+        # Create a local tag for the nettools image
+        if ! docker image inspect pumba-alpine-nettools:local &>/dev/null; then
+            echo "Creating local nettools image for testing..."
+            # Use a simple alpine image with necessary tools for testing
+            docker run --name temp-nettools-container alpine:latest /bin/sh -c "apk add --no-cache iproute2 iptables && echo 'Nettools container ready'"
+            docker commit temp-nettools-container pumba-alpine-nettools:local
+            docker rm -f temp-nettools-container
+        fi
+        NETTOOLS_IMAGE="pumba-alpine-nettools:local"
+    # For local development, try to pull if not present
+    elif ! docker image inspect ${NETTOOLS_IMAGE} &>/dev/null; then
         echo "Pulling nettools image..."
-        docker pull ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest
+        if ! docker pull ${NETTOOLS_IMAGE}; then
+            echo "Failed to pull image, creating local nettools image for testing..."
+            # Fallback to local image creation if pull fails
+            docker run --name temp-nettools-container alpine:latest /bin/sh -c "apk add --no-cache iproute2 iptables && echo 'Nettools container ready'"
+            docker commit temp-nettools-container pumba-alpine-nettools:local
+            docker rm -f temp-nettools-container
+            NETTOOLS_IMAGE="pumba-alpine-nettools:local"
+        fi
     else
         echo "Nettools image already exists locally"
     fi
+    
+    # Export the image name for use in tests
+    export NETTOOLS_IMAGE
 }
 
 @test "Should display iptables help" {
@@ -83,7 +109,7 @@ ensure_nettools_image() {
     
     # When applying packet loss with pumba
     echo "Applying packet loss..."
-    run pumba -l debug --json iptables --duration 5s --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest --pull-image=false loss --mode random --probability 1.0 iptables_loss_target
+    run pumba -l debug --json iptables --duration 5s --iptables-image ${NETTOOLS_IMAGE} --pull-image=false loss --mode random --probability 1.0 iptables_loss_target
     echo "Full output:"
     echo "$output"
     
@@ -105,7 +131,7 @@ ensure_nettools_image() {
     
     # When applying packet loss with a source IP filter
     echo "Applying packet loss with source IP filter..."
-    run pumba iptables --duration 5s --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest --pull-image=false --source 192.168.0.1/24 loss --mode random --probability 1.0 iptables_target
+    run pumba iptables --duration 5s --iptables-image ${NETTOOLS_IMAGE} --pull-image=false --source 127.0.0.1/32 loss --mode random --probability 1.0 iptables_target
     
     # Then pumba should execute successfully
     echo "Pumba execution status: $status"
@@ -125,7 +151,7 @@ ensure_nettools_image() {
     
     # When applying packet loss with a destination IP filter
     echo "Applying packet loss with destination IP filter..."
-    run pumba iptables --duration 5s --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest --pull-image=false --destination 8.8.8.8/32 loss --mode random --probability 1.0 iptables_target
+    run pumba iptables --duration 5s --iptables-image ${NETTOOLS_IMAGE} --pull-image=false --destination 127.0.0.1/32 loss --mode random --probability 1.0 iptables_target
     
     # Then pumba should execute successfully
     echo "Pumba execution status: $status"
@@ -145,7 +171,7 @@ ensure_nettools_image() {
     
     # When applying packet loss with port filters
     echo "Applying packet loss with port filters..."
-    run pumba iptables --duration 5s --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest --pull-image=false --protocol tcp --dst-port 80,443 loss --mode random --probability 0.5 iptables_target
+    run pumba iptables --duration 5s --iptables-image ${NETTOOLS_IMAGE} --pull-image=false --protocol tcp --dst-port 80,443 loss --mode random --probability 0.5 iptables_target
     
     # Then pumba should execute successfully
     echo "Pumba execution status: $status"
@@ -165,7 +191,7 @@ ensure_nettools_image() {
     
     # When applying packet loss with nth mode
     echo "Applying packet loss with nth mode..."
-    run pumba iptables --duration 5s --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest --pull-image=false loss --mode nth --every 3 --packet 0 iptables_target
+    run pumba iptables --duration 5s --iptables-image ${NETTOOLS_IMAGE} --pull-image=false loss --mode nth --every 3 --packet 0 iptables_target
     
     # Then pumba should execute successfully
     echo "Pumba execution status: $status"
