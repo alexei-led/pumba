@@ -622,10 +622,8 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *Cont
 
 	// container config
 	config := ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		Entrypoint: []string{"tc"},
-		// Used as long-running entry-point to keep container alive between commands
-		Cmd:   []string{"monitor"},
+		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		// Use default entrypoint (tail -f /dev/null) from image to keep container alive
 		Image: tcimage,
 	}
 

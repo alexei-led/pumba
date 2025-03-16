@@ -23,69 +23,69 @@ spec:
       name: pumba
     spec:
       containers:
-      # randomly pause containers in Pod named 'test-1' every minute for 30 sec
-      - image: gaiaadm/pumba
-        imagePullPolicy: Always
-        name: pumba-pause
-        args:
-          - --random
-          - --log-level
-          - info
-          - --label
-          - io.kubernetes.pod.name=test-1
-          - --interval
-          - 20s
-          - pause
-          - --duration 
-          - 10s
-        securityContext:
-          # privileged: true
-          capabilities:
-            add: ["NET_ADMIN"]
-        resources:
-          requests:
-            cpu: 10m
-            memory: 5M
-          limits:
-            cpu: 100m
-            memory: 20M
-        volumeMounts:
-          - name: dockersocket
-            mountPath: /var/run/docker.sock
-      # randomly add a  3000ms ± 30ms delay to 'test-2' Pod containers every 5m for 2m, where variation in delay is described by `normal` distribution,
-      - image: gaiaadm/pumba
-        imagePullPolicy: Always
-        name: pumba-delay
-        args:
-          - --random
-          - --log-level
-          - info
-          - --label
-          - io.kubernetes.pod.name=test-2
-          - --interval
-          - 30s
-          - netem
-          - --duration
-          - 20s
-          - --tc-image
-          - gaiadocker/iproute2
-          - delay
-          - --time
-          - "3000"
-          - --jitter
-          - "30"
-          - --distribution 
-          - normal
-        resources:
-          requests:
-            cpu: 10m
-            memory: 5M
-          limits:
-            cpu: 100m
-            memory: 20M
-        volumeMounts:
-          - name: dockersocket
-            mountPath: /var/run/docker.sock
+        # randomly pause containers in Pod named 'test-1' every minute for 30 sec
+        - image: gaiaadm/pumba
+          imagePullPolicy: Always
+          name: pumba-pause
+          args:
+            - --random
+            - --log-level
+            - info
+            - --label
+            - io.kubernetes.pod.name=test-1
+            - --interval
+            - 20s
+            - pause
+            - --duration
+            - 10s
+          securityContext:
+            # privileged: true
+            capabilities:
+              add: [ "NET_ADMIN" ]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 5M
+            limits:
+              cpu: 100m
+              memory: 20M
+          volumeMounts:
+            - name: dockersocket
+              mountPath: /var/run/docker.sock
+        # randomly add a  3000ms ± 30ms delay to 'test-2' Pod containers every 5m for 2m, where variation in delay is described by `normal` distribution,
+        - image: gaiaadm/pumba
+          imagePullPolicy: Always
+          name: pumba-delay
+          args:
+            - --random
+            - --log-level
+            - info
+            - --label
+            - io.kubernetes.pod.name=test-2
+            - --interval
+            - 30s
+            - netem
+            - --duration
+            - 20s
+            - --tc-image
+            - ghcr.io/alexei-led/pumba/pumba-debian-nettools
+            - delay
+            - --time
+            - "3000"
+            - --jitter
+            - "30"
+            - --distribution
+            - normal
+          resources:
+            requests:
+              cpu: 10m
+              memory: 5M
+            limits:
+              cpu: 100m
+              memory: 20M
+          volumeMounts:
+            - name: dockersocket
+              mountPath: /var/run/docker.sock
       # limit to specific k8s nodes
       # EKS node group
       # nodeSelector:

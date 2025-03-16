@@ -38,3 +38,15 @@
 1. On the left bottom screen, run Pod in interactive mode: `./k8s_pause_demo.sh` - Pod prints time every second
 1. On the right bottom screen, run Pod in interactive mode: `./k8s_delay_demo.sh` - Pod pings `1.1.1.1`
 1. On the top screen, deploy `pumba` DaemonSet with two commands running `pause` and `delay`
+
+## Combined tc and iptables demo: Asymmetric network degradation
+
+This demo shows how to create a more realistic network chaos scenario by combining both outgoing and incoming traffic manipulation:
+
+1. Split screen horizontally
+1. Split bottom screen vertically
+1. On the left bottom screen run a web server container: `./combined_demo_server.sh`
+1. On the right bottom screen run a client container: `./combined_demo_client.sh`; send requests to the server
+1. On the top screen, run Pumba with both netem and iptables commands: `./pumba_combined.sh`
+
+This demonstrates how to simulate asymmetric network conditions (like a slow download but fast upload) that more closely resemble real-world network conditions.
