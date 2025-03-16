@@ -1,9 +1,12 @@
 # Pumba: chaos testing tool for Docker [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Breaking%20Docker%20containers%20on%20purpose%20with%20Pumba&url=https://github.com/alexei-led/pumba&via=alexeiled&hashtags=docker,chaosengineering,chaos,breakthingsonpurpose,kubernetes)
 
 Pumba is a chaos testing command line tool for Docker containers.
-Pumba disturbs your containers by crashing containerized application, emulating
-network failures and stress-testing container resources (cpu, memory, fs, io,
-and others).
+Pumba disturbs your containers by:
+- Crashing containerized applications
+- Emulating network failures (latency, packet loss, etc.)
+- Manipulating both incoming and outgoing network traffic
+- Stress-testing container resources (CPU, memory, I/O)
+- Creating complex, realistic network chaos scenarios
 
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)
 [![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Release")
@@ -356,6 +359,19 @@ pumba --random netem --duration 5m \
 pumba netem --duration 5m corrupt --percent 10 mydb
 ```
 
+```text
+# Using the multi-arch nettools image explicitly
+# This is useful when you need to ensure both netem and iptables commands use the same image
+
+pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+    --duration 5m \
+    delay --time 1000 \
+    --jitter 100 \
+    myapp
+```
+
+For more examples of combining netem with iptables commands, see the [Advanced Network Chaos Scenarios](#advanced-network-chaos-scenarios) section.
+
 ##### Network Tools Images
 
 Pumba uses the `tc` Linux tool for network emulation and `iptables` for packet filtering.
@@ -369,17 +385,34 @@ You have two options:
    Pumba will create a new container from this image, adding `NET_ADMIN`
    capability to it and reusing the target container's network stack.
 
-   By default, Pumba uses `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` image,
-   which includes both `tc` and `iptables` tools.
+#### Combined NetTools Images
 
-   The following images are available:
-    - `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` - Alpine-based image with both tools
-    - `ghcr.io/alexei-led/pumba/pumba-debian-nettools:latest` - Debian-based image with both tools
+By default, Pumba now uses multi-tool container images that include both `tc` and `iptables` tools:
 
-**Note:** Both images use a neutral entrypoint (`tail -f /dev/null`) to keep the helper container alive between commands, which improves
-efficiency when running multiple network manipulation commands.
+- `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` - Alpine-based image with both tc and iptables
+- `ghcr.io/alexei-led/pumba/pumba-debian-nettools:latest` - Debian-based image with both tc and iptables
 
-##### Building Network Tools Images
+These images provide several benefits:
+- **Efficiency**: Both the `netem` and `iptables` commands can use the same container image
+- **Multi-architecture**: Images are built for both `amd64` and `arm64` architectures
+- **Command reuse**: A neutral entrypoint keeps the helper container alive between commands
+
+**Usage Example**:
+```bash
+# Use the same nettools image for both netem and iptables commands
+pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest delay --time 100 mycontainer
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest loss --probability 0.2 mycontainer 
+```
+
+#### Architecture Support
+
+The nettools images are built for multiple CPU architectures:
+- `amd64` (x86_64) - Standard 64-bit Intel/AMD architecture
+- `arm64` (aarch64) - 64-bit ARM architecture (Apple M1/M2, AWS Graviton, etc.)
+
+Docker will automatically pull the correct image for your architecture.
+
+#### Building Network Tools Images
 
 You can build the network tools images locally using the provided Makefile commands:
 
@@ -458,24 +491,104 @@ OPTIONS:
    --packet value       set the initial counter value (0 <= packet <= n-1, default 0) for nth mode (default: 0)
 ```
 
-#### `iptables` tool
+#### Using the `iptables` Commands
 
-Pumba uses `iptables` Linux tool for filtering incoming network traffic.
+Pumba's `iptables` command allows you to simulate packet loss for incoming network traffic, with powerful filtering options. This can be used to test application resilience to network issues.
+
+##### Examples
+
+```bash
+# Drop 20% of incoming packets for a container named "web"
+pumba iptables loss --probability 0.2 web
+```
+
+```bash
+# Drop every 5th packet coming from IP 192.168.1.100 to container "api" on port 8080
+pumba iptables loss --mode nth --every 5 --protocol tcp --source 192.168.1.100 --dst-port 8080 api
+```
+
+```bash
+# Drop 15% of incoming ICMP packets (ping) for all containers with names matching "database"
+pumba iptables loss --probability 0.15 --protocol icmp "re2:database"
+```
+
+```bash
+# Complex example: Drop 25% of TCP traffic coming to port 443 from a specific subnet, for 30 seconds
+pumba iptables --duration 30s --protocol tcp --source 10.0.0.0/24 --dst-port 443 \
+    loss --probability 0.25 mycontainer
+```
+
+##### `iptables` Image Requirements
+
+Pumba uses the nettools images (which include both `tc` and `iptables`) for filtering incoming network traffic.
 You have two options:
 
-1. Make sure that container, you want to disturb, has `iptables` tool available
-   and properly installed (install `iptables` package)
-2. Use `--iptables-image` option, to specify external Docker image with
-   `iptables` tool available.
-   Pumba will create a new container from this image, adding `NET_ADMIN`
-   capability to it and reusing target container network stack.
-   You can try to
-   use [ghcr.io/alexei-led/pumba/pumba-debian-nettools](https://github.com/users/alexei-led/packages/container/package/pumba%2Fpumba-debian-nettools)
-   image (it's an official Rancher package based on Alpine Linux v3 with
-   `iptables` package installed)
+1. Make sure the target container has the `iptables` tool installed
+   (install the `iptables` package)
+   
+2. Use the `--iptables-image` option to specify a Docker image with
+   the `iptables` tool.
+   
+   Pumba will create a helper container from this image with `NET_ADMIN`
+   capability and reuse the target container's network stack.
+   
+   The recommended images are:
+   - `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` (Alpine-based)
+   - `ghcr.io/alexei-led/pumba/pumba-debian-nettools:latest` (Debian-based)
+   
+   Both images support multiple architectures (amd64, arm64).
 
-> Note that the `biarca/iptables` container is an `amd64` image. If you want it to alter tables
-> on image for another platform you need to use a container that is build for that platform.
+### Advanced Network Chaos Scenarios
+
+Pumba allows you to create complex and realistic network chaos scenarios by combining multiple network manipulation commands. This is particularly useful for simulating real-world network conditions where multiple issues might occur simultaneously.
+
+#### Asymmetric Network Conditions
+
+In real networks, upload and download speeds/quality often differ. You can simulate this using a combination of `netem` for outgoing traffic and `iptables` for incoming traffic:
+
+```bash
+# Add delay to outgoing traffic (slow uploads)
+pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+  --duration 5m delay --time 500 myapp &
+
+# Add packet loss to incoming traffic (unreliable downloads)
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+  --duration 5m loss --probability 0.1 myapp &
+```
+
+#### Combined Network Degradation
+
+Test how your application handles multiple concurrent network issues:
+
+```bash
+# Limit bandwidth and add packet corruption
+pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+  --duration 10m rate --rate 1mbit myapp &
+
+# Add packet loss to incoming traffic
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+  --duration 10m loss --probability 0.05 myapp &
+```
+
+#### Testing Microservices Resilience
+
+Use Pumba to test how your microservices architecture responds to network failures between specific services:
+
+```bash
+# Add high latency between service A and service B
+pumba netem --tc-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+  --target service-b-ip --duration 5m delay --time 2000 --jitter 500 service-a &
+
+# Add packet loss from service B to service C
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest \
+  --source service-c-ip --duration 5m loss --probability 0.2 service-b &
+```
+
+#### Example Script
+
+You can find a complete example script for combined chaos testing in the [examples directory](examples/pumba_combined.sh).
+
+For detailed guidance on advanced network chaos testing scenarios, best practices, and troubleshooting, see the [Advanced Network Chaos Testing Documentation](docs/advanced-network-chaos.md).
 
 ### Stress testing Docker containers
 

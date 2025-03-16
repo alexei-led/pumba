@@ -14,7 +14,21 @@ These tests verify Pumba functionality by running tests against a real Docker en
 ## Test Structure
 
 - `test_helper.bash`: Contains helper functions used across test files
-- Individual `.bats` files: Test specific Pumba commands
+- Individual `.bats` files: Test specific Pumba commands:
+  - `kill.bats`: Tests for the kill command
+  - `stop.bats`: Tests for the stop command
+  - `pause.bats`: Tests for the pause command
+  - `netem.bats`: Tests for the netem command (basic functionality)
+  - `netem_extended.bats`: Extended tests for netem features (duplicate, corrupt, loss models)
+  - `iptables.bats`: Tests for the iptables command
+  - `combined_chaos.bats`: Tests for combined netem and iptables usage
+  - `global_params.bats`: Tests for global parameters (--random, --label, etc.)
+  - `error_handling.bats`: Tests for error conditions and edge cases
+  - `global.bats`: Common Pumba behavior tests
+  - `multi_container.bats`: Tests targeting multiple containers
+  - `remove.bats`: Tests for the rm command
+  - `restart.bats`: Tests for the restart command
+  - `skip_ci/stress.bats`: Tests for stress-testing functionality (may be skipped in CI)
 - `run_tests.sh`: Script to run all tests and generate a report
 
 ## Running Tests
