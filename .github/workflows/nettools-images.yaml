@@ -61,7 +61,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/pumba-${{ matrix.image.name }}
+          images: ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image.name }}
           flavor: |
             latest=true
           tags: |
