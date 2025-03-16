@@ -32,6 +32,16 @@ jobs:
           go-version: '1.24'
           cache: true
           cache-dependency-path: go.sum
+      - name: Run Lint and Test Coverage
+        shell: bash
+        run: |
+          make lint
+          make test-coverage
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ".cover/coverage.xml"
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Build Release Binaries
         env:
           GOPROXY: https://proxy.golang.org
