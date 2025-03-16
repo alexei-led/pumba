@@ -60,7 +60,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build make build TARGETOS=${TARGET
 #
 # ------ Pumba Integration Tests ------
 #
-FROM --platform=$TARGETPLATFORM bats/bats:v1.11.1 AS integration-tests
+FROM --platform=$TARGETPLATFORM bats/bats:1.11.1 AS integration-tests
 
 # install required packages
 RUN apk add --no-cache docker iproute2 iptables
