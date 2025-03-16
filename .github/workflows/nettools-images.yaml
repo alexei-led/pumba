@@ -57,12 +57,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug Token Permissions
-        run: |
-          echo "Actor: ${{ github.actor }}"
-          echo "Token: ${{ secrets.GITHUB_TOKEN }}" | head -c 10
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/user
-
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
