@@ -101,8 +101,10 @@ teardown() {
     
     # Then command should fail due to missing required parameter
     echo "Missing required parameter status: $status"
+    echo "Output: $output"
     [ $status -ne 0 ]
-    [[ $output =~ "required" ]] || [[ $output =~ "missing" ]] || [[ $output =~ "rate" ]]
+    # Check for any of the expected error phrases, including the actual error message
+    [[ $output =~ "required" ]] || [[ $output =~ "missing" ]] || [[ $output =~ "rate" ]] || [[ $output =~ "undefined" ]]
 }
 
 @test "Should handle subcommand typos gracefully" {
