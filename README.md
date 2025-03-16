@@ -5,12 +5,12 @@ Pumba disturbs your containers by crashing containerized application, emulating
 network failures and stress-testing container resources (cpu, memory, fs, io,
 and others).
 
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Pumba+CI")
-                                                                                           [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba)
-                                                                                           [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
-                                                                                           [![](https://images.microbadger.com/badges/image/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba)
-                                                                                           [![](https://images.microbadger.com/badges/version/gaiaadm/pumba.svg)](http://microbadger.com/images/gaiaadm/pumba) 
-
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)
+[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Release") 
+[![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba)
+[![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
+[![Docker Pulls](https://img.shields.io/docker/pulls/gaiaadm/pumba.svg)](https://hub.docker.com/r/gaiaadm/pumba/)
+[![Docker Image Size](https://img.shields.io/docker/image-size/gaiaadm/pumba/latest.svg)](https://hub.docker.com/r/gaiaadm/pumba/)
 
 ![pumba](docs/img/pumba_logo.png "They CALL me... MISTER PIG!")
 
