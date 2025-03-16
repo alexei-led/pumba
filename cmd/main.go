@@ -310,7 +310,7 @@ func initializeCLICommands() []cli.Command {
 				cli.StringFlag{
 					Name:  "tc-image",
 					Usage: "Docker image with tc (iproute2 package) and iptables",
-					Value: "ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest",
+					Value: "ghcr.io/alexei-led/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
 					Name:  "pull-image",
@@ -366,7 +366,7 @@ func initializeCLICommands() []cli.Command {
 				cli.StringFlag{
 					Name:  "iptables-image",
 					Usage: "Docker image with iptables and tc (iproute2 package)",
-					Value: "ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest",
+					Value: "ghcr.io/alexei-led/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
 					Name:  "pull-image",
