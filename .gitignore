@@ -11,5 +11,6 @@
 **/.DS_Store
 **/debug
 **/debug.test
+coverage.out
 
 vendor
