@@ -112,11 +112,17 @@ test-coverage: setup-go-junit-report setup-gocov setup-gocov-xml; $(info $(M) ru
 	$Q $(GO) tool cover -func="$(COVERAGE_PROFILE)"
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
-# urun integration tests
+# run integration tests
 .PHONY: integration-tests
 integration-tests: build ; $(info $(M) running integration tests with bats...) @ ## Run bats tests
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
-	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(BATS) tests
+	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(SHELL) tests/run_tests.sh
+	
+# run all integration tests including stress tests
+.PHONY: integration-tests-all
+integration-tests-all: build ; $(info $(M) running all integration tests with bats...) @ ## Run all bats tests including stress tests
+	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
+	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(SHELL) tests/run_tests.sh --all
 
 .PHONY: lint
 lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
@@ -156,6 +162,52 @@ debug:
 	@echo $(LDFLAGS_VERSION)
 	@echo $(BIN)/$(basename $(MODULE))
 	@echo $(TARGETOS)/$(TARGETARCH)
+
+# NetTools Docker images
+NETTOOLS_REPO := ghcr.io/alexei-led/pumba
+NETTOOLS_PLATFORMS := linux/amd64,linux/arm64
+
+.PHONY: build-nettools-images
+build-nettools-images: ; $(info $(M) building multi-arch nettools images...) @ ## Build multi-arch nettools images
+	$Q $(DOCKER) buildx create --use --name nettools-builder --driver docker-container --bootstrap || true
+	$Q $(DOCKER) buildx build --platform $(NETTOOLS_PLATFORMS) \
+		-t $(NETTOOLS_REPO)/pumba-alpine-nettools:latest \
+		-f $(CURDIR)/docker/alpine-nettools.Dockerfile \
+		$(CURDIR)
+	$Q $(DOCKER) buildx build --platform $(NETTOOLS_PLATFORMS) \
+		-t $(NETTOOLS_REPO)/pumba-debian-nettools:latest \
+		-f $(CURDIR)/docker/debian-nettools.Dockerfile \
+		$(CURDIR)
+	$Q $(DOCKER) buildx rm nettools-builder
+
+.PHONY: build-local-nettools
+build-local-nettools: ; $(info $(M) building local nettools images for local architecture...) @ ## Build local nettools images
+	$Q $(DOCKER) build \
+		-t pumba-alpine-nettools:local \
+		-f $(CURDIR)/docker/alpine-nettools.Dockerfile \
+		$(CURDIR)
+	$Q $(DOCKER) build \
+		-t pumba-debian-nettools:local \
+		-f $(CURDIR)/docker/debian-nettools.Dockerfile \
+		$(CURDIR)
+
+.PHONY: push-nettools-images
+push-nettools-images: ; $(info $(M) building and pushing multi-arch nettools images...) @ ## Build and push multi-arch nettools images
+	@echo "Using repository: $(NETTOOLS_REPO)"
+	@echo "Checking if already logged in to ghcr.io..."
+	@$(DOCKER) buildx ls >/dev/null
+	$Q $(DOCKER) buildx create --use --name nettools-builder --driver docker-container --bootstrap || true
+	$Q $(DOCKER) buildx build --platform $(NETTOOLS_PLATFORMS) \
+		-t $(NETTOOLS_REPO)/pumba-alpine-nettools:latest \
+		--push \
+		-f $(CURDIR)/docker/alpine-nettools.Dockerfile \
+		$(CURDIR)
+	$Q $(DOCKER) buildx build --platform $(NETTOOLS_PLATFORMS) \
+		-t $(NETTOOLS_REPO)/pumba-debian-nettools:latest \
+		--push \
+		-f $(CURDIR)/docker/debian-nettools.Dockerfile \
+		$(CURDIR)
+	$Q $(DOCKER) buildx rm nettools-builder
 
 # helper function: find module path
 define source_of

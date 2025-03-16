@@ -1,16 +1,34 @@
 #!/usr/bin/env bats
 
-@test "Should remove running docker container without any parameters" {
-    # given (started container)
-    docker run -d --name victim alpine tail -f /dev/null
+# Load the test helper
+load test_helper
 
-    # when (trying to remove container)
-    run pumba rm /victim
+setup() {
+    # Clean any leftover containers from previous test runs
+    cleanup_containers "rm_victim"
+}
 
-    # then (pumba exited successfully)
+teardown() {
+    # Clean up containers after each test
+    cleanup_containers "rm_victim"
+}
+
+@test "Should remove running docker container" {
+    # Given a running container
+    create_test_container "rm_victim"
+    
+    # Verify container is running
+    run docker inspect -f {{.State.Status}} rm_victim
+    [ "$output" = "running" ]
+    
+    # When removing the container with pumba
+    run pumba rm rm_victim
+    
+    # Then pumba should exit successfully
     [ $status -eq 0 ]
-
-    # and (container has been removed)
-    run bash -c "docker ps -a | grep victim"
-    [ ! "$output" ]
+    
+    # And container should be removed
+    run docker ps -a --filter "name=rm_victim" --format "{{.Names}}"
+    echo "Remaining containers: $output"
+    [ -z "$output" ]
 }

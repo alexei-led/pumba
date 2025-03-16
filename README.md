@@ -6,7 +6,7 @@ network failures and stress-testing container resources (cpu, memory, fs, io,
 and others).
 
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)
-[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Release") 
+[![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Release")
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba)
 [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
 [![Docker Pulls](https://img.shields.io/docker/pulls/gaiaadm/pumba.svg)](https://hub.docker.com/r/gaiaadm/pumba/)
@@ -168,7 +168,7 @@ OPTIONS:
    --duration value, -d value   network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
    --interface value, -i value  network interface to apply delay on (default: "eth0")
    --target value, -t value     target IP filter; comma separated. netem will impact only on traffic to target IP(s)
-   --tc-image value             Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'
+   --tc-image value             Docker image with tc (iproute2 package); try 'ghcr.io/alexei-led/pumba/pumba-debian-nettools'
    --help, -h                   show help
 ```
 
@@ -356,24 +356,66 @@ pumba --random netem --duration 5m \
 pumba netem --duration 5m corrupt --percent 10 mydb
 ```
 
-##### `tc` tool
+##### Network Tools Images
 
-Pumba uses `tc` Linux tool for network emulation.
+Pumba uses the `tc` Linux tool for network emulation and `iptables` for packet filtering.
 You have two options:
 
-1. Make sure that container, you want to disturb, has `tc` tool available and
-   properly installed (install `iproute2` package)
-2. Use `--tc-image` option, with any `netem` command, to specify external Docker
-   image with `tc` tool available.
-   Pumba will create a new container from this image, adding `NET_ADMIN`
-   capability to it and reusing target container network stack.
-   You can try to use
-   [gaiadocker/iproute2](https://hub.docker.com/r/gaiadocker/iproute2/) image
-   (it's just Alpine Linux 3.3 with `iproute2` package installed)
+1. Make sure that the container you want to disturb has the required tools available and
+   properly installed (install `iproute2` and `iptables` packages)
+2. Use provided network tools images with the `--tc-image` option (for netem commands)
+   or `--iptables-image` option (for iptables commands)
 
-**Note:** For Alpine Linux based image, you need to install `iproute2` package
-and also to create a symlink pointing to distribution files `ln -s /usr/lib/tc
-/lib/tc`.
+   Pumba will create a new container from this image, adding `NET_ADMIN`
+   capability to it and reusing the target container's network stack.
+
+   By default, Pumba uses `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` image,
+   which includes both `tc` and `iptables` tools.
+
+   The following images are available:
+    - `ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest` - Alpine-based image with both tools
+    - `ghcr.io/alexei-led/pumba/pumba-debian-nettools:latest` - Debian-based image with both tools
+
+**Note:** Both images use a neutral entrypoint (`tail -f /dev/null`) to keep the helper container alive between commands, which improves
+efficiency when running multiple network manipulation commands.
+
+##### Building Network Tools Images
+
+You can build the network tools images locally using the provided Makefile commands:
+
+```bash
+# Build single-arch images for local testing
+make build-local-nettools
+
+# Build multi-architecture images locally (doesn't push)
+make build-nettools-images
+
+# Build and push the multi-architecture images to GitHub Container Registry
+make push-nettools-images
+```
+
+Before pushing to GitHub Container Registry, you need to authenticate:
+
+1. Create a GitHub Personal Access Token with `write:packages` permission
+2. Set environment variables and login:
+
+```bash
+# Set your GitHub username and token
+export GITHUB_USERNAME=your-github-username
+export GITHUB_TOKEN=your-personal-access-token
+
+# Login to GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
+
+# Run the make command with the environment variables
+make push-nettools-images
+```
+
+You can also set the variables inline with the make command:
+
+```bash
+GITHUB_USERNAME=your-github-username GITHUB_TOKEN=your-personal-access-token make push-nettools-images
+```
 
 ### IPTables command
 
@@ -393,7 +435,7 @@ OPTIONS:
    --destination value, --dest value      destination IP filter; supports multiple IPs; supports CIDR notation
    --src-port value, --sport value        source port filter; supports multiple ports (comma-separated)
    --dst-port value, --dport value        destination port filter; supports multiple ports (comma-separated)
-   --iptables-image value                 Docker image with iptables (iptables package); try 'rancher/mirrored-kube-vip-kube-vip-iptables:v0.8.9'",
+   --iptables-image value                 Docker image with iptables and tc tools (default: "ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest")
    --pull-image                           force pull iptables-image
    --help, -h                             show help
 ```
@@ -427,13 +469,13 @@ You have two options:
    `iptables` tool available.
    Pumba will create a new container from this image, adding `NET_ADMIN`
    capability to it and reusing target container network stack.
-   You can try to use
-   [rancher/mirrored-kube-vip-kube-vip-iptables:v0.8.9](https://hub.docker.com/layers/rancher/mirrored-kube-vip-kube-vip-iptables/v0.8.9/images/sha256-2ea34a063ef0c28c5cf0e53221e49c8469a1b00d5877ec951d50ca41c9c090d5)
+   You can try to
+   use [ghcr.io/alexei-led/pumba/pumba-debian-nettools](https://github.com/users/alexei-led/packages/container/package/pumba%2Fpumba-debian-nettools)
    image (it's an official Rancher package based on Alpine Linux v3 with
    `iptables` package installed)
 
 > Note that the `biarca/iptables` container is an `amd64` image. If you want it to alter tables
-  on image for another platform you need to use a container that is build for that platform.
+> on image for another platform you need to use a container that is build for that platform.
 
 ### Stress testing Docker containers
 

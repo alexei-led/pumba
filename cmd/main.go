@@ -273,6 +273,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 	return tlsCfg, nil
 }
 
+//nolint:funlen
 func initializeCLICommands() []cli.Command {
 	return []cli.Command{
 		*cmd.NewKillCLICommand(topContext),
@@ -308,7 +309,8 @@ func initializeCLICommands() []cli.Command {
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
-					Usage: "Docker image with tc (iproute2 package); try 'gaiadocker/iproute2'",
+					Usage: "Docker image with tc (iproute2 package) and iptables",
+					Value: "ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
 					Name:  "pull-image",
@@ -363,7 +365,8 @@ func initializeCLICommands() []cli.Command {
 				},
 				cli.StringFlag{
 					Name:  "iptables-image",
-					Usage: "Docker image with iptables (iptables package); try 'rancher/mirrored-kube-vip-kube-vip-iptables:v0.8.9'",
+					Usage: "Docker image with iptables and tc (iproute2 package)",
+					Value: "ghcr.io/alexei-led/pumba/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
 					Name:  "pull-image",

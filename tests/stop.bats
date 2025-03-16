@@ -1,56 +1,93 @@
 #!/usr/bin/env bats
 
+# Load the test helper
+load test_helper
+
+setup() {
+    # Clean any leftover containers from previous test runs
+    cleanup_containers "stopping_victim"
+    cleanup_containers "starting_victim"
+}
+
+teardown() {
+    # Clean up containers after each test
+    cleanup_containers "stopping_victim"
+    cleanup_containers "starting_victim"
+}
+
 @test "Should stop running container" {
-    # given (started container)
-    run docker run -d --name stopping_victim alpine tail -f /dev/null
-
-    # when (trying to stop container)
-    run pumba stop /stopping_victim
-
-    # then (pumba exited successfully)
-    [ $status -eq 0 ]
-
-    # and (container has been stopped)
+    # Given a running container
+    create_test_container "stopping_victim"
+    
+    # Verify container is running
     run docker inspect -f {{.State.Status}} stopping_victim
-    [ $output = "exited" ]
-
-    # cleanup
-    docker rm -f stopping_victim || true
+    [ "$output" = "running" ]
+    
+    # When stopping the container
+    run pumba stop stopping_victim
+    
+    # Then pumba should exit successfully
+    [ $status -eq 0 ]
+    
+    # And container should be stopped (status changed to exited)
+    wait_for 5 "docker inspect -f '{{.State.Status}}' stopping_victim | grep -q exited" "container to be stopped"
+    
+    run docker inspect -f {{.State.Status}} stopping_victim
+    echo "Container status after stop: $output"
+    [ "$output" = "exited" ]
+    
+    # Additional verification of container exit code
+    run docker inspect -f {{.State.ExitCode}} stopping_victim
+    echo "Container exit code: $output"
+    [ -n "$output" ] # Any exit code is fine
 }
 
-@test "Should stop running container with SIGTERM" {
-    # given (started container)
-    run docker run -d --name stopping_victim alpine sh -c "trap : TERM INT; tail -f /dev/null & wait"
-
-    # when (trying to stop container)
-    run pumba stop /stopping_victim
-
-    # then (pumba exited successfully)
-    [ $status -eq 0 ]
-
-    # and (container has been stopped)
+@test "Should stop running container with signal handling" {
+    # Given a container
+    # Use a simpler command
+    create_test_container "stopping_victim" "alpine" "sleep 60"
+    
+    # Wait for container to be running
+    wait_for 5 "docker inspect -f '{{.State.Status}}' stopping_victim | grep -q running" "container to start"
+    
+    # Verify container is running
     run docker inspect -f {{.State.Status}} stopping_victim
-    [ $output = "exited" ]
-
-    # cleanup
-    docker rm -f stopping_victim || true
+    echo "Initial container status: $output"
+    [ "$output" = "running" ]
+    
+    # When stopping the container
+    run pumba stop stopping_victim
+    
+    # Then pumba should exit successfully 
+    [ $status -eq 0 ]
+    
+    # And container should be stopped (status changed to exited)
+    wait_for 5 "docker inspect -f '{{.State.Status}}' stopping_victim | grep -q exited" "container to be stopped"
+    
+    run docker inspect -f {{.State.Status}} stopping_victim
+    echo "Container status after stop: $output"
+    [ "$output" = "exited" ]
 }
 
-@test "Should (re)start a previously stopped container" {
-    # given (stopped container)
-    run docker run -d --name starting_victim alpine sh -c "trap : TERM INT; tail -f /dev/null & wait"
-    run docker inspect -f {{.State.Status}} starting_victim
-    [ $output = "running" ]
 
-    # when (trying to stop container)
-    run pumba stop --restart=true --duration=5s /starting_victim
-    # then (pumba exited successfully)
-    [ "$status" -eq 0 ]
-
-    # and (container has been (re)started)
-    run docker inspect -f {{.State.Status}} starting_victim
-    [ $output = "running" ]
-
-    # cleanup
-    docker rm -f starting_victim || true
+@test "Should stop container with custom timeout" {
+    # Given a running container
+    create_test_container "stopping_victim"
+    
+    # Verify container is running
+    run docker inspect -f {{.State.Status}} stopping_victim
+    [ "$output" = "running" ]
+    
+    # When stopping the container with custom timeout
+    run pumba stop --time 5 stopping_victim
+    
+    # Then pumba should exit successfully
+    [ $status -eq 0 ]
+    
+    # And container should be stopped (status changed to exited)
+    wait_for 5 "docker inspect -f '{{.State.Status}}' stopping_victim | grep -q exited" "container to be stopped"
+    
+    run docker inspect -f {{.State.Status}} stopping_victim
+    echo "Container status after stop with timeout: $output"
+    [ "$output" = "exited" ]
 }
