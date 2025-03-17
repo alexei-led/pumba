@@ -18,6 +18,7 @@ func TestExecCommand_Run(t *testing.T) {
 	type fields struct {
 		params  *chaos.GlobalParams
 		command string
+		args    []string
 		limit   int
 	}
 	type args struct {
@@ -38,7 +39,8 @@ func TestExecCommand_Run(t *testing.T) {
 				params: &chaos.GlobalParams{
 					Names: []string{"c1", "c2"},
 				},
-				command: "kill 1",
+				command: "kill",
+				args:    []string{"-9"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -52,7 +54,8 @@ func TestExecCommand_Run(t *testing.T) {
 					Names:  []string{"c1", "c2", "c3"},
 					Labels: []string{"key=value"},
 				},
-				command: "kill 1",
+				command: "ls",
+				args:    []string{"-la"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -65,7 +68,8 @@ func TestExecCommand_Run(t *testing.T) {
 				params: &chaos.GlobalParams{
 					Pattern: "^c?",
 				},
-				command: "kill -STOP 1",
+				command: "kill",
+				args:    []string{"-STOP", "1"},
 				limit:   2,
 			},
 			args: args{
@@ -79,7 +83,8 @@ func TestExecCommand_Run(t *testing.T) {
 				params: &chaos.GlobalParams{
 					Names: []string{"c1", "c2", "c3"},
 				},
-				command: "kill 1",
+				command: "kill",
+				args:    []string{"1"},
 			},
 			args: args{
 				ctx:    context.TODO(),
@@ -93,7 +98,8 @@ func TestExecCommand_Run(t *testing.T) {
 				params: &chaos.GlobalParams{
 					Names: []string{"c1", "c2", "c3"},
 				},
-				command: "kill 1",
+				command: "kill",
+				args:    []string{"1"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -105,7 +111,8 @@ func TestExecCommand_Run(t *testing.T) {
 				params: &chaos.GlobalParams{
 					Names: []string{"c1", "c2", "c3"},
 				},
-				command: "kill 1",
+				command: "kill",
+				args:    []string{"1"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -119,7 +126,8 @@ func TestExecCommand_Run(t *testing.T) {
 				params: &chaos.GlobalParams{
 					Names: []string{"c1", "c2", "c3"},
 				},
-				command: "kill 1",
+				command: "kill",
+				args:    []string{"1"},
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -138,6 +146,7 @@ func TestExecCommand_Run(t *testing.T) {
 				pattern: tt.fields.params.Pattern,
 				labels:  tt.fields.params.Labels,
 				command: tt.fields.command,
+				args:    tt.fields.args,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.params.DryRun,
 			}
@@ -153,11 +162,11 @@ func TestExecCommand_Run(t *testing.T) {
 				}
 			}
 			if tt.args.random {
-				mockClient.On("ExecContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.params.DryRun).Return(nil)
+				mockClient.On("ExecContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.args, tt.fields.params.DryRun).Return(nil)
 			} else {
 				for i := range tt.expected {
 					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("ExecContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.params.DryRun)
+						call = mockClient.On("ExecContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.args, tt.fields.params.DryRun)
 						if tt.errs.execError {
 							call.Return(errors.New("ERROR"))
 							goto Invoke

@@ -742,6 +742,417 @@ Now create a new Pumba Docker image.
 DOCKER_BUILDKIT=1 docker build -t pumba -f docker/Dockerfile .
 ```
 
+### Exec Container command
+
+```text
+pumba exec -h
+
+NAME:
+   pumba exec - exec specified containers
+
+USAGE:
+   pumba [global options] exec [command options] containers (name, list of names, RE2 regex)
+
+DESCRIPTION:
+   send command to target container(s)
+
+OPTIONS:
+   --command value, -s value  shell command, that will be sent by Pumba to the target container(s) (default: "kill 1")
+   --args value, -a value     additional arguments for the command (can be repeated for multiple arguments)
+   --limit value, -l value    limit number of container to exec (0: exec all matching) (default: 0)
+```
+
+#### Examples
+
+```bash
+# Execute default command (kill 1) in container named web
+pumba exec web
+```
+
+```bash
+# Execute a custom command (echo) with a single argument in container named web
+pumba exec --command "echo" --args "hello" web
+```
+
+```bash
+# Execute ls with multiple arguments in all containers matching regex
+# Use repeated --args flags for multiple arguments
+pumba exec --command "ls" --args "-la" --args "/etc" "re2:^api.*"
+```
+
+```bash
+# Limit execution to only 2 containers even if more match
+pumba exec --command "touch" --args "/tmp/test-file" --limit 2 "re2:.*"
+```
+
+##### Network Tools Images
+
+Pumba uses the `tc` Linux tool for network emulation and `iptables` for packet filtering.
+You have two options:
+
+1. Make sure that the container you want to disturb has the required tools available and
+   properly installed (install `iproute2` and `iptables` packages)
+2. Use provided network tools images with the `--tc-image` option (for netem commands)
+   or `--iptables-image` option (for iptables commands)
+
+   Pumba will create a new container from this image, adding `NET_ADMIN`
+   capability to it and reusing the target container's network stack.
+
+#### Combined NetTools Images
+
+By default, Pumba now uses multi-tool container images that include both `tc` and `iptables` tools:
+
+- `ghcr.io/alexei-led/pumba-alpine-nettools:latest` - Alpine-based image with both tc and iptables
+- `ghcr.io/alexei-led/pumba-debian-nettools:latest` - Debian-based image with both tc and iptables
+
+These images provide several benefits:
+
+- **Efficiency**: Both the `netem` and `iptables` commands can use the same container image
+- **Multi-architecture**: Images are built for both `amd64` and `arm64` architectures
+- **Command reuse**: A neutral entrypoint keeps the helper container alive between commands
+
+**Usage Example**:
+
+```bash
+# Use the same nettools image for both netem and iptables commands
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest delay --time 100 mycontainer
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest loss --probability 0.2 mycontainer 
+```
+
+#### Architecture Support
+
+The nettools images are built for multiple CPU architectures:
+
+- `amd64` (x86_64) - Standard 64-bit Intel/AMD architecture
+- `arm64` (aarch64) - 64-bit ARM architecture (Apple M1/M2, AWS Graviton, etc.)
+
+Docker will automatically pull the correct image for your architecture.
+
+#### Building Network Tools Images
+
+You can build the network tools images locally using the provided Makefile commands:
+
+```bash
+# Build single-arch images for local testing
+make build-local-nettools
+
+# Build multi-architecture images locally (doesn't push)
+make build-nettools-images
+
+# Build and push the multi-architecture images to GitHub Container Registry
+make push-nettools-images
+```
+
+Before pushing to GitHub Container Registry, you need to authenticate:
+
+1. Create a GitHub Personal Access Token with `write:packages` permission
+2. Set environment variables and login:
+
+```bash
+# Set your GitHub username and token
+export GITHUB_USERNAME=your-github-username
+export GITHUB_TOKEN=your-personal-access-token
+
+# Login to GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
+
+# Run the make command with the environment variables
+make push-nettools-images
+```
+
+You can also set the variables inline with the make command:
+
+```bash
+GITHUB_USERNAME=your-github-username GITHUB_TOKEN=your-personal-access-token make push-nettools-images
+```
+
+### IPTables command
+
+```text
+pumba iptables -h
+NAME:
+   Pumba iptables - emulate loss of incoming packets, all ports and address arguments will result in seperate rules
+USAGE:
+   Pumba iptables command [command options] containers (name, list of names, or RE2 regex if prefixed with "re2:"
+COMMANDS:
+   loss  adds iptables rules to generate packet loss on ingress traffic
+OPTIONS:
+   --duration value, -d value             network emulation duration; should be smaller than recurrent interval; use with optional unit suffix: 'ms/s/m/h' (default: 0s)
+   --interface value, -i value            network interface to apply input rules on (default: "eth0")
+   --protocol value, -p value             protocol to apply input rules on (any, udp, tcp or icmp) (default: "any")
+   --source value, --src value, -s value  source IP filter; supports multiple IPs; supports CIDR notation
+   --destination value, --dest value      destination IP filter; supports multiple IPs; supports CIDR notation
+   --src-port value, --sport value        source port filter; supports multiple ports (comma-separated)
+   --dst-port value, --dport value        destination port filter; supports multiple ports (comma-separated)
+   --iptables-image value                 Docker image with iptables and tc tools (default: "ghcr.io/alexei-led/pumba-alpine-nettools:latest")
+   --pull-image                           force pull iptables-image
+   --help, -h                             show help
+```
+
+#### IPTables loss command
+
+```text
+pumba iptables loss -h
+NAME:
+   Pumba iptables loss - adds iptables rules to generate packet loss on ingress traffic
+USAGE:
+   Pumba iptables loss [command options] containers (name, list of names, or RE2 regex if prefixed with "re2:"
+DESCRIPTION:
+   adds packet losses on ingress traffic by setting iptable statistic rules
+   see:  https://www.man7.org/linux/man-pages/man8/iptables-extensions.8.html
+OPTIONS:
+   --mode value         matching mode, supported modes are random and nth (default: "random")
+   --probability value  set the probability for a packet to me matched in random mode, between 0.0 and 1.0 (default: 0)
+   --every value        match one packet every nth packet, works only with nth mode (default: 0)
+   --packet value       set the initial counter value (0 <= packet <= n-1, default 0) for nth mode (default: 0)
+```
+
+#### Using the `iptables` Commands
+
+Pumba's `iptables` command allows you to simulate packet loss for incoming network traffic, with powerful filtering options. This can be
+used to test application resilience to network issues.
+
+##### Examples
+
+```bash
+# Drop 20% of incoming packets for a container named "web"
+pumba iptables loss --probability 0.2 web
+```
+
+```bash
+# Drop every 5th packet coming from IP 192.168.1.100 to container "api" on port 8080
+pumba iptables loss --mode nth --every 5 --protocol tcp --source 192.168.1.100 --dst-port 8080 api
+```
+
+```bash
+# Drop 15% of incoming ICMP packets (ping) for all containers with names matching "database"
+pumba iptables loss --probability 0.15 --protocol icmp "re2:database"
+```
+
+```bash
+# Complex example: Drop 25% of TCP traffic coming to port 443 from a specific subnet, for 30 seconds
+pumba iptables --duration 30s --protocol tcp --source 10.0.0.0/24 --dst-port 443 \
+    loss --probability 0.25 mycontainer
+```
+
+##### `iptables` Image Requirements
+
+Pumba uses the nettools images (which include both `tc` and `iptables`) for filtering incoming network traffic.
+You have two options:
+
+1. Make sure the target container has the `iptables` tool installed
+   (install the `iptables` package)
+
+2. Use the `--iptables-image` option to specify a Docker image with
+   the `iptables` tool.
+
+   Pumba will create a helper container from this image with `NET_ADMIN`
+   capability and reuse the target container's network stack.
+
+   The recommended images are:
+    - `ghcr.io/alexei-led/pumba-alpine-nettools:latest` (Alpine-based)
+    - `ghcr.io/alexei-led/pumba-debian-nettools:latest` (Debian-based)
+
+   Both images support multiple architectures (amd64, arm64).
+
+### Advanced Network Chaos Scenarios
+
+Pumba allows you to create complex and realistic network chaos scenarios by combining multiple network manipulation commands. This is
+particularly useful for simulating real-world network conditions where multiple issues might occur simultaneously.
+
+#### Asymmetric Network Conditions
+
+In real networks, upload and download speeds/quality often differ. You can simulate this using a combination of `netem` for outgoing traffic
+and `iptables` for incoming traffic:
+
+```bash
+# Add delay to outgoing traffic (slow uploads)
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --duration 5m delay --time 500 myapp &
+
+# Add packet loss to incoming traffic (unreliable downloads)
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --duration 5m loss --probability 0.1 myapp &
+```
+
+#### Combined Network Degradation
+
+Test how your application handles multiple concurrent network issues:
+
+```bash
+# Limit bandwidth and add packet corruption
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --duration 10m rate --rate 1mbit myapp &
+
+# Add packet loss to incoming traffic
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --duration 10m loss --probability 0.05 myapp &
+```
+
+#### Testing Microservices Resilience
+
+Use Pumba to test how your microservices architecture responds to network failures between specific services:
+
+```bash
+# Add high latency between service A and service B
+pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --target service-b-ip --duration 5m delay --time 2000 --jitter 500 service-a &
+
+# Add packet loss from service B to service C
+pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --source service-c-ip --duration 5m loss --probability 0.2 service-b &
+```
+
+#### Example Script
+
+You can find a complete example script for combined chaos testing in the [examples directory](examples/pumba_combined.sh).
+
+For detailed guidance on advanced network chaos testing scenarios, best practices, and troubleshooting, see
+the [Advanced Network Chaos Testing Documentation](docs/advanced-network-chaos.md).
+
+### Stress testing Docker containers
+
+Pumba can inject [stress-ng](https://kernel.ubuntu.com/~cking/stress-ng/)
+testing tool into a target container(s) `cgroup` and control stress test run.
+
+```text
+NAME:
+   pumba stress - stress test a specified containers
+
+USAGE:
+   pumba stress [command options] containers (name, list of names, or RE2 regex if prefixed with "re2:")
+
+DESCRIPTION:
+   stress test target container(s)
+
+OPTIONS:
+   --duration value, -d value  stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
+   --stress-image value        Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script (default: "alexeiled/stress-ng:latest-ubuntu")
+   --pull-image                pull stress-image form Docker registry
+   --stressors value           stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/ (default: "--cpu 4 --timeout 60s")
+```
+
+#### stress-ng image requirements
+
+Pumba uses
+[alexeiled/stress-ng:latest-ubuntu](https://hub.docker.com/r/alexeiled/stress-ng/)
+`stress-ng` Ubuntu-based Docker image with statically linked `stress-ng` tool.
+
+You can provide your own image, but it must include the following tools:
+
+1. `stress-ng` tool (in `$PATH`)
+1. Bash shell
+1. [`dockhack`](https://github.com/tavisrudd/dockhack) helper Bash script (in
+   `$PATH`)
+1. `docker` client CLI tool (runnable without `sudo`)
+1. `cgexec` tool, available from `cgroups-tools` or/and `cgroup-bin` packages
+
+### Running inside Docker container
+
+If you choose to use Pumba Docker
+[image](https://hub.docker.com/r/gaiaadm/pumba/) on Linux, use the following
+command:
+
+```text
+# run 10 Docker containers named test_(index)
+for i in `seq 1 10`; do docker run -d --name test_$i --rm alpine tail -f /dev/null; done
+
+# once in a 10 seconds, try to kill (with `SIGKILL` signal) all containers named **test(something)**
+# on same Docker host, where Pumba container is running
+
+$ docker run -it --rm  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --interval=10s --random --log-level=info kill --signal=SIGKILL "re2:^test"
+
+```
+
+**Note:** from version `0.6` Pumba Docker image is a `scratch` Docker image,
+that contains only single `pumba` binary file and `ENTRYPOINT` set to the
+`pumba` command.
+
+**Note:** For Windows and OS X you will need to use `--host` argument, since
+there is no unix socket `/var/run/docker.sock` to mount.
+
+### Running Pumba on Kubernetes cluster
+
+If you are running Kubernetes, you can take advantage of DaemonSets to
+automatically deploy the Pumba on selected K8s nodes, using `nodeSelector` or
+`nodeAffinity`, see
+[Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
+
+You'll then be able to deploy the DaemonSet with the command:
+
+```sh
+kubectl create -f deploy/pumba_kube.yml
+```
+
+K8s automatically assigns labels to Docker container, and you can use Pumba
+`--label` filter to create chaos for specific Pods and Namespaces.
+
+K8s auto-assigned container labels, than can be used by Pumba:
+
+```yaml
+"io.kubernetes.container.name": "test-container"
+"io.kubernetes.pod.name": "test-pod"
+"io.kubernetes.pod.namespace": "test-namespace"
+```
+
+It's possible to run multiple Pumba commands in the same DaemonSet using
+multiple Pumba containers, see `deploy/pumba_kube.yml` example.
+
+If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you
+can also run the Pumba as a regular docker container on each node you want to
+make chaos (see above)
+
+**Note:** running `pumba netem` commands on minikube clusters will not work,
+because the sch_netem kernel module is missing in the minikube VM!
+
+## Build instructions
+
+You can build Pumba with or without Go installed on your machine.
+
+### Build using local Go environment
+
+In order to build Pumba, you need to have Go 1.6+ setup on your machine.
+
+Here is the approximate list of commands you will need to run:
+
+```sh
+# create required folder
+cd $GOPATH
+mkdir github.com/alexei-led && cd github.com/alexei-led
+
+# clone pumba
+git clone git@github.com:alexei-led/pumba.git
+cd pumba
+
+# build pumba binary
+make
+
+# run tests and create HTML coverage report
+make test-coverage
+
+# create pumba binaries for multiple platforms
+make release
+```
+
+### Build using Docker
+
+You do not have to install and configure Go in order to build and test Pumba
+project.
+Pumba uses Docker multistage build to create final tiny Docker image.
+
+First of all clone Pumba git repository:
+
+```sh
+git clone git@github.com:alexei-led/pumba.git
+cd pumba
+```
+
+Now create a new Pumba Docker image.
+
+```sh
+DOCKER_BUILDKIT=1 docker build -t pumba -f docker/Dockerfile .
+```
+
 ## License
 
 Code is under the

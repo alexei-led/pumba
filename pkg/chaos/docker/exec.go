@@ -16,18 +16,20 @@ type execCommand struct {
 	pattern string
 	labels  []string
 	command string
+	args    []string
 	limit   int
 	dryRun  bool
 }
 
 // NewExecCommand create new Exec Command instance
-func NewExecCommand(client container.Client, params *chaos.GlobalParams, command string, limit int) chaos.Command {
+func NewExecCommand(client container.Client, params *chaos.GlobalParams, command string, args []string, limit int) chaos.Command {
 	exec := &execCommand{
 		client:  client,
 		names:   params.Names,
 		pattern: params.Pattern,
 		labels:  params.Labels,
 		command: command,
+		args:    args,
 		limit:   limit,
 		dryRun:  params.DryRun,
 	}
@@ -66,9 +68,10 @@ func (k *execCommand) Run(ctx context.Context, random bool) error {
 		log.WithFields(log.Fields{
 			"c":       *c,
 			"command": k.command,
+			"args":    k.args,
 		}).Debug("execing c")
 		cc := c
-		err = k.client.ExecContainer(ctx, cc, k.command, k.dryRun)
+		err = k.client.ExecContainer(ctx, cc, k.command, k.args, k.dryRun)
 		if err != nil {
 			return errors.Wrap(err, "failed to run exec command")
 		}

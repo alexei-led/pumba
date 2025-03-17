@@ -22,7 +22,7 @@ type Client interface {
 	ListContainers(context.Context, FilterFunc, ListOpts) ([]*Container, error)
 	StopContainer(context.Context, *Container, int, bool) error
 	KillContainer(context.Context, *Container, string, bool) error
-	ExecContainer(context.Context, *Container, string, bool) error
+	ExecContainer(context.Context, *Container, string, []string, bool) error
 	RestartContainer(context.Context, *Container, time.Duration, bool) error
 	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
 	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error

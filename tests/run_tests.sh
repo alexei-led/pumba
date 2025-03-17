@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test runner for Pumba integration tests
-# This script runs all the bats tests and generates a report
+# This script runs the specified bats test(s) or all bats tests and generates a report
 
 # Define colors for terminal output
 RED='\033[0;31m'
@@ -55,27 +55,57 @@ TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
 
-# Run each test file
-for test_file in "${TEST_DIR}"/*.bats; do
-    if [[ -f "${test_file}" ]]; then
-        # Skip stress tests unless specifically requested
-        if [[ "${test_file}" == *"stress.bats"* && "$1" != "--all" ]]; then
-            echo -e "${YELLOW}Skipping ${test_file} (use --all to include it)${NC}"
-            continue
+# Check if specific test files were provided
+if [ $# -gt 0 ] && [ "$1" != "--all" ]; then
+    # Run only the specified test files
+    for test_arg in "$@"; do
+        test_file="${TEST_DIR}/${test_arg}"
+        
+        # Make sure path includes the tests directory
+        if [[ "$test_arg" != *"/"* ]]; then
+            test_file="${TEST_DIR}/${test_arg}"
+        elif [[ "$test_arg" != "${TEST_DIR}"* ]]; then
+            test_file="${TEST_DIR}/${test_arg#*/}"
         fi
         
-        # Run the tests in this file
-        run_tests "${test_file}"
-        
-        if [ $? -eq 0 ]; then
-            PASSED_TESTS=$((PASSED_TESTS + 1))
+        if [[ -f "${test_file}" ]]; then
+            run_tests "${test_file}"
+            
+            if [ $? -eq 0 ]; then
+                PASSED_TESTS=$((PASSED_TESTS + 1))
+            else
+                FAILED_TESTS=$((FAILED_TESTS + 1))
+            fi
+            
+            TOTAL_TESTS=$((TOTAL_TESTS + 1))
         else
-            FAILED_TESTS=$((FAILED_TESTS + 1))
+            echo -e "${RED}Error: Test file not found: ${test_file}${NC}"
+            exit 1
         fi
-        
-        TOTAL_TESTS=$((TOTAL_TESTS + 1))
-    fi
-done
+    done
+else
+    # Run each test file in the directory
+    for test_file in "${TEST_DIR}"/*.bats; do
+        if [[ -f "${test_file}" ]]; then
+            # Skip stress tests unless specifically requested
+            if [[ "${test_file}" == *"stress.bats"* && "$1" != "--all" ]]; then
+                echo -e "${YELLOW}Skipping ${test_file} (use --all to include it)${NC}"
+                continue
+            fi
+            
+            # Run the tests in this file
+            run_tests "${test_file}"
+            
+            if [ $? -eq 0 ]; then
+                PASSED_TESTS=$((PASSED_TESTS + 1))
+            else
+                FAILED_TESTS=$((FAILED_TESTS + 1))
+            fi
+            
+            TOTAL_TESTS=$((TOTAL_TESTS + 1))
+        fi
+    done
+fi
 
 # Print summary
 echo -e "${BLUE}================================${NC}"
