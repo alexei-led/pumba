@@ -97,7 +97,7 @@ func (client dockerClient) KillContainer(ctx context.Context, c *Container, sign
 }
 
 // ExecContainer executes a command in a container
-func (client dockerClient) ExecContainer(ctx context.Context, c *Container, command string, dryrun bool) error {
+func (client dockerClient) ExecContainer(ctx context.Context, c *Container, command string, args []string, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
@@ -110,7 +110,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 				User:         "root",
 				AttachStdout: true,
 				AttachStderr: true,
-				Cmd:          strings.Split(command, " "),
+				Cmd:          append([]string{command}, args...),
 			},
 		)
 		if err != nil {
@@ -138,6 +138,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 			"name":    c.Name(),
 			"id":      c.ID(),
 			"command": command,
+			"args":    args,
 			"dryrun":  dryrun,
 		}).Info(string(output))
 

@@ -25,6 +25,10 @@ func NewExecCLICommand(ctx context.Context) *cli.Command {
 				Usage: "shell command, that will be sent by Pumba to the target container(s)",
 				Value: "kill 1",
 			},
+			cli.StringSliceFlag{
+				Name:  "args, a",
+				Usage: "additional arguments for the command",
+			},
 			cli.IntFlag{
 				Name:  "limit, l",
 				Usage: "limit number of container to exec (0: exec all matching)",
@@ -47,10 +51,12 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	}
 	// get command
 	command := c.String("command")
+	// get args
+	args := c.StringSlice("args")
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand := docker.NewExecCommand(chaos.DockerClient, params, command, limit)
+	execCommand := docker.NewExecCommand(chaos.DockerClient, params, command, args, limit)
 	// run exec command
 	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {
