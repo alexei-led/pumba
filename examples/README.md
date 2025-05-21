@@ -18,6 +18,12 @@
 1. Run "ping" container pinging `1.1.1.1`: `./delay_demo.sh`
 1. Run `pumba` adding `3000ms ± 20` delay to the "ping" container: `./pumba_delay.sh`
 
+## Delay containerd container
+
+1. Split screen horizontally
+1. Run "ping" container using containerd: `./containerd_delay_demo.sh`
+1. Run `pumba` with containerd runtime to add `300ms` delay: see script `./pumba_containerd_delay.sh`
+
 ## Add packet loss to egress traffic
 
 1. Split screen horizontally

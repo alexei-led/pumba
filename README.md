@@ -89,16 +89,27 @@ Pumba supports both Docker and containerd runtimes. You can select the runtime u
     *   TLS options (`--tls`, `--tlsverify`, etc.) are applicable for Docker TCP connections.
 
 *   **containerd**: To use Pumba with containerd, specify `--runtime containerd`.
-    *   `--containerd-address`: Set the path to the containerd socket (default: `/run/containerd/containerd.sock`).
-    *   `--containerd-namespace`: Specify the containerd namespace to operate within (default: `k8s.io`, common in Kubernetes; other typical namespaces include `default`).
+    *   `--containerd-address`: Path to the containerd socket (default: `/run/containerd/containerd.sock`).
+    *   `--containerd-namespace`: Containerd namespace to operate within (default: `k8s.io`).
 
-**Example with containerd:**
-This example targets a container in the `k8s.io` namespace using a k3s containerd socket.
+**Quick start with containerd (Linux):**
 ```bash
-# Ensure Pumba binary has access to the containerd socket
-./pumba --runtime containerd --containerd-address /run/k3s/containerd/containerd.sock --containerd-namespace k8s.io \
-  netem --duration 1m my-target-container-name delay --time 500
+# Start a container using containerd's ctr tool
+ctr -n demo run -d --name ping docker.io/library/alpine:latest ping 1.1.1.1
+
+# Run Pumba against it
+pumba --runtime containerd \
+  --containerd-address /run/containerd/containerd.sock \
+  --containerd-namespace demo \
+  netem --duration 30s delay --time 300 ping
 ```
+
+On macOS, containerd typically runs inside Docker Desktop. Expose the socket or
+run Pumba inside the Docker Desktop VM and use the same command, adjusting the
+`--containerd-address` to the VM's socket path.
+
+See [examples/pumba_containerd_delay.sh](examples/pumba_containerd_delay.sh) for a
+scripted demo.
 
 **Note on `stress` command with containerd**: The `stress` command relies on cgroup access. When targeting containerd containers, Pumba attempts to place the `stress-ng` helper container into the target container's cgroup. This requires Pumba to have sufficient privileges to interact with containerd and for the `stress-ng` helper image to be compatible. The default `stress-image` (`alexeiled/stress-ng:latest-ubuntu`) should work if Pumba has appropriate host access or equivalent privileges.
 
@@ -645,7 +656,7 @@ DESCRIPTION:
 OPTIONS:
    --duration value, -d value  stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
    --stress-image value        Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script (default: "alexeiled/stress-ng:latest-ubuntu")
-   --pull-image                pull stress-image form Docker registry
+   --pull-image                pull stress-image from Docker registry
    --stressors value           stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/ (default: "--cpu 4 --timeout 60s")
 ```
 
@@ -1061,7 +1072,7 @@ DESCRIPTION:
 OPTIONS:
    --duration value, -d value  stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'
    --stress-image value        Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script (default: "alexeiled/stress-ng:latest-ubuntu")
-   --pull-image                pull stress-image form Docker registry
+   --pull-image                pull stress-image from Docker registry
    --stressors value           stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/ (default: "--cpu 4 --timeout 60s")
 ```
 

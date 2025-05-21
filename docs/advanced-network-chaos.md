@@ -9,6 +9,16 @@ Pumba now offers support for both outgoing traffic manipulation (using `tc` with
 
 **Runtime Note**: Pumba supports both Docker and containerd runtimes. The examples in this guide are applicable to both. Remember to use the global `--runtime` flag (e.g., `--runtime containerd`) and provide necessary runtime-specific options (like `--containerd-address` and `--containerd-namespace` for containerd) when running these commands. If `--runtime` is not specified, Pumba defaults to the Docker runtime.
 
+Example using containerd:
+```bash
+# Add 200ms delay to a container started with containerd
+ctr -n demo run -d --name web docker.io/library/nginx:alpine
+pumba --runtime containerd \
+  --containerd-address /run/containerd/containerd.sock \
+  --containerd-namespace demo \
+  netem --duration 30s delay --time 200 web
+```
+
 ![Pumba Network Chaos Testing](img/nettools-diagram.svg)
 
 The diagram above illustrates how Pumba uses a single nettools container to manipulate both incoming traffic (via iptables) and outgoing

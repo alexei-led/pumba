@@ -52,6 +52,9 @@ spec:
           volumeMounts:
             - name: dockersocket
               mountPath: /var/run/docker.sock
+            # Uncomment for containerd runtime
+            # - name: containerdsocket
+            #   mountPath: /run/containerd/containerd.sock
         # randomly add a  3000ms ± 30ms delay to 'test-2' Pod containers every 5m for 2m, where variation in delay is described by `normal` distribution,
         - image: gaiaadm/pumba
           imagePullPolicy: Always
@@ -86,6 +89,9 @@ spec:
           volumeMounts:
             - name: dockersocket
               mountPath: /var/run/docker.sock
+            # Uncomment for containerd runtime
+            # - name: containerdsocket
+            #   mountPath: /run/containerd/containerd.sock
       # limit to specific k8s nodes
       # EKS node group
       # nodeSelector:
@@ -97,3 +103,7 @@ spec:
         - hostPath:
             path: /var/run/docker.sock
           name: dockersocket
+        # Uncomment below to use containerd runtime instead of Docker
+        # - hostPath:
+        #     path: /run/containerd/containerd.sock
+        #   name: containerdsocket

@@ -2,9 +2,9 @@ package container
 
 import (
 	"context"
-	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -40,6 +40,10 @@ type Client interface {
 	// StressContainer(ctx context.Context, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) (string, <-chan string, <-chan error, error)
 }
 
+// containerdNew is used to create containerd.Client instances. It is a variable
+// so tests can replace it with a mock implementation.
+var containerdNew = containerd.New
+
 // containerdClient implements the Client interface using containerd.
 type containerdClient struct {
 	client    *containerd.Client
@@ -60,7 +64,7 @@ func NewContainerdClient(address, namespace string) (Client, error) {
 	// client, err := containerd.New(address, containerd.WithDefaultPlatform())
 	// For Pumba, it's often run in Linux an environment matching the target, so default might be fine.
 	// Let's stick to the simpler New(address) for now unless platform issues arise.
-	client, err := containerd.New(address)
+	client, err := containerdNew(address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to connect to containerd at %s", address)
 	}
@@ -118,12 +122,11 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn FilterFunc, op
 			}
 			// Continue with partial info if spec is unavailable but info is present
 		}
-		
-		imageName := info.Image // Default to info.Image
-		if spec != nil && spec.Image != "" { // Prefer spec.Image if available and not empty
-			imageName = spec.Image 
-		}
 
+		imageName := info.Image              // Default to info.Image
+		if spec != nil && spec.Image != "" { // Prefer spec.Image if available and not empty
+			imageName = spec.Image
+		}
 
 		// Determine status
 		var statusStr string
@@ -146,7 +149,7 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn FilterFunc, op
 				statusStr = string(st.Status)
 			}
 		}
-		
+
 		// Filter by opts.All: if false, only include running containers
 		// containerd.Running is the correct status for this check.
 		if !opts.All && statusStr != string(containerd.Running) {
@@ -154,7 +157,7 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn FilterFunc, op
 		}
 
 		// Determine container name (prefer specific labels, fallback to ID)
-		containerName := cont.ID() // Default to ID
+		containerName := cont.ID()                                         // Default to ID
 		if name, ok := info.Labels[oci.AnnotationName]; ok && name != "" { // Standard OCI annotation for name
 			containerName = name
 		} else if name, ok := info.Labels["io.kubernetes.cri.container-name"]; ok && name != "" { // K8s CRI specific
@@ -162,7 +165,6 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn FilterFunc, op
 		} else if name, ok := info.Labels["name"]; ok && name != "" { // Generic name label
 			containerName = name
 		}
-
 
 		pumbaC := &Container{
 			Cid:        cont.ID(),
@@ -174,13 +176,12 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn FilterFunc, op
 		// Populate CstopSignal from labels, using the Labels() method which correctly accesses Clabels.
 		pumbaC.CstopSignal = pumbaC.Labels()[signalLabel]
 
-
 		if fn(pumbaC) {
 			pumbaContainers = append(pumbaContainers, pumbaC)
 			log.WithFields(log.Fields{
-				"id":     pumbaC.ID(),
-				"name":   pumbaC.Name(),
-				"image":  pumbaC.ImageName(),
+				"id":    pumbaC.ID(),
+				"name":  pumbaC.Name(),
+				"image": pumbaC.ImageName(),
 				// "labels": pumbaC.Labels(), // Can be verbose
 				"status": pumbaC.Status(),
 			}).Debug("found matching containerd container")
@@ -261,13 +262,12 @@ func parseSignal(signalStr string) (syscall.Signal, error) {
 		return syscall.SIGXFSZ, nil
 	default:
 		// Try to parse as an integer if not a known string
-		if val, err := syscall.Atoi(signalStr); err == nil {
+		if val, err := strconv.Atoi(signalStr); err == nil {
 			return syscall.Signal(val), nil
 		}
 		return 0, fmt.Errorf("unknown signal: %s", signalStr)
 	}
 }
-
 
 // StopContainer stops a containerd container.
 // It first sends SIGTERM, waits for the timeout, then sends SIGKILL if the container hasn't stopped.
@@ -313,7 +313,7 @@ func (c *containerdClient) StopContainer(ctx context.Context, pumbaContainer *Co
 		log.WithError(err).WithFields(logFields).Warnf("invalid stop signal %s, defaulting to SIGTERM", stopSignalStr)
 		sigterm = syscall.SIGTERM
 	}
-	
+
 	log.WithFields(logFields).Debugf("sending signal %s to task", sigterm)
 	if err := task.Kill(ctx, sigterm); err != nil {
 		// If task is already stopped or stopping, this might error.
@@ -323,7 +323,7 @@ func (c *containerdClient) StopContainer(ctx context.Context, pumbaContainer *Co
 		}
 		log.WithFields(logFields).Debugf("task already finished or not found when sending %s", sigterm)
 	}
-	
+
 	// Wait for the task to stop or timeout
 	statusC, err := task.Wait(ctx)
 	if err != nil {
@@ -336,9 +336,9 @@ func (c *containerdClient) StopContainer(ctx context.Context, pumbaContainer *Co
 		if _, err := task.Delete(ctx); err != nil {
 			// Log error but don't fail the stop operation if delete fails here,
 			// as the primary goal (stopping) was achieved.
-			if !errdefs.IsNotFound(err) && !strings.Contains(err.Error(), "process already finished"){
-                 log.WithError(err).WithFields(logFields).Warn("failed to delete task after stop")
-            }
+			if !errdefs.IsNotFound(err) && !strings.Contains(err.Error(), "process already finished") {
+				log.WithError(err).WithFields(logFields).Warn("failed to delete task after stop")
+			}
 		}
 		return nil
 	case <-time.After(time.Duration(timeout) * time.Second):
@@ -360,9 +360,9 @@ func (c *containerdClient) StopContainer(ctx context.Context, pumbaContainer *Co
 			// The task might be in a zombie state or unkillable.
 		}
 		if _, err := task.Delete(ctx); err != nil {
-			if !errdefs.IsNotFound(err) && !strings.Contains(err.Error(), "process already finished"){
-                 log.WithError(err).WithFields(logFields).Warn("failed to delete task after SIGKILL")
-            }
+			if !errdefs.IsNotFound(err) && !strings.Contains(err.Error(), "process already finished") {
+				log.WithError(err).WithFields(logFields).Warn("failed to delete task after SIGKILL")
+			}
 		}
 		return nil // Or an error if SIGKILL failed to make it stop? Docker client seems to proceed.
 	case <-ctx.Done():
@@ -418,7 +418,7 @@ func (c *containerdClient) KillContainer(ctx context.Context, pumbaContainer *Co
 		}
 		log.WithFields(logFields).Debug("task already finished or not found when sending signal")
 	}
-	
+
 	// For SIGKILL, containerd might not immediately reflect the status change via Wait.
 	// However, Pumba's KillContainer (Docker) doesn't explicitly wait after sending signal.
 	// If signal is SIGKILL, the task might be cleaned up quickly.
@@ -483,12 +483,12 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, pumbaContainer *
 					return ctx.Err()
 				}
 			} else if !errdefs.IsNotFound(waitErr) { // Don't log if task already gone
-                log.WithError(waitErr).WithFields(logFields).Warn("failed to wait for task during force remove")
-            }
+				log.WithError(waitErr).WithFields(logFields).Warn("failed to wait for task during force remove")
+			}
 
 			// Delete the task
 			if _, err := task.Delete(ctx); err != nil {
-				if !errdefs.IsNotFound(err) && !strings.Contains(err.Error(), "process already finished"){ // It's okay if the task is already gone
+				if !errdefs.IsNotFound(err) && !strings.Contains(err.Error(), "process already finished") { // It's okay if the task is already gone
 					log.WithError(err).WithFields(logFields).Warn("failed to delete task during force remove, proceeding with container delete")
 				}
 			}
@@ -524,7 +524,6 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, pumbaContainer *
 	log.WithFields(logFields).Info("container removed successfully")
 	return nil
 }
-
 
 // Ensure containerdClient implements Client at compile time.
 var _ Client = (*containerdClient)(nil)
@@ -612,7 +611,7 @@ func (c *containerdClient) UnpauseContainer(ctx context.Context, pumbaContainer 
 		}
 		return errors.Wrapf(err, "failed to get task for container %s", cont.ID())
 	}
-	
+
 	status, err := task.Status(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get task status for container %s before unpausing", cont.ID())
@@ -667,7 +666,7 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 		}
 		return errors.Wrapf(err, "failed to get task for container %s for exec", pumbaContainer.ID())
 	}
-	
+
 	// Ensure task is running before trying to exec
 	taskStatus, err := task.Status(ctx)
 	if err != nil {
@@ -689,7 +688,6 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 		ociProcessSpec = &oci.Process{Cwd: "/", User: oci.User{UID: 0, GID: 0}} // Basic root default
 	}
 
-
 	execProcessSpec := &containerd.ProcessSpec{
 		Args: append([]string{command}, args...),
 		Cwd:  ociProcessSpec.Cwd, // Use Cwd from container spec
@@ -701,7 +699,6 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 	if execProcessSpec.User == nil || (execProcessSpec.User.UID == 0 && execProcessSpec.User.GID == 0 && execProcessSpec.User.Username == "") {
 		execProcessSpec.User = &oci.User{UID: 0, GID: 0}
 	}
-
 
 	execID := uuid.New().String()
 
@@ -719,7 +716,7 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 		return errors.Wrap(err, "failed to create stderr pipe for exec")
 	}
 	defer stderrReadPipe.Close() // Close reader in this function
-	
+
 	// Goroutine to capture stdout
 	var execStdout, execStderr strings.Builder
 	stdoutCaptureDone := make(chan struct{})
@@ -740,7 +737,7 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 			log.WithError(errCopy).WithFields(logFields).Warn("error copying stderr from exec process")
 		}
 	}()
-	
+
 	// Create the cio.FIFOSet with the pipes. Stdin is nil as Pumba doesn't provide input.
 	ioCreator := cio.NewCreator(cio.WithStreams(nil, stdoutWritePipe, stderrWritePipe))
 
@@ -769,9 +766,9 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 
 	// Ensure output capture is complete
 	// Closing the write pipes explicitly here ensures the io.Copy goroutines will finish.
-    // If they were not closed by the time the process exited, this is a final signal.
-    stdoutWritePipe.Close()
-    stderrWritePipe.Close()
+	// If they were not closed by the time the process exited, this is a final signal.
+	stdoutWritePipe.Close()
+	stderrWritePipe.Close()
 	<-stdoutCaptureDone
 	<-stderrCaptureDone
 
@@ -782,7 +779,7 @@ func (c *containerdClient) ExecContainer(ctx context.Context, pumbaContainer *Co
 			log.WithError(err).WithFields(logFields).Warnf("failed to delete exec process %s", execID)
 		}
 	}
-	
+
 	log.WithFields(logFields).WithField("stdout", execStdout.String()).WithField("stderr", execStderr.String()).Debug("exec command output")
 
 	if status.ExitStatus() != 0 {
@@ -879,7 +876,7 @@ func (c *containerdClient) StartContainer(ctx context.Context, pumbaContainer *C
 	// If specific IO handling is needed later, this can be changed.
 	// Example: ioCreator := cio.NewCreator(cio.WithStdio) or custom FIFOs.
 	ioCreator := cio.NullIO // Creates /dev/null FIFOs if not already present.
-	
+
 	newTask, err := cont.NewTask(ctx, ioCreator)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new task for container %s", cont.ID())
@@ -933,7 +930,7 @@ func (c *containerdClient) RestartContainer(ctx context.Context, pumbaContainer 
 	} else {
 		log.WithFields(logFields).Info("container stopped successfully as part of restart")
 	}
-	
+
 	// Start the container
 	// The existing StartContainer handles various states (no task, existing task stopped/paused/running)
 	// and includes its own logging.
@@ -992,7 +989,7 @@ func (c *containerdClient) StopContainerWithID(ctx context.Context, containerID 
 		}
 		return c.StopContainer(ctx, minimalPumbaContainer, int(timeout.Seconds()), false)
 	}
-	
+
 	containerName := containerID // Default to ID
 	if name, ok := info.Labels[oci.AnnotationName]; ok && name != "" {
 		containerName = name
@@ -1001,7 +998,6 @@ func (c *containerdClient) StopContainerWithID(ctx context.Context, containerID 
 	} else if name, ok := info.Labels["name"]; ok && name != "" {
 		containerName = name
 	}
-
 
 	// Construct the Pumba Container object needed by StopContainer
 	pumbaC := &Container{
@@ -1012,7 +1008,6 @@ func (c *containerdClient) StopContainerWithID(ctx context.Context, containerID 
 		// Cstatus will be determined by StopContainer if needed
 	}
 	pumbaC.CstopSignal = pumbaC.Labels()[signalLabel]
-
 
 	log.WithFields(logFields).Infof("calling StopContainer for container %s (resolved name: %s)", containerID, pumbaC.Name())
 	return c.StopContainer(ctx, pumbaC, int(timeout.Seconds()), false)
@@ -1061,10 +1056,9 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 		return errors.Wrapf(err, "failed to get status for target container task %s", targetPumbaContainer.ID())
 	}
 	if targetTaskStatus.Status != containerd.Running && targetTaskStatus.Status != containerd.Paused {
-		 // Paused is okay as network namespace exists, though commands effect might be delayed until unpause.
+		// Paused is okay as network namespace exists, though commands effect might be delayed until unpause.
 		return fmt.Errorf("target container %s task is not running or paused (status: %s)", targetPumbaContainer.ID(), targetTaskStatus.Status)
 	}
-
 
 	// 2. Pull helper image if requested
 	if pullImage {
@@ -1084,13 +1078,12 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 		return errors.Wrapf(err, "helper image %s not found after pull attempt or pull=false", helperImageName)
 	}
 
-
 	// 3. Create Helper Container Spec & Container
 	helperContainerID := "pumba-nethelper-" + targetPumbaContainer.ID() + "-" + uuid.New().String()[:8]
 	helperSnapshotID := "pumba-nethelper-snapshot-" + helperContainerID
 
 	log.WithFields(helperLogFields).WithField("helper_id", helperContainerID).Info("creating helper container spec")
-	
+
 	// Using WithNewSpec and oci.WithImageConfig to get defaults from the image.
 	// The helper container will just sleep; commands are run via exec.
 	helperSpecOpts := []oci.SpecOpts{
@@ -1116,7 +1109,7 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 	if err != nil {
 		return errors.Wrapf(err, "failed to create helper container %s", helperContainerID)
 	}
-	
+
 	// Defer cleanup of the helper container and its snapshot
 	defer func() {
 		log.WithFields(helperLogFields).WithField("helper_id", helperContainerID).Info("cleaning up helper container")
@@ -1124,7 +1117,6 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 			log.WithError(delErr).WithFields(helperLogFields).WithField("helper_id", helperContainerID).Warn("failed to delete helper container")
 		}
 	}()
-
 
 	// 4. Create and Start Helper Task (joining target's network namespace)
 	log.WithFields(helperLogFields).WithField("helper_id", helperContainerID).Info("creating and starting helper task")
@@ -1149,7 +1141,6 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 	}
 	log.WithFields(helperLogFields).WithField("helper_id", helperContainerID).Info("helper task started")
 
-
 	// 5. Execute commands in the helper container's task
 	for i, cmdAndArgs := range commandsToRun {
 		if len(cmdAndArgs) == 0 {
@@ -1160,15 +1151,15 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 		args := cmdAndArgs[1:]
 		execLogFields := helperLogFields
 		execLogFields["command"] = strings.Join(cmdAndArgs, " ")
-		
+
 		log.WithFields(execLogFields).Infof("executing command %d in helper container", i+1)
 
 		execID := "exec-" + helperContainerID + "-" + uuid.New().String()[:8]
-		
+
 		// Create process spec for exec
 		execSpec := &containerd.ProcessSpec{
 			Args: cmdAndArgs,
-			Cwd:  "/", // Default CWD for commands
+			Cwd:  "/",                       // Default CWD for commands
 			User: &oci.User{UID: 0, GID: 0}, // Run as root
 			// Terminal: false, // Default
 		}
@@ -1177,12 +1168,15 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 		var stdoutBuf, stderrBuf strings.Builder
 		stdoutRead, stdoutWrite, _ := os.Pipe()
 		stderrRead, stderrWrite, _ := os.Pipe()
-		
+
 		execIOCreator := cio.NewCreator(cio.WithStreams(nil, stdoutWrite, stderrWrite))
-		
+
 		execProcess, err := helperTask.Exec(ctx, execID, execSpec, execIOCreator)
 		if err != nil {
-			stdoutRead.Close(); stdoutWrite.Close(); stderrRead.Close(); stderrWrite.Close()
+			stdoutRead.Close()
+			stdoutWrite.Close()
+			stderrRead.Close()
+			stderrWrite.Close()
 			return errors.Wrapf(err, "failed to create exec process for command '%s'", cmd)
 		}
 
@@ -1190,21 +1184,26 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 		wg.Add(2) // For stdout and stderr copying
 
 		go func() {
-			defer wg.Done(); defer stdoutRead.Close(); defer stdoutWrite.Close()
+			defer wg.Done()
+			defer stdoutRead.Close()
+			defer stdoutWrite.Close()
 			io.Copy(&stdoutBuf, stdoutRead)
 		}()
 		go func() {
-			defer wg.Done(); defer stderrRead.Close(); defer stderrWrite.Close()
+			defer wg.Done()
+			defer stderrRead.Close()
+			defer stderrWrite.Close()
 			io.Copy(&stderrBuf, stderrRead)
 		}()
 
 		if err := execProcess.Start(ctx); err != nil {
 			// Ensure pipes are closed if start fails before goroutines manage them fully
-			stdoutWrite.Close(); stderrWrite.Close()
+			stdoutWrite.Close()
+			stderrWrite.Close()
 			wg.Wait() // Wait for any partial copy to finish
 			return errors.Wrapf(err, "failed to start exec process for command '%s'", cmd)
 		}
-		
+
 		// Close our ends of the write pipes so io.Copy can complete
 		stdoutWrite.Close()
 		stderrWrite.Close()
@@ -1215,7 +1214,7 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 			log.WithError(err).WithFields(execLogFields).Errorf("failed waiting for exec process for command '%s'", cmd)
 			// Continue to delete, then return error
 		}
-		
+
 		if _, delErr := execProcess.Delete(ctx); delErr != nil && !errdefs.IsNotFound(delErr) {
 			log.WithError(delErr).WithFields(execLogFields).Warnf("failed to delete exec process %s", execID)
 		}
@@ -1240,7 +1239,6 @@ func (c *containerdClient) runNetworkCmdHelperContainer(
 	log.WithFields(helperLogFields).Info("all network commands executed successfully in helper container")
 	return nil
 }
-
 
 // NetemContainer applies network emulation rules using tc in a helper container.
 func (c *containerdClient) NetemContainer(ctx context.Context, pumbaCont *Container, netInterface string, netemCmd []string,
@@ -1270,8 +1268,8 @@ func (c *containerdClient) NetemContainer(ctx context.Context, pumbaCont *Contai
 		// This creates a prio qdisc and filters traffic to specific bands.
 		tcCommands = append(tcCommands,
 			[]string{"tc", "qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"},
-			[]string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"}, // band 0
-			[]string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"}, // band 1
+			[]string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"},                                // band 0
+			[]string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"},                                // band 1
 			append(append([]string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:3", "handle", "30:", "netem"}, netemCmd...)), // band 2 with netem
 		)
 		// Add filters to route traffic to band 2 (1:3)
@@ -1352,7 +1350,7 @@ func (c *containerdClient) IPTablesContainer(ctx context.Context, pumbaCont *Con
 
 	var iptablesCommands [][]string
 	baseCmd := append(cmdPrefix, "-w", "5") // Add wait option to iptables
-	
+
 	if len(srcIPs) == 0 && len(dstIPs) == 0 && len(sports) == 0 && len(dports) == 0 {
 		cmd := baseCmd
 		cmd = append(cmd, cmdSuffix...)
@@ -1376,7 +1374,7 @@ func (c *containerdClient) IPTablesContainer(ctx context.Context, pumbaCont *Con
 			// Docker client uses "--sport", but iptables might take "-p tcp --sport" or similar.
 			// Assuming cmdPrefix might contain protocol, or it's a general match.
 			// For simplicity, directly using --sport. Adjust if protocol needed.
-			cmd = append(cmd, "--sport", sport) 
+			cmd = append(cmd, "--sport", sport)
 			cmd = append(cmd, cmdSuffix...)
 			iptablesCommands = append(iptablesCommands, append([]string{"iptables"}, cmd...))
 		}
@@ -1526,7 +1524,7 @@ func (c *containerdClient) StressContainer(
 		helperSpecOpts := []oci.SpecOpts{
 			oci.WithImageConfig(img), // Apply image's default config
 			oci.WithHostname(helperContainerID),
-			oci.WithProcessArgs(stressCmd...), // Set stress-ng as the command
+			oci.WithProcessArgs(stressCmd...),          // Set stress-ng as the command
 			oci.WithLinuxCgroupsPath(targetCgroupPath), // CRITICAL: Place helper in target's cgroup
 			oci.WithAddedCapabilities([]string{ // Capabilities needed by stress-ng
 				specs.LinuxCapabilitySYSAdmin, // Often needed for various stressors
@@ -1536,7 +1534,7 @@ func (c *containerdClient) StressContainer(
 			oci.WithMounts([]specs.Mount{ // Mount cgroupfs to allow stress-ng to read it
 				{
 					Destination: "/sys/fs/cgroup",
-					Type:        "cgroup", // Or "bind" if source is /sys/fs/cgroup from host
+					Type:        "cgroup",         // Or "bind" if source is /sys/fs/cgroup from host
 					Source:      "/sys/fs/cgroup", // This assumes cgroupfs is at /sys/fs/cgroup on the host
 					Options:     []string{"ro", "nosuid", "noexec", "nodev"},
 				},
@@ -1566,12 +1564,12 @@ func (c *containerdClient) StressContainer(
 				log.WithError(delErr).WithFields(logFields).WithField("helper_id", helperContainerID).Warn("failed to delete stress helper container")
 			}
 		}()
-		
+
 		// Setup stdio for capturing output from stress-ng
 		var stdoutBuffer, stderrBuffer strings.Builder
 		stdoutRead, stdoutWrite, _ := os.Pipe()
 		stderrRead, stderrWrite, _ := os.Pipe()
-		
+
 		ioCreator := cio.NewCreator(cio.WithStreams(nil, stdoutWrite, stderrWrite))
 
 		// Create and start the helper task
@@ -1586,9 +1584,9 @@ func (c *containerdClient) StressContainer(
 		go func() { defer wg.Done(); defer stdoutRead.Close(); io.Copy(&stdoutBuffer, stdoutRead) }()
 		go func() { defer wg.Done(); defer stderrRead.Close(); io.Copy(&stderrBuffer, stderrRead) }()
 
-
 		if startErr := helperTask.Start(goroutineCtx); startErr != nil {
-			stdoutWrite.Close(); stderrWrite.Close() // Ensure copiers can exit
+			stdoutWrite.Close()
+			stderrWrite.Close() // Ensure copiers can exit
 			wg.Wait()
 			errChan <- errors.Wrapf(startErr, "failed to start task for stress helper %s", helperContainerID)
 			return
@@ -1608,7 +1606,7 @@ func (c *containerdClient) StressContainer(
 				helperContainerID, stdoutBuffer.String(), stderrBuffer.String())
 			return
 		}
-		
+
 		exitCode := status.ExitStatus()
 		outputCombined := "Stdout:\n" + stdoutBuffer.String() + "\nStderr:\n" + stderrBuffer.String()
 		log.WithFields(logFields).WithField("helper_id", helperContainerID).Infof("stress helper task exited with code %d. Output:\n%s", exitCode, outputCombined)
@@ -1629,7 +1627,7 @@ func (c *containerdClient) StressContainer(
 // This requires that cmdPrefix is structured to allow easy replacement of -A/-I with -D.
 func (c *containerdClient) StopIPTablesContainer(ctx context.Context, pumbaCont *Container, cmdPrefix, cmdSuffix []string,
 	srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) error {
-	
+
 	// Create a new cmdPrefix for deletion by replacing -A or -I with -D
 	deleteCmdPrefix := make([]string, len(cmdPrefix))
 	copied := false
@@ -1648,22 +1646,21 @@ func (c *containerdClient) StopIPTablesContainer(ctx context.Context, pumbaCont 
 		// For now, try to proceed; maybe the prefix is already for deletion or is more complex.
 	}
 
-
 	logFields := log.Fields{
-		"id":            pumbaCont.ID(),
-		"name":          pumbaCont.Name(),
+		"id":              pumbaCont.ID(),
+		"name":            pumbaCont.Name(),
 		"deleteCmdPrefix": deleteCmdPrefix,
-		"cmdSuffix":     cmdSuffix,
-		"srcIPs":        srcIPs,
-		"dstIPs":        dstIPs,
-		"sports":        sports,
-		"dports":        dports,
-		"iptablesImage": image,
-		"pull":          pull,
-		"dryrun":        dryrun,
+		"cmdSuffix":       cmdSuffix,
+		"srcIPs":          srcIPs,
+		"dstIPs":          dstIPs,
+		"sports":          sports,
+		"dports":          dports,
+		"iptablesImage":   image,
+		"pull":            pull,
+		"dryrun":          dryrun,
 	}
 	log.WithFields(logFields).Info("stopping iptables rules on container using containerd helper")
-	
+
 	// The logic for generating commands is identical to IPTablesContainer, just with deleteCmdPrefix
 	var iptablesCommands [][]string
 	baseCmd := append(deleteCmdPrefix, "-w", "5") // Add wait option
