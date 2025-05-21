@@ -7,6 +7,8 @@ This guide provides detailed instructions for creating advanced network chaos te
 Pumba now offers support for both outgoing traffic manipulation (using `tc` with `netem`) and incoming traffic manipulation (using
 `iptables`). By combining these tools, you can create more realistic and complex network chaos scenarios.
 
+**Runtime Note**: Pumba supports both Docker and containerd runtimes. The examples in this guide are applicable to both. Remember to use the global `--runtime` flag (e.g., `--runtime containerd`) and provide necessary runtime-specific options (like `--containerd-address` and `--containerd-namespace` for containerd) when running these commands. If `--runtime` is not specified, Pumba defaults to the Docker runtime.
+
 ![Pumba Network Chaos Testing](img/nettools-diagram.svg)
 
 The diagram above illustrates how Pumba uses a single nettools container to manipulate both incoming traffic (via iptables) and outgoing

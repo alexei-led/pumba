@@ -1,6 +1,6 @@
-# Pumba: chaos testing tool for Docker [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Breaking%20Docker%20containers%20on%20purpose%20with%20Pumba&url=https://github.com/alexei-led/pumba&via=alexeiled&hashtags=docker,chaosengineering,chaos,breakthingsonpurpose,kubernetes)
+# Pumba: chaos testing tool for Docker and containerd [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Breaking%20Docker%20and%20containerd%20containers%20on%20purpose%20with%20Pumba&url=https://github.com/alexei-led/pumba&via=alexeiled&hashtags=docker,containerd,chaosengineering,chaos,breakthingsonpurpose,kubernetes)
 
-Pumba is a chaos testing command line tool for Docker containers.
+Pumba is a chaos testing command line tool for Docker and containerd.
 Pumba disturbs your containers by:
 
 - Crashing containerized applications
@@ -21,7 +21,8 @@ Pumba disturbs your containers by:
 ## Prerequisites
 
 **Important:**:
-Minimal required Docker version `v18.06.0`.
+- For Docker: Minimal required Docker version `v18.06.0`.
+- For containerd: Pumba is tested with containerd `v1.3.x` and later. Ensure your `containerd` installation is operational and the Pumba binary can access the containerd socket.
 
 ## Demo
 
@@ -37,7 +38,7 @@ $ pumba help
 
 Pumba version [VERSION](./blob/master/VERSION)
 NAME:
-   Pumba - Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance.
+   Pumba - Pumba is a resilience testing tool, that helps applications tolerate random container failures (Docker or containerd): process, network and performance.
 
 USAGE:
    pumba [global options] command [command options] containers (name, list of names, RE2 regex)
@@ -57,9 +58,9 @@ COMMANDS:
    iptables  apply IPv4 packet filter on incoming IP packets
    help, h   Shows a list of commands or help for one command
 GLOBAL OPTIONS:
-   --host value, -H value       daemon socket to connect to (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
-   --tls                        use TLS; implied by --tlsverify
-   --tlsverify                  use TLS and verify the remote [$DOCKER_TLS_VERIFY]
+   --host value, -H value       daemon socket to connect to (default: "unix:///var/run/docker.sock", used for Docker runtime) [$DOCKER_HOST]
+   --tls                        use TLS; implied by --tlsverify (Docker runtime only)
+   --tlsverify                  use TLS and verify the remote (Docker runtime only) [$DOCKER_TLS_VERIFY]
    --tlscacert value            trust certs signed only by this CA (default: "/etc/ssl/docker/ca.pem")
    --tlscert value              client certificate for TLS authentication (default: "/etc/ssl/docker/cert.pem")
    --tlskey value               client key for TLS authentication (default: "/etc/ssl/docker/key.pem")
@@ -72,9 +73,34 @@ GLOBAL OPTIONS:
    --random, -r                 randomly select single matching container from list of target containers
    --dry-run                    dry run does not create chaos, only logs planned chaos commands [$DRY-RUN]
    --skip-error                 skip chaos command error and retry to execute the command on next interval tick
+   --runtime value              Container runtime to use: 'docker' or 'containerd' (default: "docker")
+   --containerd-address value   containerd address (socket path) (default: "/run/containerd/containerd.sock")
+   --containerd-namespace value containerd namespace (default: "k8s.io")
    --help, -h                   show help
    --version, -v                print the version
 ```
+
+### Runtime Configuration
+
+Pumba supports both Docker and containerd runtimes. You can select the runtime using the `--runtime` global option.
+
+*   **Docker (default)**: Pumba will attempt to connect to the Docker daemon.
+    *   `--host`: Specifies the Docker daemon socket (default: `unix:///var/run/docker.sock`).
+    *   TLS options (`--tls`, `--tlsverify`, etc.) are applicable for Docker TCP connections.
+
+*   **containerd**: To use Pumba with containerd, specify `--runtime containerd`.
+    *   `--containerd-address`: Set the path to the containerd socket (default: `/run/containerd/containerd.sock`).
+    *   `--containerd-namespace`: Specify the containerd namespace to operate within (default: `k8s.io`, common in Kubernetes; other typical namespaces include `default`).
+
+**Example with containerd:**
+This example targets a container in the `k8s.io` namespace using a k3s containerd socket.
+```bash
+# Ensure Pumba binary has access to the containerd socket
+./pumba --runtime containerd --containerd-address /run/k3s/containerd/containerd.sock --containerd-namespace k8s.io \
+  netem --duration 1m my-target-container-name delay --time 500
+```
+
+**Note on `stress` command with containerd**: The `stress` command relies on cgroup access. When targeting containerd containers, Pumba attempts to place the `stress-ng` helper container into the target container's cgroup. This requires Pumba to have sufficient privileges to interact with containerd and for the `stress-ng` helper image to be compatible. The default `stress-image` (`alexeiled/stress-ng:latest-ubuntu`) should work if Pumba has appropriate host access or equivalent privileges.
 
 ### Kill Container command
 
@@ -599,10 +625,12 @@ You can find a complete example script for combined chaos testing in the [exampl
 For detailed guidance on advanced network chaos testing scenarios, best practices, and troubleshooting, see
 the [Advanced Network Chaos Testing Documentation](docs/advanced-network-chaos.md).
 
-### Stress testing Docker containers
+### Stress testing containers
 
 Pumba can inject [stress-ng](https://kernel.ubuntu.com/~cking/stress-ng/)
-testing tool into a target container(s) `cgroup` and control stress test run.
+testing tool into a target container(s) and control the stress test run.
+With Docker, this uses the `dockhack` script and cgroup manipulation.
+With containerd, Pumba attempts to place the helper container into the target's cgroup.
 
 ```text
 NAME:
@@ -623,11 +651,10 @@ OPTIONS:
 
 #### stress-ng image requirements
 
-Pumba uses
-[alexeiled/stress-ng:latest-ubuntu](https://hub.docker.com/r/alexeiled/stress-ng/)
-`stress-ng` Ubuntu-based Docker image with statically linked `stress-ng` tool.
+Pumba uses `alexeiled/stress-ng:latest-ubuntu` as the default `--stress-image`.
+This image is Ubuntu-based with a statically linked `stress-ng` tool.
 
-You can provide your own image, but it must include the following tools:
+When using Docker runtime, the image must include the following for Pumba's `stress` command to work as designed with `dockhack`:
 
 1. `stress-ng` tool (in `$PATH`)
 1. Bash shell
@@ -635,6 +662,8 @@ You can provide your own image, but it must include the following tools:
    `$PATH`)
 1. `docker` client CLI tool (runnable without `sudo`)
 1. `cgexec` tool, available from `cgroups-tools` or/and `cgroup-bin` packages
+
+For containerd, the primary requirement for the helper image is to have `stress-ng` in its `$PATH`. The cgroup interaction is handled by Pumba placing the helper container in the target's cgroup.
 
 ### Running inside Docker container
 
@@ -647,18 +676,20 @@ command:
 for i in `seq 1 10`; do docker run -d --name test_$i --rm alpine tail -f /dev/null; done
 
 # once in a 10 seconds, try to kill (with `SIGKILL` signal) all containers named **test(something)**
-# on same Docker host, where Pumba container is running
+# on same Docker host, where Pumba container is running (ensure --runtime docker or default)
 
-$ docker run -it --rm  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --interval=10s --random --log-level=info kill --signal=SIGKILL "re2:^test"
+$ docker run -it --rm  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba --runtime docker --interval=10s --random --log-level=info kill --signal=SIGKILL "re2:^test"
 
 ```
 
 **Note:** from version `0.6` Pumba Docker image is a `scratch` Docker image,
 that contains only single `pumba` binary file and `ENTRYPOINT` set to the
-`pumba` command.
+`pumba` command. This image is primarily intended for Docker runtime chaos.
 
-**Note:** For Windows and OS X you will need to use `--host` argument, since
-there is no unix socket `/var/run/docker.sock` to mount.
+For targeting `containerd` containers, it's generally recommended to run the Pumba binary directly on the node or from a privileged pod that has access to the containerd socket (e.g., `/run/containerd/containerd.sock` or `/run/k3s/containerd/containerd.sock`).
+
+**Note:** For Windows and OS X (using Docker Desktop), you will need to use `--host` argument when targeting Docker, since
+there is no unix socket `/var/run/docker.sock` to mount directly for the Pumba Docker image. `containerd` support on these platforms via Pumba would depend on how `containerd` is exposed and accessible.
 
 ### Running Pumba on Kubernetes cluster
 
@@ -666,17 +697,19 @@ If you are running Kubernetes, you can take advantage of DaemonSets to
 automatically deploy the Pumba on selected K8s nodes, using `nodeSelector` or
 `nodeAffinity`, see
 [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
+When running as a DaemonSet, ensure Pumba has access to the correct container runtime socket and any necessary privileges. For `containerd`, this typically means mounting the `containerd.sock` and running Pumba with appropriate permissions (e.g., as root or with specific capabilities if further restricted).
 
 You'll then be able to deploy the DaemonSet with the command:
 
 ```sh
 kubectl create -f deploy/pumba_kube.yml
 ```
+(You may need to modify `pumba_kube.yml` to specify the runtime and its parameters, or to mount the correct socket for containerd.)
 
-K8s automatically assigns labels to Docker container, and you can use Pumba
+K8s automatically assigns labels to containers (whether managed by Docker or containerd via a CRI plugin), and you can use Pumba's
 `--label` filter to create chaos for specific Pods and Namespaces.
 
-K8s auto-assigned container labels, than can be used by Pumba:
+K8s auto-assigned container labels, that can be used by Pumba:
 
 ```yaml
 "io.kubernetes.container.name": "test-container"

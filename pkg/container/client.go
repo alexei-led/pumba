@@ -1,47 +1,27 @@
 package container
 
 import (
-	"context"
-	"net"
-	"time"
+	"crypto/tls"
+	"fmt"
 )
 
-const (
-	defaultStopSignal = "SIGTERM"
-	defaultKillSignal = "SIGKILL"
-)
-
-// A FilterFunc is a prototype for a function that can be used to filter the
-// results from a call to the ListContainers() method on the Client.
-type FilterFunc func(*Container) bool
-
-// Client interface
-//
-//nolint:interfacebloat
-type Client interface {
-	ListContainers(context.Context, FilterFunc, ListOpts) ([]*Container, error)
-	StopContainer(context.Context, *Container, int, bool) error
-	KillContainer(context.Context, *Container, string, bool) error
-	ExecContainer(context.Context, *Container, string, []string, bool) error
-	RestartContainer(context.Context, *Container, time.Duration, bool) error
-	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
-	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
-	StopNetemContainer(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
-	IPTablesContainer(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
-	StopIPTablesContainer(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool) error
-	PauseContainer(context.Context, *Container, bool) error
-	UnpauseContainer(context.Context, *Container, bool) error
-	StartContainer(context.Context, *Container, bool) error
-	StressContainer(context.Context, *Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
-	StopContainerWithID(context.Context, string, time.Duration, bool) error
-}
-
-type imagePullResponse struct {
-	Status         string `json:"status"`
-	Error          string `json:"error"`
-	Progress       string `json:"progress"`
-	ProgressDetail struct {
-		Current int `json:"current"`
-		Total   int `json:"total"`
-	} `json:"progressDetail"`
+// NewClient returns a new Client instance for the specified runtime.
+// - runtimeType: "docker" or "containerd".
+// - hostAddress: For "docker", this is the Docker host (e.g., "unix:///var/run/docker.sock").
+//                For "containerd", this is the containerd address (e.g., "/run/containerd/containerd.sock").
+// - namespace:   For "containerd", this is the containerd namespace (e.g., "k8s.io"). Ignored for "docker".
+// - tlsConfig:   TLS configuration, primarily used for Docker client over HTTPS. Ignored for containerd unix socket.
+func NewClient(runtimeType, hostAddress, namespace string, tlsConfig *tls.Config) (Client, error) {
+	switch runtimeType {
+	case "docker":
+		// hostAddress for docker is dockerHost
+		// namespace is ignored for docker client
+		return NewDockerClient(hostAddress, tlsConfig)
+	case "containerd":
+		// hostAddress for containerd is containerdAddress
+		// tlsConfig is typically nil or ignored for containerd if using unix socket.
+		return NewContainerdClient(hostAddress, namespace)
+	default:
+		return nil, fmt.Errorf("unknown container runtime: %q - supported runtimes are 'docker' and 'containerd'", runtimeType)
+	}
 }

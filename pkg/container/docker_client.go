@@ -21,8 +21,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewClient returns a new Client instance which can be used to interact with the Docker API.
-func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
+// NewDockerClient returns a new Docker Client instance which can be used to interact with the Docker API.
+func NewDockerClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 	httpClient, err := HTTPClient(dockerHost, tlsConfig)
 	if err != nil {
 		return nil, err

@@ -149,6 +149,21 @@ func main() {
 			Usage:  "dry run does not create chaos, only logs planned chaos commands",
 			EnvVar: "DRY-RUN",
 		},
+		cli.StringFlag{
+			Name:  "runtime",
+			Usage: "Container runtime to use: 'docker' or 'containerd'",
+			Value: "docker",
+		},
+		cli.StringFlag{
+			Name:  "containerd-address",
+			Usage: "containerd address (socket path)",
+			Value: "/run/containerd/containerd.sock",
+		},
+		cli.StringFlag{
+			Name:  "containerd-namespace",
+			Usage: "containerd namespace",
+			Value: "k8s.io", // "default" is also common; "k8s.io" for many k8s environments
+		},
 		cli.BoolFlag{
 			Name:  "skip-error",
 			Usage: "skip chaos command error and retry to execute the command on next interval tick",
@@ -197,11 +212,38 @@ func before(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// create new Docker client
-	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tlsCfg)
-	if err != nil {
-		return errors.Wrap(err, "could not create Docker client")
+
+	// Determine runtime and connection parameters
+	runtime := c.GlobalString("runtime")
+	var hostAddress, namespace string
+
+	switch runtime {
+	case "docker":
+		hostAddress = c.GlobalString("host")
+		// namespace is not used for docker, can remain empty or be explicitly set to ""
+		namespace = ""
+		log.WithField("host", hostAddress).Info("using Docker runtime")
+	case "containerd":
+		hostAddress = c.GlobalString("containerd-address")
+		namespace = c.GlobalString("containerd-namespace")
+		// TLS config is typically not used for containerd local socket connections
+		if tlsCfg != nil && (tlsCfg.InsecureSkipVerify || len(tlsCfg.Certificates) > 0) {
+			log.Warn("TLS configuration is present but typically not used for containerd local socket connections.")
+		}
+		log.WithFields(log.Fields{
+			"address":   hostAddress,
+			"namespace": namespace,
+		}).Info("using containerd runtime")
+	default:
+		return fmt.Errorf("unknown container runtime specified: %q. Supported: 'docker', 'containerd'", runtime)
 	}
+
+	// create new container client
+	chaos.DockerClient, err = container.NewClient(runtime, hostAddress, namespace, tlsCfg)
+	if err != nil {
+		return errors.Wrapf(err, "could not create %s client", runtime)
+	}
+	log.Infof("%s client created successfully", runtime)
 	return nil
 }
 
