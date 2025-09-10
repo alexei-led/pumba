@@ -9,7 +9,7 @@ Pumba disturbs your containers by:
 - Stress-testing container resources (CPU, memory, I/O)
 - Creating complex, realistic network chaos scenarios
 
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alexei-led/pumba)](https://github.com/alexei-led/pumba/releases)
 [![](https://github.com/alexei-led/pumba/workflows/Pumba%20CI/badge.svg)](https://github.com/alexei-led/pumba/actions?query=workflow%3A"Release")
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexei-led/pumba)](https://goreportcard.com/report/github.com/alexei-led/pumba)
 [![codecov](https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg)](https://codecov.io/gh/alexei-led/pumba)
