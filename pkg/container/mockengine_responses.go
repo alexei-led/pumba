@@ -1,29 +1,29 @@
 package container
 
 import (
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	ctypes "github.com/docker/docker/api/types/container"
+	imagetypes "github.com/docker/docker/api/types/image"
+	networktypes "github.com/docker/docker/api/types/network"
 )
 
 // Containers list of containers
-func Containers(containers ...types.Container) []types.Container {
+func Containers(containers ...ctypes.Summary) []ctypes.Summary {
 	return containers
 }
 
 // Response mock single container
-func Response(params map[string]interface{}) types.Container {
+func Response(params map[string]interface{}) ctypes.Summary {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 	Names := lookupWithDefault(params, "Names", []string{"foo", "bar"}).([]string)
 
-	return types.Container{
+	return ctypes.Summary{
 		ID:    ID,
 		Names: Names,
 	}
 }
 
 // DetailsResponse mock container details response
-func DetailsResponse(params map[string]interface{}) types.ContainerJSON {
+func DetailsResponse(params map[string]interface{}) ctypes.InspectResponse {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 	Name := lookupWithDefault(params, "Name", "defaultName").(string)
 	Created := lookupWithDefault(params, "Created", "2015-07-01T12:00:01.000000000Z").(string)
@@ -32,19 +32,19 @@ func DetailsResponse(params map[string]interface{}) types.ContainerJSON {
 	Labels := lookupWithDefault(params, "Labels", map[string]string{}).(map[string]string)
 	Links := lookupWithDefault(params, "Links", []string{}).([]string)
 
-	return types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
+	return ctypes.InspectResponse{
+		ContainerJSONBase: &ctypes.ContainerJSONBase{
 			ID:      ID,
 			Name:    Name,
 			Created: Created,
 			Image:   Image,
-			State:   &types.ContainerState{Running: Running},
+			State:   &ctypes.State{Running: Running},
 		},
-		Config: &container.Config{
+		Config: &ctypes.Config{
 			Labels: Labels,
 		},
-		NetworkSettings: &types.NetworkSettings{
-			Networks: map[string]*network.EndpointSettings{
+		NetworkSettings: &ctypes.NetworkSettings{
+			Networks: map[string]*networktypes.EndpointSettings{
 				"default": {Links: Links},
 			},
 		},
@@ -52,10 +52,10 @@ func DetailsResponse(params map[string]interface{}) types.ContainerJSON {
 }
 
 // ImageDetailsResponse mock image response
-func ImageDetailsResponse(params map[string]interface{}) types.ImageInspect {
+func ImageDetailsResponse(params map[string]interface{}) imagetypes.InspectResponse {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 
-	return types.ImageInspect{
+	return imagetypes.InspectResponse{
 		ID: ID,
 	}
 }

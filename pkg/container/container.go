@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	ctypes "github.com/docker/docker/api/types/container"
+	imagetypes "github.com/docker/docker/api/types/image"
 )
 
 const (
@@ -16,8 +17,8 @@ const (
 
 // Container represents a running Docker container.
 type Container struct {
-	ContainerInfo types.ContainerJSON
-	ImageInfo     types.ImageInspect
+	ContainerInfo ctypes.InspectResponse
+	ImageInfo     imagetypes.InspectResponse
 }
 
 // ID returns the Docker container ID.
