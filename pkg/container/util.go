@@ -97,7 +97,6 @@ func ListNContainers(ctx context.Context, client Client, names []string, pattern
 		return nil, err
 	}
 	if limit > 0 && len(containers) > limit {
-		rand.Seed(time.Now().UnixNano())
 		rand.Shuffle(len(containers), func(i, j int) {
 			containers[i], containers[j] = containers[j], containers[i]
 		})

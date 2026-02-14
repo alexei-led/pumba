@@ -50,9 +50,9 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
 
 ### Task 4: Apply Go 1.26 stdlib improvements
 
-- [ ] Use slices package functions where manual slice operations exist (sort, contains, etc.)
-- [ ] Use maps package where applicable
-- [ ] Use range-over-int (for i := range n) where applicable instead of for i := 0; i < n; i++
-- [ ] Replace any deprecated stdlib API calls with modern equivalents
-- [ ] Keep changes minimal and safe — don't refactor working logic, only modernize patterns
-- [ ] Run tests after changes
+- [x] Use slices package functions where manual slice operations exist (sort, contains, etc.)
+- [x] Use maps package where applicable
+- [x] Use range-over-int (for i := range n) where applicable instead of for i := 0; i < n; i++
+- [x] Replace any deprecated stdlib API calls with modern equivalents
+- [x] Keep changes minimal and safe — don't refactor working logic, only modernize patterns
+- [x] Run tests after changes
