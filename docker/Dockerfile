@@ -1,7 +1,7 @@
 #
 # ----- Go Builder Image ------
 #
-FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
 # curl git bash
 RUN apt-get update && apt-get install -y --no-install-recommends \

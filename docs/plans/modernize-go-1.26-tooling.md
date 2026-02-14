@@ -41,12 +41,12 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
 
 ### Task 3: Update Go version to 1.26 everywhere
 
-- [ ] Update go.mod: change go 1.24 to go 1.26
-- [ ] Update docker/Dockerfile: change golang:1.24 to golang:1.26
-- [ ] Update .github/workflows/build.yaml: change go-version 1.24 to 1.26
-- [ ] Update .github/workflows/release.yaml: same
-- [ ] Update .github/workflows/codeql-analysis.yml: same
-- [ ] Run go mod tidy
+- [x] Update go.mod: change go 1.24 to go 1.26
+- [x] Update docker/Dockerfile: change golang:1.24 to golang:1.26
+- [x] Update .github/workflows/build.yaml: change go-version 1.24 to 1.26
+- [x] Update .github/workflows/release.yaml: same
+- [x] Update .github/workflows/codeql-analysis.yml: same
+- [x] Run go mod tidy
 
 ### Task 4: Apply Go 1.26 stdlib improvements
 
