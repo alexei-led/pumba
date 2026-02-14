@@ -8,21 +8,24 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
 - Default branch: master
 - golangci-lint v2.9.0 is installed but rejects current .golangci.yaml (v1 format)
 - 39 non-mock Go files use github.com/pkg/errors
-- Do NOT modify mock files (mocks/*.go, pkg/container/mock_*.go)
+- Do NOT modify mock files (mocks/\_.go, pkg/container/mock\_\_.go)
 - Do NOT add AI co-author to commits
 
 ## Validation Commands
+
 - `TARGETOS=darwin TARGETARCH=amd64 make build`
 - `CGO_ENABLED=1 TARGETOS=darwin TARGETARCH=amd64 go test -timeout 15s ./...`
 - `golangci-lint run -v -c .golangci.yaml ./...`
 
 ### Task 1: Migrate golangci-lint config to v2 format
-- [ ] Run `golangci-lint migrate` to auto-migrate .golangci.yaml to v2 format
-- [ ] Verify with `golangci-lint run -v -c .golangci.yaml ./...` — fix any config errors
-- [ ] Review migrated config: remove deprecated linters, ensure all enabled linters are valid in v2
-- [ ] Note: some linters may have been renamed or removed in v2. Check migration output carefully.
+
+- [x] Run `golangci-lint migrate` to auto-migrate .golangci.yaml to v2 format
+- [x] Verify with `golangci-lint run -v -c .golangci.yaml ./...` — fix any config errors
+- [x] Review migrated config: remove deprecated linters, ensure all enabled linters are valid in v2
+- [x] Note: some linters may have been renamed or removed in v2. Check migration output carefully.
 
 ### Task 2: Replace github.com/pkg/errors with stdlib errors
+
 - [ ] In ALL non-mock .go files (including tests): replace github.com/pkg/errors with stdlib errors and fmt
 - [ ] Migration patterns:
   - errors.Wrap(err, "msg") → fmt.Errorf("msg: %w", err)
@@ -37,6 +40,7 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
 - [ ] Verify: go build ./... and go test ./... both pass
 
 ### Task 3: Update Go version to 1.26 everywhere
+
 - [ ] Update go.mod: change go 1.24 to go 1.26
 - [ ] Update docker/Dockerfile: change golang:1.24 to golang:1.26
 - [ ] Update .github/workflows/build.yaml: change go-version 1.24 to 1.26
@@ -45,6 +49,7 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
 - [ ] Run go mod tidy
 
 ### Task 4: Apply Go 1.26 stdlib improvements
+
 - [ ] Use slices package functions where manual slice operations exist (sort, contains, etc.)
 - [ ] Use maps package where applicable
 - [ ] Use range-over-int (for i := range n) where applicable instead of for i := 0; i < n; i++
