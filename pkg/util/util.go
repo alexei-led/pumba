@@ -1,4 +1,4 @@
-package util
+package util //nolint:revive // existing package name, renaming is out of scope
 
 import (
 	"fmt"
@@ -6,16 +6,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// SliceContains checks if slice contains value
-func SliceContains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
-	for _, s := range slice {
-		set[s] = struct{}{}
-	}
-	_, ok := set[item]
-	return ok
-}
 
 // GetPorts will split the string of comma separated ports and return a list of ports
 func GetPorts(ports string) ([]string, error) {
@@ -46,7 +36,7 @@ func verifyPort(port string) error {
 		return fmt.Errorf("failed to parse port as number: %w", err)
 	}
 	if portNum < 0 || portNum > 65535 {
-		return fmt.Errorf("Port is either below 0 or greater than 65535: %s", port)
+		return fmt.Errorf("port is either below 0 or greater than 65535: %s", port)
 	}
 
 	return nil

@@ -16,7 +16,6 @@ linters:
     - dogsled
     - dupl
     - durationcheck
-    - err113
     - errcheck
     - errchkjson
     - errname
@@ -43,7 +42,6 @@ linters:
     - nilerr
     - nilnil
     - nolintlint
-    - prealloc
     - predeclared
     - promlinter
     - reassign

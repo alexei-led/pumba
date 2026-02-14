@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
-	"time"
 )
 
 // ListOpts list options
@@ -83,9 +82,7 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 // RandomContainer select random container
 func RandomContainer(containers []*Container) *Container {
 	if len(containers) > 0 {
-		r := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
-		i := r.Intn(len(containers))
-		return containers[i]
+		return containers[rand.Intn(len(containers))] //nolint:gosec
 	}
 	return nil
 }

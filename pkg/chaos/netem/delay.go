@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/alexei-led/pumba/pkg/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -49,7 +49,7 @@ func NewDelayCommand(client container.Client,
 		return nil, errors.New("invalid delay correlation: must be between 0.0 and 100.0")
 	}
 	// get distribution
-	if ok := util.SliceContains(delayDistribution, distribution); !ok {
+	if !slices.Contains(delayDistribution, distribution) {
 		return nil, errors.New("invalid delay distribution: must be one of {uniform | normal | pareto |  paretonormal}")
 	}
 	return &delayCommand{

@@ -16,3 +16,6 @@
 coverage.out
 
 vendor
+
+# ralphex progress logs
+progress*.txt
