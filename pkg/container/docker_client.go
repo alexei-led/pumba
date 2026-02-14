@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -17,7 +18,6 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	dockerapi "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,7 +30,7 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 
 	apiClient, err := dockerapi.NewClientWithOpts(dockerapi.WithHost(dockerHost), dockerapi.WithHTTPClient(httpClient), dockerapi.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create docker client")
+		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
 
 	return dockerClient{containerAPI: apiClient, imageAPI: apiClient}, nil
@@ -54,13 +54,13 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 	log.Debug("listing containers")
 	containers, err := client.containerAPI.ContainerList(ctx, opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list containers")
+		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 	var cs []*Container
 	for _, container := range containers {
 		containerInfo, err := client.containerAPI.ContainerInspect(ctx, container.ID)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to inspect container")
+			return nil, fmt.Errorf("failed to inspect container: %w", err)
 		}
 		log.WithFields(log.Fields{
 			"name": containerInfo.Name,
@@ -69,7 +69,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 
 		imageInfo, _, err := client.imageAPI.ImageInspectWithRaw(ctx, containerInfo.Image)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to inspect container image")
+			return nil, fmt.Errorf("failed to inspect container image: %w", err)
 		}
 		c := &Container{ContainerInfo: containerInfo, ImageInfo: imageInfo}
 		if fn(c) {
@@ -90,7 +90,7 @@ func (client dockerClient) KillContainer(ctx context.Context, c *Container, sign
 	if !dryrun {
 		err := client.containerAPI.ContainerKill(ctx, c.ID(), signal)
 		if err != nil {
-			return errors.Wrap(err, "failed to kill container")
+			return fmt.Errorf("failed to kill container: %w", err)
 		}
 	}
 	return nil
@@ -114,25 +114,25 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 			},
 		)
 		if err != nil {
-			return errors.Wrap(err, "exec create failed")
+			return fmt.Errorf("exec create failed: %w", err)
 		}
 
 		attachRes, err := client.containerAPI.ContainerAttach(
 			ctx, createRes.ID, types.ContainerAttachOptions{},
 		)
 		if err != nil {
-			return errors.Wrap(err, "exec attach failed")
+			return fmt.Errorf("exec attach failed: %w", err)
 		}
 
 		if err = client.containerAPI.ContainerExecStart(
 			ctx, createRes.ID, types.ExecStartCheck{},
 		); err != nil {
-			return errors.Wrap(err, "exec start failed")
+			return fmt.Errorf("exec start failed: %w", err)
 		}
 
 		output, err := io.ReadAll(attachRes.Reader)
 		if err != nil {
-			return errors.Wrap(err, "reading output from exec reader failed")
+			return fmt.Errorf("reading output from exec reader failed: %w", err)
 		}
 		log.WithFields(log.Fields{
 			"name":    c.Name(),
@@ -144,7 +144,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *Container, comm
 
 		res, err := client.containerAPI.ContainerExecInspect(ctx, createRes.ID)
 		if err != nil {
-			return errors.Wrap(err, "exec inspect failed")
+			return fmt.Errorf("exec inspect failed: %w", err)
 		}
 		if res.ExitCode != 0 {
 			return errors.New("exec failed " + command + fmt.Sprintf(" %d", res.ExitCode))
@@ -165,7 +165,7 @@ func (client dockerClient) RestartContainer(ctx context.Context, c *Container, t
 		// convert timeout to seconds
 		timeoutSec := int(timeout.Seconds())
 		if err := client.containerAPI.ContainerRestart(ctx, c.ID(), ctypes.StopOptions{Timeout: &timeoutSec}); err != nil {
-			return errors.Wrap(err, "failed to restart container")
+			return fmt.Errorf("failed to restart container: %w", err)
 		}
 	}
 	return nil
@@ -186,7 +186,7 @@ func (client dockerClient) StopContainer(ctx context.Context, c *Container, time
 	}).Info("stopping container")
 	if !dryrun {
 		if err := client.containerAPI.ContainerKill(ctx, c.ID(), signal); err != nil {
-			return errors.Wrap(err, "failed to kill container")
+			return fmt.Errorf("failed to kill container: %w", err)
 		}
 
 		// Wait for container to exit, but proceed anyway after the timeout elapses
@@ -204,7 +204,7 @@ func (client dockerClient) StopContainer(ctx context.Context, c *Container, time
 				"signal": defaultKillSignal,
 			}).Debug("killing container")
 			if err := client.containerAPI.ContainerKill(ctx, c.ID(), defaultKillSignal); err != nil {
-				return errors.Wrap(err, "failed to kill container")
+				return fmt.Errorf("failed to kill container: %w", err)
 			}
 			// Wait for container to be removed
 			if err := client.waitForStop(ctx, c, timeout); err != nil {
@@ -227,7 +227,7 @@ func (client dockerClient) StopContainerWithID(ctx context.Context, containerID 
 		timeoutSec := int(timeout.Seconds())
 		err := client.containerAPI.ContainerStop(ctx, containerID, ctypes.StopOptions{Timeout: &timeoutSec})
 		if err != nil {
-			return errors.Wrap(err, "failed to stop container")
+			return fmt.Errorf("failed to stop container: %w", err)
 		}
 	}
 	return nil
@@ -243,7 +243,7 @@ func (client dockerClient) StartContainer(ctx context.Context, c *Container, dry
 	if !dryrun {
 		err := client.containerAPI.ContainerStart(ctx, c.ID(), types.ContainerStartOptions{})
 		if err != nil {
-			return errors.Wrap(err, "failed to start container")
+			return fmt.Errorf("failed to start container: %w", err)
 		}
 	}
 
@@ -268,7 +268,7 @@ func (client dockerClient) RemoveContainer(ctx context.Context, c *Container, fo
 		}
 		err := client.containerAPI.ContainerRemove(ctx, c.ID(), removeOpts)
 		if err != nil {
-			return errors.Wrap(err, "failed to remove container")
+			return fmt.Errorf("failed to remove container: %w", err)
 		}
 	}
 	return nil
@@ -363,7 +363,7 @@ func (client dockerClient) PauseContainer(ctx context.Context, c *Container, dry
 	if !dryrun {
 		err := client.containerAPI.ContainerPause(ctx, c.ID())
 		if err != nil {
-			return errors.Wrap(err, "failed to pause container")
+			return fmt.Errorf("failed to pause container: %w", err)
 		}
 	}
 	return nil
@@ -379,7 +379,7 @@ func (client dockerClient) UnpauseContainer(ctx context.Context, c *Container, d
 	if !dryrun {
 		err := client.containerAPI.ContainerUnpause(ctx, c.ID())
 		if err != nil {
-			return errors.Wrap(err, "failed to unpause container")
+			return fmt.Errorf("failed to unpause container: %w", err)
 		}
 	}
 	return nil
@@ -461,7 +461,7 @@ func (client dockerClient) stopNetemContainer(ctx context.Context, c *Container,
 		}
 		err := client.tcCommands(ctx, c, netemCommands, tcimage, pull)
 		if err != nil {
-			return errors.Wrap(err, "failed to run netem tc commands")
+			return fmt.Errorf("failed to run netem tc commands: %w", err)
 		}
 	}
 	return nil
@@ -541,7 +541,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c *C
 
 		err := client.tcCommands(ctx, c, commands, tcimage, pull)
 		if err != nil {
-			return errors.Wrap(err, "failed to run tc commands")
+			return fmt.Errorf("failed to run tc commands: %w", err)
 		}
 	}
 	return nil
@@ -551,7 +551,7 @@ func (client dockerClient) tcCommands(ctx context.Context, c *Container, argsLis
 	if tcimage == "" {
 		for _, args := range argsList {
 			if err := client.execOnContainer(ctx, c, "tc", args, true); err != nil {
-				return errors.Wrapf(err, "error running tc command on container: %v", strings.Join(args, " "))
+				return fmt.Errorf("error running tc command on container: %v: %w", strings.Join(args, " "), err)
 			}
 		}
 		return nil
@@ -566,10 +566,10 @@ func (client dockerClient) tcExecCommand(ctx context.Context, execID string, arg
 	}
 	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
 	if err != nil {
-		return errors.Wrap(err, "failed to create tc-container exec")
+		return fmt.Errorf("failed to create tc-container exec: %w", err)
 	}
 	if err = client.containerAPI.ContainerExecStart(ctx, execCreateResponse.ID, types.ExecStartCheck{}); err != nil {
-		return errors.Wrap(err, "failed to start tc-container exec")
+		return fmt.Errorf("failed to start tc-container exec: %w", err)
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("run command on tc-container")
 	return nil
@@ -605,7 +605,7 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *Cont
 		log.WithField("image", tcimage).Debug("pulling tc-image")
 		events, err := client.imageAPI.ImagePull(ctx, tcimage, types.ImagePullOptions{})
 		if err != nil {
-			return errors.Wrap(err, "failed to pull tc-image")
+			return fmt.Errorf("failed to pull tc-image: %w", err)
 		}
 		defer events.Close()
 		d := json.NewDecoder(events)
@@ -615,7 +615,7 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *Cont
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				return errors.Wrap(err, "failed to decode docker pull response for tc-image")
+				return fmt.Errorf("failed to decode docker pull response for tc-image: %w", err)
 			}
 			log.Debug(pullResponse)
 		}
@@ -632,22 +632,22 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *Cont
 
 	log.WithField("image", config.Image).Debug("creating tc-container")
 	if err != nil {
-		return errors.Wrap(err, "failed to create tc-container from tc-image")
+		return fmt.Errorf("failed to create tc-container from tc-image: %w", err)
 	}
 	log.WithField("id", createResponse.ID).Debug("tc container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to start tc-container")
+		return fmt.Errorf("failed to start tc-container: %w", err)
 	}
 
 	for _, args := range argsList {
 		if err = client.tcExecCommand(ctx, createResponse.ID, args); err != nil {
-			return errors.Wrapf(err, "error running tc command on container: %v", strings.Join(args, " "))
+			return fmt.Errorf("error running tc command on container: %v: %w", strings.Join(args, " "), err)
 		}
 	}
 
 	if err = client.containerAPI.ContainerRemove(ctx, createResponse.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
-		return errors.Wrap(err, "failed to remove tc-container")
+		return fmt.Errorf("failed to remove tc-container: %w", err)
 	}
 
 	return nil
@@ -705,7 +705,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		if err != nil {
 			close(outerr)
 			close(output)
-			return "", output, outerr, errors.Wrap(err, "failed to pull stress-ng image")
+			return "", output, outerr, fmt.Errorf("failed to pull stress-ng image: %w", err)
 		}
 		defer events.Close()
 		d := json.NewDecoder(events)
@@ -717,7 +717,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 				}
 				close(outerr)
 				close(output)
-				return "", output, outerr, errors.Wrap(err, "failed to decode docker pull result")
+				return "", output, outerr, fmt.Errorf("failed to decode docker pull result: %w", err)
 			}
 			log.Debug(pullResponse)
 		}
@@ -728,7 +728,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	if err != nil {
 		close(outerr)
 		close(output)
-		return "", output, outerr, errors.Wrap(err, "failed to create stress-ng container")
+		return "", output, outerr, fmt.Errorf("failed to create stress-ng container: %w", err)
 	}
 	// attach to stress-ng container, capturing stdout and stderr
 	opts := types.ContainerAttachOptions{
@@ -741,7 +741,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	if err != nil {
 		close(outerr)
 		close(output)
-		return "", output, outerr, errors.Wrap(err, "failed to attach to stress-ng container")
+		return "", output, outerr, fmt.Errorf("failed to attach to stress-ng container: %w", err)
 	}
 	// copy stderr and stdout from attached reader
 	go func() {
@@ -757,12 +757,12 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		// inspect stress-ng container
 		inspect, e := client.containerAPI.ContainerInspect(ctx, createResponse.ID)
 		if e != nil {
-			outerr <- errors.Wrap(e, "failed to inspect stress-ng container")
+			outerr <- fmt.Errorf("failed to inspect stress-ng container: %w", e)
 			return
 		}
 		// get status of stress-ng command
 		if inspect.State.ExitCode != 0 {
-			outerr <- errors.Errorf("stress-ng exited with error: %v", stdout.String())
+			outerr <- fmt.Errorf("stress-ng exited with error: %v", stdout.String())
 			return
 		}
 		output <- stdout.String()
@@ -771,7 +771,7 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	log.WithField("id", createResponse.ID).Debug("stress-ng container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
 	if err != nil {
-		return createResponse.ID, output, outerr, errors.Wrap(err, "failed to start stress-ng container")
+		return createResponse.ID, output, outerr, fmt.Errorf("failed to start stress-ng container: %w", err)
 	}
 	return createResponse.ID, output, outerr, nil
 }
@@ -794,19 +794,19 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *Container, ex
 	}
 	exec, err := client.containerAPI.ContainerExecCreate(ctx, c.ID(), checkExists)
 	if err != nil {
-		return errors.Wrap(err, "failed to create exec configuration to check if command exists")
+		return fmt.Errorf("failed to create exec configuration to check if command exists: %w", err)
 	}
 	log.WithField("command", execCmd).Debugf("checking if command exists")
 	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, types.ExecStartCheck{})
 	if err != nil {
-		return errors.Wrap(err, "failed to check if command exists in a container")
+		return fmt.Errorf("failed to check if command exists in a container: %w", err)
 	}
 	checkInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
 	if err != nil {
-		return errors.Wrap(err, "failed to inspect check execution")
+		return fmt.Errorf("failed to inspect check execution: %w", err)
 	}
 	if checkInspect.ExitCode != 0 {
-		return errors.Errorf("command '%s' not found inside the %s container", execCmd, c.ID())
+		return fmt.Errorf("command '%s' not found inside the %s container", execCmd, c.ID())
 	}
 
 	// if command found execute it
@@ -820,19 +820,19 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *Container, ex
 	// execute the command
 	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
 	if err != nil {
-		return errors.Wrap(err, "failed to create exec configuration for a command")
+		return fmt.Errorf("failed to create exec configuration for a command: %w", err)
 	}
 	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
 	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, types.ExecStartCheck{})
 	if err != nil {
-		return errors.Wrap(err, "failed to start command execution")
+		return fmt.Errorf("failed to start command execution: %w", err)
 	}
 	exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
 	if err != nil {
-		return errors.Wrap(err, "failed to inspect command execution")
+		return fmt.Errorf("failed to inspect command execution: %w", err)
 	}
 	if exitInspect.ExitCode != 0 {
-		return errors.Errorf("command '%s' failed in %s container; run it in manually to debug", execCmd, c.ID())
+		return fmt.Errorf("command '%s' failed in %s container; run it in manually to debug", execCmd, c.ID())
 	}
 	return nil
 }
@@ -855,7 +855,7 @@ func (client dockerClient) waitForStop(ctx context.Context, c *Container, waitTi
 			return errors.New("aborted waiting to stop")
 		default:
 			if ci, err := client.containerAPI.ContainerInspect(ctx, c.ID()); err != nil {
-				return errors.Wrap(err, "failed to inspect container, while waiting to stop")
+				return fmt.Errorf("failed to inspect container, while waiting to stop: %w", err)
 			} else if !ci.State.Running {
 				return nil
 			}
@@ -941,7 +941,7 @@ func (client dockerClient) ipTablesContainerWithIPFilter(ctx context.Context, c 
 
 		err := client.ipTablesCommands(ctx, c, commands, image, pull)
 		if err != nil {
-			return errors.Wrap(err, "failed to run iptables commands")
+			return fmt.Errorf("failed to run iptables commands: %w", err)
 		}
 	}
 	return nil
@@ -951,7 +951,7 @@ func (client dockerClient) ipTablesCommands(ctx context.Context, c *Container, a
 	if tcimage == "" {
 		for _, args := range argsList {
 			if err := client.execOnContainer(ctx, c, "iptables", args, true); err != nil {
-				return errors.Wrapf(err, "error running iptables command on container: %v", strings.Join(args, " "))
+				return fmt.Errorf("error running iptables command on container: %v: %w", strings.Join(args, " "), err)
 			}
 		}
 		return nil
@@ -966,10 +966,10 @@ func (client dockerClient) ipTablesExecCommand(ctx context.Context, execID strin
 	}
 	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
 	if err != nil {
-		return errors.Wrap(err, "failed to create iptables-container exec")
+		return fmt.Errorf("failed to create iptables-container exec: %w", err)
 	}
 	if err = client.containerAPI.ContainerExecStart(ctx, execCreateResponse.ID, types.ExecStartCheck{}); err != nil {
-		return errors.Wrap(err, "failed to start iptables-container exec")
+		return fmt.Errorf("failed to start iptables-container exec: %w", err)
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("run command on iptables-container")
 	return nil
@@ -1005,7 +1005,7 @@ func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target
 		log.WithField("image", image).Debug("pulling iptables-image")
 		events, err := client.imageAPI.ImagePull(ctx, image, types.ImagePullOptions{})
 		if err != nil {
-			return errors.Wrap(err, "failed to pull iptables-image")
+			return fmt.Errorf("failed to pull iptables-image: %w", err)
 		}
 		defer events.Close()
 		d := json.NewDecoder(events)
@@ -1015,7 +1015,7 @@ func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				return errors.Wrap(err, "failed to decode docker pull response for iptables-image")
+				return fmt.Errorf("failed to decode docker pull response for iptables-image: %w", err)
 			}
 			log.Debug(pullResponse)
 		}
@@ -1033,22 +1033,22 @@ func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target
 
 	log.WithField("image", config.Image).Debug("creating iptables-container")
 	if err != nil {
-		return errors.Wrap(err, "failed to create iptables-container from iptables-image")
+		return fmt.Errorf("failed to create iptables-container from iptables-image: %w", err)
 	}
 	log.WithField("id", createResponse.ID).Debug("iptables container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, types.ContainerStartOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to start iptables-container")
+		return fmt.Errorf("failed to start iptables-container: %w", err)
 	}
 
 	for _, args := range argsList {
 		if err = client.ipTablesExecCommand(ctx, createResponse.ID, args); err != nil {
-			return errors.Wrapf(err, "error running iptables command on container: %v", strings.Join(args, " "))
+			return fmt.Errorf("error running iptables command on container: %v: %w", strings.Join(args, " "), err)
 		}
 	}
 
 	if err = client.containerAPI.ContainerRemove(ctx, createResponse.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
-		return errors.Wrap(err, "failed to remove iptables-container")
+		return fmt.Errorf("failed to remove iptables-container: %w", err)
 	}
 
 	return nil

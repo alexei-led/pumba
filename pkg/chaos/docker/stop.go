@@ -2,11 +2,11 @@ package docker
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +59,7 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to stop")
@@ -113,7 +113,7 @@ func (s *stopCommand) startStoppedContainers(ctx context.Context, containers []*
 		c := container
 		log.WithField("container", c).Debug("start stopped container")
 		if e := s.client.StartContainer(ctx, c, s.dryRun); e != nil {
-			err = errors.Wrap(e, "failed to start stopped container")
+			err = fmt.Errorf("failed to start stopped container: %w", e)
 		}
 	}
 	return err // last non nil error

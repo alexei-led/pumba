@@ -3,12 +3,11 @@ package container
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 const defaultTimeout = 30 * time.Second
@@ -17,7 +16,7 @@ const defaultTimeout = 30 * time.Second
 func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
 	u, err := url.Parse(daemonURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse docker daemon url")
+		return nil, fmt.Errorf("failed to parse docker daemon url: %w", err)
 	}
 	if u.Scheme == "" || u.Scheme == "tcp" {
 		if tlsConfig == nil {

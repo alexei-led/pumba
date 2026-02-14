@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/iptables"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -53,12 +52,12 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse iptables flags
 	ipTablesParams, err := parseIPTablesParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing iptables parameters")
+		return fmt.Errorf("error parsing iptables parameters: %w", err)
 	}
 
 	// get mode
@@ -73,12 +72,12 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	// init iptables loss command
 	lossCommand, err := iptables.NewLossCommand(chaos.DockerClient, globalParams, ipTablesParams, mode, probability, every, packet)
 	if err != nil {
-		return errors.Wrap(err, "error creating iptables loss command")
+		return fmt.Errorf("error creating iptables loss command: %w", err)
 	}
 	// run iptables command
 	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running iptables loss command")
+		return fmt.Errorf("error running iptables loss command: %w", err)
 	}
 	return nil
 }

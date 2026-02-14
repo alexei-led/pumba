@@ -7,7 +7,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -44,7 +43,7 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get timeout
 	timeout := c.Duration("timeout")
@@ -55,7 +54,7 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// run restart command
 	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "error running restart command")
+		return fmt.Errorf("error running restart command: %w", err)
 	}
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -43,7 +42,7 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get signal
 	signal := c.String("signal")
@@ -52,12 +51,12 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// init kill command
 	killCommand, err := docker.NewKillCommand(chaos.DockerClient, params, signal, limit)
 	if err != nil {
-		return errors.Wrap(err, "could not create kill command")
+		return fmt.Errorf("could not create kill command: %w", err)
 	}
 	// run kill command
 	err = chaos.RunChaosCommand(cmd.context, killCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "could not kill containers")
+		return fmt.Errorf("could not kill containers: %w", err)
 	}
 	return nil
 }

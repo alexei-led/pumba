@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -47,7 +46,7 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get command
 	command := c.String("command")
@@ -60,7 +59,7 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	// run exec command
 	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "could not run exec command")
+		return fmt.Errorf("could not run exec command: %w", err)
 	}
 	return nil
 }

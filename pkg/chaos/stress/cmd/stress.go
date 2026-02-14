@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/stress"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -51,7 +51,7 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
@@ -71,7 +71,7 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// run stress command
 	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running stress command")
+		return fmt.Errorf("error running stress command: %w", err)
 	}
 	return nil
 }

@@ -2,10 +2,10 @@ package docker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -51,7 +51,7 @@ func (k *execCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to exec")
@@ -73,7 +73,7 @@ func (k *execCommand) Run(ctx context.Context, random bool) error {
 		cc := c
 		err = k.client.ExecContainer(ctx, cc, k.command, k.args, k.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to run exec command")
+			return fmt.Errorf("failed to run exec command: %w", err)
 		}
 	}
 	return nil

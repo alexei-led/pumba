@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 	"github.com/alexei-led/pumba/mocks"
 	"github.com/docker/docker/api/types/container"
-	"github.com/pkg/errors"
+
 	"github.com/stretchr/testify/mock"
 )
 

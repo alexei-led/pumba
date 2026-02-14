@@ -2,12 +2,12 @@ package iptables
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,22 +35,23 @@ func NewLossCommand(client container.Client,
 	packet int, // start budget for every nth
 ) (chaos.Command, error) {
 	// get mode
-	if mode == ModeRandom {
+	switch mode {
+	case ModeRandom:
 		// get loss probability
 		if probability < 0.0 || probability > 1.0 {
-			return nil, errors.Errorf("invalid loss probability: must be between 0.0 and 1.0")
+			return nil, fmt.Errorf("invalid loss probability: must be between 0.0 and 1.0")
 		}
-	} else if mode == ModeNTH {
+	case ModeNTH:
 		// get every
 		if every <= 0 {
-			return nil, errors.Errorf("invalid loss every: must be > 0")
+			return nil, fmt.Errorf("invalid loss every: must be > 0")
 		}
 		// get packet
 		if packet < 0 || (packet > every-1) {
-			return nil, errors.Errorf("invalid loss packet: must be 0 <= packet <= every-1")
+			return nil, fmt.Errorf("invalid loss packet: must be 0 <= packet <= every-1")
 		}
-	} else {
-		return nil, errors.Errorf("invalid loss mode: must be either random or nth")
+	default:
+		return nil, fmt.Errorf("invalid loss mode: must be either random or nth")
 	}
 
 	return &lossCommand{
@@ -74,7 +75,7 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -146,7 +147,7 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	for _, err = range errs {
 		// take first found error
 		if err != nil {
-			return errors.Wrap(err, "failed to add packet loss for one or more containers")
+			return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
 		}
 	}
 

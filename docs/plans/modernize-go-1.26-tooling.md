@@ -26,8 +26,8 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
 
 ### Task 2: Replace github.com/pkg/errors with stdlib errors
 
-- [ ] In ALL non-mock .go files (including tests): replace github.com/pkg/errors with stdlib errors and fmt
-- [ ] Migration patterns:
+- [x] In ALL non-mock .go files (including tests): replace github.com/pkg/errors with stdlib errors and fmt
+- [x] Migration patterns:
   - errors.Wrap(err, "msg") → fmt.Errorf("msg: %w", err)
   - errors.Wrapf(err, "fmt %s", arg) → fmt.Errorf("fmt %s: %w", arg, err) (note: %w MUST be last verb)
   - errors.Errorf("fmt", args...) → fmt.Errorf("fmt", args...)
@@ -35,9 +35,9 @@ Upgrade Pumba from Go 1.24 to Go 1.26 and modernize all tooling. This includes m
   - errors.Cause(err) → use errors.As() or errors.Unwrap() as appropriate
   - errors.WithMessage(err, "msg") → fmt.Errorf("msg: %w", err)
   - errors.WithStack(err) → just return err (no stack traces needed)
-- [ ] Also update test files that import pkg/errors
-- [ ] Run go mod tidy to clean up go.mod/go.sum
-- [ ] Verify: go build ./... and go test ./... both pass
+- [x] Also update test files that import pkg/errors
+- [x] Run go mod tidy to clean up go.mod/go.sum
+- [x] Verify: go build ./... and go test ./... both pass
 
 ### Task 3: Update Go version to 1.26 everywhere
 

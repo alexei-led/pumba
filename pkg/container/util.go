@@ -2,11 +2,10 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"regexp"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // ListOpts list options
@@ -76,7 +75,7 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 	}
 	containers, err := client.ListContainers(ctx, applyContainerFilter(f), f.Opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list containers")
+		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 	return containers, nil
 }

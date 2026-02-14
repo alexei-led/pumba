@@ -2,6 +2,8 @@ package netem
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -9,7 +11,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -80,7 +81,7 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -136,7 +137,7 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	for _, err = range errs {
 		// take first reported error
 		if err != nil {
-			return errors.Wrap(err, "failed to corrupt packets for one or more containers")
+			return fmt.Errorf("failed to corrupt packets for one or more containers: %w", err)
 		}
 	}
 

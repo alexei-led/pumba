@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"regexp"
 	"slices"
@@ -8,7 +10,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos/iptables"
 	"github.com/alexei-led/pumba/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -17,7 +18,7 @@ func validateIPList(list []string) (ips []*net.IPNet, err error) {
 	for _, s := range list {
 		ip, e := util.ParseCIDR(s)
 		if e != nil {
-			return ips, errors.Wrap(e, "failed to parse ip")
+			return ips, fmt.Errorf("failed to parse ip: %w", e)
 		}
 		ips = append(ips, ip)
 	}
@@ -39,13 +40,13 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
+		return nil, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 
 	// check for valid protocol
 	protocol := c.String("protocol")
 	if !slices.Contains([]string{iptables.ProtocolAny, iptables.ProtocolTCP, iptables.ProtocolUDP, iptables.ProtocolICMP}, protocol) {
-		return nil, errors.Errorf("bad protocol name: must be one of any, tcp, udp or icmp")
+		return nil, fmt.Errorf("bad protocol name: must be one of any, tcp, udp or icmp")
 	}
 
 	// validate src ips
@@ -62,19 +63,19 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 	// validate source ports
 	sports, err := util.GetPorts(c.String("src-port"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get source ports")
+		return nil, fmt.Errorf("failed to get source ports: %w", err)
 	}
 	// validate destination ports
 	dports, err := util.GetPorts(c.String("dst-port"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get destination ports")
+		return nil, fmt.Errorf("failed to get destination ports: %w", err)
 	}
 	if protocol != iptables.ProtocolUDP && protocol != iptables.ProtocolTCP {
 		if len(sports) > 0 {
-			return nil, errors.Errorf("using source port is only supported for %s and %s protocol", iptables.ProtocolTCP, iptables.ProtocolUDP)
+			return nil, fmt.Errorf("using source port is only supported for %s and %s protocol", iptables.ProtocolTCP, iptables.ProtocolUDP)
 		}
 		if len(dports) > 0 {
-			return nil, errors.Errorf("using destination port is only supported for %s and %s protocol", iptables.ProtocolTCP, iptables.ProtocolUDP)
+			return nil, fmt.Errorf("using destination port is only supported for %s and %s protocol", iptables.ProtocolTCP, iptables.ProtocolUDP)
 		}
 	}
 

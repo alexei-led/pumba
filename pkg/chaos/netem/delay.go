@@ -2,13 +2,14 @@ package netem
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -72,7 +73,7 @@ func (n *delayCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -132,7 +133,7 @@ func (n *delayCommand) Run(ctx context.Context, random bool) error {
 	for _, err := range errs {
 		// take first found error
 		if err != nil {
-			return errors.Wrap(err, "failed to delay packets for one or more containers")
+			return fmt.Errorf("failed to delay packets for one or more containers: %w", err)
 		}
 	}
 

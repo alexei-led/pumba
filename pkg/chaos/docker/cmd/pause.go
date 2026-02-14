@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -42,7 +42,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
@@ -56,7 +56,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 	// run pause command
 	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "error running pause command")
+		return fmt.Errorf("error running pause command: %w", err)
 	}
 	return nil
 }

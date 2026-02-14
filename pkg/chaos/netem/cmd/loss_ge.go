@@ -7,7 +7,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -55,12 +54,12 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse netem flags
 	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing netem parameters")
+		return fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	// Good State transition probability
 	pg := c.Float64("pg")
@@ -74,12 +73,12 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	// init netem loss gemodel command
 	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, globalParams, netemParams, pg, pb, oneH, oneK)
 	if err != nil {
-		return errors.Wrap(err, "error creating loss gemodel command")
+		return fmt.Errorf("error creating loss gemodel command: %w", err)
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, lossGECommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running netem loss gemodel command")
+		return fmt.Errorf("error running netem loss gemodel command: %w", err)
 	}
 	return nil
 }

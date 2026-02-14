@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"regexp"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -25,7 +26,7 @@ func parseNetemParams(c *cli.Context, interval time.Duration) (*netem.Params, er
 	reInterface := regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
 	validIface := reInterface.FindString(iface)
 	if iface != validIface {
-		return nil, errors.Errorf("bad network interface name: must match '%s'", reInterface.String())
+		return nil, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
 	}
 	// validate ips
 	ipsList := c.StringSlice("target")
@@ -33,19 +34,19 @@ func parseNetemParams(c *cli.Context, interval time.Duration) (*netem.Params, er
 	for _, str := range ipsList {
 		ip, e := util.ParseCIDR(str)
 		if e != nil {
-			return nil, errors.Wrap(e, "failed to parse ip")
+			return nil, fmt.Errorf("failed to parse ip: %w", e)
 		}
 		ips = append(ips, ip)
 	}
 	// validate source ports
 	sports, err := util.GetPorts(c.String("egress-port"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get source ports")
+		return nil, fmt.Errorf("failed to get source ports: %w", err)
 	}
 	// validate destination ports
 	dports, err := util.GetPorts(c.String("ingress-port"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get destination ports")
+		return nil, fmt.Errorf("failed to get destination ports: %w", err)
 	}
 	return &netem.Params{
 		Iface:    iface,

@@ -2,12 +2,12 @@ package netem
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -83,7 +83,7 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 	logger.Debug("running netem command")
 	err := client.NetemContainer(ctx, c, netInterface, cmd, ips, sports, dports, duration, tcimage, pull, dryRun)
 	if err != nil {
-		return errors.Wrap(err, "netem failed")
+		return fmt.Errorf("netem failed: %w", err)
 	}
 	logger.Debug("netem command started")
 
@@ -97,14 +97,14 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 		// use different context to stop netem since parent context is canceled
 		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to stop netem container")
+			return fmt.Errorf("failed to stop netem container: %w", err)
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping netem command on timout")
 		// use parent context to stop netem in container
 		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to stop netem container")
+			return fmt.Errorf("failed to stop netem container: %w", err)
 		}
 	}
 	return nil

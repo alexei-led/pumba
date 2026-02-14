@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -65,12 +64,12 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse netem flags
 	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing netem parameters")
+		return fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	// get loss p13 state probability
 	p13 := c.Float64("p13")
@@ -86,12 +85,12 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	// init netem loss state command
 	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, globalParams, netemParams, p13, p31, p32, p23, p14)
 	if err != nil {
-		return errors.Wrap(err, "error creating netem loss state command")
+		return fmt.Errorf("error creating netem loss state command: %w", err)
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, lossStateCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running netem loss state command")
+		return fmt.Errorf("error running netem loss state command: %w", err)
 	}
 	return nil
 }

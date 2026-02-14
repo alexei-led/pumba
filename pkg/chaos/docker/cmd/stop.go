@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -52,7 +52,7 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get wait time
 	waitTime := c.Int("time")
@@ -70,7 +70,7 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 	// run stop command
 	err = chaos.RunChaosCommand(cmd.context, stopCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "failed to stop containers")
+		return fmt.Errorf("failed to stop containers: %w", err)
 	}
 	return nil
 }

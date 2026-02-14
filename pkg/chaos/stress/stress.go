@@ -2,12 +2,12 @@ package stress
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -61,7 +61,7 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to stress test")
@@ -85,7 +85,7 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	}
 	// wait till all stress tests complete
 	if err := eg.Wait(); err != nil {
-		return errors.Wrap(err, "one or more stress test failed")
+		return fmt.Errorf("one or more stress test failed: %w", err)
 	}
 	return nil
 }
@@ -100,27 +100,27 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 	}).Debug("stress testing container for duration")
 	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
 	if err != nil {
-		return errors.Wrap(err, "stress test failed")
+		return fmt.Errorf("stress test failed: %w", err)
 	}
 	select {
 	case out := <-output:
 		log.WithField("stdout", out).Debug("stress-ng completed")
 		break
 	case e := <-outerr:
-		return errors.Wrap(e, "stress-ng failed with error")
+		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
 		log.Debug("stop stress test on containers by stop event")
 		// NOTE: use different context to stop netem since parent context is canceled
 		err = s.client.StopContainerWithID(context.Background(), stress, defaultStopTimeout, s.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to stop stress-ng container")
+			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
 		break
 	case <-time.After(s.duration):
 		log.WithField("duration", s.duration).Debug("stop stress containers after duration")
 		err = s.client.StopContainerWithID(ctx, stress, defaultStopTimeout, s.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to stop stress-ng container")
+			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
 		break
 	}

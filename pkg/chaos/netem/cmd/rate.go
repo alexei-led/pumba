@@ -7,7 +7,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -54,12 +53,12 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse netem flags
 	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing netem parameters")
+		return fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	// get target egress rate
 	rate := c.String("rate")
@@ -73,12 +72,12 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	// init netem rate command
 	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
 	if err != nil {
-		return errors.Wrap(err, "error creating netem rate command")
+		return fmt.Errorf("error creating netem rate command: %w", err)
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running netem rate command")
+		return fmt.Errorf("error running netem rate command: %w", err)
 	}
 	return nil
 }
