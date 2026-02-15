@@ -1,65 +1,18 @@
+version: "2"
+
 run:
-  # Timeout for analysis, e.g. 30s, 5m.
-  # Default: 1m
   timeout: 5m
-  # Exit code when at least one issue was found.
-  # Default: 1
   issues-exit-code: 2
-  # Include test files or not.
-  # Default: true
   tests: false
-  # allow parallel run
   allow-parallel-runners: true
 
-linters-settings:
-  # shadow linter replaces govet's check-shadowing
-  shadow:
-    strict: false
-  gocyclo:
-    min-complexity: 15
-  # maligned is deprecated
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-    ignore-words:
-      - "cancelled"
-  goimports:
-    local-prefixes: github.com/golangci/golangci-lint
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-      - rangeValCopy
-      - unnamedResult
-      - whyNoLint
-      - wrapperFunc
-  funlen:
-    lines: 105
-    statements: 50
-
 linters:
-  # please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
-  disable-all: true
+  default: none
   enable:
     - asciicheck
     - bidichk
     - bodyclose
-    # - containedctx
-    # - contextcheck disabled because of generics
     - decorder
-    # - depguard
     - dogsled
     - dupl
     - durationcheck
@@ -68,77 +21,89 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    # - exhaustivestruct TODO: check how to fix it
-    # - forbidigo TODO: configure forbidden code patterns
-    # - forcetypeassert
     - funlen
-    - gci
-    # - gochecknoglobals TODO: remove globals from code
-    # - gochecknoinits TODO: remove main.init
     - gocognit
     - goconst
     - gocritic
     - gocyclo
-    #    - godox
-    - err113
-    - gofmt
-    - goimports
-    - mnd
-    # - gomoddirectives
-    - gosec
-    - gosimple
-    - govet
     - goprintffuncname
+    - gosec
+    - govet
     - grouper
     - importas
-    # - ireturn TODO: not sure if it is a good linter
     - ineffassign
     - interfacebloat
     - loggercheck
     - maintidx
     - makezero
     - misspell
+    - mnd
     - nakedret
-    # - nestif
     - nilerr
     - nilnil
-    # - noctx
     - nolintlint
-    - prealloc
     - predeclared
     - promlinter
     - reassign
     - revive
-    # - rowserrcheck disabled because of generics
-    # - staticcheck doesn't work with go1.19
-    # - structcheck disabled because of generics
-    - stylecheck
-    - usetesting
+    - staticcheck
     - testableexamples
-    - typecheck
     - unconvert
     - unparam
     - unused
-    # - varnamelen TODO: review naming
-    # - varcheck depricated 1.49
-    # - wastedassign disabled because of generics
+    - usetesting
     - whitespace
-    # - wrapcheck # Temporarily disabled due to false positives
-    # - wsl
+  settings:
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    misspell:
+      locale: US
+      ignore-words:
+        - "cancelled"
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+        - rangeValCopy
+        - unnamedResult
+        - whyNoLint
+        - wrapperFunc
+    funlen:
+      lines: 105
+      statements: 50
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+    paths:
+      - mocks
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - bodyclose
+          - gosec
+          - dupl
+          - gocognit
+          - goconst
+          - gocyclo
 
-issues:
-  # Exclude specific directories from linting
-  exclude-dirs:
-    - mocks
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - funlen
-        - bodyclose
-        - gosec
-        - dupl
-        - gocognit
-        - goconst
-        - gocyclo
-  exclude:
-    - Using the variable on range scope `tt` in function literal
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports

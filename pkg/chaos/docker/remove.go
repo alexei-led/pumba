@@ -2,10 +2,10 @@ package docker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -50,7 +50,7 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.labels, r.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to remove")
@@ -74,7 +74,7 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		c := container
 		err = r.client.RemoveContainer(ctx, c, r.force, r.links, r.volumes, r.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to remove container")
+			return fmt.Errorf("failed to remove container: %w", err)
 		}
 	}
 	return nil

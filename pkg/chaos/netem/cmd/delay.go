@@ -7,7 +7,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -54,12 +53,12 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse netem flags
 	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing netem parameters")
+		return fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	// get delay time
 	time := c.Int("time")
@@ -73,12 +72,12 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	// init netem delay command
 	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, globalParams, netemParams, time, jitter, correlation, distribution)
 	if err != nil {
-		return errors.Wrap(err, "error creating netem delay command")
+		return fmt.Errorf("error creating netem delay command: %w", err)
 	}
 	// run netem delay command
 	err = chaos.RunChaosCommand(cmd.context, delayCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running netem delay command")
+		return fmt.Errorf("error running netem delay command: %w", err)
 	}
 	return nil
 }

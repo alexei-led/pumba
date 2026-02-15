@@ -2,11 +2,11 @@ package docker
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,7 +46,7 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to restart")
@@ -67,7 +67,7 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 		}).Debug("restarting container")
 		err = k.client.RestartContainer(ctx, c, k.timeout, k.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to restart container")
+			return fmt.Errorf("failed to restart container: %w", err)
 		}
 	}
 	return nil

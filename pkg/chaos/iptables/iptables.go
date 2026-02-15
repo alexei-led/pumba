@@ -2,12 +2,12 @@ package iptables
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -100,7 +100,7 @@ func runIPTables(ctx context.Context, client container.Client, c *container.Cont
 	logger.Debug("running iptables command")
 	err := client.IPTablesContainer(ctx, c, addCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, duration, image, pull, dryRun)
 	if err != nil {
-		return errors.Wrap(err, "iptables failed")
+		return fmt.Errorf("iptables failed: %w", err)
 	}
 	logger.Debug("iptables command started")
 
@@ -114,14 +114,14 @@ func runIPTables(ctx context.Context, client container.Client, c *container.Cont
 		// use different context to stop iptables since parent context is canceled
 		err = client.StopIPTablesContainer(context.Background(), c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to stop iptables container")
+			return fmt.Errorf("failed to stop iptables container: %w", err)
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping iptables command on timout")
 		// use parent context to stop iptables in container
 		err = client.StopIPTablesContainer(context.Background(), c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to stop tables container")
+			return fmt.Errorf("failed to stop tables container: %w", err)
 		}
 	}
 	return nil

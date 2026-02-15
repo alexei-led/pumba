@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/docker"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -50,7 +49,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// get force flag
 	force := c.BoolT("force")
@@ -65,7 +64,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// run remove command
 	err = chaos.RunChaosCommand(cmd.context, removeCommand, params)
 	if err != nil {
-		return errors.Wrap(err, "error running remove command")
+		return fmt.Errorf("error running remove command: %w", err)
 	}
 	return nil
 }

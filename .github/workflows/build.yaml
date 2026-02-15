@@ -22,7 +22,7 @@ jobs:
       - name: Setup Go Environment
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
           cache: true
           cache-dependency-path: go.sum
       - name: Run Lint and Test Coverage

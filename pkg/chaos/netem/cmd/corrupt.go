@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -45,12 +44,12 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse netem flags
 	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing netem parameters")
+		return fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	// get corrupt percentage
 	percent := c.Float64("percent")
@@ -59,12 +58,12 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// init netem corrupt command
 	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
-		return errors.Wrap(err, "error creating netem corrupt command")
+		return fmt.Errorf("error creating netem corrupt command: %w", err)
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, corruptCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running netem corrupt command")
+		return fmt.Errorf("error running netem corrupt command: %w", err)
 	}
 	return nil
 }

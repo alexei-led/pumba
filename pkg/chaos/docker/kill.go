@@ -2,11 +2,11 @@ package docker
 
 import (
 	"context"
+	"fmt"
 	"syscall"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,7 +74,7 @@ func NewKillCommand(client container.Client, params *chaos.GlobalParams, signal 
 		kill.signal = DefaultKillSignal
 	}
 	if _, ok := linuxSignals[kill.signal]; !ok {
-		return nil, errors.Errorf("undefined Linux signal: %s", signal)
+		return nil, fmt.Errorf("undefined Linux signal: %s", signal)
 	}
 	return kill, nil
 }
@@ -91,7 +91,7 @@ func (k *killCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
 	if err != nil {
-		return errors.Wrap(err, "error listing containers")
+		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers to kill")
@@ -113,7 +113,7 @@ func (k *killCommand) Run(ctx context.Context, random bool) error {
 		c := ctr
 		err = k.client.KillContainer(ctx, c, k.signal, k.dryRun)
 		if err != nil {
-			return errors.Wrap(err, "failed to kill ctr")
+			return fmt.Errorf("failed to kill ctr: %w", err)
 		}
 	}
 	return nil

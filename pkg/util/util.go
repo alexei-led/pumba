@@ -1,22 +1,11 @@
-package util
+package util //nolint:revive // existing package name, renaming is out of scope
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
-
-// SliceContains checks if slice contains value
-func SliceContains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
-	for _, s := range slice {
-		set[s] = struct{}{}
-	}
-	_, ok := set[item]
-	return ok
-}
 
 // GetPorts will split the string of comma separated ports and return a list of ports
 func GetPorts(ports string) ([]string, error) {
@@ -30,7 +19,7 @@ func GetPorts(ports string) ([]string, error) {
 		err := verifyPort(port)
 
 		if err != nil {
-			return nil, errors.Wrap(err, "invalid port specified")
+			return nil, fmt.Errorf("invalid port specified: %w", err)
 		}
 	}
 
@@ -44,10 +33,10 @@ func verifyPort(port string) error {
 	}
 	portNum, err := strconv.ParseInt(port, 10, 64)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse port as number")
+		return fmt.Errorf("failed to parse port as number: %w", err)
 	}
 	if portNum < 0 || portNum > 65535 {
-		return errors.Errorf("Port is either below 0 or greater than 65535: %s", port)
+		return fmt.Errorf("port is either below 0 or greater than 65535: %s", port)
 	}
 
 	return nil
@@ -66,7 +55,7 @@ func ParseCIDR(ip string) (*net.IPNet, error) {
 	cidr := cidrNotation(ip)
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse CIDR")
+		return nil, fmt.Errorf("failed to parse CIDR: %w", err)
 	}
 	return ipNet, nil
 }

@@ -18,7 +18,6 @@ import (
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/johntdyer/slackrus"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -200,7 +199,7 @@ func before(c *cli.Context) error {
 	// create new Docker client
 	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tlsCfg)
 	if err != nil {
-		return errors.Wrap(err, "could not create Docker client")
+		return fmt.Errorf("could not create Docker client: %w", err)
 	}
 	return nil
 }
@@ -243,7 +242,7 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			if strings.HasPrefix(caCertFlag, "/") {
 				caCert, err = os.ReadFile(caCertFlag)
 				if err != nil {
-					return nil, errors.Wrap(err, "unable to read CA certificate")
+					return nil, fmt.Errorf("unable to read CA certificate: %w", err)
 				}
 			} else {
 				caCert = []byte(caCertFlag)
@@ -259,12 +258,12 @@ func tlsConfig(c *cli.Context) (*tls.Config, error) {
 			if strings.HasPrefix(certFlag, "/") && strings.HasPrefix(keyFlag, "/") {
 				cert, err = tls.LoadX509KeyPair(certFlag, keyFlag)
 				if err != nil {
-					return nil, errors.Wrap(err, "unable to load client certificate")
+					return nil, fmt.Errorf("unable to load client certificate: %w", err)
 				}
 			} else {
 				cert, err = tls.X509KeyPair([]byte(certFlag), []byte(keyFlag))
 				if err != nil {
-					return nil, errors.Wrap(err, "unable to load client certificate")
+					return nil, fmt.Errorf("unable to load client certificate: %w", err)
 				}
 			}
 			tlsCfg.Certificates = []tls.Certificate{cert}

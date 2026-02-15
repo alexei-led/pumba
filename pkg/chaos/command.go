@@ -2,11 +2,11 @@ package chaos
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -105,7 +105,7 @@ func RunChaosCommand(topContext context.Context, command Command, params *Global
 		// run chaos function
 		if err := command.Run(ctx, params.Random); err != nil {
 			if !params.SkipErrors {
-				return errors.Wrap(err, "error running chaos command")
+				return fmt.Errorf("error running chaos command: %w", err)
 			}
 			log.WithError(err).Warn("skipping error")
 		}

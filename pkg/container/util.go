@@ -2,11 +2,9 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"regexp"
-	"time"
-
-	"github.com/pkg/errors"
 )
 
 // ListOpts list options
@@ -76,7 +74,7 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 	}
 	containers, err := client.ListContainers(ctx, applyContainerFilter(f), f.Opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list containers")
+		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 	return containers, nil
 }
@@ -84,9 +82,7 @@ func listContainers(ctx context.Context, client Client, names []string, pattern 
 // RandomContainer select random container
 func RandomContainer(containers []*Container) *Container {
 	if len(containers) > 0 {
-		r := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
-		i := r.Intn(len(containers))
-		return containers[i]
+		return containers[rand.Intn(len(containers))] //nolint:gosec
 	}
 	return nil
 }
@@ -98,7 +94,6 @@ func ListNContainers(ctx context.Context, client Client, names []string, pattern
 		return nil, err
 	}
 	if limit > 0 && len(containers) > limit {
-		rand.Seed(time.Now().UnixNano())
 		rand.Shuffle(len(containers), func(i, j int) {
 			containers[i], containers[j] = containers[j], containers[i]
 		})

@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -49,12 +48,12 @@ func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	// parse common chaos flags
 	globalParams, err := chaos.ParseGlobalParams(c)
 	if err != nil {
-		return errors.Wrap(err, "error parsing global parameters")
+		return fmt.Errorf("error parsing global parameters: %w", err)
 	}
 	// parse netem flags
 	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
 	if err != nil {
-		return errors.Wrap(err, "error parsing netem parameters")
+		return fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	// get duplicate percentage
 	percent := c.Float64("percent")
@@ -64,12 +63,12 @@ func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	// init netem duplicate command
 	duplicateCommand, err := netem.NewDuplicateCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
-		return errors.Wrap(err, "unable to create netem duplicate command")
+		return fmt.Errorf("unable to create netem duplicate command: %w", err)
 	}
 	// run netem command
 	err = chaos.RunChaosCommand(cmd.context, duplicateCommand, globalParams)
 	if err != nil {
-		return errors.Wrap(err, "error running netem duplicate command")
+		return fmt.Errorf("error running netem duplicate command: %w", err)
 	}
 	return nil
 }

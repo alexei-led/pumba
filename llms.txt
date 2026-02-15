@@ -1,0 +1,36 @@
+# Pumba
+
+> Chaos testing, network emulation, and stress testing tool for Docker containers.
+
+Pumba is a chaos engineering tool for Docker. It can kill, stop, pause, and remove containers, inject network delays/loss/corruption using tc/netem, and run stress tests using stress-ng. Inspired by Netflix Chaos Monkey but for Docker environments.
+
+## Docs
+
+- [README](https://github.com/alexei-led/pumba/blob/master/README.md): Full documentation, installation, usage
+- [Advanced Network Chaos](https://github.com/alexei-led/pumba/blob/master/docs/advanced-network-chaos.md): Bidirectional network chaos, iptables
+
+## Architecture
+
+- **Language:** Go
+- **Container runtime:** Docker API (via Docker SDK)
+- **CLI framework:** urfave/cli
+- **Network emulation:** Linux tc/netem (requires NET_ADMIN capability)
+- **Stress testing:** stress-ng (bundled in Docker image)
+- **Commands:**
+  - `pumba kill` — Kill containers (SIGKILL or custom signal)
+  - `pumba stop` — Stop containers (graceful with timeout)
+  - `pumba pause` — Pause/unpause containers
+  - `pumba rm` — Remove containers
+  - `pumba exec` — Execute command in containers
+  - `pumba restart` — Restart containers
+  - `pumba netem` — Network emulation (delay, loss, corrupt, duplicate, bandwidth, loss-state, loss-gemodel)
+  - `pumba iptables` — IPv4 packet filtering (loss)
+  - `pumba stress` — CPU/memory/IO stress via stress-ng
+
+## Key Concepts
+
+- **Target selection:** Container names, comma-separated lists, or `re2:` prefixed regex patterns
+- **Label filtering:** `--label key=value` for container selection
+- **Scheduling:** `--interval` flag for recurring chaos; `--random` for random single target
+- **Safety:** `--dry-run` mode, exclude patterns, skip-error for resilient runs
+- **Docker integration:** Works with Docker Compose, Swarm, Kubernetes (via DaemonSet)
