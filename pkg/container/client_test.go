@@ -1752,9 +1752,14 @@ func TestExecContainer(t *testing.T) {
 
 				// Simulate successful attachment
 				mockReader := strings.NewReader("hello\n")
-				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(types.HijackedResponse{
-					Reader: bufio.NewReader(mockReader),
-				}, nil)
+				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+					conn := &mockConn{}
+					conn.On("Close").Return(nil)
+					return types.HijackedResponse{
+						Conn:   conn,
+						Reader: bufio.NewReader(mockReader),
+					}
+				}(), nil)
 
 				// Start and inspect execution
 				api.On("ContainerExecStart", ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
@@ -1783,9 +1788,14 @@ func TestExecContainer(t *testing.T) {
 				}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 
 				mockReader := strings.NewReader("total 0\n")
-				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(types.HijackedResponse{
-					Reader: bufio.NewReader(mockReader),
-				}, nil)
+				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+					conn := &mockConn{}
+					conn.On("Close").Return(nil)
+					return types.HijackedResponse{
+						Conn:   conn,
+						Reader: bufio.NewReader(mockReader),
+					}
+				}(), nil)
 
 				api.On("ContainerExecStart", ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.On("ContainerExecInspect", ctx, "execID").Return(ctypes.ExecInspect{
@@ -1812,9 +1822,14 @@ func TestExecContainer(t *testing.T) {
 				}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 
 				mockReader := strings.NewReader("/\n")
-				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(types.HijackedResponse{
-					Reader: bufio.NewReader(mockReader),
-				}, nil)
+				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+					conn := &mockConn{}
+					conn.On("Close").Return(nil)
+					return types.HijackedResponse{
+						Conn:   conn,
+						Reader: bufio.NewReader(mockReader),
+					}
+				}(), nil)
 
 				api.On("ContainerExecStart", ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.On("ContainerExecInspect", ctx, "execID").Return(ctypes.ExecInspect{
@@ -1842,9 +1857,14 @@ func TestExecContainer(t *testing.T) {
 				}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 
 				mockReader := strings.NewReader("ls: /nonexistent: No such file or directory\n")
-				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(types.HijackedResponse{
-					Reader: bufio.NewReader(mockReader),
-				}, nil)
+				api.On("ContainerAttach", ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+					conn := &mockConn{}
+					conn.On("Close").Return(nil)
+					return types.HijackedResponse{
+						Conn:   conn,
+						Reader: bufio.NewReader(mockReader),
+					}
+				}(), nil)
 
 				api.On("ContainerExecStart", ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.On("ContainerExecInspect", ctx, "execID").Return(ctypes.ExecInspect{
