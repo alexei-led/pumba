@@ -17,6 +17,7 @@
 ## Integration Testing
 
 Integration tests use [bats](https://github.com/bats-core/bats-core) and run inside Docker:
+
 - Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`
 - Require Docker socket access (`/var/run/docker.sock`)
 - CI builds a Docker image (`pumba:test` target `integration-tests`) and runs bats inside it
@@ -24,9 +25,9 @@ Integration tests use [bats](https://github.com/bats-core/bats-core) and run ins
 
 ## Technical Stack
 
-- **Go version:** 1.24 (see go.mod) — target: 1.26
+- **Go version:** 1.26 (see go.mod)
 - **CLI framework:** `github.com/urfave/cli` (v1)
-- **Docker SDK:** `github.com/docker/docker` v23.0.3
+- **Docker SDK:** `github.com/docker/docker` v28.5.2
 - **Error handling:** `github.com/pkg/errors` (deprecated — migrate to `fmt.Errorf` with `%w`)
 - **Logging:** `github.com/sirupsen/logrus`
 - **Testing:** `github.com/stretchr/testify` (assert, mock, require)
