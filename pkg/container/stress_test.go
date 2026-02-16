@@ -10,6 +10,7 @@ import (
 
 	"github.com/alexei-led/pumba/mocks"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/system"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -95,6 +96,7 @@ func TestStressContainerBasic(t *testing.T) {
 				dryrun:    false,
 			},
 			mockSet: func(api *mocks.APIClient, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
+				api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				api.On("ImagePull", mock.Anything, image, mock.Anything).Return(nil, errors.New("pull error")).Once()
 			},
 			wantErr: true,
@@ -111,6 +113,7 @@ func TestStressContainerBasic(t *testing.T) {
 				dryrun:    false,
 			},
 			mockSet: func(api *mocks.APIClient, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
+				api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				api.On("ContainerCreate", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(container.CreateResponse{}, errors.New("create error")).Once()
 			},
 			wantErr: true,
@@ -122,7 +125,7 @@ func TestStressContainerBasic(t *testing.T) {
 			api := NewMockEngine()
 			tt.mockSet(api, tt.args.c, tt.args.stressors, tt.args.image, tt.args.pull, tt.args.duration, tt.args.dryrun)
 
-			client := dockerClient{containerAPI: api, imageAPI: api}
+			client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
 			_, _, _, err := client.StressContainer(tt.args.ctx, tt.args.c, tt.args.stressors, tt.args.image, tt.args.pull, tt.args.duration, tt.args.dryrun)
 
 			if (err != nil) != tt.wantErr {

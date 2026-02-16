@@ -15,7 +15,6 @@ import (
 	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	imagetypes "github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
 	dockerapi "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
@@ -33,12 +32,30 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (Client, error) {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
 
-	return dockerClient{containerAPI: apiClient, imageAPI: apiClient}, nil
+	return dockerClient{containerAPI: apiClient, imageAPI: apiClient, systemAPI: apiClient}, nil
 }
 
 type dockerClient struct {
 	containerAPI dockerapi.ContainerAPIClient
 	imageAPI     dockerapi.ImageAPIClient
+	systemAPI    dockerapi.SystemAPIClient
+}
+
+// cgroupParent returns the cgroup parent path for a stress-ng sidecar container.
+// The path format depends on the Docker daemon's cgroup driver:
+//   - cgroupfs: /docker/<containerID>
+//   - systemd:  system.slice:docker:<containerID>
+func (client dockerClient) cgroupParent(ctx context.Context, targetID string) (string, error) {
+	info, err := client.systemAPI.Info(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get docker info: %w", err)
+	}
+	switch info.CgroupDriver {
+	case "systemd":
+		return "system.slice:docker:" + targetID, nil
+	default:
+		return "/docker/" + targetID, nil
+	}
 }
 
 // ListContainers returns a list of containers that match the given filter
@@ -664,37 +681,27 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 		"img":       img,
 		"pull":      pull,
 	}).Debug("executing stress-ng command")
-	dockhackArgs := append([]string{targetID, "stress-ng"}, stressors...)
+	// resolve cgroup parent path for the target container
+	cgParent, err := client.cgroupParent(ctx, targetID)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	log.WithField("cgroup-parent", cgParent).Debug("resolved cgroup parent")
 	// container config
 	config := ctypes.Config{
-		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		Image:  img,
-		// dockhack script is required as entrypoint https://github.com/tavisrudd/dockhack
-		Entrypoint: []string{"dockhack", "cg_exec"},
-		// target container ID plus stress-ng command and it's arguments
-		Cmd: dockhackArgs,
-	}
-	// docker socket mount
-	dockerSocket := mount.Mount{
-		Type:   mount.TypeBind,
-		Source: "/var/run/docker.sock",
-		Target: "/var/run/docker.sock",
-	}
-	fsCgroup := mount.Mount{
-		Type:   mount.TypeBind,
-		Source: "/sys/fs/cgroup",
-		Target: "/sys/fs/cgroup",
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Image:      img,
+		Entrypoint: []string{"stress-ng"},
+		Cmd:        stressors,
 	}
 	// host config
 	hconfig := ctypes.HostConfig{
 		// auto remove container on command exit
 		AutoRemove: true,
-		// SYS_ADMIN is required for "dockhack" script to access cgroup
-		CapAdd: []string{"SYS_ADMIN"},
-		// apparmor:unconfined required to work with cgroup from container
-		SecurityOpt: []string{"apparmor:unconfined"},
-		// mount docker.sock and host cgroups fs as bind mount (equal to --volume /path:/path flag in docker run)
-		Mounts: []mount.Mount{dockerSocket, fsCgroup},
+		// place stress-ng container in target container's cgroup
+		Resources: ctypes.Resources{
+			CgroupParent: cgParent,
+		},
 	}
 	// make output and error channel
 	output := make(chan string)

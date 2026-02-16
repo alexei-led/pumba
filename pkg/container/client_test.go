@@ -21,6 +21,7 @@ import (
 	ctypes "github.com/docker/docker/api/types/container"
 	imagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/system"
 	"github.com/docker/go-connections/nat"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -880,6 +881,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				pull:      true,
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				// pull response
 				pullResponse := imagePullResponse{
 					Status:   "ok",
@@ -921,6 +923,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				pull:  true,
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ImagePull", ctx, image, imagetypes.PullOptions{}).Return(io.NopCloser(bytes.NewReader([]byte("{}"))), errors.New("failed to pull image"))
 			},
 			wantErr: true,
@@ -931,6 +934,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(ctypes.CreateResponse{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
@@ -954,6 +958,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(ctypes.CreateResponse{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
@@ -977,6 +982,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(ctypes.CreateResponse{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
@@ -996,6 +1002,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(ctypes.CreateResponse{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{
 					Conn:   conn,
@@ -1020,6 +1027,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(ctypes.CreateResponse{ID: "000"}, nil)
 				engine.On("ContainerAttach", ctx, "000", mock.Anything).Return(types.HijackedResponse{}, errors.New("failed to attach"))
 			},
@@ -1031,6 +1039,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				engine.On("ContainerCreate", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(ctypes.CreateResponse{}, errors.New("failed to create"))
 			},
 			wantErr: true,
@@ -1043,6 +1052,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 			client := dockerClient{
 				containerAPI: mockClient,
 				imageAPI:     mockClient,
+				systemAPI:    mockClient,
 			}
 			// init mock engine
 			tt.mockInit(tt.args.ctx, mockClient, mConn, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
