@@ -26,16 +26,16 @@ Replace `dockhack`+`cgexec` with Docker's native `--cgroup-parent` flag. The str
 
 ### Task 2: Rewrite stressContainerCommand to use cgroup-parent
 
-- [ ] In `stressContainerCommand()` in `pkg/container/docker_client.go`, call `client.cgroupParent(ctx, targetID)` at the start to get the cgroup parent path
-- [ ] Change `Config.Entrypoint` from `[]string{"dockhack", "cg_exec"}` to `[]string{"stress-ng"}`
-- [ ] Change `Config.Cmd` from `dockhackArgs` (which prepends targetID) to just `stressors` directly
-- [ ] Add `CgroupParent: cgroupParent` to `HostConfig`
-- [ ] Remove the `dockerSocket` mount (bind mount of `/var/run/docker.sock`)
-- [ ] Remove the `fsCgroup` mount (bind mount of `/sys/fs/cgroup`)
-- [ ] Remove `CapAdd: []string{"SYS_ADMIN"}` from HostConfig
-- [ ] Remove `SecurityOpt: []string{"apparmor:unconfined"}` from HostConfig
-- [ ] Remove the `Mounts` field from HostConfig entirely (no mounts needed)
-- [ ] Keep `AutoRemove: true` and `Labels` in HostConfig
+- [x] In `stressContainerCommand()` in `pkg/container/docker_client.go`, call `client.cgroupParent(ctx, targetID)` at the start to get the cgroup parent path
+- [x] Change `Config.Entrypoint` from `[]string{"dockhack", "cg_exec"}` to `[]string{"stress-ng"}`
+- [x] Change `Config.Cmd` from `dockhackArgs` (which prepends targetID) to just `stressors` directly
+- [x] Add `CgroupParent: cgroupParent` to `HostConfig`
+- [x] Remove the `dockerSocket` mount (bind mount of `/var/run/docker.sock`)
+- [x] Remove the `fsCgroup` mount (bind mount of `/sys/fs/cgroup`)
+- [x] Remove `CapAdd: []string{"SYS_ADMIN"}` from HostConfig
+- [x] Remove `SecurityOpt: []string{"apparmor:unconfined"}` from HostConfig
+- [x] Remove the `Mounts` field from HostConfig entirely (no mounts needed)
+- [x] Keep `AutoRemove: true` and `Labels` in HostConfig
 
 ### Task 3: Update default stress-ng image and CLI description
 
