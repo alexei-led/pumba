@@ -35,11 +35,11 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "stressors",
-				Usage: "stress-ng stressors; see https://kernel.ubuntu.com/~cking/stress-ng/",
+				Usage: `stress-ng stressors; use = sign to pass values, e.g. --stressors="--cpu 4 --timeout 60s"; see https://kernel.ubuntu.com/~cking/stress-ng/`,
 				Value: "--cpu 4 --timeout 60s",
 			},
 		},
-		Usage:       "stress test a specified containers",
+		Usage:       "stress test specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "stress test target container(s)",
 		Action:      cmdContext.stress,
