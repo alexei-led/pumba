@@ -132,3 +132,10 @@ RUN curl -sSL https://raw.githubusercontent.com/tavisrudd/dockhack/master/dockha
 - Use `--dry-run` to verify which containers would be targeted without actually running stress tests
 - Combine with `--label` to target containers by Kubernetes labels (e.g., `--label io.kubernetes.pod.namespace=staging`)
 - stress-ng supports many stressor types beyond CPU, memory, and I/O; see the [full stress-ng documentation](https://kernel.ubuntu.com/~cking/stress-ng/) for all options
+
+## Further Reading
+
+- [User Guide](guide.md) - Container chaos commands and general usage
+- [Network Chaos](network-chaos.md) - netem and iptables commands
+- [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
+- [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba

@@ -80,7 +80,7 @@ pumba kill --limit 2 "re2:^test"
 Stop the main process inside target containers by sending SIGTERM, then SIGKILL after a grace period.
 
 ```bash
-# Stop with default 10-second grace period
+# Stop with default 5-second grace period
 pumba stop myapp
 
 # Stop with a 30-second grace period
@@ -98,7 +98,7 @@ pumba pause --duration 5s myapp
 
 ### rm
 
-Remove target containers, including their links and volumes.
+Remove target containers. By default, force-kills running containers and removes associated volumes.
 
 ```bash
 # Force remove (default)

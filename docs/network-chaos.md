@@ -77,12 +77,15 @@ make push-nettools-images
 
 Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). All netem commands require a `--duration` flag and support these common options:
 
-| Flag                | Description                                                          | Default  |
-| ------------------- | -------------------------------------------------------------------- | -------- |
-| `--duration`, `-d`  | Emulation duration (must be shorter than `--interval`)               | required |
-| `--interface`, `-i` | Network interface to apply rules on                                  | `eth0`   |
-| `--target`, `-t`    | Target IP filter (comma-separated); only affect traffic to these IPs | all      |
-| `--tc-image`        | Docker image with `tc` tool                                          | none     |
+| Flag                            | Description                                            | Default                                           |
+| ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
+| `--duration`, `-d`              | Emulation duration (must be shorter than `--interval`) | required                                          |
+| `--interface`, `-i`             | Network interface to apply rules on                    | `eth0`                                            |
+| `--target`, `-t`                | Target IP filter (repeatable); supports CIDR notation  | all                                               |
+| `--egress-port`, `egressPort`   | Egress (source) port filter (comma-separated)          | all                                               |
+| `--ingress-port`, `ingressPort` | Ingress (destination) port filter (comma-separated)    | all                                               |
+| `--tc-image`                    | Docker image with `tc` tool                            | `ghcr.io/alexei-led/pumba-alpine-nettools:latest` |
+| `--pull-image`                  | Force pull the tc-image                                | `true`                                            |
 
 Run `pumba netem --help` for the full list of options.
 
@@ -145,7 +148,7 @@ Drop outgoing packets using the Gilbert-Elliot loss model, which models a channe
 pumba netem --duration 5m loss-gemodel --pg 5 --pb 90 mydb
 ```
 
-Options: `--pg` (probability to enter bad state), `--pb` (probability to return to good state), `--one-h` (loss probability in bad state), `--one-k` (loss probability in good state).
+Options: `--pg` (transition probability into the bad state), `--pb` (transition probability into the good state), `--one-h` (loss probability in bad state), `--one-k` (loss probability in good state).
 
 ### duplicate
 
@@ -196,7 +199,7 @@ The `iptables` command manipulates **incoming** traffic by adding packet filteri
 | `--src-port`, `--sport`   | Source port filter (comma-separated)      | all                                               |
 | `--dst-port`, `--dport`   | Destination port filter (comma-separated) | all                                               |
 | `--iptables-image`        | Docker image with `iptables` tool         | `ghcr.io/alexei-led/pumba-alpine-nettools:latest` |
-| `--pull-image`            | Force pull the image                      | false                                             |
+| `--pull-image`            | Force pull the image                      | `true`                                            |
 
 Run `pumba iptables --help` for the full list of options.
 
@@ -211,15 +214,15 @@ Drop incoming packets using either random probability or every-nth-packet matchi
 pumba iptables loss --probability 0.2 web
 
 # Drop 15% of incoming ICMP packets
-pumba iptables loss --probability 0.15 --protocol icmp "re2:database"
+pumba iptables --protocol icmp loss --probability 0.15 "re2:database"
 ```
 
 #### Nth mode
 
 ```bash
 # Drop every 5th packet from a specific source on port 8080
-pumba iptables loss --mode nth --every 5 \
-    --protocol tcp --source 192.168.1.100 --dst-port 8080 api
+pumba iptables --protocol tcp --source 192.168.1.100 --dst-port 8080 \
+    loss --mode nth --every 5 api
 ```
 
 #### Complex filtering
@@ -301,7 +304,7 @@ Target specific service ports:
 ```bash
 # Corrupt outgoing database traffic (port 5432)
 pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
-    --target db-server-ip --duration 5m \
+    --target db-server-ip --egress-port 5432 --duration 5m \
     corrupt --percent 5 myapp &
 
 # Drop 10% of incoming HTTP traffic (port 80)

@@ -96,7 +96,7 @@ pkg/
     command.go         — ChaosCommand interface, scheduling/interval runner
     docker/            — Docker chaos actions (kill, stop, pause, rm, exec, restart)
     docker/cmd/        — CLI command builders for docker chaos actions
-    netem/             — Network emulation (delay, loss, corrupt, duplicate, rate)
+    netem/             — Network emulation (delay, loss, loss-state, loss-gemodel, corrupt, duplicate, rate)
     netem/cmd/         — CLI command builders for netem
     iptables/          — iptables-based packet filtering
     iptables/cmd/      — CLI command builders for iptables
