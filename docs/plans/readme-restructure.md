@@ -47,10 +47,10 @@ Move stress testing content here:
 
 Move deployment content here:
 
-- Running as Docker container
-- Running on Kubernetes (DaemonSet, labels, nodeSelector)
-- OpenShift
-- Reference deploy/ directory
+- [x] Running as Docker container
+- [x] Running on Kubernetes (DaemonSet, labels, nodeSelector)
+- [x] OpenShift
+- [x] Reference deploy/ directory
 
 ### Task 5: Create CONTRIBUTING.md
 
