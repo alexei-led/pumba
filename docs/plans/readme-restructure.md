@@ -38,10 +38,10 @@ Move all network chaos content here (deduplicated):
 
 Move stress testing content here:
 
-- stress command usage
-- stress-ng image requirements
-- Custom stress images
-- Examples
+- [x] stress command usage
+- [x] stress-ng image requirements
+- [x] Custom stress images
+- [x] Examples
 
 ### Task 4: Create docs/deployment.md
 
