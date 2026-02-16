@@ -39,8 +39,8 @@ Replace `dockhack`+`cgexec` with Docker's native `--cgroup-parent` flag. The str
 
 ### Task 3: Update default stress-ng image and CLI description
 
-- [ ] In `pkg/chaos/stress/cmd/stress.go`, change the default `Value` for `stress-image` flag from `"alexeiled/stress-ng:latest-ubuntu"` to `"ghcr.io/alexei-led/stress-ng:latest"`
-- [ ] Update the `Usage` text for the `stress-image` flag from `"Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script"` to `"Docker image with stress-ng tool"`
+- [x] In `pkg/chaos/stress/cmd/stress.go`, change the default `Value` for `stress-image` flag from `"alexeiled/stress-ng:latest-ubuntu"` to `"ghcr.io/alexei-led/stress-ng:latest"`
+- [x] Update the `Usage` text for the `stress-image` flag from `"Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script"` to `"Docker image with stress-ng tool"`
 
 ### Task 4: Update tests for new stress container configuration
 

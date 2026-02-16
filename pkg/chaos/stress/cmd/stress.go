@@ -26,8 +26,8 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "stress-image",
-				Usage: "Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script",
-				Value: "alexeiled/stress-ng:latest-ubuntu",
+				Usage: "Docker image with stress-ng tool",
+				Value: "ghcr.io/alexei-led/stress-ng:latest",
 			},
 			cli.BoolTFlag{
 				Name:  "pull-image",
