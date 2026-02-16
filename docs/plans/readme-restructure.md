@@ -56,12 +56,12 @@ Move deployment content here:
 
 Move build instructions here:
 
-- Prerequisites (Go 1.26+, Docker)
-- Building locally
-- Building with Docker
-- Running tests (unit, integration, lint)
-- Project structure overview
-- How to contribute (issues, PRs, code style)
+- [x] Prerequisites (Go 1.26+, Docker)
+- [x] Building locally
+- [x] Building with Docker
+- [x] Running tests (unit, integration, lint)
+- [x] Project structure overview
+- [x] How to contribute (issues, PRs, code style)
 
 ### Task 6: Rewrite README.md
 
