@@ -96,7 +96,7 @@ func Test_runNetem(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "netem error in StopNetemContainer",
+			name: "netem warning on StopNetemContainer failure",
 			args: args{
 				container: &container.Container{
 					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
@@ -109,7 +109,7 @@ func Test_runNetem(t *testing.T) {
 				tcimage:      "test/image",
 			},
 			errs:    errs{stopErr: true},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

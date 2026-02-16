@@ -112,7 +112,7 @@ func Test_runIPTables(t *testing.T) {
 				iptablesImage: "test/image",
 			},
 			errs:    errs{stopErr: true},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

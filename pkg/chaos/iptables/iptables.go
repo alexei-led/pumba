@@ -114,14 +114,14 @@ func runIPTables(ctx context.Context, client container.Client, c *container.Cont
 		// use different context to stop iptables since parent context is canceled
 		err = client.StopIPTablesContainer(context.Background(), c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
 		if err != nil {
-			return fmt.Errorf("failed to stop iptables container: %w", err)
+			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping iptables command on timout")
 		// use parent context to stop iptables in container
 		err = client.StopIPTablesContainer(context.Background(), c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
 		if err != nil {
-			return fmt.Errorf("failed to stop tables container: %w", err)
+			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	}
 	return nil

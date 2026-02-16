@@ -97,14 +97,16 @@ func runNetem(ctx context.Context, client container.Client, c *container.Contain
 		// use different context to stop netem since parent context is canceled
 		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
 		if err != nil {
-			return fmt.Errorf("failed to stop netem container: %w", err)
+			// if container was killed/removed while netem was running, log warning and continue
+			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping netem command on timout")
 		// use parent context to stop netem in container
 		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
 		if err != nil {
-			return fmt.Errorf("failed to stop netem container: %w", err)
+			// if container was killed/removed while netem was running, log warning and continue
+			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	}
 	return nil
