@@ -53,8 +53,8 @@ Replace `dockhack`+`cgexec` with Docker's native `--cgroup-parent` flag. The str
 
 ### Task 5: Update documentation
 
-- [ ] In `docs/stress-testing.md`: remove the entire "stress-ng Image Requirements" section about dockhack, bash, docker CLI, cgexec, cgroup-tools, and the custom Dockerfile example
-- [ ] Replace with a simpler section: the stress image only needs a `stress-ng` binary (the default `ghcr.io/alexei-led/stress-ng:latest` is a minimal scratch image)
-- [ ] Update the default image name throughout the file from `alexeiled/stress-ng:latest-ubuntu` to `ghcr.io/alexei-led/stress-ng:latest`
-- [ ] In `docs/deployment.md`: in the "Stress Testing on Kubernetes" section, remove the `SYS_ADMIN` capability from the security context example
-- [ ] In `docs/deployment.md`: update the stress-ng image comment if present
+- [x] In `docs/stress-testing.md`: remove the entire "stress-ng Image Requirements" section about dockhack, bash, docker CLI, cgexec, cgroup-tools, and the custom Dockerfile example
+- [x] Replace with a simpler section: the stress image only needs a `stress-ng` binary (the default `ghcr.io/alexei-led/stress-ng:latest` is a minimal scratch image)
+- [x] Update the default image name throughout the file from `alexeiled/stress-ng:latest-ubuntu` to `ghcr.io/alexei-led/stress-ng:latest`
+- [x] In `docs/deployment.md`: in the "Stress Testing on Kubernetes" section, remove the `SYS_ADMIN` capability from the security context example
+- [x] In `docs/deployment.md`: update the stress-ng image comment if present

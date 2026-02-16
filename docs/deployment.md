@@ -176,7 +176,7 @@ Add the label `com.gaiaadm.pumba: "true"` to the Pumba Pod to prevent it from ki
 
 ### Stress Testing on Kubernetes
 
-For stress testing, the Pumba container needs `SYS_ADMIN` capability:
+For stress testing, the Pumba container no longer needs `SYS_ADMIN` capability, but it must be able to create containers with the correct cgroup parent.
 
 ```yaml
 - image: ghcr.io/alexei-led/pumba
@@ -191,9 +191,6 @@ For stress testing, the Pumba container needs `SYS_ADMIN` capability:
     - stress
     - --duration
     - 1m
-  securityContext:
-    capabilities:
-      add: ["SYS_ADMIN"]
 ```
 
 See `deploy/pumba_kube_stress.yml` for a complete example.
