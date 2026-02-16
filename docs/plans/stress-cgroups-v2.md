@@ -44,12 +44,12 @@ Replace `dockhack`+`cgexec` with Docker's native `--cgroup-parent` flag. The str
 
 ### Task 4: Update tests for new stress container configuration
 
-- [ ] In `pkg/container/stress_test.go`, update all `dockerClient` construction to include `systemAPI: api` field
-- [ ] Add mock expectation `api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)` to non-dryrun test cases (import `"github.com/docker/docker/api/types/system"`)
-- [ ] Update the "stress container creation failure" test: the mock for `ContainerCreate` should still work since signature is unchanged
-- [ ] For the "stress container image pull failure" test: add Info mock since cgroupParent is called before image pull
-- [ ] Add a new test case "stress container with systemd cgroup driver" that sets `CgroupDriver: "systemd"` and verifies the container is created with correct cgroup parent
-- [ ] Verify the container create mock expectations do NOT include docker socket mount, SYS_ADMIN cap, or apparmor security opt
+- [x] In `pkg/container/stress_test.go`, update all `dockerClient` construction to include `systemAPI: api` field
+- [x] Add mock expectation `api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)` to non-dryrun test cases (import `"github.com/docker/docker/api/types/system"`)
+- [x] Update the "stress container creation failure" test: the mock for `ContainerCreate` should still work since signature is unchanged
+- [x] For the "stress container image pull failure" test: add Info mock since cgroupParent is called before image pull
+- [x] Add a new test case "stress container with systemd cgroup driver" that sets `CgroupDriver: "systemd"` and verifies the container is created with correct cgroup parent
+- [x] Verify the container create mock expectations do NOT include docker socket mount, SYS_ADMIN cap, or apparmor security opt
 
 ### Task 5: Update documentation
 

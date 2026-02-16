@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/system"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -134,4 +135,67 @@ func TestStressContainerBasic(t *testing.T) {
 			api.AssertExpectations(t)
 		})
 	}
+}
+
+func TestStressContainerSystemdCgroupDriver(t *testing.T) {
+	api := NewMockEngine()
+	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+
+	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "systemd"}, nil)
+	api.On("ContainerCreate", mock.Anything, mock.Anything, mock.MatchedBy(func(hc *container.HostConfig) bool {
+		return hc.Resources.CgroupParent == "system.slice:docker:abc123"
+	}), mock.Anything, mock.Anything, mock.Anything).Return(container.CreateResponse{}, errors.New("stop here")).Once()
+
+	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
+	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false)
+
+	assert.Error(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
+	api := NewMockEngine()
+	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+
+	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+
+	var capturedConfig *container.Config
+	var capturedHostConfig *container.HostConfig
+	api.On("ContainerCreate", mock.Anything,
+		mock.MatchedBy(func(cfg *container.Config) bool {
+			capturedConfig = cfg
+			return true
+		}),
+		mock.MatchedBy(func(hc *container.HostConfig) bool {
+			capturedHostConfig = hc
+			return true
+		}),
+		mock.Anything, mock.Anything, mock.Anything,
+	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
+
+	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
+	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false)
+
+	assert.Error(t, err)
+	assert.NotNil(t, capturedConfig)
+	assert.NotNil(t, capturedHostConfig)
+
+	// Entrypoint should be stress-ng directly, not dockhack
+	assert.Equal(t, []string{"stress-ng"}, []string(capturedConfig.Entrypoint))
+	// Cmd should be the stressors directly
+	assert.Equal(t, []string{"--cpu", "2"}, []string(capturedConfig.Cmd))
+
+	// No mounts (no docker socket, no cgroup fs)
+	assert.Empty(t, capturedHostConfig.Mounts)
+	assert.Empty(t, capturedHostConfig.Binds)
+	// No SYS_ADMIN capability
+	assert.Empty(t, capturedHostConfig.CapAdd)
+	// No apparmor security opt
+	assert.Empty(t, capturedHostConfig.SecurityOpt)
+	// CgroupParent should be set
+	assert.Equal(t, "/docker/abc123", capturedHostConfig.Resources.CgroupParent)
+	// AutoRemove should be true
+	assert.True(t, capturedHostConfig.AutoRemove)
+
+	api.AssertExpectations(t)
 }
