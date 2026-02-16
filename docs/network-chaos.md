@@ -210,18 +210,18 @@ Drop incoming packets using either random probability or every-nth-packet matchi
 #### Random mode (default)
 
 ```bash
-# Drop 20% of incoming packets
-pumba iptables loss --probability 0.2 web
+# Drop 20% of incoming packets for 5 minutes
+pumba iptables --duration 5m loss --probability 0.2 web
 
-# Drop 15% of incoming ICMP packets
-pumba iptables --protocol icmp loss --probability 0.15 "re2:database"
+# Drop 15% of incoming ICMP packets for 5 minutes
+pumba iptables --duration 5m --protocol icmp loss --probability 0.15 "re2:database"
 ```
 
 #### Nth mode
 
 ```bash
-# Drop every 5th packet from a specific source on port 8080
-pumba iptables --protocol tcp --source 192.168.1.100 --dst-port 8080 \
+# Drop every 5th packet from a specific source on port 8080 for 5 minutes
+pumba iptables --duration 5m --protocol tcp --source 192.168.1.100 --dst-port 8080 \
     loss --mode nth --every 5 api
 ```
 
