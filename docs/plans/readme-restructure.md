@@ -27,12 +27,12 @@ Create `docs/guide.md` — comprehensive user guide extracted from README:
 
 Move all network chaos content here (deduplicated):
 
-- netem commands (delay, loss, loss-state, loss-gemodel, duplicate, corrupt, rate)
-- iptables commands (loss with random/nth modes)
-- Network tools images (tc-image, iptables-image, combined nettools)
-- Advanced scenarios (asymmetric, combined degradation, microservices)
-- Architecture support and building nettools images
-- Include mermaid diagram showing how pumba injects tc container into target network namespace
+- [x] netem commands (delay, loss, loss-state, loss-gemodel, duplicate, corrupt, rate)
+- [x] iptables commands (loss with random/nth modes)
+- [x] Network tools images (tc-image, iptables-image, combined nettools)
+- [x] Advanced scenarios (asymmetric, combined degradation, microservices)
+- [x] Architecture support and building nettools images
+- [x] Include mermaid diagram showing how pumba injects tc container into target network namespace
 
 ### Task 3: Create docs/stress-testing.md
 
