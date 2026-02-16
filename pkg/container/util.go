@@ -89,7 +89,12 @@ func RandomContainer(containers []*Container) *Container {
 
 // ListNContainers list containers up to specified limit
 func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]*Container, error) {
-	containers, err := listContainers(ctx, client, names, pattern, labels, false)
+	return ListNContainersAll(ctx, client, names, pattern, labels, limit, false)
+}
+
+// ListNContainersAll list containers up to specified limit, optionally including stopped containers
+func ListNContainersAll(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int, all bool) ([]*Container, error) {
+	containers, err := listContainers(ctx, client, names, pattern, labels, all)
 	if err != nil {
 		return nil, err
 	}
