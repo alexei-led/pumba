@@ -119,7 +119,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
+			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true }))
 			if tt.errs.listError {
 				call.Return(tt.expected, errors.New("ERROR"))
 				goto Invoke

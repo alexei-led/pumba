@@ -51,15 +51,11 @@ func applyContainerFilter(flt filter) FilterFunc {
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
-		// if not requested all
-		if !flt.Opts.All {
-			// match names
-			if len(flt.Names) > 0 {
-				return matchNames(flt.Names, c.ContainerInfo.Name)
-			}
-			return matchPattern(flt.Pattern, c.ContainerInfo.Name)
+		// match names
+		if len(flt.Names) > 0 {
+			return matchNames(flt.Names, c.ContainerInfo.Name)
 		}
-		return true
+		return matchPattern(flt.Pattern, c.ContainerInfo.Name)
 	}
 }
 

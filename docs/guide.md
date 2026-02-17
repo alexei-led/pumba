@@ -98,7 +98,7 @@ pumba pause --duration 5s myapp
 
 ### rm
 
-Remove target containers. By default, force-kills running containers and removes associated volumes.
+Remove target containers, including stopped ones. By default, force-kills running containers and removes associated volumes.
 
 ```bash
 # Force remove (default)
