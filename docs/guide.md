@@ -58,7 +58,7 @@ pumba --random kill "re2:^test"
 
 ## Container Chaos Commands
 
-Each command targets containers using the [targeting methods](#container-targeting) described above. Run `pumba <command> --help` for the full list of options.
+Each command targets containers using the [targeting methods](#container-targeting) described above. Run `pumba <command> --help` for the full list of options. The `kill`, `stop`, and `rm` commands require at least one container argument (name, list of names, or RE2 regex).
 
 ### kill
 

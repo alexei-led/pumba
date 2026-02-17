@@ -148,6 +148,27 @@ teardown() {
     [ $status -eq 0 ]
 }
 
+@test "Should fail when kill command has no container arguments" {
+    run pumba kill
+
+    [ $status -ne 0 ]
+    [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
+}
+
+@test "Should fail when stop command has no container arguments" {
+    run pumba stop
+
+    [ $status -ne 0 ]
+    [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
+}
+
+@test "Should fail when rm command has no container arguments" {
+    run pumba rm
+
+    [ $status -ne 0 ]
+    [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
+}
+
 @test "Should handle CIDR notation formats" {
     # This test skips actual execution since we're just testing CLI parsing
     run pumba iptables --help
