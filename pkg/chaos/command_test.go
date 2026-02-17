@@ -32,3 +32,34 @@ func TestRe2PatternExtraction(t *testing.T) {
 		})
 	}
 }
+
+func TestSplitLabels(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  []string
+		want []string
+	}{
+		{"single label", []string{"app=web"}, []string{"app=web"}},
+		{"two separate flags", []string{"app=web", "env=prod"}, []string{"app=web", "env=prod"}},
+		{"comma-separated", []string{"app=web,env=prod"}, []string{"app=web", "env=prod"}},
+		{"mixed", []string{"app=web,env=prod", "tier=frontend"}, []string{"app=web", "env=prod", "tier=frontend"}},
+		{"with spaces", []string{"app=web, env=prod"}, []string{"app=web", "env=prod"}},
+		{"empty string", []string{""}, nil},
+		{"empty slice", []string{}, nil},
+		{"k8s labels", []string{"io.kubernetes.container.name=myapp,app.kubernetes.io/version=v2"}, []string{"io.kubernetes.container.name=myapp", "app.kubernetes.io/version=v2"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitLabels(tt.raw)
+			if len(got) != len(tt.want) {
+				t.Fatalf("splitLabels() = %v (len %d), want %v (len %d)", got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("splitLabels()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
