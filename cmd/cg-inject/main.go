@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 )
@@ -264,7 +265,7 @@ func cgroupProcsPathsFromBase(basePath string, version cgroupVersion) []string {
 // writePID writes a PID to an existing cgroup.procs file.
 // Uses O_WRONLY without O_CREATE to fail if the cgroup path doesn't exist.
 func writePID(procsPath string, pid int) error {
-	f, err := os.OpenFile(procsPath, os.O_WRONLY, 0)
+	f, err := os.OpenFile(filepath.Clean(procsPath), os.O_WRONLY, 0) //#nosec G703 -- procsPath is constructed internally, not user input
 	if err != nil {
 		return err
 	}

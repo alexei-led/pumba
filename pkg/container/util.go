@@ -51,15 +51,11 @@ func applyContainerFilter(flt filter) FilterFunc {
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
-		// if not requested all
-		if !flt.Opts.All {
-			// match names
-			if len(flt.Names) > 0 {
-				return matchNames(flt.Names, c.ContainerInfo.Name)
-			}
-			return matchPattern(flt.Pattern, c.ContainerInfo.Name)
+		// match names
+		if len(flt.Names) > 0 {
+			return matchNames(flt.Names, c.ContainerInfo.Name)
 		}
-		return true
+		return matchPattern(flt.Pattern, c.ContainerInfo.Name)
 	}
 }
 
@@ -89,7 +85,12 @@ func RandomContainer(containers []*Container) *Container {
 
 // ListNContainers list containers up to specified limit
 func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]*Container, error) {
-	containers, err := listContainers(ctx, client, names, pattern, labels, false)
+	return ListNContainersAll(ctx, client, names, pattern, labels, limit, false)
+}
+
+// ListNContainersAll list containers up to specified limit, optionally including stopped containers
+func ListNContainersAll(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int, all bool) ([]*Container, error) {
+	containers, err := listContainers(ctx, client, names, pattern, labels, all)
 	if err != nil {
 		return nil, err
 	}

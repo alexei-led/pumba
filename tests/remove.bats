@@ -32,3 +32,45 @@ teardown() {
     echo "Remaining containers: $output"
     [ -z "$output" ]
 }
+
+@test "Should remove stopped docker container" {
+    # Given a container that has been stopped
+    create_test_container "rm_victim"
+    docker stop rm_victim
+    
+    # Verify container is stopped but still exists
+    run docker inspect -f {{.State.Status}} rm_victim
+    [ "$output" = "exited" ]
+    
+    # When removing the stopped container with pumba
+    run pumba rm rm_victim
+    
+    # Then pumba should exit successfully
+    [ $status -eq 0 ]
+    
+    # And container should be removed
+    run docker ps -a --filter "name=rm_victim" --format "{{.Names}}"
+    echo "Remaining containers: $output"
+    [ -z "$output" ]
+}
+
+@test "Should remove stopped container matched by regex" {
+    # Given a stopped container
+    create_test_container "rm_victim"
+    docker stop rm_victim
+    
+    # Verify container is stopped
+    run docker inspect -f {{.State.Status}} rm_victim
+    [ "$output" = "exited" ]
+    
+    # When removing with regex pattern
+    run pumba rm "re2:rm_vict.*"
+    
+    # Then pumba should exit successfully
+    [ $status -eq 0 ]
+    
+    # And container should be removed
+    run docker ps -a --filter "name=rm_victim" --format "{{.Names}}"
+    echo "Remaining containers: $output"
+    [ -z "$output" ]
+}

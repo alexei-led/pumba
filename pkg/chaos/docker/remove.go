@@ -48,7 +48,7 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		"limit":   r.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, r.client, r.names, r.pattern, r.labels, r.limit)
+	containers, err := container.ListNContainersAll(ctx, r.client, r.names, r.pattern, r.labels, r.limit, true)
 	if err != nil {
 		return fmt.Errorf("error listing containers: %w", err)
 	}
