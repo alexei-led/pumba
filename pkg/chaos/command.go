@@ -75,7 +75,7 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 		} else {
 			first := c.Args().First()
 			if strings.HasPrefix(first, Re2Prefix) {
-				pattern = strings.Trim(first, Re2Prefix)
+				pattern = strings.TrimPrefix(first, Re2Prefix)
 				log.WithField("pattern", pattern).Debug("using pattern")
 			} else {
 				names = append(names, first)
