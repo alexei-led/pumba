@@ -77,7 +77,7 @@ func lookupWithDefault(aMap map[string]interface{}, key string, defaultValue int
 // AsMap convert multiple arguments into map[string]interface{}
 func AsMap(args ...interface{}) map[string]interface{} {
 	paramMap := make(map[string]interface{})
-	for i := 0; i < len(args); i += 2 {
+	for i := 0; i+1 < len(args); i += 2 {
 		paramMap[args[i].(string)] = args[i+1]
 	}
 	return paramMap
