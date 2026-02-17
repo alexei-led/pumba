@@ -64,7 +64,7 @@ teardown() {
     [ "$output" = "exited" ]
     
     # When removing with regex pattern
-    run pumba --re2 "rm_vict.*" rm
+    run pumba rm "re2:rm_vict.*"
     
     # Then pumba should exit successfully
     [ $status -eq 0 ]
