@@ -32,7 +32,7 @@ type Client interface {
 	PauseContainer(context.Context, *Container, bool) error
 	UnpauseContainer(context.Context, *Container, bool) error
 	StartContainer(context.Context, *Container, bool) error
-	StressContainer(context.Context, *Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)
+	StressContainer(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) (string, <-chan string, <-chan error, error)
 	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 

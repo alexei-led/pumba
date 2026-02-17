@@ -31,9 +31,9 @@ Pumba is a chaos testing and network emulation tool for Docker containers. Inspi
 graph LR
     A[Pumba CLI] -->|Docker API| B[Docker Engine]
     B -->|List & Filter| C[Target Containers]
-    
+
     A -->|kill / stop / pause / rm| C
-    
+
     A -->|netem / iptables| D[Helper Container]
     D -->|Shares network namespace| C
     D -->|Runs tc / iptables| E[Network Chaos]
@@ -44,16 +44,16 @@ For **network chaos** (netem, iptables), Pumba creates a helper container that s
 
 ## Features
 
-| Category | Commands | Description |
-|----------|----------|-------------|
-| **Container Chaos** | `kill`, `stop`, `pause`, `rm`, `restart` | Disrupt container lifecycle |
-| **Execute** | `exec` | Run commands inside containers |
-| **Network Delay** | `netem delay` | Add latency to egress traffic |
-| **Packet Loss** | `netem loss`, `iptables loss` | Drop packets (egress and ingress) |
-| **Network Effects** | `netem duplicate`, `corrupt`, `rate` | Duplicate, corrupt, or rate-limit packets |
-| **Stress Testing** | `stress` | CPU, memory, I/O stress via stress-ng |
-| **Targeting** | names, regex (`re2:`), labels, `--random` | Flexible container selection |
-| **Scheduling** | `--interval` | Recurring chaos at fixed intervals |
+| Category            | Commands                                  | Description                                                                   |
+| ------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| **Container Chaos** | `kill`, `stop`, `pause`, `rm`, `restart`  | Disrupt container lifecycle                                                   |
+| **Execute**         | `exec`                                    | Run commands inside containers                                                |
+| **Network Delay**   | `netem delay`                             | Add latency to egress traffic                                                 |
+| **Packet Loss**     | `netem loss`, `iptables loss`             | Drop packets (egress and ingress)                                             |
+| **Network Effects** | `netem duplicate`, `corrupt`, `rate`      | Duplicate, corrupt, or rate-limit packets                                     |
+| **Stress Testing**  | `stress`                                  | CPU, memory, I/O stress via stress-ng (child cgroup or same-cgroup injection) |
+| **Targeting**       | names, regex (`re2:`), labels, `--random` | Flexible container selection                                                  |
+| **Scheduling**      | `--interval`                              | Recurring chaos at fixed intervals                                            |
 
 ## Quick Start
 
@@ -96,22 +96,22 @@ docker run -it --rm \
 
 ## Docker Images
 
-| Registry | Image | Status |
-|----------|-------|--------|
-| **GitHub Container Registry** | `ghcr.io/alexei-led/pumba` | ✅ Primary |
-| Docker Hub | `alexeiled/pumba` | ⚠️ Deprecated |
+| Registry                      | Image                      | Status        |
+| ----------------------------- | -------------------------- | ------------- |
+| **GitHub Container Registry** | `ghcr.io/alexei-led/pumba` | ✅ Primary    |
+| Docker Hub                    | `alexeiled/pumba`          | ⚠️ Deprecated |
 
 Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| **[User Guide](docs/guide.md)** | Container chaos commands, targeting, scheduling, configuration |
-| **[Network Chaos](docs/network-chaos.md)** | netem, iptables, advanced scenarios, architecture diagrams |
-| **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng |
-| **[Deployment](docs/deployment.md)** | Docker, Kubernetes DaemonSets, OpenShift |
-| **[Contributing](CONTRIBUTING.md)** | Build from source, run tests, project structure |
+| Document                                     | Description                                                    |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| **[User Guide](docs/guide.md)**              | Container chaos commands, targeting, scheduling, configuration |
+| **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
+| **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
+| **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
+| **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
 
 ## Demo
 

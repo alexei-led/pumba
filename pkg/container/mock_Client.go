@@ -262,9 +262,9 @@ func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 *Container, _a
 	return r0
 }
 
-// StressContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6
-func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool) (string, <-chan string, <-chan error, error) {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+// StressContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7
+func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6, _a7 bool) (string, <-chan string, <-chan error, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StressContainer")
@@ -274,33 +274,33 @@ func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *Container, _a2 [
 	var r1 <-chan string
 	var r2 <-chan error
 	var r3 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool) (string, <-chan string, <-chan error, error)); ok {
-		return rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) (string, <-chan string, <-chan error, error)); ok {
+		return rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool) string); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) string); ok {
+		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *Container, []string, string, bool, time.Duration, bool) <-chan string); ok {
-		r1 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	if rf, ok := ret.Get(1).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) <-chan string); ok {
+		r1 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(<-chan string)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, *Container, []string, string, bool, time.Duration, bool) <-chan error); ok {
-		r2 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	if rf, ok := ret.Get(2).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) <-chan error); ok {
+		r2 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
 	} else {
 		if ret.Get(2) != nil {
 			r2 = ret.Get(2).(<-chan error)
 		}
 	}
 
-	if rf, ok := ret.Get(3).(func(context.Context, *Container, []string, string, bool, time.Duration, bool) error); ok {
-		r3 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6)
+	if rf, ok := ret.Get(3).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) error); ok {
+		r3 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
 	} else {
 		r3 = ret.Error(3)
 	}

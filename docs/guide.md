@@ -219,6 +219,6 @@ This is useful in recurring mode when target containers may temporarily not exis
 ## Further Reading
 
 - [Network Chaos](network-chaos.md) - netem and iptables commands
-- [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress
+- [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress (includes `--inject-cgroup` for same-cgroup injection)
 - [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
 - [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba

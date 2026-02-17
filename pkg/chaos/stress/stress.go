@@ -14,16 +14,17 @@ import (
 
 // `stress-ng` command
 type stressCommand struct {
-	client    container.Client
-	names     []string
-	pattern   string
-	labels    []string
-	image     string
-	pull      bool
-	stressors []string
-	duration  time.Duration
-	limit     int
-	dryRun    bool
+	client       container.Client
+	names        []string
+	pattern      string
+	labels       []string
+	image        string
+	pull         bool
+	stressors    []string
+	duration     time.Duration
+	limit        int
+	injectCgroup bool
+	dryRun       bool
 }
 
 const (
@@ -31,18 +32,19 @@ const (
 )
 
 // NewStressCommand create new Kill stressCommand instance
-func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int) chaos.Command {
+func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int, injectCgroup bool) chaos.Command {
 	stress := &stressCommand{
-		client:    client,
-		names:     globalParams.Names,
-		pattern:   globalParams.Pattern,
-		labels:    globalParams.Labels,
-		image:     image,
-		pull:      pull,
-		stressors: strings.Fields(stressors),
-		duration:  duration,
-		limit:     limit,
-		dryRun:    globalParams.DryRun,
+		client:       client,
+		names:        globalParams.Names,
+		pattern:      globalParams.Pattern,
+		labels:       globalParams.Labels,
+		image:        image,
+		pull:         pull,
+		stressors:    strings.Fields(stressors),
+		duration:     duration,
+		limit:        limit,
+		injectCgroup: injectCgroup,
+		dryRun:       globalParams.DryRun,
 	}
 	return stress
 }
@@ -98,14 +100,18 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		"stress-ng image": s.image,
 		"pull image":      s.pull,
 	}).Debug("stress testing container for duration")
-	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.dryRun)
+	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.injectCgroup, s.dryRun)
 	if err != nil {
 		return fmt.Errorf("stress test failed: %w", err)
 	}
+	if s.dryRun {
+		return nil
+	}
+	timer := time.NewTimer(s.duration)
+	defer timer.Stop()
 	select {
 	case out := <-output:
 		log.WithField("stdout", out).Debug("stress-ng completed")
-		break
 	case e := <-outerr:
 		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
@@ -115,14 +121,13 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
-		break
-	case <-time.After(s.duration):
+	case <-timer.C:
 		log.WithField("duration", s.duration).Debug("stop stress containers after duration")
-		err = s.client.StopContainerWithID(ctx, stress, defaultStopTimeout, s.dryRun)
+		// NOTE: use background context since parent context may be canceled when timer and context fire simultaneously
+		err = s.client.StopContainerWithID(context.Background(), stress, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
-		break
 	}
 	return nil
 }

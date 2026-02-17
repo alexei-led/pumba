@@ -5,7 +5,7 @@
     docker run -d --name stress_victim alpine tail -f /dev/null
 
     # pull stress-ng image
-    run docker pull alexeiled/stress-ng:latest-ubuntu
+    run docker pull ghcr.io/alexei-led/stress-ng:latest
 
     # when (trying to stress container)
     run pumba --log-level=debug stress --duration=20s --stressors="--cpu 1 --timeout 10s" stress_victim

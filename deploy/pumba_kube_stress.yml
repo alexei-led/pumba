@@ -5,7 +5,7 @@
 # `kubectl create -f pumba_kube.yaml`
 
 # If you are not running Kubernetes >= 1.1.0 or do not want to use DaemonSets, you can also run the Pumba as a regular docker container on each node you want to make chaos.
-# `docker run -d -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba pumba --random --interval 3m kill --signal SIGKILL"`
+# `docker run -d -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/alexei-led/pumba pumba --random --interval 3m kill --signal SIGKILL"`
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       # randomly pause containers in Pod named 'test-1' every minute for 30 sec
-      - image: gaiaadm/pumba
+      - image: ghcr.io/alexei-led/pumba
         imagePullPolicy: Always
         name: pumba-stress
         args:
@@ -37,10 +37,6 @@ spec:
           - stress
           - --duration 
           - 1m
-        securityContext:
-          # privileged: true
-          capabilities:
-            add: ["SYS_ADMIN"]
         resources:
           requests:
             cpu: 10m

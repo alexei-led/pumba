@@ -176,7 +176,9 @@ Add the label `com.gaiaadm.pumba: "true"` to the Pumba Pod to prevent it from ki
 
 ### Stress Testing on Kubernetes
 
-For stress testing, the Pumba container needs `SYS_ADMIN` capability:
+Pumba automatically resolves the target container's cgroup path via the Docker API, so stress testing works on Kubernetes without manual cgroup configuration. The stress-ng sidecar is placed under the correct Kubernetes pod cgroup hierarchy (e.g., `/kubepods/burstable/pod<uid>/...`).
+
+No `SYS_ADMIN` capability is required.
 
 ```yaml
 - image: ghcr.io/alexei-led/pumba
@@ -191,12 +193,9 @@ For stress testing, the Pumba container needs `SYS_ADMIN` capability:
     - stress
     - --duration
     - 1m
-  securityContext:
-    capabilities:
-      add: ["SYS_ADMIN"]
 ```
 
-See `deploy/pumba_kube_stress.yml` for a complete example.
+See `deploy/pumba_kube_stress.yml` for a complete example. For details on cgroup placement modes, see [Stress Testing](stress-testing.md#kubernetes-cgroup-path-resolution).
 
 ### Limitations
 

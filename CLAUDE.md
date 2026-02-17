@@ -3,6 +3,7 @@
 ## Build & Test Commands
 
 - **Build:** `make build` (builds for current TARGETOS/TARGETARCH)
+- **Build cg-inject:** `make build-cg-inject` (builds static cg-inject binary)
 - **Full pipeline:** `make all` (format → lint → test → build)
 - **Unit tests:** `make test` (requires `CGO_ENABLED=1` for race detector)
 - **Test with coverage:** `make test-coverage`
@@ -39,6 +40,7 @@ Integration tests use [bats](https://github.com/bats-core/bats-core) and run ins
 
 ```
 cmd/main.go            — CLI entry point, all command/flag definitions
+cmd/cg-inject/         — cg-inject binary: moves process into target container's cgroup
 pkg/
   chaos/
     command.go         — ChaosCommand interface, scheduling/interval runner
@@ -54,7 +56,7 @@ pkg/
   util/                — Shared utilities (IP/port parsing)
 mocks/                 — Generated mock files (mockery)
 tests/                 — Bats integration tests
-docker/                — Dockerfiles (main, alpine-nettools, debian-nettools)
+docker/                — Dockerfiles (main, alpine-nettools, debian-nettools, stress)
 deploy/                — K8s/OpenShift deployment manifests
 examples/              — Demo scripts
 ```
@@ -65,7 +67,7 @@ examples/              — Demo scripts
 - **Docker client** (`pkg/container/docker_client.go`): Concrete implementation using Docker SDK
 - **Chaos commands**: Each action implements `ChaosCommand` interface with `Run(ctx, random)` method
 - **Network emulation**: Executes `tc` commands inside a sidecar container via Docker exec
-- **Stress testing**: Runs `stress-ng` via Docker exec in a sidecar container
+- **Stress testing**: Two modes — (1) default child-cgroup mode places stress-ng sidecar in target's cgroup via Docker's `--cgroup-parent`; (2) inject-cgroup mode (`--inject-cgroup`) uses `cg-inject` binary to write sidecar PID into target's `cgroup.procs` for shared resource accounting
 - **Target selection**: Container names (exact), comma-separated lists, or `re2:` prefixed regex patterns
 - **Label filtering**: `--label key=value` flags for container selection
 - **Interval mode**: `--interval` flag for recurring chaos on a schedule

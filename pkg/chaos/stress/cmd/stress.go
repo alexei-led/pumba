@@ -26,8 +26,8 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "stress-image",
-				Usage: "Docker image with stress-ng tool, cgroup-bin and docker packages, and dockhack script",
-				Value: "alexeiled/stress-ng:latest-ubuntu",
+				Usage: "Docker image with stress-ng tool",
+				Value: "ghcr.io/alexei-led/stress-ng:latest",
 			},
 			cli.BoolTFlag{
 				Name:  "pull-image",
@@ -37,6 +37,10 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 				Name:  "stressors",
 				Usage: `stress-ng stressors; use = sign to pass values, e.g. --stressors="--cpu 4 --timeout 60s"; see https://kernel.ubuntu.com/~cking/stress-ng/`,
 				Value: "--cpu 4 --timeout 60s",
+			},
+			cli.BoolFlag{
+				Name:  "inject-cgroup",
+				Usage: "Inject stress-ng into target container's cgroup (same cgroup, shared resource accounting). Requires stress image with cg-inject binary.",
 			},
 		},
 		Usage:       "stress test specified containers",
@@ -66,8 +70,10 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	image := c.String("stress-image")
 	// get pull tc image flag
 	pull := c.BoolT("pull-image")
+	// get inject-cgroup flag
+	injectCgroup := c.Bool("inject-cgroup")
 	// init stress command
-	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit)
+	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit, injectCgroup)
 	// run stress command
 	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
 	if err != nil {

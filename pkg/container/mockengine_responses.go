@@ -31,14 +31,20 @@ func DetailsResponse(params map[string]interface{}) ctypes.InspectResponse {
 	Running := lookupWithDefault(params, "Running", false).(bool)
 	Labels := lookupWithDefault(params, "Labels", map[string]string{}).(map[string]string)
 	Links := lookupWithDefault(params, "Links", []string{}).([]string)
+	CgroupParent := lookupWithDefault(params, "CgroupParent", "").(string)
 
-	return ctypes.InspectResponse{
+	resp := ctypes.InspectResponse{
 		ContainerJSONBase: &ctypes.ContainerJSONBase{
 			ID:      ID,
 			Name:    Name,
 			Created: Created,
 			Image:   Image,
 			State:   &ctypes.State{Running: Running},
+			HostConfig: &ctypes.HostConfig{
+				Resources: ctypes.Resources{
+					CgroupParent: CgroupParent,
+				},
+			},
 		},
 		Config: &ctypes.Config{
 			Labels: Labels,
@@ -49,6 +55,7 @@ func DetailsResponse(params map[string]interface{}) ctypes.InspectResponse {
 			},
 		},
 	}
+	return resp
 }
 
 // ImageDetailsResponse mock image response
