@@ -12,8 +12,9 @@ import (
 func TestApplyContainerFilter_SkipsPumba(t *testing.T) {
 	labels := map[string]string{"com.gaiaadm.pumba": "true"}
 	c := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "pumba-container", "Labels", labels)),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "pumba-container",
+		Labels:        labels,
+		Networks:      map[string]NetworkLink{},
 	}
 	flt := filter{Names: []string{"pumba-container"}, Opts: ListOpts{All: false}}
 	fn := applyContainerFilter(flt)
@@ -24,8 +25,9 @@ func TestApplyContainerFilter_SkipsPumba(t *testing.T) {
 func TestApplyContainerFilter_SkipsPumbaSkip(t *testing.T) {
 	labels := map[string]string{"com.gaiaadm.pumba.skip": "true"}
 	c := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "skip-container", "Labels", labels)),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "skip-container",
+		Labels:        labels,
+		Networks:      map[string]NetworkLink{},
 	}
 	flt := filter{Names: []string{"skip-container"}, Opts: ListOpts{All: false}}
 	fn := applyContainerFilter(flt)
@@ -35,8 +37,9 @@ func TestApplyContainerFilter_SkipsPumbaSkip(t *testing.T) {
 
 func TestApplyContainerFilter_MatchesByName(t *testing.T) {
 	c := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "target")),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "target",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 
 	flt := filter{Names: []string{"target"}, Opts: ListOpts{All: false}}
@@ -47,12 +50,14 @@ func TestApplyContainerFilter_MatchesByName(t *testing.T) {
 
 func TestApplyContainerFilter_MatchesByNameWithAllFlag(t *testing.T) {
 	target := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "target")),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "target",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 	other := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "other")),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "other",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 
 	flt := filter{Names: []string{"target"}, Opts: ListOpts{All: true}}
@@ -64,12 +69,14 @@ func TestApplyContainerFilter_MatchesByNameWithAllFlag(t *testing.T) {
 
 func TestApplyContainerFilter_MatchesByPatternWithAllFlag(t *testing.T) {
 	matching := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "app-web-1")),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "app-web-1",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 	nonMatching := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "db-postgres-1")),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "db-postgres-1",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 
 	flt := filter{Pattern: "^app-", Opts: ListOpts{All: true}}
@@ -81,8 +88,9 @@ func TestApplyContainerFilter_MatchesByPatternWithAllFlag(t *testing.T) {
 
 func TestApplyContainerFilter_MatchesByPattern(t *testing.T) {
 	c := &Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "app-web")),
-		ImageInfo:     ImageDetailsResponse(AsMap()),
+		ContainerName: "app-web",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 
 	flt := filter{Pattern: "^app-", Opts: ListOpts{All: false}}

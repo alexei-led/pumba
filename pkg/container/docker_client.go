@@ -41,6 +41,36 @@ type dockerClient struct {
 	systemAPI    dockerapi.SystemAPIClient
 }
 
+// dockerInspectToContainer converts Docker inspect responses into a runtime-agnostic Container.
+func dockerInspectToContainer(info ctypes.InspectResponse, img *imagetypes.InspectResponse) *Container {
+	c := &Container{
+		ContainerID: info.ID,
+		ImageID:     img.ID,
+		Labels:      make(map[string]string),
+		Networks:    make(map[string]NetworkLink),
+	}
+	if info.ContainerJSONBase != nil {
+		c.ContainerName = info.Name
+		c.Image = info.Image
+		if info.State != nil {
+			if info.State.Running {
+				c.State = StateRunning
+			} else {
+				c.State = StateExited
+			}
+		}
+	}
+	if info.Config != nil && info.Config.Labels != nil {
+		c.Labels = info.Config.Labels
+	}
+	if info.NetworkSettings != nil {
+		for name, ep := range info.NetworkSettings.Networks {
+			c.Networks[name] = NetworkLink{Links: ep.Links}
+		}
+	}
+	return c
+}
+
 const cgroupDriverSystemd = "systemd"
 const cgroupDriverCgroupfs = "cgroupfs"
 
@@ -74,7 +104,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn FilterFunc, op
 		if err != nil {
 			return nil, fmt.Errorf("failed to inspect container image: %w", err)
 		}
-		c := &Container{ContainerInfo: containerInfo, ImageInfo: imgInfo}
+		c := dockerInspectToContainer(containerInfo, &imgInfo)
 		if fn(c) {
 			cs = append(cs, c)
 		}

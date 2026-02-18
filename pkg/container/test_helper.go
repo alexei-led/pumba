@@ -11,8 +11,10 @@ func CreateTestContainers(count int) []*Container {
 	var containers []*Container
 	for i := range count {
 		containers = append(containers, &Container{
-			DetailsResponse(AsMap("Name", fmt.Sprintf("c%d", i))),
-			ImageDetailsResponse(AsMap()),
+			ContainerName: fmt.Sprintf("c%d", i),
+			ImageID:       "defaultID",
+			Labels:        map[string]string{},
+			Networks:      map[string]NetworkLink{},
 		})
 	}
 	return containers
@@ -23,8 +25,10 @@ func CreateLabeledTestContainers(count int, labels map[string]string) []*Contain
 	var containers []*Container
 	for i := range count {
 		containers = append(containers, &Container{
-			DetailsResponse(AsMap("Name", fmt.Sprintf("c%d", i), "Labels", labels)),
-			ImageDetailsResponse(AsMap()),
+			ContainerName: fmt.Sprintf("c%d", i),
+			ImageID:       "defaultID",
+			Labels:        labels,
+			Networks:      map[string]NetworkLink{},
 		})
 	}
 	return containers

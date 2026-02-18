@@ -67,6 +67,32 @@ func ImageDetailsResponse(params map[string]interface{}) imagetypes.InspectRespo
 	}
 }
 
+// NewTestContainer creates a Container directly from params for testing
+func NewTestContainer(params map[string]interface{}) *Container {
+	id := lookupWithDefault(params, "ID", "defaultID").(string)
+	name := lookupWithDefault(params, "Name", "defaultName").(string)
+	image := lookupWithDefault(params, "Image", "defaultImage").(string)
+	labels := lookupWithDefault(params, "Labels", map[string]string{}).(map[string]string)
+	links := lookupWithDefault(params, "Links", []string{}).([]string)
+	state := StateRunning
+	if running, ok := params["Running"]; ok && !running.(bool) {
+		state = StateExited
+	}
+	networks := map[string]NetworkLink{}
+	if len(links) > 0 {
+		networks["default"] = NetworkLink{Links: links}
+	}
+	return &Container{
+		ContainerID:   id,
+		ContainerName: name,
+		Image:         image,
+		ImageID:       lookupWithDefault(params, "ImageID", "defaultID").(string),
+		State:         state,
+		Labels:        labels,
+		Networks:      networks,
+	}
+}
+
 func lookupWithDefault(aMap map[string]interface{}, key string, defaultValue interface{}) interface{} {
 	if value, present := aMap[key]; present {
 		return value
