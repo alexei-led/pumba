@@ -37,12 +37,27 @@ type GlobalParams struct {
 	SkipErrors bool
 }
 
+// splitLabels splits comma-separated label values into individual labels.
+// This supports both "--label k1=v1 --label k2=v2" and "--label k1=v1,k2=v2" syntax.
+func splitLabels(raw []string) []string {
+	var result []string
+	for _, l := range raw {
+		for _, part := range strings.Split(l, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				result = append(result, part)
+			}
+		}
+	}
+	return result
+}
+
 // ParseGlobalParams parse global parameters
 func ParseGlobalParams(c *cli.Context) (*GlobalParams, error) {
 	// get random flag
 	random := c.GlobalBool("random")
-	// get labels
-	labels := c.GlobalStringSlice("label")
+	// get labels; support both --label k=v --label k2=v2 and --label k=v,k2=v2
+	labels := splitLabels(c.GlobalStringSlice("label"))
 	// get dry-run mode
 	dryRun := c.GlobalBool("dry-run")
 	// get skip error flag

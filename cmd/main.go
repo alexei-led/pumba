@@ -137,7 +137,7 @@ func main() {
 		},
 		cli.StringSliceFlag{
 			Name:  "label",
-			Usage: "filter containers by labels, e.g '--label key=value' (multiple labels supported)",
+			Usage: "filter containers by labels, e.g. '--label key=value' (use '--label k1=v1 --label k2=v2' or '--label k1=v1,k2=v2' for multiple, AND logic)",
 		},
 		cli.BoolFlag{
 			Name:  "random, r",
