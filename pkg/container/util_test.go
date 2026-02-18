@@ -240,6 +240,12 @@ func TestMatchNames(t *testing.T) {
 			expected:      false,
 		},
 		{
+			name:          "empty container name",
+			names:         []string{"container1"},
+			containerName: "",
+			expected:      false,
+		},
+		{
 			name:          "name in the list",
 			names:         []string{"container1", "container2"},
 			containerName: "container1",
@@ -274,6 +280,12 @@ func TestMatchPattern(t *testing.T) {
 		containerName string
 		expected      bool
 	}{
+		{
+			name:          "empty container name",
+			pattern:       "container[0-9]",
+			containerName: "",
+			expected:      false,
+		},
 		{
 			name:          "exact match",
 			pattern:       "container1",
