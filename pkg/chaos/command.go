@@ -18,6 +18,7 @@ const (
 
 var (
 	// DockerClient Docker client instance
+	// TODO(Phase 4): remove this global and inject client via dependency injection
 	DockerClient container.Client
 )
 
