@@ -44,12 +44,12 @@ type dockerClient struct {
 // dockerInspectToContainer converts Docker inspect responses into a runtime-agnostic Container.
 func dockerInspectToContainer(info ctypes.InspectResponse, img *imagetypes.InspectResponse) *Container {
 	c := &Container{
-		ContainerID: info.ID,
-		ImageID:     img.ID,
-		Labels:      make(map[string]string),
-		Networks:    make(map[string]NetworkLink),
+		ImageID:  img.ID,
+		Labels:   make(map[string]string),
+		Networks: make(map[string]NetworkLink),
 	}
 	if info.ContainerJSONBase != nil {
+		c.ContainerID = info.ID
 		c.ContainerName = info.Name
 		c.Image = info.Image
 		if info.State != nil {

@@ -135,11 +135,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 }
 
 func TestStopContainer_DefaultSuccess(t *testing.T) {
-	containerDetails := DetailsResponse(AsMap(
-		"ID", "abc123",
-		"Name", "foo",
-	))
-	c := dockerInspectToContainer(containerDetails, &imagetypes.InspectResponse{})
+	c := NewTestContainer(AsMap("ID", "abc123", "Name", "foo", "Image", "abc123"))
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
 	api := NewMockEngine()
@@ -154,10 +150,10 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 }
 
 func TestStopContainer_DryRun(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
-		)), &imagetypes.InspectResponse{})
+		))
 
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
@@ -178,10 +174,10 @@ func TestStopContainer_DryRun(t *testing.T) {
 }
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
-		)), &imagetypes.InspectResponse{})
+		))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
@@ -194,10 +190,10 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 }
 
 func TestKillContainer_DryRun(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
-		)), &imagetypes.InspectResponse{})
+		))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
@@ -210,11 +206,11 @@ func TestKillContainer_DryRun(t *testing.T) {
 }
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
 			"Labels", map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"},
-		)), &imagetypes.InspectResponse{})
+		))
 
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
@@ -230,10 +226,10 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 }
 
 func TestStopContainer_KillContainerError(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
-		)), &imagetypes.InspectResponse{})
+		))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
@@ -246,10 +242,10 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 }
 
 func TestStopContainer_2ndKillContainerError(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
-		)), &imagetypes.InspectResponse{})
+		))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
@@ -637,11 +633,7 @@ func Test_tcContainerCommands(t *testing.T) {
 }
 
 func TestStartContainer_DefaultSuccess(t *testing.T) {
-	containerDetails := DetailsResponse(AsMap(
-		"ID", "abc123",
-		"Name", "foo",
-	))
-	c := dockerInspectToContainer(containerDetails, &imagetypes.InspectResponse{})
+	c := NewTestContainer(AsMap("ID", "abc123", "Name", "foo", "Image", "abc123"))
 
 	api := NewMockEngine()
 	api.On("ContainerStart", mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)
@@ -654,10 +646,10 @@ func TestStartContainer_DefaultSuccess(t *testing.T) {
 }
 
 func TestStartContainer_DryRun(t *testing.T) {
-	c := dockerInspectToContainer(DetailsResponse(AsMap(
+	c := NewTestContainer(AsMap(
 			"ID", "abc123",
 			"Name", "foo",
-		)), &imagetypes.InspectResponse{})
+		))
 
 	api := NewMockEngine()
 	api.On("ContainerStart", mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)

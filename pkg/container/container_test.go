@@ -132,3 +132,52 @@ func TestStopSignal_NoLabel(t *testing.T) {
 
 	assert.Equal(t, "", c.StopSignal())
 }
+
+func TestLinks_MultipleNetworks(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"frontend": {Links: []string{"api:api"}},
+			"backend":  {Links: []string{"db:db", "cache:cache"}},
+		},
+	}
+	links := c.Links()
+	assert.Len(t, links, 3)
+	assert.Contains(t, links, "api")
+	assert.Contains(t, links, "db")
+	assert.Contains(t, links, "cache")
+}
+
+func TestLinks_EmptyNetworks(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.Nil(t, c.Links())
+}
+
+func TestLinks_NetworkWithNoLinks(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"bridge": {Links: nil},
+		},
+	}
+	assert.Nil(t, c.Links())
+}
+
+func TestIsPumbaSkip_WrongValue(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{"com.gaiaadm.pumba.skip": "false"},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.False(t, c.IsPumbaSkip())
+}
+
+func TestIsPumbaSkip_NoLabel(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.False(t, c.IsPumbaSkip())
+}
