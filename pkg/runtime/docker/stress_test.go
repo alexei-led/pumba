@@ -1,4 +1,4 @@
-package container
+package docker
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/system"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,7 +18,7 @@ import (
 func TestStressContainerBasic(t *testing.T) {
 	type args struct {
 		ctx       context.Context
-		c         *Container
+		c         *ctr.Container
 		stressors []string
 		image     string
 		pull      bool
@@ -28,20 +28,25 @@ func TestStressContainerBasic(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		mockSet func(*mocks.APIClient, *Container, []string, string, bool, time.Duration, bool)
+		mockSet func(*mocks.APIClient, *ctr.Container, []string, string, bool, time.Duration, bool)
 		wantErr bool
 	}{
 		{
 			name: "stress container dry run",
 			args: args{
-				ctx:       context.TODO(),
-				c:         &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))},
+				ctx: context.TODO(),
+				c: &ctr.Container{
+					ContainerID:   "abc123",
+					ContainerName: "test-container",
+					Labels:        map[string]string{},
+					Networks:      map[string]ctr.NetworkLink{},
+				},
 				stressors: []string{"--cpu", "2", "--timeout", "30s"},
 				image:     "alexeiled/stress-ng:latest",
 				duration:  30 * time.Second,
 				dryrun:    true,
 			},
-			mockSet: func(api *mocks.APIClient, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
 				// No mocks needed for dry run
 			},
 			wantErr: false,
@@ -49,15 +54,20 @@ func TestStressContainerBasic(t *testing.T) {
 		{
 			name: "stress container image pull failure",
 			args: args{
-				ctx:       context.TODO(),
-				c:         &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))},
+				ctx: context.TODO(),
+				c: &ctr.Container{
+					ContainerID:   "abc123",
+					ContainerName: "test-container",
+					Labels:        map[string]string{},
+					Networks:      map[string]ctr.NetworkLink{},
+				},
 				stressors: []string{"--cpu", "2", "--timeout", "30s"},
 				image:     "alexeiled/stress-ng:latest",
 				pull:      true,
 				duration:  30 * time.Second,
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
 				api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)
 				api.On("ImagePull", mock.Anything, image, mock.Anything).Return(nil, errors.New("pull error")).Once()
@@ -67,15 +77,20 @@ func TestStressContainerBasic(t *testing.T) {
 		{
 			name: "stress container creation failure",
 			args: args{
-				ctx:       context.TODO(),
-				c:         &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))},
+				ctx: context.TODO(),
+				c: &ctr.Container{
+					ContainerID:   "abc123",
+					ContainerName: "test-container",
+					Labels:        map[string]string{},
+					Networks:      map[string]ctr.NetworkLink{},
+				},
 				stressors: []string{"--cpu", "2", "--timeout", "30s"},
 				image:     "alexeiled/stress-ng:latest",
 				pull:      false,
 				duration:  30 * time.Second,
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, c *Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, dryrun bool) {
 				api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 				api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)
 				api.On("ContainerCreate", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(container.CreateResponse{}, errors.New("create error")).Once()
@@ -102,7 +117,12 @@ func TestStressContainerBasic(t *testing.T) {
 
 func TestStressContainerInfoAPIFailure(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)
 	api.On("Info", mock.Anything).Return(system.Info{}, errors.New("connection refused"))
@@ -118,7 +138,12 @@ func TestStressContainerInfoAPIFailure(t *testing.T) {
 
 func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	// Info() fails, but inspect reveals a systemd-style .slice parent
 	api.On("Info", mock.Anything).Return(system.Info{}, errors.New("connection refused"))
@@ -146,7 +171,12 @@ func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
 
 func TestStressContainerSystemdCgroupDriver(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "systemd"}, nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)
@@ -163,7 +193,12 @@ func TestStressContainerSystemdCgroupDriver(t *testing.T) {
 
 func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)
@@ -211,7 +246,12 @@ func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
 
 func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
@@ -251,7 +291,12 @@ func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
 
 func TestStressContainerInjectCgroupSystemd(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "def456", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "def456",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("ContainerInspect", mock.Anything, "def456").Return(DetailsResponse(AsMap("ID", "def456")), nil)
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "systemd"}, nil)
@@ -291,7 +336,12 @@ func TestStressContainerInjectCgroupSystemd(t *testing.T) {
 
 func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(
@@ -319,7 +369,12 @@ func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
 
 func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "def456", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "def456",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "systemd"}, nil)
 	api.On("ContainerInspect", mock.Anything, "def456").Return(
@@ -347,7 +402,12 @@ func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
 
 func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	api.On("Info", mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
 	// ContainerInspect returns empty CgroupParent (standalone Docker default)
@@ -374,7 +434,12 @@ func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
 
 func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	// ContainerInspect returns a K8s CgroupParent, so cg-inject should get --cgroup-path
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(
@@ -417,7 +482,12 @@ func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
 
 func TestStressContainerInjectCgroupCustomImage(t *testing.T) {
 	api := NewMockEngine()
-	c := &Container{ContainerInfo: DetailsResponse(AsMap("ID", "abc123", "Name", "test-container"))}
+	c := &ctr.Container{
+		ContainerID:   "abc123",
+		ContainerName: "test-container",
+		Labels:        map[string]string{},
+		Networks:      map[string]ctr.NetworkLink{},
+	}
 
 	customImage := "ghcr.io/myorg/pumba-stress:v1.0"
 	api.On("ContainerInspect", mock.Anything, "abc123").Return(DetailsResponse(AsMap("ID", "abc123")), nil)

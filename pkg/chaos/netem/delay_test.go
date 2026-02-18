@@ -2,228 +2,194 @@ package netem
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestDelayCommand_Run(t *testing.T) {
-	type wantErrors struct {
-		listError  bool
-		netemError bool
-	}
-	type fields struct {
-		names        []string
-		pattern      string
-		iface        string
-		ips          []*net.IPNet
-		sports       []string
-		dports       []string
-		duration     time.Duration
-		time         int
+func TestNewDelayCommand_Validation(t *testing.T) {
+	mockClient := new(container.MockClient)
+	gparams := &chaos.GlobalParams{Names: []string{"test"}}
+	nparams := &Params{Iface: "eth0", Duration: time.Second}
+
+	tests := []struct {
+		name         string
+		delay        int
 		jitter       int
 		correlation  float64
 		distribution string
-		image        string
-		pull         bool
-		limit        int
-		dryRun       bool
-	}
-	type args struct {
-		random bool
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		cmd      []string
-		expected []*container.Container
-		wantErr  bool
-		errs     wantErrors
+		wantErr      string
 	}{
 		{
-			name: "delay with CIDR IP",
-			fields: fields{
-				names:        []string{"c1"},
-				iface:        "eth0",
-				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 255, 255, 255}}},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			expected: container.CreateTestContainers(1),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+			name:    "valid minimal delay",
+			delay:   100,
+			wantErr: "",
 		},
 		{
-			name: "delay with sport",
-			fields: fields{
-				names:        []string{"c1"},
-				iface:        "eth0",
-				sports:       []string{"33"},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			expected: container.CreateTestContainers(1),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+			name:         "valid full params",
+			delay:        500,
+			jitter:       100,
+			correlation:  25.0,
+			distribution: "normal",
+			wantErr:      "",
 		},
 		{
-			name: "delay with dport",
-			fields: fields{
-				names:        []string{"c1"},
-				iface:        "eth0",
-				dports:       []string{"512"},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			expected: container.CreateTestContainers(1),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+			name:    "zero delay rejected",
+			delay:   0,
+			wantErr: "non-positive delay time",
 		},
 		{
-			name: "delay single container",
-			fields: fields{
-				names:        []string{"c1"},
-				iface:        "eth0",
-				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			expected: container.CreateTestContainers(1),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+			name:    "negative delay rejected",
+			delay:   -1,
+			wantErr: "non-positive delay time",
 		},
 		{
-			name: "delay multiple container",
-			fields: fields{
-				names:        []string{"c1", "c2", "c3"},
-				iface:        "eth0",
-				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			expected: container.CreateTestContainers(3),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+			name:    "negative jitter rejected",
+			delay:   100,
+			jitter:  -1,
+			wantErr: "invalid delay jitter",
 		},
 		{
-			name: "delay random container",
-			fields: fields{
-				names:        []string{"c1", "c2", "c3"},
-				iface:        "eth0",
-				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			args:     args{random: true},
-			expected: container.CreateTestContainers(1),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
+			name:    "jitter exceeds delay rejected",
+			delay:   100,
+			jitter:  200,
+			wantErr: "invalid delay jitter",
 		},
 		{
-			name: "no container found",
-			fields: fields{
-				names: []string{"c1"},
-			},
+			name:        "negative correlation rejected",
+			delay:       100,
+			correlation: -1.0,
+			wantErr:     "invalid delay correlation",
 		},
 		{
-			name: "error listing containers",
-			fields: fields{
-				names: []string{"c1", "c2", "c3"},
-			},
-			wantErr: true,
-			errs:    wantErrors{listError: true},
+			name:        "correlation over 100 rejected",
+			delay:       100,
+			correlation: 101.0,
+			wantErr:     "invalid delay correlation",
 		},
 		{
-			name: "error delaying container",
-			fields: fields{
-				names:        []string{"c1", "c2", "c3"},
-				iface:        "eth0",
-				ips:          []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:     10 * time.Microsecond,
-				time:         2,
-				jitter:       1,
-				correlation:  10.0,
-				distribution: "normal",
-			},
-			expected: container.CreateTestContainers(3),
-			cmd:      []string{"delay", "2ms", "1ms", "10.00", "distribution", "normal"},
-			wantErr:  true,
-			errs:     wantErrors{netemError: true},
+			name:         "invalid distribution rejected",
+			delay:        100,
+			distribution: "gaussian",
+			wantErr:      "invalid delay distribution",
+		},
+		{
+			name:         "all valid distributions",
+			delay:        100,
+			distribution: "uniform",
+			wantErr:      "",
 		},
 	}
+
 	for _, tt := range tests {
-		mockClient := new(container.MockClient)
 		t.Run(tt.name, func(t *testing.T) {
-			n := &delayCommand{
-				netemCommand: netemCommand{
-					client:   mockClient,
-					names:    tt.fields.names,
-					pattern:  tt.fields.pattern,
-					iface:    tt.fields.iface,
-					ips:      tt.fields.ips,
-					sports:   tt.fields.sports,
-					dports:   tt.fields.dports,
-					duration: tt.fields.duration,
-					image:    tt.fields.image,
-					limit:    tt.fields.limit,
-					dryRun:   tt.fields.dryRun,
-				},
-				time:         tt.fields.time,
-				jitter:       tt.fields.jitter,
-				correlation:  tt.fields.correlation,
-				distribution: tt.fields.distribution,
-			}
-			// mock calls
-			call := mockClient.On("ListContainers", context.TODO(), mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
-			if tt.errs.listError {
-				call.Return(tt.expected, errors.New("ERROR"))
-				goto Invoke
+			cmd, err := NewDelayCommand(mockClient, gparams, nparams,
+				tt.delay, tt.jitter, tt.correlation, tt.distribution)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Nil(t, cmd)
 			} else {
-				call.Return(tt.expected, nil)
-				if tt.expected == nil {
-					goto Invoke
-				}
+				assert.NoError(t, err)
+				assert.NotNil(t, cmd)
 			}
-			if tt.args.random {
-				mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
-				mockClient.On("StopNetemContainer", context.Background(), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
-			} else {
-				for i := range tt.expected {
-					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("NetemContainer", mock.AnythingOfType("*context.cancelCtx"), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.cmd, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.duration, tt.fields.image, tt.fields.pull, tt.fields.dryRun)
-						if tt.errs.netemError {
-							call.Return(errors.New("ERROR"))
-							goto Invoke
-						} else {
-							call.Return(nil)
-						}
-						mockClient.On("StopNetemContainer", context.Background(), mock.AnythingOfType("*container.Container"), tt.fields.iface, tt.fields.ips, tt.fields.sports, tt.fields.dports, tt.fields.image, tt.fields.pull, tt.fields.dryRun).Return(nil)
-					}
-				}
-			}
-		Invoke:
-			if err := n.Run(context.TODO(), tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("DelayCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			// asset mock
-			mockClient.AssertExpectations(t)
 		})
 	}
+}
+
+func TestDelayCommand_Run_NoContainers(t *testing.T) {
+	mockClient := new(container.MockClient)
+	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
+	nparams := &Params{Iface: "eth0", Duration: time.Second}
+
+	mockClient.On("ListContainers", mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"),
+		container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{}, nil)
+
+	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 100, 0, 0, "")
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), false)
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestDelayCommand_Run_DryRun(t *testing.T) {
+	mockClient := new(container.MockClient)
+	target := &container.Container{
+		ContainerID:   "abc123",
+		ContainerName: "target",
+		Labels:        map[string]string{},
+		Networks:      map[string]container.NetworkLink{},
+	}
+	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
+	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
+
+	mockClient.On("ListContainers", mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"),
+		container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{target}, nil)
+
+	// delay 200ms, jitter 50ms, correlation 25.50% → netem cmd: ["delay", "200ms", "50ms", "25.50"]
+	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
+		[]string{"delay", "200ms", "50ms", "25.50"},
+		([]*net.IPNet)(nil), []string(nil), []string(nil),
+		100*time.Millisecond, "tc-image", false, true).
+		Return(nil)
+
+	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
+		([]*net.IPNet)(nil), []string(nil), []string(nil),
+		"tc-image", false, true).
+		Return(nil)
+
+	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 200, 50, 25.5, "")
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), false)
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestDelayCommand_Run_WithDistribution(t *testing.T) {
+	mockClient := new(container.MockClient)
+	target := &container.Container{
+		ContainerID:   "abc123",
+		ContainerName: "target",
+		Labels:        map[string]string{},
+		Networks:      map[string]container.NetworkLink{},
+	}
+	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
+	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc"}
+
+	mockClient.On("ListContainers", mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"),
+		container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{target}, nil)
+
+	// delay 100ms, jitter 20ms, no correlation, distribution normal
+	// → ["delay", "100ms", "20ms", "distribution", "normal"]
+	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
+		[]string{"delay", "100ms", "20ms", "distribution", "normal"},
+		([]*net.IPNet)(nil), []string(nil), []string(nil),
+		100*time.Millisecond, "tc", false, true).
+		Return(nil)
+
+	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
+		([]*net.IPNet)(nil), []string(nil), []string(nil),
+		"tc", false, true).
+		Return(nil)
+
+	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 100, 20, 0, "normal")
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), false)
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
 }

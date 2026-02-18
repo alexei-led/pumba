@@ -3,9 +3,6 @@ package container
 import (
 	"fmt"
 	"strings"
-
-	ctypes "github.com/docker/docker/api/types/container"
-	imagetypes "github.com/docker/docker/api/types/image"
 )
 
 const (
@@ -13,34 +10,44 @@ const (
 	pumbaSkipLabel = "com.gaiaadm.pumba.skip"
 	signalLabel    = "com.gaiaadm.pumba.stop-signal"
 	trueValue      = "true"
+
+	// StateRunning represents a running container state.
+	StateRunning = "running"
+	// StateExited represents an exited container state.
+	StateExited = "exited"
 )
 
-// Container represents a running Docker container.
+// NetworkLink represents a link from one container network endpoint.
+type NetworkLink struct {
+	Links []string
+}
+
+// Container represents a running container, decoupled from any specific runtime.
 type Container struct {
-	ContainerInfo ctypes.InspectResponse
-	ImageInfo     imagetypes.InspectResponse
+	ContainerID   string
+	ContainerName string
+	Image         string
+	ImageID       string
+	State         string
+	Labels        map[string]string
+	Networks      map[string]NetworkLink
 }
 
-// ID returns the Docker container ID.
+// ID returns the container ID.
 func (c *Container) ID() string {
-	return c.ContainerInfo.ID
+	return c.ContainerID
 }
 
-// Name returns the Docker container name.
+// Name returns the container name.
 func (c *Container) Name() string {
-	return c.ContainerInfo.Name
+	return c.ContainerName
 }
 
-// ImageID returns the ID of the Docker image that was used to start the container.
-func (c *Container) ImageID() string {
-	return c.ImageInfo.ID
-}
-
-// ImageName returns the name of the Docker image that was used to start the
+// ImageName returns the name of the image that was used to start the
 // container. If the original image was specified without a particular tag, the
 // "latest" tag is assumed.
 func (c *Container) ImageName() string {
-	imageName := c.ContainerInfo.Image
+	imageName := c.Image
 	if !strings.Contains(imageName, ":") {
 		imageName = fmt.Sprintf("%s:latest", imageName)
 	}
@@ -53,13 +60,10 @@ func (c *Container) ImageName() string {
 func (c *Container) Links() []string {
 	var links []string
 
-	if c.ContainerInfo.NetworkSettings != nil {
-		networkSettings := c.ContainerInfo.NetworkSettings
-		for _, network := range networkSettings.Networks {
-			for _, link := range network.Links {
-				name := strings.Split(link, ":")[0]
-				links = append(links, name)
-			}
+	for _, network := range c.Networks {
+		for _, link := range network.Links {
+			name := strings.Split(link, ":")[0]
+			links = append(links, name)
 		}
 	}
 
@@ -71,7 +75,7 @@ func (c *Container) Links() []string {
 // identified by the presence of the "com.gaiaadm.pumba" label in
 // the container metadata.
 func (c *Container) IsPumba() bool {
-	val, ok := c.ContainerInfo.Config.Labels[pumbaLabel]
+	val, ok := c.Labels[pumbaLabel]
 	return ok && val == trueValue
 }
 
@@ -80,7 +84,7 @@ func (c *Container) IsPumba() bool {
 // identified by the presence of the "com.gaiaadm.pumba.skip" label in
 // the container metadata. Use it to skip monitoring and helper containers.
 func (c *Container) IsPumbaSkip() bool {
-	val, ok := c.ContainerInfo.Config.Labels[pumbaSkipLabel]
+	val, ok := c.Labels[pumbaSkipLabel]
 	return ok && val == trueValue
 }
 
@@ -88,7 +92,7 @@ func (c *Container) IsPumbaSkip() bool {
 // container's metadata. If the container has not specified a custom stop
 // signal, the empty string "" is returned.
 func (c *Container) StopSignal() string {
-	if val, ok := c.ContainerInfo.Config.Labels[signalLabel]; ok {
+	if val, ok := c.Labels[signalLabel]; ok {
 		return val
 	}
 

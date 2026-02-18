@@ -31,7 +31,7 @@ func NewStressCLICommand(ctx context.Context) *cli.Command {
 			},
 			cli.BoolTFlag{
 				Name:  "pull-image",
-				Usage: "pull stress-image form Docker registry",
+				Usage: "pull stress-image from Docker registry",
 			},
 			cli.StringFlag{
 				Name:  "stressors",

@@ -38,8 +38,9 @@ func Test_runNetem(t *testing.T) {
 			name: "netem with duration",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
@@ -54,8 +55,9 @@ func Test_runNetem(t *testing.T) {
 			name: "netem with CIDR IP",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
@@ -68,8 +70,9 @@ func Test_runNetem(t *testing.T) {
 			name: "netem with abort",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
@@ -83,8 +86,9 @@ func Test_runNetem(t *testing.T) {
 			name: "netem error in NetemContainer",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},
@@ -99,8 +103,9 @@ func Test_runNetem(t *testing.T) {
 			name: "netem warning on StopNetemContainer failure",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				netInterface: "testIface",
 				cmd:          []string{"test", "--test"},

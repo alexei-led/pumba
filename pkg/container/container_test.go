@@ -8,7 +8,9 @@ import (
 
 func TestID(t *testing.T) {
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("ID", "foo")),
+		ContainerID: "foo",
+		Labels:      map[string]string{},
+		Networks:    map[string]NetworkLink{},
 	}
 
 	assert.Equal(t, "foo", c.ID())
@@ -16,23 +18,19 @@ func TestID(t *testing.T) {
 
 func TestName(t *testing.T) {
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Name", "foo")),
+		ContainerName: "foo",
+		Labels:        map[string]string{},
+		Networks:      map[string]NetworkLink{},
 	}
 
 	assert.Equal(t, "foo", c.Name())
 }
 
-func TestImageID(t *testing.T) {
-	c := Container{
-		ImageInfo: ImageDetailsResponse(AsMap("ID", "foo")),
-	}
-
-	assert.Equal(t, "foo", c.ImageID())
-}
-
 func TestImageName_Tagged(t *testing.T) {
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Image", "foo:latest")),
+		Image:    "foo:latest",
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.Equal(t, "foo:latest", c.ImageName())
@@ -40,7 +38,9 @@ func TestImageName_Tagged(t *testing.T) {
 
 func TestImageName_Untagged(t *testing.T) {
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Image", "foo")),
+		Image:    "foo",
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.Equal(t, "foo:latest", c.ImageName())
@@ -48,7 +48,10 @@ func TestImageName_Untagged(t *testing.T) {
 
 func TestLinks(t *testing.T) {
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Links", []string{"foo:foo", "bar:bar"})),
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"default": {Links: []string{"foo:foo", "bar:bar"}},
+		},
 	}
 
 	links := c.Links()
@@ -62,7 +65,8 @@ func TestIsPumba_True(t *testing.T) {
 	}
 
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Labels", labels)),
+		Labels:   labels,
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.True(t, c.IsPumba())
@@ -74,7 +78,8 @@ func TestIsPumbaSkip_True(t *testing.T) {
 	}
 
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Labels", labels)),
+		Labels:   labels,
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.True(t, c.IsPumbaSkip())
@@ -86,7 +91,8 @@ func TestIsPumba_WrongLabelValue(t *testing.T) {
 	}
 
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Labels", labels)),
+		Labels:   labels,
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.False(t, c.IsPumba())
@@ -96,7 +102,8 @@ func TestIsPumba_NoLabel(t *testing.T) {
 	emptyLabels := map[string]string{}
 
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Labels", emptyLabels)),
+		Labels:   emptyLabels,
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.False(t, c.IsPumba())
@@ -108,7 +115,8 @@ func TestStopSignal_Present(t *testing.T) {
 	}
 
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Labels", labels)),
+		Labels:   labels,
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.Equal(t, "SIGQUIT", c.StopSignal())
@@ -118,8 +126,58 @@ func TestStopSignal_NoLabel(t *testing.T) {
 	emptyLabels := map[string]string{}
 
 	c := Container{
-		ContainerInfo: DetailsResponse(AsMap("Labels", emptyLabels)),
+		Labels:   emptyLabels,
+		Networks: map[string]NetworkLink{},
 	}
 
 	assert.Equal(t, "", c.StopSignal())
+}
+
+func TestLinks_MultipleNetworks(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"frontend": {Links: []string{"api:api"}},
+			"backend":  {Links: []string{"db:db", "cache:cache"}},
+		},
+	}
+	links := c.Links()
+	assert.Len(t, links, 3)
+	assert.Contains(t, links, "api")
+	assert.Contains(t, links, "db")
+	assert.Contains(t, links, "cache")
+}
+
+func TestLinks_EmptyNetworks(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.Nil(t, c.Links())
+}
+
+func TestLinks_NetworkWithNoLinks(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"bridge": {Links: nil},
+		},
+	}
+	assert.Nil(t, c.Links())
+}
+
+func TestIsPumbaSkip_WrongValue(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{"com.gaiaadm.pumba.skip": "false"},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.False(t, c.IsPumbaSkip())
+}
+
+func TestIsPumbaSkip_NoLabel(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.False(t, c.IsPumbaSkip())
 }

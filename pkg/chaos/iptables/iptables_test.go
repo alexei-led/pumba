@@ -39,8 +39,9 @@ func Test_runIPTables(t *testing.T) {
 			name: "iptables with duration",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				cmdPrefix:     []string{"test", "--test"},
 				cmdSuffix:     []string{"test", "--test"},
@@ -56,8 +57,9 @@ func Test_runIPTables(t *testing.T) {
 			name: "iptables with CIDR IP",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				cmdPrefix:     []string{"test", "--test"},
 				cmdSuffix:     []string{"test", "--test"},
@@ -71,8 +73,9 @@ func Test_runIPTables(t *testing.T) {
 			name: "iptables with abort",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				cmdPrefix:     []string{"test", "--test"},
 				cmdSuffix:     []string{"test", "--test"},
@@ -86,8 +89,9 @@ func Test_runIPTables(t *testing.T) {
 			name: "iptables error in IPTablesContainer",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				cmdPrefix:     []string{"test", "--test"},
 				cmdSuffix:     []string{"test", "--test"},
@@ -102,8 +106,9 @@ func Test_runIPTables(t *testing.T) {
 			name: "iptables error in StopIPTablesContainer",
 			args: args{
 				container: &container.Container{
-					ContainerInfo: container.DetailsResponse(container.AsMap("Name", "c1")),
-					ImageInfo:     container.ImageDetailsResponse(container.AsMap()),
+					ContainerName: "c1",
+					Labels:        map[string]string{},
+					Networks:      map[string]container.NetworkLink{},
 				},
 				cmdPrefix:     []string{"test", "--test"},
 				cmdSuffix:     []string{"test", "--test"},
