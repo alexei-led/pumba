@@ -10,9 +10,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// pauseClient is the narrow interface needed by the pause command.
+type pauseClient interface {
+	container.Lister
+	container.Lifecycle
+}
+
 // `docker pause` command
 type pauseCommand struct {
-	client   container.Client
+	client   pauseClient
 	names    []string
 	pattern  string
 	labels   []string
@@ -22,7 +28,7 @@ type pauseCommand struct {
 }
 
 // NewPauseCommand create new Pause Command instance
-func NewPauseCommand(client container.Client, params *chaos.GlobalParams, duration time.Duration, limit int) chaos.Command {
+func NewPauseCommand(client pauseClient, params *chaos.GlobalParams, duration time.Duration, limit int) chaos.Command {
 	return &pauseCommand{
 		client:   client,
 		names:    params.Names,

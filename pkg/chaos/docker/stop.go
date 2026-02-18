@@ -15,9 +15,15 @@ const (
 	DeafultWaitTime = 5
 )
 
+// stopClient is the narrow interface needed by the stop command.
+type stopClient interface {
+	container.Lister
+	container.Lifecycle
+}
+
 // `docker stop` command
 type stopCommand struct {
-	client   container.Client
+	client   stopClient
 	names    []string
 	pattern  string
 	labels   []string
@@ -29,7 +35,7 @@ type stopCommand struct {
 }
 
 // NewStopCommand create new Stop Command instance
-func NewStopCommand(client container.Client, params *chaos.GlobalParams, restart bool, duration time.Duration, waitTime, limit int) chaos.Command {
+func NewStopCommand(client stopClient, params *chaos.GlobalParams, restart bool, duration time.Duration, waitTime, limit int) chaos.Command {
 	if waitTime <= 0 {
 		waitTime = DeafultWaitTime
 	}

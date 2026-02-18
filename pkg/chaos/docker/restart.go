@@ -10,9 +10,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// restartClient is the narrow interface needed by the restart command.
+type restartClient interface {
+	container.Lister
+	container.Lifecycle
+}
+
 // `docker restart` command
 type restartCommand struct {
-	client  container.Client
+	client  restartClient
 	names   []string
 	pattern string
 	labels  []string
@@ -22,7 +28,7 @@ type restartCommand struct {
 }
 
 // NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client container.Client, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
+func NewRestartCommand(client restartClient, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
 	return &restartCommand{
 		client:  client,
 		names:   params.Names,
