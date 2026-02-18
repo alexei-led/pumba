@@ -23,7 +23,7 @@ type lossStateCommand struct {
 }
 
 // NewLossStateCommand create new netem loss state command
-func NewLossStateCommand(client container.Client,
+func NewLossStateCommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	p13, // probability to go from state (1) to state (3)

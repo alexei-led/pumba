@@ -11,9 +11,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// netemClient is the narrow interface needed by all netem commands.
+type netemClient interface {
+	container.Lister
+	container.Netem
+}
+
 // `netem` base command
 type netemCommand struct {
-	client   container.Client
+	client   netemClient
 	names    []string
 	pattern  string
 	labels   []string
@@ -48,7 +54,7 @@ type Params struct {
 	Limit int
 }
 
-func newNetemCommand(client container.Client, gparams *chaos.GlobalParams, params *Params) netemCommand {
+func newNetemCommand(client netemClient, gparams *chaos.GlobalParams, params *Params) netemCommand {
 	return netemCommand{
 		client:   client,
 		names:    gparams.Names,
@@ -67,7 +73,7 @@ func newNetemCommand(client container.Client, gparams *chaos.GlobalParams, param
 }
 
 // run network emulation command, stop netem on timeout or abort
-func runNetem(ctx context.Context, client container.Client, c *container.Container, netInterface string, cmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimage string, pull, dryRun bool) error {
+func runNetem(ctx context.Context, client netemClient, c *container.Container, netInterface string, cmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimage string, pull, dryRun bool) error {
 	logger := log.WithFields(log.Fields{
 		"id":       c.ID(),
 		"name":     c.Name(),

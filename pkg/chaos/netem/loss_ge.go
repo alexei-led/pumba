@@ -22,7 +22,7 @@ type lossGECommand struct {
 }
 
 // NewLossGECommand create new netem loss gemodel (Gilbert-Elliot) command
-func NewLossGECommand(client container.Client,
+func NewLossGECommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	pg, // Good State transition probability

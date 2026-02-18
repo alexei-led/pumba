@@ -20,7 +20,7 @@ type lossCommand struct {
 }
 
 // NewLossCommand create new netem loss command
-func NewLossCommand(client container.Client,
+func NewLossCommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	percent, // loss percent
