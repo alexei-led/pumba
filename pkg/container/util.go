@@ -59,7 +59,7 @@ func applyContainerFilter(flt filter) FilterFunc {
 	}
 }
 
-func listContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, all bool) ([]*Container, error) {
+func listContainers(ctx context.Context, client Lister, names []string, pattern string, labels []string, all bool) ([]*Container, error) {
 	f := filter{
 		Names:   names,
 		Pattern: pattern,
@@ -84,12 +84,12 @@ func RandomContainer(containers []*Container) *Container {
 }
 
 // ListNContainers list containers up to specified limit
-func ListNContainers(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int) ([]*Container, error) {
+func ListNContainers(ctx context.Context, client Lister, names []string, pattern string, labels []string, limit int) ([]*Container, error) {
 	return ListNContainersAll(ctx, client, names, pattern, labels, limit, false)
 }
 
 // ListNContainersAll list containers up to specified limit, optionally including stopped containers
-func ListNContainersAll(ctx context.Context, client Client, names []string, pattern string, labels []string, limit int, all bool) ([]*Container, error) {
+func ListNContainersAll(ctx context.Context, client Lister, names []string, pattern string, labels []string, limit int, all bool) ([]*Container, error) {
 	containers, err := listContainers(ctx, client, names, pattern, labels, all)
 	if err != nil {
 		return nil, err
