@@ -48,9 +48,15 @@ var linuxSignals = map[string]syscall.Signal{
 	"SIGIO":     syscall.Signal(0x17), //nolint:mnd // SIGIO (use number since this signal is not defined for Windows)
 }
 
+// killClient is the narrow interface needed by the kill command.
+type killClient interface {
+	container.Lister
+	container.Lifecycle
+}
+
 // `docker kill` command
 type killCommand struct {
-	client  container.Client
+	client  killClient
 	names   []string
 	pattern string
 	labels  []string
@@ -60,7 +66,7 @@ type killCommand struct {
 }
 
 // NewKillCommand create new Kill Command instance
-func NewKillCommand(client container.Client, params *chaos.GlobalParams, signal string, limit int) (chaos.Command, error) {
+func NewKillCommand(client killClient, params *chaos.GlobalParams, signal string, limit int) (chaos.Command, error) {
 	kill := &killCommand{
 		client:  client,
 		names:   params.Names,
