@@ -1,6 +1,7 @@
-package container
+package docker
 
 import (
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	ctypes "github.com/docker/docker/api/types/container"
 	imagetypes "github.com/docker/docker/api/types/image"
 	networktypes "github.com/docker/docker/api/types/network"
@@ -68,21 +69,21 @@ func ImageDetailsResponse(params map[string]interface{}) imagetypes.InspectRespo
 }
 
 // NewTestContainer creates a Container directly from params for testing
-func NewTestContainer(params map[string]interface{}) *Container {
+func NewTestContainer(params map[string]interface{}) *ctr.Container {
 	id := lookupWithDefault(params, "ID", "defaultID").(string)
 	name := lookupWithDefault(params, "Name", "defaultName").(string)
 	image := lookupWithDefault(params, "Image", "defaultImage").(string)
 	labels := lookupWithDefault(params, "Labels", map[string]string{}).(map[string]string)
 	links := lookupWithDefault(params, "Links", []string{}).([]string)
-	state := StateRunning
+	state := ctr.StateRunning
 	if running, ok := params["Running"]; ok && !running.(bool) {
-		state = StateExited
+		state = ctr.StateExited
 	}
-	networks := map[string]NetworkLink{}
+	networks := map[string]ctr.NetworkLink{}
 	if len(links) > 0 {
-		networks["default"] = NetworkLink{Links: links}
+		networks["default"] = ctr.NetworkLink{Links: links}
 	}
-	return &Container{
+	return &ctr.Container{
 		ContainerID:   id,
 		ContainerName: name,
 		Image:         image,

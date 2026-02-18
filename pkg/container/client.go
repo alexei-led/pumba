@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-const (
-	defaultStopSignal = "SIGTERM"
-	defaultKillSignal = "SIGKILL"
-)
-
 // A FilterFunc is a prototype for a function that can be used to filter the
 // results from a call to the ListContainers() method on the Client.
 type FilterFunc func(*Container) bool
@@ -65,14 +60,4 @@ type Client interface {
 	Netem
 	IPTables
 	Stressor
-}
-
-type imagePullResponse struct {
-	Status         string `json:"status"`
-	Error          string `json:"error"`
-	Progress       string `json:"progress"`
-	ProgressDetail struct {
-		Current int `json:"current"`
-		Total   int `json:"total"`
-	} `json:"progressDetail"`
 }

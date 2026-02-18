@@ -225,3 +225,91 @@ func TestListNContainers_WithLabels(t *testing.T) {
 	assert.Len(t, containers, 1)
 	mockClient.AssertExpectations(t)
 }
+
+func TestMatchNames(t *testing.T) {
+	tests := []struct {
+		name          string
+		names         []string
+		containerName string
+		expected      bool
+	}{
+		{
+			name:          "empty names list",
+			names:         []string{},
+			containerName: "container1",
+			expected:      false,
+		},
+		{
+			name:          "name in the list",
+			names:         []string{"container1", "container2"},
+			containerName: "container1",
+			expected:      true,
+		},
+		{
+			name:          "name not in the list",
+			names:         []string{"container1", "container2"},
+			containerName: "container3",
+			expected:      false,
+		},
+		{
+			name:          "name in the list with leading slash",
+			names:         []string{"container1", "container2"},
+			containerName: "/container1",
+			expected:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchNames(tt.names, tt.containerName)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMatchPattern(t *testing.T) {
+	tests := []struct {
+		name          string
+		pattern       string
+		containerName string
+		expected      bool
+	}{
+		{
+			name:          "exact match",
+			pattern:       "container1",
+			containerName: "container1",
+			expected:      true,
+		},
+		{
+			name:          "regex match",
+			pattern:       "container[0-9]",
+			containerName: "container1",
+			expected:      true,
+		},
+		{
+			name:          "no match",
+			pattern:       "container[0-9]",
+			containerName: "containerX",
+			expected:      false,
+		},
+		{
+			name:          "match with leading slash",
+			pattern:       "container[0-9]",
+			containerName: "/container1",
+			expected:      true,
+		},
+		{
+			name:          "invalid regex pattern",
+			pattern:       "container[",
+			containerName: "container1",
+			expected:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchPattern(tt.pattern, tt.containerName)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

@@ -16,7 +16,7 @@ import (
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
-	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/alexei-led/pumba/pkg/runtime/docker"
 	"github.com/johntdyer/slackrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -197,7 +197,7 @@ func before(c *cli.Context) error {
 		return err
 	}
 	// create new Docker client
-	chaos.DockerClient, err = container.NewClient(c.GlobalString("host"), tlsCfg)
+	chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
 	if err != nil {
 		return fmt.Errorf("could not create Docker client: %w", err)
 	}

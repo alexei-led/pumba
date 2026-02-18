@@ -1,4 +1,4 @@
-package container
+package docker
 
 import (
 	"bufio"
@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	imagetypes "github.com/docker/docker/api/types/image"
@@ -24,7 +25,6 @@ import (
 	"github.com/docker/docker/api/types/system"
 	"github.com/docker/go-connections/nat"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -33,10 +33,10 @@ func NewMockEngine() *mocks.APIClient {
 	return new(mocks.APIClient)
 }
 
-func mockAllContainers(_ *Container) bool {
+func mockAllContainers(_ *ctr.Container) bool {
 	return true
 }
-func mockNoContainers(_ *Container) bool {
+func mockNoContainers(_ *ctr.Container) bool {
 	return false
 }
 
@@ -54,7 +54,7 @@ func TestListContainers_Success(t *testing.T) {
 	api.On("ImageInspect", mock.Anything, "abc123").Return(imageDetails, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	containers, err := client.ListContainers(context.TODO(), mockAllContainers, ListOpts{All: true})
+	containers, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 1)
@@ -78,7 +78,7 @@ func TestListContainers_Filter(t *testing.T) {
 	api.On("ImageInspect", mock.Anything, "abc123").Return(imageDetails, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	containers, err := client.ListContainers(context.TODO(), mockNoContainers, ListOpts{})
+	containers, err := client.ListContainers(context.TODO(), mockNoContainers, ctr.ListOpts{})
 
 	assert.NoError(t, err)
 	assert.Len(t, containers, 0)
@@ -90,7 +90,7 @@ func TestListContainers_ListError(t *testing.T) {
 	api.On("ContainerList", mock.Anything, mock.Anything).Return(Containers(), errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), mockAllContainers, ListOpts{All: true})
+	_, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "failed to list containers: oops")
@@ -107,7 +107,7 @@ func TestListContainers_InspectContainerError(t *testing.T) {
 	api.On("ContainerInspect", mock.Anything, "foo").Return(DetailsResponse(AsMap()), errors.New("uh-oh"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), mockAllContainers, ListOpts{All: true})
+	_, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "failed to inspect container: uh-oh")
@@ -127,7 +127,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	api.On("ImageInspect", mock.Anything, "abc123").Return(imageDetailsResponse, errors.New("whoops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), mockAllContainers, ListOpts{All: true})
+	_, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "failed to inspect container image: whoops")
@@ -151,9 +151,9 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 
 func TestStopContainer_DryRun(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-		))
+		"ID", "abc123",
+		"Name", "foo",
+	))
 
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
@@ -175,9 +175,9 @@ func TestStopContainer_DryRun(t *testing.T) {
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-		))
+		"ID", "abc123",
+		"Name", "foo",
+	))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
@@ -191,9 +191,9 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 
 func TestKillContainer_DryRun(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-		))
+		"ID", "abc123",
+		"Name", "foo",
+	))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
@@ -207,10 +207,10 @@ func TestKillContainer_DryRun(t *testing.T) {
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-			"Labels", map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"},
-		))
+		"ID", "abc123",
+		"Name", "foo",
+		"Labels", map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"},
+	))
 
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
@@ -227,9 +227,9 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 
 func TestStopContainer_KillContainerError(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-		))
+		"ID", "abc123",
+		"Name", "foo",
+	))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
@@ -243,9 +243,9 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 
 func TestStopContainer_2ndKillContainerError(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-		))
+		"ID", "abc123",
+		"Name", "foo",
+	))
 
 	api := NewMockEngine()
 	api.On("ContainerKill", mock.Anything, "abc123", "SIGTERM").Return(nil)
@@ -261,7 +261,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 }
 
 func TestRemoveContainer_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -277,7 +277,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 }
 
 func TestRemoveContainer_DryRun(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -293,7 +293,7 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 }
 
 func TestPauseContainer_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 	engineClient := NewMockEngine()
@@ -307,7 +307,7 @@ func TestPauseContainer_Success(t *testing.T) {
 }
 
 func TestUnpauseContainer_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 	engineClient := NewMockEngine()
@@ -321,7 +321,7 @@ func TestUnpauseContainer_Success(t *testing.T) {
 }
 
 func TestPauseContainer_DryRun(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -334,7 +334,7 @@ func TestPauseContainer_DryRun(t *testing.T) {
 }
 
 func TestPauseContainer_PauseError(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 	engineClient := NewMockEngine()
@@ -348,7 +348,7 @@ func TestPauseContainer_PauseError(t *testing.T) {
 }
 
 func TestPauseContainer_UnpauseError(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 	engineClient := NewMockEngine()
@@ -362,7 +362,7 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 }
 
 func TestNetemContainer_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -386,7 +386,7 @@ func TestNetemContainer_Success(t *testing.T) {
 }
 
 func TestStopNetemContainer_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -411,7 +411,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 }
 
 func TestNetemContainer_DryRun(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -425,7 +425,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 }
 
 func TestNetemContainerIPFilter_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -471,7 +471,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 }
 
 func TestNetemContainerSportFilter_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -517,7 +517,7 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 }
 
 func TestNetemContainerDportFilter_Success(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
 
@@ -563,7 +563,7 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 }
 
 func Test_tcContainerCommands(t *testing.T) {
-	c := &Container{
+	c := &ctr.Container{
 		ContainerID: "targetID",
 	}
 
@@ -647,9 +647,9 @@ func TestStartContainer_DefaultSuccess(t *testing.T) {
 
 func TestStartContainer_DryRun(t *testing.T) {
 	c := NewTestContainer(AsMap(
-			"ID", "abc123",
-			"Name", "foo",
-		))
+		"ID", "abc123",
+		"Name", "foo",
+	))
 
 	api := NewMockEngine()
 	api.On("ContainerStart", mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)
@@ -663,7 +663,7 @@ func TestStartContainer_DryRun(t *testing.T) {
 
 func Test_dockerClient_execOnContainer(t *testing.T) {
 	type args struct {
-		c          *Container
+		c          *ctr.Container
 		ctx        context.Context
 		execCmd    string
 		execArgs   []string
@@ -678,7 +678,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "run non-privileged command with args",
 			args: args{
-				c:        &Container{ContainerID: "abc123"},
+				c:        &ctr.Container{ContainerID: "abc123"},
 				ctx:      context.TODO(),
 				execCmd:  "test-app",
 				execArgs: []string{"one", "two", "three"},
@@ -699,7 +699,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "run privileged command with args",
 			args: args{
-				c:          &Container{ContainerID: "abc123"},
+				c:          &ctr.Container{ContainerID: "abc123"},
 				ctx:        context.TODO(),
 				execCmd:    "test-app",
 				execArgs:   []string{"one", "two", "three"},
@@ -721,7 +721,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to find command",
 			args: args{
-				c:        &Container{ContainerID: "abc123"},
+				c:        &ctr.Container{ContainerID: "abc123"},
 				ctx:      context.TODO(),
 				execCmd:  "test-app",
 				execArgs: []string{"one", "two", "three"},
@@ -738,7 +738,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecCreate 'which'",
 			args: args{
-				c:       &Container{ContainerID: "abc123"},
+				c:       &ctr.Container{ContainerID: "abc123"},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -751,7 +751,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecStart 'which'",
 			args: args{
-				c:       &Container{ContainerID: "abc123"},
+				c:       &ctr.Container{ContainerID: "abc123"},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -765,7 +765,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecInspect 'which'",
 			args: args{
-				c:       &Container{ContainerID: "abc123"},
+				c:       &ctr.Container{ContainerID: "abc123"},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -780,7 +780,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecCreate 'test-app'",
 			args: args{
-				c:       &Container{ContainerID: "abc123"},
+				c:       &ctr.Container{ContainerID: "abc123"},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -798,7 +798,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 		{
 			name: "fail to ContainerExecStart 'test-app'",
 			args: args{
-				c:       &Container{ContainerID: "abc123"},
+				c:       &ctr.Container{ContainerID: "abc123"},
 				ctx:     context.TODO(),
 				execCmd: "test-app",
 			},
@@ -1075,7 +1075,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 func TestRestartContainer(t *testing.T) {
 	type args struct {
 		ctx     context.Context
-		c       *Container
+		c       *ctr.Container
 		timeout time.Duration
 		dryrun  bool
 	}
@@ -1089,7 +1089,7 @@ func TestRestartContainer(t *testing.T) {
 			name: "restart container successfully",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				timeout: 10 * time.Second,
 				dryrun:  false,
 			},
@@ -1103,7 +1103,7 @@ func TestRestartContainer(t *testing.T) {
 			name: "restart container dry run",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				timeout: 5 * time.Second,
 				dryrun:  true,
 			},
@@ -1116,7 +1116,7 @@ func TestRestartContainer(t *testing.T) {
 			name: "restart container error",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				timeout: 10 * time.Second,
 				dryrun:  false,
 			},
@@ -1223,7 +1223,7 @@ func TestStopContainerWithID(t *testing.T) {
 func TestStartContainer(t *testing.T) {
 	type args struct {
 		ctx    context.Context
-		c      *Container
+		c      *ctr.Container
 		dryrun bool
 	}
 	tests := []struct {
@@ -1236,7 +1236,7 @@ func TestStartContainer(t *testing.T) {
 			name: "start container successfully",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, dryrun bool) {
@@ -1248,7 +1248,7 @@ func TestStartContainer(t *testing.T) {
 			name: "start container dry run",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: true,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, dryrun bool) {
@@ -1260,7 +1260,7 @@ func TestStartContainer(t *testing.T) {
 			name: "start container error",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, dryrun bool) {
@@ -1290,7 +1290,7 @@ func TestStartContainer(t *testing.T) {
 // Test for waitForStop functionality
 func TestWaitForStop(t *testing.T) {
 	// Create custom test implementation with controlled behavior for testing
-	waitForStopTest := func(client dockerClient, ctx context.Context, c *Container, waitTime int) error {
+	waitForStopTest := func(client dockerClient, ctx context.Context, c *ctr.Container, waitTime int) error {
 		// For testing purposes, we'll use a more deterministic approach
 		// Check container state only once or twice with deterministic outcomes
 		if tt, ok := ctx.Value("testType").(string); ok {
@@ -1312,7 +1312,7 @@ func TestWaitForStop(t *testing.T) {
 
 	type args struct {
 		ctx      context.Context
-		c        *Container
+		c        *ctr.Container
 		waitTime int
 	}
 	tests := []struct {
@@ -1326,7 +1326,7 @@ func TestWaitForStop(t *testing.T) {
 			name: "container stops within timeout",
 			args: args{
 				ctx:      context.WithValue(context.TODO(), "testType", "stops_immediately"),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				waitTime: 10,
 			},
 			testType: "stops_immediately",
@@ -1339,7 +1339,7 @@ func TestWaitForStop(t *testing.T) {
 			name: "container inspection error",
 			args: args{
 				ctx:      context.WithValue(context.TODO(), "testType", "inspection_error"),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				waitTime: 1,
 			},
 			testType: "inspection_error",
@@ -1352,7 +1352,7 @@ func TestWaitForStop(t *testing.T) {
 			name: "container never stops (timeout)",
 			args: args{
 				ctx:      context.WithValue(context.TODO(), "testType", "timeout"),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				waitTime: 1, // Short timeout for test
 			},
 			testType: "timeout",
@@ -1387,7 +1387,7 @@ func TestWaitForStop(t *testing.T) {
 func TestIPTablesContainer(t *testing.T) {
 	type args struct {
 		ctx       context.Context
-		c         *Container
+		c         *ctr.Container
 		cmdPrefix []string
 		cmdSuffix []string
 		srcIPs    []*net.IPNet
@@ -1402,19 +1402,19 @@ func TestIPTablesContainer(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		mockSet func(*mocks.APIClient, context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool)
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool)
 		wantErr bool
 	}{
 		{
 			name: "iptables with dry run",
 			args: args{
 				ctx:       context.TODO(),
-				c:         &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:         &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				cmdPrefix: []string{"-A", "INPUT"},
 				cmdSuffix: []string{"-j", "DROP"},
 				dryrun:    true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -1423,13 +1423,13 @@ func TestIPTablesContainer(t *testing.T) {
 			name: "simple iptables command without IP filters",
 			args: args{
 				ctx:       context.TODO(),
-				c:         &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:         &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				cmdPrefix: []string{"-A", "INPUT"},
 				cmdSuffix: []string{"-j", "DROP"},
 				image:     "",
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// The container has iptables installed, so we execute directly
 				cmdArgs := append(cmdPrefix, cmdSuffix...)
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
@@ -1446,13 +1446,13 @@ func TestIPTablesContainer(t *testing.T) {
 			name: "iptables with source IPs",
 			args: args{
 				ctx:       context.TODO(),
-				c:         &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:         &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				cmdPrefix: []string{"-A", "INPUT"},
 				cmdSuffix: []string{"-j", "DROP"},
 				srcIPs:    []*net.IPNet{{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(32, 32)}},
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// The container has iptables installed, so we execute directly
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -1470,13 +1470,13 @@ func TestIPTablesContainer(t *testing.T) {
 			name: "iptables with destination ports",
 			args: args{
 				ctx:       context.TODO(),
-				c:         &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:         &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				cmdPrefix: []string{"-A", "INPUT"},
 				cmdSuffix: []string{"-j", "DROP"},
 				dports:    []string{"80", "443"},
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// The container has iptables installed, so we execute directly
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -1497,12 +1497,12 @@ func TestIPTablesContainer(t *testing.T) {
 			name: "iptables execution failure",
 			args: args{
 				ctx:       context.TODO(),
-				c:         &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:         &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				cmdPrefix: []string{"-A", "INPUT"},
 				cmdSuffix: []string{"-j", "DROP"},
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				cmdArgs := append(cmdPrefix, cmdSuffix...)
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -1518,12 +1518,12 @@ func TestIPTablesContainer(t *testing.T) {
 			name: "iptables not installed in container",
 			args: args{
 				ctx:       context.TODO(),
-				c:         &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:         &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				cmdPrefix: []string{"-A", "INPUT"},
 				cmdSuffix: []string{"-j", "DROP"},
 				dryrun:    false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
 				api.On("ContainerExecInspect", ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil) // Exit code 1 indicates command not found
@@ -1553,7 +1553,7 @@ func TestIPTablesContainer(t *testing.T) {
 func TestNetemContainer(t *testing.T) {
 	type args struct {
 		ctx          context.Context
-		c            *Container
+		c            *ctr.Container
 		netInterface string
 		netemCmd     []string
 		ips          []*net.IPNet
@@ -1567,19 +1567,19 @@ func TestNetemContainer(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		mockSet func(*mocks.APIClient, context.Context, *Container, string, []string, []*net.IPNet, []string, []string, string, bool, bool)
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, string, []string, []*net.IPNet, []string, []string, string, bool, bool)
 		wantErr bool
 	}{
 		{
 			name: "netem with dry run",
 			args: args{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				netemCmd:     []string{"delay", "100ms"},
 				dryrun:       true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -1588,12 +1588,12 @@ func TestNetemContainer(t *testing.T) {
 			name: "netem delay without filters",
 			args: args{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				netemCmd:     []string{"delay", "100ms"},
 				dryrun:       false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// The container has tc installed, so we execute directly
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -1611,13 +1611,13 @@ func TestNetemContainer(t *testing.T) {
 			name: "netem with ip filter",
 			args: args{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				netemCmd:     []string{"delay", "100ms"},
 				ips:          []*net.IPNet{{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(32, 32)}},
 				dryrun:       false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// The container has tc installed, so we execute directly
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -1671,12 +1671,12 @@ func TestNetemContainer(t *testing.T) {
 			name: "tc not installed",
 			args: args{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				netemCmd:     []string{"delay", "100ms"},
 				dryrun:       false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
 				api.On("ContainerExecInspect", ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil) // Exit code 1 indicates command not found
@@ -1706,7 +1706,7 @@ func TestNetemContainer(t *testing.T) {
 func TestExecContainer(t *testing.T) {
 	type args struct {
 		ctx      context.Context
-		c        *Container
+		c        *ctr.Container
 		command  string
 		execArgs []string
 		dryrun   bool
@@ -1714,19 +1714,19 @@ func TestExecContainer(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		mockSet func(*mocks.APIClient, context.Context, *Container, string, []string, bool)
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, string, []string, bool)
 		wantErr bool
 	}{
 		{
 			name: "execute command in container dry run",
 			args: args{
 				ctx:      context.TODO(),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				command:  "echo",
 				execArgs: []string{"hello"},
 				dryrun:   true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, command string, execArgs []string, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, command string, execArgs []string, dryrun bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -1735,12 +1735,12 @@ func TestExecContainer(t *testing.T) {
 			name: "execute command in container success",
 			args: args{
 				ctx:      context.TODO(),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				command:  "echo",
 				execArgs: []string{"hello"},
 				dryrun:   false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, command string, execArgs []string, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, command string, execArgs []string, dryrun bool) {
 				// Execute command in the container
 				cmdWithArgs := append([]string{command}, execArgs...)
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{
@@ -1773,12 +1773,12 @@ func TestExecContainer(t *testing.T) {
 			name: "execute command with multiple arguments",
 			args: args{
 				ctx:      context.TODO(),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				command:  "ls",
 				execArgs: []string{"-la", "/var/log"},
 				dryrun:   false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, command string, execArgs []string, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, command string, execArgs []string, dryrun bool) {
 				cmdWithArgs := append([]string{command}, execArgs...)
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{
 					User:         "root",
@@ -1808,12 +1808,12 @@ func TestExecContainer(t *testing.T) {
 			name: "execute command with no arguments",
 			args: args{
 				ctx:      context.TODO(),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				command:  "pwd",
 				execArgs: []string{},
 				dryrun:   false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, command string, execArgs []string, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, command string, execArgs []string, dryrun bool) {
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{
 					User:         "root",
 					AttachStdout: true,
@@ -1842,12 +1842,12 @@ func TestExecContainer(t *testing.T) {
 			name: "execute command with non-zero exit code",
 			args: args{
 				ctx:      context.TODO(),
-				c:        &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				command:  "ls",
 				execArgs: []string{"/nonexistent"},
 				dryrun:   false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, command string, execArgs []string, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, command string, execArgs []string, dryrun bool) {
 				cmdWithArgs := append([]string{command}, execArgs...)
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{
 					User:         "root",
@@ -1897,7 +1897,7 @@ func TestExecContainer(t *testing.T) {
 func TestPauseUnpauseContainer(t *testing.T) {
 	type args struct {
 		ctx    context.Context
-		c      *Container
+		c      *ctr.Container
 		dryrun bool
 	}
 
@@ -1905,7 +1905,7 @@ func TestPauseUnpauseContainer(t *testing.T) {
 	pauseTests := []struct {
 		name    string
 		args    args
-		mockSet func(*mocks.APIClient, context.Context, *Container, bool, bool)
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, bool, bool)
 		wantErr bool
 		isPause bool // true for pause, false for unpause
 	}{
@@ -1913,10 +1913,10 @@ func TestPauseUnpauseContainer(t *testing.T) {
 			name: "pause container successfully",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, dryrun bool, isPause bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
 				api.On("ContainerPause", ctx, c.ID()).Return(nil)
 			},
 			wantErr: false,
@@ -1926,10 +1926,10 @@ func TestPauseUnpauseContainer(t *testing.T) {
 			name: "pause container dry run",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, dryrun bool, isPause bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -1939,10 +1939,10 @@ func TestPauseUnpauseContainer(t *testing.T) {
 			name: "pause container error",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, dryrun bool, isPause bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
 				api.On("ContainerPause", ctx, c.ID()).Return(errors.New("pause error"))
 			},
 			wantErr: true,
@@ -1952,10 +1952,10 @@ func TestPauseUnpauseContainer(t *testing.T) {
 			name: "unpause container successfully",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, dryrun bool, isPause bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
 				api.On("ContainerUnpause", ctx, c.ID()).Return(nil)
 			},
 			wantErr: false,
@@ -1965,10 +1965,10 @@ func TestPauseUnpauseContainer(t *testing.T) {
 			name: "unpause container dry run",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, dryrun bool, isPause bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -1978,10 +1978,10 @@ func TestPauseUnpauseContainer(t *testing.T) {
 			name: "unpause container error",
 			args: args{
 				ctx:    context.TODO(),
-				c:      &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				dryrun: false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, dryrun bool, isPause bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
 				api.On("ContainerUnpause", ctx, c.ID()).Return(errors.New("unpause error"))
 			},
 			wantErr: true,
@@ -2020,7 +2020,7 @@ func TestPauseUnpauseContainer(t *testing.T) {
 func TestRemoveContainer(t *testing.T) {
 	type args struct {
 		ctx     context.Context
-		c       *Container
+		c       *ctr.Container
 		force   bool
 		links   bool
 		volumes bool
@@ -2029,20 +2029,20 @@ func TestRemoveContainer(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		mockSet func(*mocks.APIClient, context.Context, *Container, bool, bool, bool, bool)
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, bool, bool, bool, bool)
 		wantErr bool
 	}{
 		{
 			name: "remove container successfully",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				force:   true,
 				links:   false,
 				volumes: true,
 				dryrun:  false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, force, links, volumes, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
 				api.On("ContainerRemove", ctx, c.ID(), ctypes.RemoveOptions{
 					RemoveVolumes: volumes,
 					RemoveLinks:   links,
@@ -2055,13 +2055,13 @@ func TestRemoveContainer(t *testing.T) {
 			name: "remove container with links",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				force:   true,
 				links:   true,
 				volumes: true,
 				dryrun:  false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, force, links, volumes, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
 				api.On("ContainerRemove", ctx, c.ID(), ctypes.RemoveOptions{
 					RemoveVolumes: volumes,
 					RemoveLinks:   links,
@@ -2074,13 +2074,13 @@ func TestRemoveContainer(t *testing.T) {
 			name: "remove container dry run",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				force:   true,
 				links:   false,
 				volumes: true,
 				dryrun:  true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, force, links, volumes, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -2089,13 +2089,13 @@ func TestRemoveContainer(t *testing.T) {
 			name: "remove container error",
 			args: args{
 				ctx:     context.TODO(),
-				c:       &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				force:   true,
 				links:   false,
 				volumes: true,
 				dryrun:  false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, force, links, volumes, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
 				api.On("ContainerRemove", ctx, c.ID(), ctypes.RemoveOptions{
 					RemoveVolumes: volumes,
 					RemoveLinks:   links,
@@ -2127,7 +2127,7 @@ func TestRemoveContainer(t *testing.T) {
 func TestStopNetemIPTables(t *testing.T) {
 	type stopNetemArgs struct {
 		ctx          context.Context
-		c            *Container
+		c            *ctr.Container
 		netInterface string
 		ip           []*net.IPNet
 		sports       []string
@@ -2140,18 +2140,18 @@ func TestStopNetemIPTables(t *testing.T) {
 	stopNetemTests := []struct {
 		name    string
 		args    stopNetemArgs
-		mockSet func(*mocks.APIClient, context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool)
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, string, []*net.IPNet, []string, []string, string, bool, bool)
 		wantErr bool
 	}{
 		{
 			name: "stop netem without filters dry run",
 			args: stopNetemArgs{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				dryrun:       true,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// No calls expected in dry run mode
 			},
 			wantErr: false,
@@ -2160,11 +2160,11 @@ func TestStopNetemIPTables(t *testing.T) {
 			name: "stop netem without filters",
 			args: stopNetemArgs{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				dryrun:       false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// Simple case - just remove the root qdisc
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -2182,12 +2182,12 @@ func TestStopNetemIPTables(t *testing.T) {
 			name: "stop netem with IP filters",
 			args: stopNetemArgs{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				ip:           []*net.IPNet{{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(32, 32)}},
 				dryrun:       false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// With IP filters - need to remove all parent qdiscs
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
@@ -2221,11 +2221,11 @@ func TestStopNetemIPTables(t *testing.T) {
 			name: "stop netem command error",
 			args: stopNetemArgs{
 				ctx:          context.TODO(),
-				c:            &Container{ContainerID: "abc123", ContainerName: "test-container"},
+				c:            &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
 				netInterface: "eth0",
 				dryrun:       false,
 			},
-			mockSet: func(api *mocks.APIClient, ctx context.Context, c *Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				api.On("ContainerExecCreate", ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.On("ContainerExecStart", ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
 				api.On("ContainerExecInspect", ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
@@ -2395,94 +2395,6 @@ func TestNewHTTPClient(t *testing.T) {
 	}
 }
 
-func TestMatchNames(t *testing.T) {
-	tests := []struct {
-		name          string
-		names         []string
-		containerName string
-		expected      bool
-	}{
-		{
-			name:          "empty names list",
-			names:         []string{},
-			containerName: "container1",
-			expected:      false,
-		},
-		{
-			name:          "name in the list",
-			names:         []string{"container1", "container2"},
-			containerName: "container1",
-			expected:      true,
-		},
-		{
-			name:          "name not in the list",
-			names:         []string{"container1", "container2"},
-			containerName: "container3",
-			expected:      false,
-		},
-		{
-			name:          "name in the list with leading slash",
-			names:         []string{"container1", "container2"},
-			containerName: "/container1",
-			expected:      true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := matchNames(tt.names, tt.containerName)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestMatchPattern(t *testing.T) {
-	tests := []struct {
-		name          string
-		pattern       string
-		containerName string
-		expected      bool
-	}{
-		{
-			name:          "exact match",
-			pattern:       "container1",
-			containerName: "container1",
-			expected:      true,
-		},
-		{
-			name:          "regex match",
-			pattern:       "container[0-9]",
-			containerName: "container1",
-			expected:      true,
-		},
-		{
-			name:          "no match",
-			pattern:       "container[0-9]",
-			containerName: "containerX",
-			expected:      false,
-		},
-		{
-			name:          "match with leading slash",
-			pattern:       "container[0-9]",
-			containerName: "/container1",
-			expected:      true,
-		},
-		{
-			name:          "invalid regex pattern",
-			pattern:       "container[",
-			containerName: "container1",
-			expected:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := matchPattern(tt.pattern, tt.containerName)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestIPTablesExecCommandWithRealDocker(t *testing.T) {
 	t.Skip("This test requires a Docker daemon to run properly")
 }
@@ -2492,7 +2404,7 @@ func TestIPTablesForSimpleCases(t *testing.T) {
 	api := NewMockEngine()
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	ctx := context.Background()
-	container := &Container{
+	container := &ctr.Container{
 		ContainerID: "container123", ContainerName: "test-container",
 	}
 

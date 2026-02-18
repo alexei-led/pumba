@@ -1,8 +1,9 @@
-package container
+package docker
 
 import (
 	"testing"
 
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	ctypes "github.com/docker/docker/api/types/container"
 	imagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -14,7 +15,7 @@ func TestDockerInspectToContainer(t *testing.T) {
 		name     string
 		info     ctypes.InspectResponse
 		img      *imagetypes.InspectResponse
-		expected *Container
+		expected *ctr.Container
 	}{
 		{
 			name: "full running container",
@@ -35,14 +36,14 @@ func TestDockerInspectToContainer(t *testing.T) {
 				},
 			},
 			img: &imagetypes.InspectResponse{ID: "sha256:img123"},
-			expected: &Container{
+			expected: &ctr.Container{
 				ContainerID:   "abc123",
 				ContainerName: "/mycontainer",
 				Image:         "nginx:1.25",
 				ImageID:       "sha256:img123",
-				State:         StateRunning,
+				State:         ctr.StateRunning,
 				Labels:        map[string]string{"env": "prod"},
-				Networks:      map[string]NetworkLink{"bridge": {Links: []string{"db:db"}}},
+				Networks:      map[string]ctr.NetworkLink{"bridge": {Links: []string{"db:db"}}},
 			},
 		},
 		{
@@ -58,14 +59,14 @@ func TestDockerInspectToContainer(t *testing.T) {
 				NetworkSettings: &ctypes.NetworkSettings{Networks: map[string]*network.EndpointSettings{}},
 			},
 			img: &imagetypes.InspectResponse{ID: "sha256:alpine123"},
-			expected: &Container{
+			expected: &ctr.Container{
 				ContainerID:   "def456",
 				ContainerName: "/stopped",
 				Image:         "alpine",
 				ImageID:       "sha256:alpine123",
-				State:         StateExited,
+				State:         ctr.StateExited,
 				Labels:        map[string]string{},
-				Networks:      map[string]NetworkLink{},
+				Networks:      map[string]ctr.NetworkLink{},
 			},
 		},
 		{
@@ -76,14 +77,14 @@ func TestDockerInspectToContainer(t *testing.T) {
 				NetworkSettings:   nil,
 			},
 			img: &imagetypes.InspectResponse{ID: "sha256:img"},
-			expected: &Container{
+			expected: &ctr.Container{
 				ContainerID:   "",
 				ContainerName: "",
 				Image:         "",
 				ImageID:       "sha256:img",
 				State:         "",
 				Labels:        map[string]string{},
-				Networks:      map[string]NetworkLink{},
+				Networks:      map[string]ctr.NetworkLink{},
 			},
 		},
 		{
@@ -99,14 +100,14 @@ func TestDockerInspectToContainer(t *testing.T) {
 				NetworkSettings: nil,
 			},
 			img: &imagetypes.InspectResponse{ID: "sha256:bb"},
-			expected: &Container{
+			expected: &ctr.Container{
 				ContainerID:   "ghi789",
 				ContainerName: "/nostate",
 				Image:         "busybox",
 				ImageID:       "sha256:bb",
 				State:         "",
 				Labels:        map[string]string{"a": "b"},
-				Networks:      map[string]NetworkLink{},
+				Networks:      map[string]ctr.NetworkLink{},
 			},
 		},
 		{
@@ -127,14 +128,14 @@ func TestDockerInspectToContainer(t *testing.T) {
 				},
 			},
 			img: &imagetypes.InspectResponse{ID: "sha256:app"},
-			expected: &Container{
+			expected: &ctr.Container{
 				ContainerID:   "multi",
 				ContainerName: "/multi-net",
 				Image:         "app",
 				ImageID:       "sha256:app",
-				State:         StateRunning,
+				State:         ctr.StateRunning,
 				Labels:        map[string]string{},
-				Networks: map[string]NetworkLink{
+				Networks: map[string]ctr.NetworkLink{
 					"frontend": {Links: []string{"api:api"}},
 					"backend":  {Links: []string{"db:db", "cache:cache"}},
 				},
@@ -151,10 +152,10 @@ func TestDockerInspectToContainer(t *testing.T) {
 				NetworkSettings: nil,
 			},
 			img: &imagetypes.InspectResponse{ID: "img"},
-			expected: &Container{
+			expected: &ctr.Container{
 				ContainerID: "nolabels", ContainerName: "/nolabels",
-				Image: "x", ImageID: "img", State: StateRunning,
-				Labels: map[string]string{}, Networks: map[string]NetworkLink{},
+				Image: "x", ImageID: "img", State: ctr.StateRunning,
+				Labels: map[string]string{}, Networks: map[string]ctr.NetworkLink{},
 			},
 		},
 	}

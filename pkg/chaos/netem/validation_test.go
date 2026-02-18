@@ -125,9 +125,9 @@ func TestNewRateCommand_Validation(t *testing.T) {
 
 func TestNewLossGECommand_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
+		name               string
 		pg, pb, oneH, oneK float64
-		wantErr string
+		wantErr            string
 	}{
 		{"valid", 50, 50, 50, 50, ""},
 		{"invalid pg", -1, 50, 50, 50, "invalid pg"},
@@ -151,9 +151,9 @@ func TestNewLossGECommand_Validation(t *testing.T) {
 
 func TestNewLossStateCommand_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
+		name                    string
 		p13, p31, p32, p23, p14 float64
-		wantErr string
+		wantErr                 string
 	}{
 		{"valid", 50, 50, 50, 50, 50, ""},
 		{"invalid p13", -1, 50, 50, 50, 50, "invalid p13"},
