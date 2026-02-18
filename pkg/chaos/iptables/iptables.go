@@ -18,9 +18,15 @@ const (
 	ProtocolICMP = "icmp"
 )
 
+// iptablesClient is the narrow interface needed by iptables commands.
+type iptablesClient interface {
+	container.Lister
+	container.IPTables
+}
+
 // `iptable` base command
 type ipTablesCommand struct {
-	client   container.Client
+	client   iptablesClient
 	names    []string
 	pattern  string
 	labels   []string
@@ -61,7 +67,7 @@ type Params struct {
 	Limit int
 }
 
-func newIPTablesCommand(client container.Client, gparams *chaos.GlobalParams, params *Params) ipTablesCommand {
+func newIPTablesCommand(client iptablesClient, gparams *chaos.GlobalParams, params *Params) ipTablesCommand {
 	return ipTablesCommand{
 		client:   client,
 		names:    gparams.Names,
@@ -82,7 +88,7 @@ func newIPTablesCommand(client container.Client, gparams *chaos.GlobalParams, pa
 }
 
 // run iptables command, stop iptables on timeout or abort
-func runIPTables(ctx context.Context, client container.Client, c *container.Container, addCmdPrefix, delCmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, image string, pull, dryRun bool) error {
+func runIPTables(ctx context.Context, client iptablesClient, c *container.Container, addCmdPrefix, delCmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, image string, pull, dryRun bool) error {
 	logger := log.WithFields(log.Fields{
 		"id":           c.ID(),
 		"name":         c.Name(),

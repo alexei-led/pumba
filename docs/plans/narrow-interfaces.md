@@ -32,10 +32,10 @@ All netem commands use `container.Client` but only need `container.Lister + cont
 
 ### Task 3: Narrow iptables and stress commands
 
-- [ ] **pkg/chaos/iptables/iptables.go**: `ipTablesCommand` struct and `newIPTablesCommand` need `Lister + IPTables`. Define local `type iptablesClient interface { container.Lister; container.IPTables }`.
-- [ ] **pkg/chaos/iptables/loss.go**: `NewLossCommand` — update to accept narrow interface.
-- [ ] **pkg/chaos/stress/stress.go**: `stressCommand` needs `Lister + Stressor + Lifecycle`. Define local `type stressClient interface { container.Lister; container.Stressor; container.Lifecycle }`.
-- [ ] `make lint && make test` — verified
+- [x] **pkg/chaos/iptables/iptables.go**: `ipTablesCommand` struct and `newIPTablesCommand` need `Lister + IPTables`. Define local `type iptablesClient interface { container.Lister; container.IPTables }`.
+- [x] **pkg/chaos/iptables/loss.go**: `NewLossCommand` — update to accept narrow interface.
+- [x] **pkg/chaos/stress/stress.go**: `stressCommand` needs `Lister + Stressor + Lifecycle`. Define local `type stressClient interface { container.Lister; container.Stressor; container.Lifecycle }`.
+- [x] `make lint && make test` — verified
 
 ### Task 4: Narrow the global DockerClient and update cmd/main.go
 
