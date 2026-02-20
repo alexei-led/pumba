@@ -134,6 +134,12 @@ integration-tests-all: build ; $(info $(M) running all integration tests with ba
 lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 	$Q $(LINT) run -v -c $(LINT_CONFIG) ./...
 
+.PHONY: agent-fix
+agent-fix: fmt ; $(info $(M) auto-fixing code for agent...) @ ## Auto-fix formatting and tidy deps
+	$Q $(GO) mod tidy
+	$Q $(GO) fmt ./...
+	$Q $(LINT) run --fix ./... || true
+
 .PHONY: fmt
 fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
