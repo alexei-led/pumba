@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -20,27 +18,13 @@ const (
 
 // `netem duplicate` command
 type duplicateCommand struct {
-	client      container.Client
-	names       []string
-	pattern     string
-	labels      []string
-	iface       string
-	ips         []*net.IPNet
-	sports      []string
-	dports      []string
-	duration    time.Duration
+	netemCommand
 	percent     float64
 	correlation float64
-	image       string
-	pull        bool
-	limit       int
-	dryRun      bool
 }
 
 // NewDuplicateCommand create new netem duplicate command
-//
-//nolint:dupl
-func NewDuplicateCommand(client container.Client,
+func NewDuplicateCommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	percent, // duplicate percent
@@ -55,21 +39,9 @@ func NewDuplicateCommand(client container.Client,
 		return nil, errors.New("invalid duplicate correlation: must be between 0.0 and 100.0")
 	}
 	return &duplicateCommand{
-		client:      client,
-		names:       globalParams.Names,
-		pattern:     globalParams.Pattern,
-		labels:      globalParams.Labels,
-		iface:       netemParams.Iface,
-		ips:         netemParams.Ips,
-		sports:      netemParams.Sports,
-		dports:      netemParams.Dports,
-		duration:    netemParams.Duration,
-		percent:     percent,
-		correlation: correlation,
-		image:       netemParams.Image,
-		limit:       netemParams.Limit,
-		pull:        netemParams.Pull,
-		dryRun:      globalParams.DryRun,
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		percent:      percent,
+		correlation:  correlation,
 	}, nil
 }
 

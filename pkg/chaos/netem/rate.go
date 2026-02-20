@@ -33,7 +33,7 @@ type rateCommand struct {
 }
 
 // NewRateCommand create new netem rate command
-func NewRateCommand(client container.Client,
+func NewRateCommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	rate string, // delay outgoing packets; in common units

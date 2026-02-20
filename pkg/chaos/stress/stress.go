@@ -12,9 +12,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// stressClient is the narrow interface needed by the stress command.
+type stressClient interface {
+	container.Lister
+	container.Stressor
+	container.Lifecycle
+}
+
 // `stress-ng` command
 type stressCommand struct {
-	client       container.Client
+	client       stressClient
 	names        []string
 	pattern      string
 	labels       []string
@@ -32,7 +39,7 @@ const (
 )
 
 // NewStressCommand create new Kill stressCommand instance
-func NewStressCommand(client container.Client, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int, injectCgroup bool) chaos.Command {
+func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int, injectCgroup bool) chaos.Command {
 	stress := &stressCommand{
 		client:       client,
 		names:        globalParams.Names,

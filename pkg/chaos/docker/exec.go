@@ -9,9 +9,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// execClient is the narrow interface needed by the exec command.
+type execClient interface {
+	container.Lister
+	container.Executor
+}
+
 // `docker exec` command
 type execCommand struct {
-	client  container.Client
+	client  execClient
 	names   []string
 	pattern string
 	labels  []string
@@ -22,7 +28,7 @@ type execCommand struct {
 }
 
 // NewExecCommand create new Exec Command instance
-func NewExecCommand(client container.Client, params *chaos.GlobalParams, command string, args []string, limit int) chaos.Command {
+func NewExecCommand(client execClient, params *chaos.GlobalParams, command string, args []string, limit int) chaos.Command {
 	exec := &execCommand{
 		client:  client,
 		names:   params.Names,

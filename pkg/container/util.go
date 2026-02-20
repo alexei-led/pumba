@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"regexp"
 )
 
 // ListOpts list options
@@ -18,45 +17,6 @@ type filter struct {
 	Names   []string
 	Pattern string
 	Opts    ListOpts
-}
-
-func matchNames(names []string, containerName string) bool {
-	for _, name := range names {
-		// container name may start with forward slash, when using inspect function
-		if (name == containerName) || (name == containerName[1:]) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchPattern(pattern, containerName string) bool {
-	matched, err := regexp.MatchString(pattern, containerName)
-	if err != nil {
-		return false
-	}
-	// container name may start with forward slash, when using inspect function
-	if !matched {
-		matched, err = regexp.MatchString(pattern, containerName[1:])
-		if err != nil {
-			return false
-		}
-	}
-	return matched
-}
-
-func applyContainerFilter(flt filter) FilterFunc {
-	return func(c *Container) bool {
-		// skip Pumba label
-		if c.IsPumba() || c.IsPumbaSkip() {
-			return false
-		}
-		// match names
-		if len(flt.Names) > 0 {
-			return matchNames(flt.Names, c.ContainerName)
-		}
-		return matchPattern(flt.Pattern, c.ContainerName)
-	}
 }
 
 func listContainers(ctx context.Context, client Lister, names []string, pattern string, labels []string, all bool) ([]*Container, error) {

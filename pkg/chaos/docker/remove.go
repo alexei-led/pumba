@@ -9,9 +9,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// `docker kill` command
+// removeClient is the narrow interface needed by the remove command.
+type removeClient interface {
+	container.Lister
+	container.Lifecycle
+}
+
+// `docker rm` command
 type removeCommand struct {
-	client  container.Client
+	client  removeClient
 	names   []string
 	pattern string
 	labels  []string
@@ -23,7 +29,7 @@ type removeCommand struct {
 }
 
 // NewRemoveCommand create new Kill Command instance
-func NewRemoveCommand(client container.Client, params *chaos.GlobalParams, force, links, volumes bool, limit int) chaos.Command {
+func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, links, volumes bool, limit int) chaos.Command {
 	remove := &removeCommand{
 		client:  client,
 		names:   params.Names,

@@ -1,65 +1,87 @@
 package chaos
 
 import (
+	"context"
+	"errors"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestRe2PatternExtraction(t *testing.T) {
+func TestSplitLabels(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		wantPat string
+		name     string
+		raw      []string
+		expected []string
 	}{
-		{"simple pattern", "re2:^myregex$", "^myregex$"},
-		{"pattern ending with 2", "re2:^myregex2", "^myregex2"},
-		{"pattern with re2 in name", "re2:^service-re2-test", "^service-re2-test"},
-		{"pattern with colon", "re2:^app:v2", "^app:v2"},
-		{"just prefix", "re2:", ""},
-		{"pattern with 2 everywhere", "re2:r2d2-container2", "r2d2-container2"},
+		{"nil input", nil, nil},
+		{"empty input", []string{}, nil},
+		{"single label", []string{"k=v"}, []string{"k=v"}},
+		{"multiple flags", []string{"k1=v1", "k2=v2"}, []string{"k1=v1", "k2=v2"}},
+		{"comma separated", []string{"k1=v1,k2=v2"}, []string{"k1=v1", "k2=v2"}},
+		{"mixed", []string{"k1=v1,k2=v2", "k3=v3"}, []string{"k1=v1", "k2=v2", "k3=v3"}},
+		{"whitespace trimmed", []string{" k1=v1 , k2=v2 "}, []string{"k1=v1", "k2=v2"}},
+		{"empty parts skipped", []string{"k1=v1,,k2=v2"}, []string{"k1=v1", "k2=v2"}},
+		{"only commas", []string{",,"}, nil},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Simulate what getNamesOrPattern does with the re2 prefix
-			got := ""
-			if len(tt.input) > len(Re2Prefix) || tt.input == Re2Prefix {
-				// This is the fixed logic using TrimPrefix
-				got = tt.input[len(Re2Prefix):]
-			}
-			if got != tt.wantPat {
-				t.Errorf("pattern = %q, want %q", got, tt.wantPat)
-			}
+			result := splitLabels(tt.raw)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestSplitLabels(t *testing.T) {
-	tests := []struct {
-		name string
-		raw  []string
-		want []string
-	}{
-		{"single label", []string{"app=web"}, []string{"app=web"}},
-		{"two separate flags", []string{"app=web", "env=prod"}, []string{"app=web", "env=prod"}},
-		{"comma-separated", []string{"app=web,env=prod"}, []string{"app=web", "env=prod"}},
-		{"mixed", []string{"app=web,env=prod", "tier=frontend"}, []string{"app=web", "env=prod", "tier=frontend"}},
-		{"with spaces", []string{"app=web, env=prod"}, []string{"app=web", "env=prod"}},
-		{"empty string", []string{""}, nil},
-		{"empty slice", []string{}, nil},
-		{"k8s labels", []string{"io.kubernetes.container.name=myapp,app.kubernetes.io/version=v2"}, []string{"io.kubernetes.container.name=myapp", "app.kubernetes.io/version=v2"}},
-	}
+// mockCommand implements Command for testing
+type mockCommand struct {
+	err   error
+	calls int
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := splitLabels(tt.raw)
-			if len(got) != len(tt.want) {
-				t.Fatalf("splitLabels() = %v (len %d), want %v (len %d)", got, len(got), tt.want, len(tt.want))
-			}
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("splitLabels()[%d] = %q, want %q", i, got[i], tt.want[i])
-				}
-			}
-		})
-	}
+func (m *mockCommand) Run(_ context.Context, _ bool) error {
+	m.calls++
+	return m.err
+}
+
+func TestRunChaosCommand_SingleRun(t *testing.T) {
+	cmd := &mockCommand{}
+	params := &GlobalParams{Interval: 0}
+
+	err := RunChaosCommand(context.Background(), cmd, params)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, cmd.calls)
+}
+
+func TestRunChaosCommand_Error(t *testing.T) {
+	cmd := &mockCommand{err: errors.New("chaos failed")}
+	params := &GlobalParams{Interval: 0}
+
+	err := RunChaosCommand(context.Background(), cmd, params)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "chaos failed")
+}
+
+func TestRunChaosCommand_SkipErrors(t *testing.T) {
+	cmd := &mockCommand{err: errors.New("chaos failed")}
+	params := &GlobalParams{Interval: 0, SkipErrors: true}
+
+	err := RunChaosCommand(context.Background(), cmd, params)
+	assert.NoError(t, err)
+}
+
+func TestRunChaosCommand_ContextCancel(t *testing.T) {
+	cmd := &mockCommand{}
+	params := &GlobalParams{Interval: time.Hour} // long interval
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	err := RunChaosCommand(ctx, cmd, params)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, cmd.calls)
 }

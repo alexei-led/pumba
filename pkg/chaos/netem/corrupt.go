@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -16,27 +14,13 @@ import (
 
 // `netem corrupt` command
 type corruptCommand struct {
-	client      container.Client
-	names       []string
-	pattern     string
-	labels      []string
-	iface       string
-	ips         []*net.IPNet
-	sports      []string
-	dports      []string
-	duration    time.Duration
+	netemCommand
 	percent     float64
 	correlation float64
-	image       string
-	pull        bool
-	limit       int
-	dryRun      bool
 }
 
 // NewCorruptCommand create new netem corrupt command
-//
-//nolint:dupl
-func NewCorruptCommand(client container.Client,
+func NewCorruptCommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	percent, // corrupt percent
@@ -51,21 +35,9 @@ func NewCorruptCommand(client container.Client,
 		return nil, errors.New("invalid corrupt correlation: must be between 0.0 and 100.0")
 	}
 	return &corruptCommand{
-		client:      client,
-		names:       globalParams.Names,
-		labels:      globalParams.Labels,
-		pattern:     globalParams.Pattern,
-		iface:       netemParams.Iface,
-		ips:         netemParams.Ips,
-		sports:      netemParams.Sports,
-		dports:      netemParams.Dports,
-		duration:    netemParams.Duration,
-		percent:     percent,
-		correlation: correlation,
-		image:       netemParams.Image,
-		pull:        netemParams.Pull,
-		limit:       netemParams.Limit,
-		dryRun:      globalParams.DryRun,
+		netemCommand: newNetemCommand(client, globalParams, netemParams),
+		percent:      percent,
+		correlation:  correlation,
 	}, nil
 }
 

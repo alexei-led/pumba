@@ -54,6 +54,10 @@ func TestListContainers_Success(t *testing.T) {
 	api.On("ImageInspect", mock.Anything, "abc123").Return(imageDetails, nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
+
+	// Verify that dockerClient implements container.Client interface
+	var _ ctr.Client = (*dockerClient)(nil)
+
 	containers, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
 
 	assert.NoError(t, err)

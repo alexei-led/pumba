@@ -26,7 +26,7 @@ const (
 )
 
 // NewLossCommand create new iptables loss command
-func NewLossCommand(client container.Client,
+func NewLossCommand(client iptablesClient,
 	globalParams *chaos.GlobalParams,
 	params *Params,
 	mode string, // loss mode

@@ -28,7 +28,7 @@ type delayCommand struct {
 }
 
 // NewDelayCommand create new netem delay command
-func NewDelayCommand(client container.Client,
+func NewDelayCommand(client netemClient,
 	globalParams *chaos.GlobalParams,
 	netemParams *Params,
 	delay, // delay time
