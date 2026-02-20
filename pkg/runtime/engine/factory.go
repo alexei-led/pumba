@@ -16,8 +16,8 @@ func NewClient(runtimeName, host string, tlsConfig *tls.Config) (container.Clien
 	case "docker":
 		return docker.NewClient(host, tlsConfig)
 	case "containerd":
-		return nil, fmt.Errorf("runtime %q is not implemented", runtimeName)
+		return nil, fmt.Errorf("runtime %q is not yet implemented", runtimeName)
 	default:
-		return nil, fmt.Errorf("unknown runtime %q: supported runtimes are \"docker\" and \"containerd\"", runtimeName)
+		return nil, fmt.Errorf("unknown runtime %q: supported runtimes are \"docker\"", runtimeName)
 	}
 }
