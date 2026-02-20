@@ -15,10 +15,10 @@
 
 ### Task 2: Refactor Docker runtime
 
-- [ ] Update `pkg/runtime/docker/client.go` to use new `pkg/container` filter logic
-- [ ] Remove old filter code from Docker runtime
-- [ ] Fix any compilation errors
-- [ ] Verify `make test` passes
+- [x] Update `pkg/runtime/docker/client.go` to use new `pkg/container` filter logic
+- [x] Remove old filter code from Docker runtime
+- [x] Fix any compilation errors
+- [x] Verify `make test` passes
 
 ### Task 3: Update CLI commands
 
