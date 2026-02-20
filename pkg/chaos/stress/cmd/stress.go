@@ -73,7 +73,7 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// get inject-cgroup flag
 	injectCgroup := c.Bool("inject-cgroup")
 	// init stress command
-	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit, injectCgroup)
+	stressCommand := stress.NewStressCommand(chaos.ContainerClient, globalParams, image, pull, stressors, duration, limit, injectCgroup)
 	// run stress command
 	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
 	if err != nil {

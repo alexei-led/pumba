@@ -28,9 +28,9 @@ Support runtime selection via `--runtime` flag (defaulting to "docker"). Prepare
 
 ### Task 3: Rename global client variable
 
-- [ ] Rename `chaos.DockerClient` to `chaos.ContainerClient` in `pkg/chaos/command.go`
-- [ ] Update all references in `pkg/chaos/` to use `chaos.ContainerClient`
-- [ ] Verify compilation and tests pass
+- [x] Rename `chaos.DockerClient` to `chaos.ContainerClient` in `pkg/chaos/command.go`
+- [x] Update all references in `pkg/chaos/` to use `chaos.ContainerClient`
+- [x] Verify compilation and tests pass
 
 ### Task 4: Verify Runtime Switch
 

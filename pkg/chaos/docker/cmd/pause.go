@@ -52,7 +52,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 		return errors.New("unset or invalid duration value")
 	}
 	// init pause command
-	pauseCommand := docker.NewPauseCommand(chaos.DockerClient, params, duration, limit)
+	pauseCommand := docker.NewPauseCommand(chaos.ContainerClient, params, duration, limit)
 	// run pause command
 	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
 	if err != nil {

@@ -52,7 +52,7 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// init kill command
-	killCommand, err := docker.NewKillCommand(chaos.DockerClient, params, signal, limit)
+	killCommand, err := docker.NewKillCommand(chaos.ContainerClient, params, signal, limit)
 	if err != nil {
 		return fmt.Errorf("could not create kill command: %w", err)
 	}

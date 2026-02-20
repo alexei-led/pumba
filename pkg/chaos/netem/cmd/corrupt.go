@@ -56,7 +56,7 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// get delay variation
 	correlation := c.Float64("correlation")
 	// init netem corrupt command
-	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
+	corruptCommand, err := netem.NewCorruptCommand(chaos.ContainerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
 		return fmt.Errorf("error creating netem corrupt command: %w", err)
 	}

@@ -71,7 +71,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	oneK := c.Float64("one-k")
 
 	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, globalParams, netemParams, pg, pb, oneH, oneK)
+	lossGECommand, err := netem.NewLossGECommand(chaos.ContainerClient, globalParams, netemParams, pg, pb, oneH, oneK)
 	if err != nil {
 		return fmt.Errorf("error creating loss gemodel command: %w", err)
 	}

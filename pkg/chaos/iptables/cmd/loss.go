@@ -70,7 +70,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	packet := c.Int("packet")
 
 	// init iptables loss command
-	lossCommand, err := iptables.NewLossCommand(chaos.DockerClient, globalParams, ipTablesParams, mode, probability, every, packet)
+	lossCommand, err := iptables.NewLossCommand(chaos.ContainerClient, globalParams, ipTablesParams, mode, probability, every, packet)
 	if err != nil {
 		return fmt.Errorf("error creating iptables loss command: %w", err)
 	}

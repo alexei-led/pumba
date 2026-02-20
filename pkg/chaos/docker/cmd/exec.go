@@ -55,7 +55,7 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand := docker.NewExecCommand(chaos.DockerClient, params, command, args, limit)
+	execCommand := docker.NewExecCommand(chaos.ContainerClient, params, command, args, limit)
 	// run exec command
 	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {

@@ -204,7 +204,7 @@ func before(c *cli.Context) error {
 	}
 	// create container client using the selected runtime
 	runtimeName := c.GlobalString("runtime")
-	chaos.DockerClient, err = engine.NewClient(runtimeName, c.GlobalString("host"), tlsCfg)
+	chaos.ContainerClient, err = engine.NewClient(runtimeName, c.GlobalString("host"), tlsCfg)
 	if err != nil {
 		return fmt.Errorf("could not create %s client: %w", runtimeName, err)
 	}

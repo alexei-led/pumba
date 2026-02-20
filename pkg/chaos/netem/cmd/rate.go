@@ -70,7 +70,7 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	cellOverhead := c.Int("celloverhead")
 
 	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
+	lossCommand, err := netem.NewRateCommand(chaos.ContainerClient, globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
 	if err != nil {
 		return fmt.Errorf("error creating netem rate command: %w", err)
 	}

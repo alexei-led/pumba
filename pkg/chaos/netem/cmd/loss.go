@@ -56,7 +56,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	// get delay variation
 	correlation := c.Float64("correlation")
 	// init netem loss command
-	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
+	lossCommand, err := netem.NewLossCommand(chaos.ContainerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
 		return fmt.Errorf("error creating netem loss command: %w", err)
 	}

@@ -17,9 +17,9 @@ const (
 )
 
 var (
-	// DockerClient Docker client instance
+	// ContainerClient container runtime client instance
 	// TODO(Phase 4): remove this global and inject client via dependency injection
-	DockerClient container.Client
+	ContainerClient container.Client
 )
 
 // Command chaos command

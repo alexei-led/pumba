@@ -70,7 +70,7 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	distribution := c.String("distribution")
 
 	// init netem delay command
-	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, globalParams, netemParams, time, jitter, correlation, distribution)
+	delayCommand, err := netem.NewDelayCommand(chaos.ContainerClient, globalParams, netemParams, time, jitter, correlation, distribution)
 	if err != nil {
 		return fmt.Errorf("error creating netem delay command: %w", err)
 	}

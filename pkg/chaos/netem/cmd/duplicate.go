@@ -61,7 +61,7 @@ func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem duplicate command
-	duplicateCommand, err := netem.NewDuplicateCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
+	duplicateCommand, err := netem.NewDuplicateCommand(chaos.ContainerClient, globalParams, netemParams, percent, correlation)
 	if err != nil {
 		return fmt.Errorf("unable to create netem duplicate command: %w", err)
 	}

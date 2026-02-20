@@ -50,7 +50,7 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand := docker.NewRestartCommand(chaos.DockerClient, params, timeout, limit)
+	restartCommand := docker.NewRestartCommand(chaos.ContainerClient, params, timeout, limit)
 	// run restart command
 	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
 	if err != nil {
