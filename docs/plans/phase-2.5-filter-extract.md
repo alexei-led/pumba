@@ -22,6 +22,6 @@
 
 ### Task 3: Update CLI commands
 
-- [ ] Check `cmd/` for any direct usage of old filter logic
-- [ ] Update to use new `pkg/container` filter
-- [ ] Verify all commands build and run
+- [x] Check `cmd/` for any direct usage of old filter logic
+- [x] Update to use new `pkg/container` filter
+- [x] Verify all commands build and run
