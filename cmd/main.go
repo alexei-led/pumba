@@ -16,7 +16,7 @@ import (
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
-	"github.com/alexei-led/pumba/pkg/runtime/docker"
+	"github.com/alexei-led/pumba/pkg/runtime/engine"
 	"github.com/johntdyer/slackrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -152,6 +152,12 @@ func main() {
 			Name:  "skip-error",
 			Usage: "skip chaos command error and retry to execute the command on next interval tick",
 		},
+		cli.StringFlag{
+			Name:   "runtime",
+			Usage:  "container runtime to use (docker, containerd)",
+			Value:  "docker",
+			EnvVar: "PUMBA_RUNTIME",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -196,10 +202,11 @@ func before(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// create new Docker client
-	chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
+	// create container client using the selected runtime
+	runtimeName := c.GlobalString("runtime")
+	chaos.DockerClient, err = engine.NewClient(runtimeName, c.GlobalString("host"), tlsCfg)
 	if err != nil {
-		return fmt.Errorf("could not create Docker client: %w", err)
+		return fmt.Errorf("could not create %s client: %w", runtimeName, err)
 	}
 	return nil
 }

@@ -21,10 +21,10 @@ Support runtime selection via `--runtime` flag (defaulting to "docker"). Prepare
 
 ### Task 2: Add --runtime flag
 
-- [ ] Update `cmd/main.go` to add `--runtime` string flag (default: "docker")
-- [ ] Update `Before` hook in `main.go` to read `--runtime` flag
-- [ ] Use `runtime.NewClient` instead of `docker.NewClient`
-- [ ] Verify `chaos.DockerClient` variable is renamed/replaced with `chaos.ContainerClient` (interface type)
+- [x] Update `cmd/main.go` to add `--runtime` string flag (default: "docker")
+- [x] Update `Before` hook in `main.go` to read `--runtime` flag
+- [x] Use `runtime.NewClient` instead of `docker.NewClient`
+- [x] Verify `chaos.DockerClient` variable is renamed/replaced with `chaos.ContainerClient` (interface type)
 
 ### Task 3: Rename global client variable
 
