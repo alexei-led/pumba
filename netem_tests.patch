@@ -1,0 +1,584 @@
+From eb82a76bbaa351109e5def51578030d1cc51e5e1 Mon Sep 17 00:00:00 2001
+From: OpenClaw Subagent <subagent@openclaw.ai>
+Date: Thu, 19 Feb 2026 10:23:07 +0000
+Subject: [PATCH] test(chaos): add missing table-driven tests for netem
+ commands
+
+---
+ pkg/chaos/netem/corrupt_test.go   | 112 +++++++++++++++++++
+ pkg/chaos/netem/duplicate_test.go | 130 ++++++++++++++++++++++
+ pkg/chaos/netem/loss_test.go      | 172 ++++++++++++++++++++++++++++++
+ pkg/chaos/netem/rate_test.go      | 127 ++++++++++++++++++++++
+ 4 files changed, 541 insertions(+)
+ create mode 100644 pkg/chaos/netem/corrupt_test.go
+ create mode 100644 pkg/chaos/netem/duplicate_test.go
+ create mode 100644 pkg/chaos/netem/loss_test.go
+ create mode 100644 pkg/chaos/netem/rate_test.go
+
+diff --git a/pkg/chaos/netem/corrupt_test.go b/pkg/chaos/netem/corrupt_test.go
+new file mode 100644
+index 0000000..232e6f5
+--- /dev/null
++++ b/pkg/chaos/netem/corrupt_test.go
+@@ -0,0 +1,112 @@
++package netem
++
++import (
++	"context"
++	"net"
++	"testing"
++	"time"
++
++	"github.com/alexei-led/pumba/pkg/chaos"
++	"github.com/alexei-led/pumba/pkg/container"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
++	"github.com/stretchr/testify/require"
++)
++
++func TestNewCorruptCommand_Validation(t *testing.T) {
++	mockClient := new(container.MockClient)
++	gparams := &chaos.GlobalParams{Names: []string{"test"}}
++	nparams := &Params{Iface: "eth0", Duration: time.Second}
++
++	tests := []struct {
++		name        string
++		percent     float64
++		correlation float64
++		wantErr     string
++	}{
++		{
++			name:    "valid minimal corrupt",
++			percent: 10.0,
++			wantErr: "",
++		},
++		{
++			name:        "valid full params",
++			percent:     20.0,
++			correlation: 5.0,
++			wantErr:     "",
++		},
++		{
++			name:    "negative percent rejected",
++			percent: -1.0,
++			wantErr: "invalid corrupt percent",
++		},
++		{
++			name:    "percent over 100 rejected",
++			percent: 101.0,
++			wantErr: "invalid corrupt percent",
++		},
++		{
++			name:        "negative correlation rejected",
++			percent:     10.0,
++			correlation: -1.0,
++			wantErr:     "invalid corrupt correlation",
++		},
++		{
++			name:        "correlation over 100 rejected",
++			percent:     10.0,
++			correlation: 101.0,
++			wantErr:     "invalid corrupt correlation",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			cmd, err := NewCorruptCommand(mockClient, gparams, nparams,
++				tt.percent, tt.correlation)
++			if tt.wantErr != "" {
++				require.Error(t, err)
++				assert.Contains(t, err.Error(), tt.wantErr)
++				assert.Nil(t, cmd)
++			} else {
++				assert.NoError(t, err)
++				assert.NotNil(t, cmd)
++			}
++		})
++	}
++}
++
++func TestCorruptCommand_Run_DryRun(t *testing.T) {
++	mockClient := new(container.MockClient)
++	target := &container.Container{
++		ContainerID:   "abc123",
++		ContainerName: "target",
++		Labels:        map[string]string{},
++		Networks:      map[string]container.NetworkLink{},
++	}
++	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
++	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
++
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{target}, nil)
++
++	// corrupt 10.00%, correlation 5.00% → netem cmd: ["corrupt", "10.00", "5.00"]
++	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
++		[]string{"corrupt", "10.00", "5.00"},
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		100*time.Millisecond, "tc-image", false, true).
++		Return(nil)
++
++	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		"tc-image", false, true).
++		Return(nil)
++
++	cmd, err := NewCorruptCommand(mockClient, gparams, nparams, 10.0, 5.0)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), false)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
+diff --git a/pkg/chaos/netem/duplicate_test.go b/pkg/chaos/netem/duplicate_test.go
+new file mode 100644
+index 0000000..5da5ba8
+--- /dev/null
++++ b/pkg/chaos/netem/duplicate_test.go
+@@ -0,0 +1,130 @@
++package netem
++
++import (
++	"context"
++	"net"
++	"testing"
++	"time"
++
++	"github.com/alexei-led/pumba/pkg/chaos"
++	"github.com/alexei-led/pumba/pkg/container"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
++	"github.com/stretchr/testify/require"
++)
++
++func TestNewDuplicateCommand_Validation(t *testing.T) {
++	mockClient := new(container.MockClient)
++	gparams := &chaos.GlobalParams{Names: []string{"test"}}
++	nparams := &Params{Iface: "eth0", Duration: time.Second}
++
++	tests := []struct {
++		name        string
++		percent     float64
++		correlation float64
++		wantErr     string
++	}{
++		{
++			name:    "valid minimal duplicate",
++			percent: 10.0,
++			wantErr: "",
++		},
++		{
++			name:        "valid full params",
++			percent:     20.0,
++			correlation: 5.0,
++			wantErr:     "",
++		},
++		{
++			name:    "negative percent rejected",
++			percent: -1.0,
++			wantErr: "invalid duplicate percent",
++		},
++		{
++			name:    "percent over 100 rejected",
++			percent: 101.0,
++			wantErr: "invalid duplicate percent",
++		},
++		{
++			name:        "negative correlation rejected",
++			percent:     10.0,
++			correlation: -1.0,
++			wantErr:     "invalid duplicate correlation",
++		},
++		{
++			name:        "correlation over 100 rejected",
++			percent:     10.0,
++			correlation: 101.0,
++			wantErr:     "invalid duplicate correlation",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			cmd, err := NewDuplicateCommand(mockClient, gparams, nparams,
++				tt.percent, tt.correlation)
++			if tt.wantErr != "" {
++				require.Error(t, err)
++				assert.Contains(t, err.Error(), tt.wantErr)
++				assert.Nil(t, cmd)
++			} else {
++				assert.NoError(t, err)
++				assert.NotNil(t, cmd)
++			}
++		})
++	}
++}
++
++func TestDuplicateCommand_Run_NoContainers(t *testing.T) {
++	mockClient := new(container.MockClient)
++	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
++	nparams := &Params{Iface: "eth0", Duration: time.Second}
++
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{}, nil)
++
++	cmd, err := NewDuplicateCommand(mockClient, gparams, nparams, 10.0, 0.0)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), false)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
++
++func TestDuplicateCommand_Run_DryRun(t *testing.T) {
++	mockClient := new(container.MockClient)
++	target := &container.Container{
++		ContainerID:   "abc123",
++		ContainerName: "target",
++		Labels:        map[string]string{},
++		Networks:      map[string]container.NetworkLink{},
++	}
++	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
++	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
++
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{target}, nil)
++
++	// duplicate 10.00%, correlation 5.00% → netem cmd: ["duplicate", "10.00", "5.00"]
++	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
++		[]string{"duplicate", "10.00", "5.00"},
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		100*time.Millisecond, "tc-image", false, true).
++		Return(nil)
++
++	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		"tc-image", false, true).
++		Return(nil)
++
++	cmd, err := NewDuplicateCommand(mockClient, gparams, nparams, 10.0, 5.0)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), false)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
+diff --git a/pkg/chaos/netem/loss_test.go b/pkg/chaos/netem/loss_test.go
+new file mode 100644
+index 0000000..cdb8f59
+--- /dev/null
++++ b/pkg/chaos/netem/loss_test.go
+@@ -0,0 +1,172 @@
++package netem
++
++import (
++	"context"
++	"net"
++	"testing"
++	"time"
++
++	"github.com/alexei-led/pumba/pkg/chaos"
++	"github.com/alexei-led/pumba/pkg/container"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
++	"github.com/stretchr/testify/require"
++)
++
++func TestNewLossCommand_Validation(t *testing.T) {
++	mockClient := new(container.MockClient)
++	gparams := &chaos.GlobalParams{Names: []string{"test"}}
++	nparams := &Params{Iface: "eth0", Duration: time.Second}
++
++	tests := []struct {
++		name        string
++		percent     float64
++		correlation float64
++		wantErr     string
++	}{
++		{
++			name:    "valid minimal loss",
++			percent: 10.0,
++			wantErr: "",
++		},
++		{
++			name:        "valid full params",
++			percent:     20.0,
++			correlation: 5.0,
++			wantErr:     "",
++		},
++		{
++			name:    "negative percent rejected",
++			percent: -1.0,
++			wantErr: "invalid loss percent",
++		},
++		{
++			name:    "percent over 100 rejected",
++			percent: 101.0,
++			wantErr: "invalid loss percent",
++		},
++		{
++			name:        "negative correlation rejected",
++			percent:     10.0,
++			correlation: -1.0,
++			wantErr:     "invalid loss correlation",
++		},
++		{
++			name:        "correlation over 100 rejected",
++			percent:     10.0,
++			correlation: 101.0,
++			wantErr:     "invalid loss correlation",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			cmd, err := NewLossCommand(mockClient, gparams, nparams,
++				tt.percent, tt.correlation)
++			if tt.wantErr != "" {
++				require.Error(t, err)
++				assert.Contains(t, err.Error(), tt.wantErr)
++				assert.Nil(t, cmd)
++			} else {
++				assert.NoError(t, err)
++				assert.NotNil(t, cmd)
++			}
++		})
++	}
++}
++
++func TestLossCommand_Run_NoContainers(t *testing.T) {
++	mockClient := new(container.MockClient)
++	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
++	nparams := &Params{Iface: "eth0", Duration: time.Second}
++
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{}, nil)
++
++	cmd, err := NewLossCommand(mockClient, gparams, nparams, 10.0, 0.0)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), false)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
++
++func TestLossCommand_Run_DryRun(t *testing.T) {
++	mockClient := new(container.MockClient)
++	target := &container.Container{
++		ContainerID:   "abc123",
++		ContainerName: "target",
++		Labels:        map[string]string{},
++		Networks:      map[string]container.NetworkLink{},
++	}
++	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
++	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
++
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{target}, nil)
++
++	// loss 10.00%, correlation 5.00% → netem cmd: ["loss", "10.00", "5.00"]
++	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
++		[]string{"loss", "10.00", "5.00"},
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		100*time.Millisecond, "tc-image", false, true).
++		Return(nil)
++
++	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		"tc-image", false, true).
++		Return(nil)
++
++	cmd, err := NewLossCommand(mockClient, gparams, nparams, 10.0, 5.0)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), false)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
++
++func TestLossCommand_Run_WithRandom(t *testing.T) {
++	mockClient := new(container.MockClient)
++	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1"}
++	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2"}
++	
++	gparams := &chaos.GlobalParams{Names: []string{"c1", "c2"}, DryRun: true}
++	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc"}
++
++	// Must match both containers initially
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{c1, c2}, nil)
++
++	// Since we use random=true, only one container will be selected.
++	// We can't predict which one easily in the test without mocking RandomContainer,
++	// but RandomContainer is a top-level function in container package.
++	// For this unit test, we'll accept either c1 OR c2 being called, but not both.
++	// However, stretchr/testify mocking is strict.
++	// A better approach is to rely on ListNContainers logic if we could control it,
++	// but here we just want to verify that runNetem is called for one container.
++	
++	// We will use a loose match for the container argument
++	mockClient.On("NetemContainer", mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
++		[]string{"loss", "10.00"},
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		100*time.Millisecond, "tc", false, true).
++		Return(nil).Once()
++
++	mockClient.On("StopNetemContainer", mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		"tc", false, true).
++		Return(nil).Once()
++
++	cmd, err := NewLossCommand(mockClient, gparams, nparams, 10.0, 0.0)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), true)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
+diff --git a/pkg/chaos/netem/rate_test.go b/pkg/chaos/netem/rate_test.go
+new file mode 100644
+index 0000000..b30f248
+--- /dev/null
++++ b/pkg/chaos/netem/rate_test.go
+@@ -0,0 +1,127 @@
++package netem
++
++import (
++	"context"
++	"net"
++	"testing"
++	"time"
++
++	"github.com/alexei-led/pumba/pkg/chaos"
++	"github.com/alexei-led/pumba/pkg/container"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/mock"
++	"github.com/stretchr/testify/require"
++)
++
++func TestParseRate(t *testing.T) {
++	tests := []struct {
++		rate    string
++		want    string
++		wantErr bool
++	}{
++		{"100mbit", "100mbit", false},
++		{"1gbit", "1gbit", false},
++		{"10kbit", "10kbit", false},
++		{"100", "", true},
++		{"bit", "", true},
++		{"100kb", "", true},
++	}
++	for _, tt := range tests {
++		t.Run(tt.rate, func(t *testing.T) {
++			got, err := parseRate(tt.rate)
++			if tt.wantErr {
++				assert.Error(t, err)
++			} else {
++				assert.NoError(t, err)
++				assert.Equal(t, tt.want, got)
++			}
++		})
++	}
++}
++
++func TestNewRateCommand_Validation(t *testing.T) {
++	mockClient := new(container.MockClient)
++	gparams := &chaos.GlobalParams{Names: []string{"test"}}
++	nparams := &Params{Iface: "eth0", Duration: time.Second}
++
++	tests := []struct {
++		name           string
++		rate           string
++		cellSize       int
++		wantErr        string
++	}{
++		{
++			name:    "valid rate",
++			rate:    "100mbit",
++			wantErr: "",
++		},
++		{
++			name:    "invalid rate format",
++			rate:    "100",
++			wantErr: "invalid rate",
++		},
++		{
++			name:    "empty rate",
++			rate:    "",
++			wantErr: "undefined rate limit",
++		},
++		{
++			name:     "invalid cell size",
++			rate:     "100mbit",
++			cellSize: -1,
++			wantErr:  "invalid cell size",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			cmd, err := NewRateCommand(mockClient, gparams, nparams,
++				tt.rate, 0, tt.cellSize, 0)
++			if tt.wantErr != "" {
++				require.Error(t, err)
++				assert.Contains(t, err.Error(), tt.wantErr)
++				assert.Nil(t, cmd)
++			} else {
++				assert.NoError(t, err)
++				assert.NotNil(t, cmd)
++			}
++		})
++	}
++}
++
++func TestRateCommand_Run_DryRun(t *testing.T) {
++	mockClient := new(container.MockClient)
++	target := &container.Container{
++		ContainerID:   "abc123",
++		ContainerName: "target",
++		Labels:        map[string]string{},
++		Networks:      map[string]container.NetworkLink{},
++	}
++	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
++	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
++
++	mockClient.On("ListContainers", mock.Anything,
++		mock.AnythingOfType("container.FilterFunc"),
++		container.ListOpts{All: false, Labels: nil}).
++		Return([]*container.Container{target}, nil)
++
++	// rate 100mbit, packetOverhead 10, cellSize 20, cellOverhead 30
++	// → netem cmd: ["rate", "100mbit", "10", "20", "30"]
++	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
++		[]string{"rate", "100mbit", "10", "20", "30"},
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		100*time.Millisecond, "tc-image", false, true).
++		Return(nil)
++
++	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
++		([]*net.IPNet)(nil), []string(nil), []string(nil),
++		"tc-image", false, true).
++		Return(nil)
++
++	cmd, err := NewRateCommand(mockClient, gparams, nparams, "100mbit", 10, 20, 30)
++	require.NoError(t, err)
++
++	err = cmd.Run(context.Background(), false)
++	assert.NoError(t, err)
++	mockClient.AssertExpectations(t)
++}
+-- 
+2.39.5
