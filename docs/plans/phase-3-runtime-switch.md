@@ -34,5 +34,5 @@ Support runtime selection via `--runtime` flag (defaulting to "docker"). Prepare
 
 ### Task 4: Verify Runtime Switch
 
-- [ ] Run `pumba --runtime=docker` integration tests (should pass)
-- [ ] Run `pumba --runtime=containerd` (should fail with specific error)
+- [x] Run `pumba --runtime=docker` integration tests (should pass)
+- [x] Run `pumba --runtime=containerd` (should fail with specific error)
