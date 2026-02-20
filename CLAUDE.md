@@ -52,7 +52,10 @@ pkg/
     iptables/cmd/      — CLI command builders for iptables
     stress/            — stress-ng based resource stress
     stress/cmd/        — CLI command builder for stress
-  container/           — Docker client abstraction, container types, filtering
+  container/           — Container client interface, types, filtering (runtime-agnostic)
+  runtime/
+    engine/            — Runtime factory: dispatches to docker or containerd client
+    docker/            — Docker runtime implementation using Docker SDK
   util/                — Shared utilities (IP/port parsing)
 mocks/                 — Generated mock files (mockery)
 tests/                 — Bats integration tests
@@ -63,9 +66,10 @@ examples/              — Demo scripts
 
 ## Architecture
 
-- **Container client** (`pkg/container/client.go`): Interface over Docker API for listing, killing, stopping, pausing, exec, netem, stress operations
-- **Docker client** (`pkg/container/docker_client.go`): Concrete implementation using Docker SDK
-- **Chaos commands**: Each action implements `ChaosCommand` interface with `Run(ctx, random)` method
+- **Container client** (`pkg/container/client.go`): Runtime-agnostic interface for listing, killing, stopping, pausing, exec, netem, stress operations
+- **Runtime factory** (`pkg/runtime/engine/factory.go`): Dispatches client creation based on `--runtime` flag; supports "docker" (default) and "containerd" (stub, not yet implemented)
+- **Docker client** (`pkg/runtime/docker/`): Concrete implementation using Docker SDK
+- **Chaos commands**: Each action implements `ChaosCommand` interface with `Run(ctx, random)` method; uses `chaos.ContainerClient` global (Phase 4: replace with DI)
 - **Network emulation**: Executes `tc` commands inside a sidecar container via Docker exec
 - **Stress testing**: Two modes — (1) default child-cgroup mode places stress-ng sidecar in target's cgroup via Docker's `--cgroup-parent`; (2) inject-cgroup mode (`--inject-cgroup`) uses `cg-inject` binary to write sidecar PID into target's `cgroup.procs` for shared resource accounting
 - **Target selection**: Container names (exact), comma-separated lists, or `re2:` prefixed regex patterns

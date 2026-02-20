@@ -3,6 +3,7 @@ package engine
 import (
 	"crypto/tls"
 	"fmt"
+	"strings"
 
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/runtime/docker"
@@ -11,7 +12,7 @@ import (
 // NewClient creates a container.Client for the specified runtime.
 // Supported runtimes: "docker". The "containerd" runtime is planned but not yet implemented.
 func NewClient(runtimeName, host string, tlsConfig *tls.Config) (container.Client, error) {
-	switch runtimeName {
+	switch strings.ToLower(runtimeName) {
 	case "docker":
 		return docker.NewClient(host, tlsConfig)
 	case "containerd":

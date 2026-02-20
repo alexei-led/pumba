@@ -133,7 +133,7 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 	mockClient := new(container.MockClient)
 	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1"}
 	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2"}
-	
+
 	gparams := &chaos.GlobalParams{Names: []string{"c1", "c2"}, DryRun: true}
 	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc"}
 
@@ -150,7 +150,7 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 	// However, stretchr/testify mocking is strict.
 	// A better approach is to rely on ListNContainers logic if we could control it,
 	// but here we just want to verify that runNetem is called for one container.
-	
+
 	// We will use a loose match for the container argument
 	mockClient.On("NetemContainer", mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
 		[]string{"loss", "10.00"},

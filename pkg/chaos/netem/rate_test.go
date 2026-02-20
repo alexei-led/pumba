@@ -45,10 +45,10 @@ func TestNewRateCommand_Validation(t *testing.T) {
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
 	tests := []struct {
-		name           string
-		rate           string
-		cellSize       int
-		wantErr        string
+		name     string
+		rate     string
+		cellSize int
+		wantErr  string
 	}{
 		{
 			name:    "valid rate",
