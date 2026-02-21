@@ -52,6 +52,9 @@ func (c *containerdClient) nsCtx(ctx context.Context) context.Context {
 
 // ListContainers lists containers from containerd and applies the filter.
 func (c *containerdClient) ListContainers(ctx context.Context, fn ctr.FilterFunc, opts ctr.ListOpts) ([]*ctr.Container, error) {
+	if len(opts.Labels) > 0 {
+		return nil, fmt.Errorf("containerd runtime: label filtering is not yet implemented")
+	}
 	ctx = c.nsCtx(ctx)
 	containers, err := c.client.Containers(ctx)
 	if err != nil {
@@ -129,10 +132,13 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 	if force {
 		task, err := cntr.Task(ctx, nil)
 		if err == nil {
-			_ = task.Kill(ctx, syscall.SIGKILL)
 			waitCh, wErr := task.Wait(ctx)
+			_ = task.Kill(ctx, syscall.SIGKILL)
 			if wErr == nil {
-				<-waitCh
+				select {
+				case <-waitCh:
+				case <-ctx.Done():
+				}
 			}
 			_, _ = task.Delete(ctx)
 		}
