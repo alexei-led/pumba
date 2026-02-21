@@ -11,4 +11,5 @@ import (
 type apiClient interface {
 	Containers(ctx context.Context, filters ...string) ([]containerd.Container, error)
 	LoadContainer(ctx context.Context, id string) (containerd.Container, error)
+	Close() error
 }

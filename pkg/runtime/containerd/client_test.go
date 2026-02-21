@@ -71,6 +71,10 @@ func (m *mockAPIClient) LoadContainer(ctx context.Context, id string) (container
 	return args.Get(0).(containerd.Container), args.Error(1)
 }
 
+func (m *mockAPIClient) Close() error {
+	return nil
+}
+
 type mockContainer struct {
 	mock.Mock
 }
@@ -780,6 +784,7 @@ func TestExecContainer_StartError(t *testing.T) {
 	exitCh := make(chan containerd.ExitStatus, 1)
 	proc.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	proc.On("Start", mock.Anything).Return(assert.AnError)
+	proc.On("Delete", mock.Anything).Return(nil)
 
 	task := newRunningTask()
 	setupExec(task, proc)
@@ -950,12 +955,14 @@ func TestStressContainer_ExecError(t *testing.T) {
 // --- command builder tests ---
 
 func TestBuildNetemArgs(t *testing.T) {
-	args := buildNetemArgs("eth0", []string{"delay", "100ms"}, nil, nil, nil)
+	args, err := buildNetemArgs("eth0", []string{"delay", "100ms"}, nil, nil, nil)
+	assert.NoError(t, err)
 	assert.Equal(t, []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"}, args)
 }
 
 func TestBuildNetemArgs_WithMultipleCommands(t *testing.T) {
-	args := buildNetemArgs("eth0", []string{"delay", "100ms", "loss", "10%"}, nil, nil, nil)
+	args, err := buildNetemArgs("eth0", []string{"delay", "100ms", "loss", "10%"}, nil, nil, nil)
+	assert.NoError(t, err)
 	assert.Equal(t, []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms", "loss", "10%"}, args)
 }
 
@@ -964,35 +971,44 @@ func TestBuildStopNetemArgs(t *testing.T) {
 	assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "root"}, args)
 }
 
-func TestBuildIPTablesArgs_Basic(t *testing.T) {
-	args := buildIPTablesArgs(
+func TestBuildIPTablesCommands_Basic(t *testing.T) {
+	cmds := buildIPTablesCommands(
 		[]string{"-A", "INPUT"},
 		[]string{"-j", "DROP"},
 		nil, nil, nil, nil,
 	)
-	assert.Equal(t, []string{"-A", "INPUT", "-j", "DROP"}, args)
+	assert.Equal(t, [][]string{{"-A", "INPUT", "-j", "DROP"}}, cmds)
 }
 
-func TestBuildIPTablesArgs_WithIPs(t *testing.T) {
+func TestBuildIPTablesCommands_WithIPs(t *testing.T) {
 	_, srcNet, _ := net.ParseCIDR("10.0.0.0/8")
 	_, dstNet, _ := net.ParseCIDR("192.168.1.0/24")
-	args := buildIPTablesArgs(
+	cmds := buildIPTablesCommands(
 		[]string{"-A", "INPUT"},
 		[]string{"-j", "DROP"},
 		[]*net.IPNet{srcNet},
 		[]*net.IPNet{dstNet},
 		nil, nil,
 	)
-	assert.Equal(t, []string{"-A", "INPUT", "-s", "10.0.0.0/8", "-d", "192.168.1.0/24", "-j", "DROP"}, args)
+	expected := [][]string{
+		{"-A", "INPUT", "-s", "10.0.0.0/8", "-j", "DROP"},
+		{"-A", "INPUT", "-d", "192.168.1.0/24", "-j", "DROP"},
+	}
+	assert.Equal(t, expected, cmds)
 }
 
-func TestBuildIPTablesArgs_WithPorts(t *testing.T) {
-	args := buildIPTablesArgs(
+func TestBuildIPTablesCommands_WithPorts(t *testing.T) {
+	cmds := buildIPTablesCommands(
 		[]string{"-A", "INPUT"},
 		[]string{"-j", "DROP"},
 		nil, nil,
 		[]string{"80", "443"},
 		[]string{"8080"},
 	)
-	assert.Equal(t, []string{"-A", "INPUT", "--sport", "80,443", "--dport=8080", "-j", "DROP"}, args)
+	expected := [][]string{
+		{"-A", "INPUT", "--sport", "80", "-j", "DROP"},
+		{"-A", "INPUT", "--sport", "443", "-j", "DROP"},
+		{"-A", "INPUT", "--dport", "8080", "-j", "DROP"},
+	}
+	assert.Equal(t, expected, cmds)
 }

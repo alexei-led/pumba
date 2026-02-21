@@ -3,7 +3,9 @@ package containerd
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
+	"syscall"
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -36,6 +38,11 @@ func NewClient(socket, namespace string) (ctr.Client, error) {
 		return nil, fmt.Errorf("failed to create containerd client: %w", err)
 	}
 	return &containerdClient{client: c, namespace: namespace}, nil
+}
+
+// Close releases the containerd client connection.
+func (c *containerdClient) Close() error {
+	return c.client.Close()
 }
 
 // nsCtx returns a context with the containerd namespace set.
@@ -119,6 +126,17 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 	if err != nil {
 		return fmt.Errorf("failed to load container %s: %w", container.ID(), err)
 	}
+	if force {
+		task, err := cntr.Task(ctx, nil)
+		if err == nil {
+			_ = task.Kill(ctx, syscall.SIGKILL)
+			waitCh, wErr := task.Wait(ctx)
+			if wErr == nil {
+				<-waitCh
+			}
+			_, _ = task.Delete(ctx)
+		}
+	}
 	return cntr.Delete(ctx, containerd.WithSnapshotCleanup)
 }
 
@@ -165,7 +183,10 @@ func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Co
 	if dryrun {
 		return nil
 	}
-	tcArgs := buildNetemArgs(netInterface, netemCmd, ips, sports, dports)
+	tcArgs, err := buildNetemArgs(netInterface, netemCmd, ips, sports, dports)
+	if err != nil {
+		return err
+	}
 	return c.execInContainer(c.nsCtx(ctx), container.ID(), "tc", tcArgs)
 }
 
@@ -188,8 +209,7 @@ func (c *containerdClient) IPTablesContainer(ctx context.Context, container *ctr
 	if dryrun {
 		return nil
 	}
-	iptArgs := buildIPTablesArgs(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
-	return c.execInContainer(c.nsCtx(ctx), container.ID(), "iptables", iptArgs)
+	return c.runIPTablesCommands(ctx, container.ID(), cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
 }
 
 // StopIPTablesContainer removes iptables rules from a container.
@@ -200,8 +220,18 @@ func (c *containerdClient) StopIPTablesContainer(ctx context.Context, container 
 	if dryrun {
 		return nil
 	}
-	iptArgs := buildIPTablesArgs(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
-	return c.execInContainer(c.nsCtx(ctx), container.ID(), "iptables", iptArgs)
+	return c.runIPTablesCommands(ctx, container.ID(), cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
+}
+
+func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID string,
+	cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string) error {
+	ctx = c.nsCtx(ctx)
+	for _, args := range buildIPTablesCommands(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports) {
+		if err := c.execInContainer(ctx, containerID, "iptables", args); err != nil {
+			return fmt.Errorf("failed to run iptables command: %w", err)
+		}
+	}
+	return nil
 }
 
 // StressContainer runs stress-ng inside a container.
@@ -216,7 +246,11 @@ func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.C
 	go func() {
 		defer close(errCh)
 		defer close(outCh)
-		args := append([]string{"--timeout", fmt.Sprintf("%ds", int(duration.Seconds()))}, stressors...)
+		secs := int(math.Ceil(duration.Seconds()))
+		if secs < 1 {
+			secs = 1
+		}
+		args := append([]string{"--timeout", fmt.Sprintf("%ds", secs)}, stressors...)
 		if err := c.execInContainer(c.nsCtx(ctx), container.ID(), "stress-ng", args); err != nil {
 			errCh <- err
 			return

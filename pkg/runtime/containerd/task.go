@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/v2/pkg/cio"
+	"github.com/containerd/errdefs"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
 )
@@ -55,13 +56,19 @@ func (c *containerdClient) stopTask(ctx context.Context, containerID string, tim
 	select {
 	case <-waitCh:
 		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("context canceled waiting for SIGTERM on %s: %w", containerID, ctx.Err())
 	case <-time.After(timeout):
 		log.WithField("id", containerID).Debug("SIGTERM timeout, sending SIGKILL")
 		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
 			return fmt.Errorf("failed to send SIGKILL to %s: %w", containerID, err)
 		}
-		<-waitCh
-		return nil
+		select {
+		case <-waitCh:
+			return nil
+		case <-ctx.Done():
+			return fmt.Errorf("context canceled waiting for SIGKILL on %s: %w", containerID, ctx.Err())
+		}
 	}
 }
 
@@ -85,7 +92,9 @@ func (c *containerdClient) startTask(ctx context.Context, containerID string) er
 	}
 	task, err := cntr.Task(ctx, nil)
 	if err != nil {
-		// No existing task — create a new one
+		if !errdefs.IsNotFound(err) {
+			return fmt.Errorf("failed to get task for %s: %w", containerID, err)
+		}
 		task, err = cntr.NewTask(ctx, cio.NewCreator(cio.WithStdio))
 		if err != nil {
 			return fmt.Errorf("failed to create task for %s: %w", containerID, err)
@@ -150,6 +159,7 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 	}
 
 	if err := execProcess.Start(ctx); err != nil {
+		_, _ = execProcess.Delete(ctx)
 		return fmt.Errorf("failed to start exec in %s: %w", containerID, err)
 	}
 
