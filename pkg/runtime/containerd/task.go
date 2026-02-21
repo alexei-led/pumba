@@ -68,7 +68,9 @@ func (c *containerdClient) stopTask(ctx context.Context, containerID string, sig
 		return fmt.Errorf("failed to wait on task %s: %w", containerID, err)
 	}
 	if err := task.Kill(ctx, signal); err != nil {
-		return fmt.Errorf("failed to send %s to %s: %w", signal, containerID, err)
+		if !errdefs.IsNotFound(err) {
+			return fmt.Errorf("failed to send %s to %s: %w", signal, containerID, err)
+		}
 	}
 	select {
 	case <-waitCh:
@@ -79,7 +81,9 @@ func (c *containerdClient) stopTask(ctx context.Context, containerID string, sig
 	case <-time.After(timeout):
 		log.WithField("id", containerID).Debug("graceful stop timeout, sending SIGKILL")
 		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
-			return fmt.Errorf("failed to send SIGKILL to %s: %w", containerID, err)
+			if !errdefs.IsNotFound(err) {
+				return fmt.Errorf("failed to send SIGKILL to %s: %w", containerID, err)
+			}
 		}
 		select {
 		case <-waitCh:
@@ -115,7 +119,7 @@ func (c *containerdClient) startTask(ctx context.Context, containerID string) er
 		if !errdefs.IsNotFound(err) {
 			return fmt.Errorf("failed to get task for %s: %w", containerID, err)
 		}
-		task, err = cntr.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+		task, err = cntr.NewTask(ctx, cio.NullIO)
 		if err != nil {
 			return fmt.Errorf("failed to create task for %s: %w", containerID, err)
 		}

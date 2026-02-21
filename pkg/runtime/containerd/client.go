@@ -122,7 +122,16 @@ func (c *containerdClient) RestartContainer(ctx context.Context, container *ctr.
 		return nil
 	}
 	ctx = c.nsCtx(ctx)
-	if err := c.stopTask(ctx, container.ID(), syscall.SIGTERM, timeout); err != nil {
+	sig := syscall.SIGTERM
+	if s := container.StopSignal(); s != "" {
+		parsed, err := parseSignal(s)
+		if err != nil {
+			log.WithError(err).WithField("id", container.ID()).Warn("invalid stop signal, using SIGTERM")
+		} else {
+			sig = parsed
+		}
+	}
+	if err := c.stopTask(ctx, container.ID(), sig, timeout); err != nil {
 		return fmt.Errorf("restart: stop failed: %w", err)
 	}
 	return c.startTask(ctx, container.ID())
