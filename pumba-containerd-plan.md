@@ -46,12 +46,12 @@ The `pkg/container.Client` interface defines focused sub-interfaces (Lister, Lif
 
 ### Task 4: Executor and Network Interfaces
 
-- [ ] Implement `ExecContainer` using containerd task.Exec
-- [ ] Implement `NetemContainer` and `StopNetemContainer` wrapping ExecContainer
-- [ ] Implement `IPTablesContainer` and `StopIPTablesContainer` wrapping ExecContainer
-- [ ] Implement `StressContainer` wrapping ExecContainer
-- [ ] Write unit tests for executor and network methods
-- [ ] Verify `make test` and `make lint` pass
+- [x] Implement `ExecContainer` using containerd task.Exec
+- [x] Implement `NetemContainer` and `StopNetemContainer` wrapping ExecContainer
+- [x] Implement `IPTablesContainer` and `StopIPTablesContainer` wrapping ExecContainer
+- [x] Implement `StressContainer` wrapping ExecContainer
+- [x] Write unit tests for executor and network methods
+- [x] Verify `make test` and `make lint` pass
 
 ### Task 5: Final Verification
 

@@ -2,6 +2,7 @@ package containerd
 
 import (
 	"context"
+	"net"
 	"syscall"
 	"testing"
 	"time"
@@ -21,6 +22,40 @@ import (
 )
 
 // --- mocks ---
+
+type mockProcess struct {
+	mock.Mock
+}
+
+func (m *mockProcess) ID() string   { return "exec-proc" }
+func (m *mockProcess) Pid() uint32  { return 0 }
+func (m *mockProcess) IO() cio.IO   { return nil }
+func (m *mockProcess) Status(context.Context) (containerd.Status, error) {
+	return containerd.Status{}, nil
+}
+func (m *mockProcess) CloseIO(context.Context, ...containerd.IOCloserOpts) error { return nil }
+func (m *mockProcess) Resize(context.Context, uint32, uint32) error              { return nil }
+
+func (m *mockProcess) Start(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
+}
+
+func (m *mockProcess) Kill(ctx context.Context, sig syscall.Signal, _ ...containerd.KillOpts) error {
+	return m.Called(ctx, sig).Error(0)
+}
+
+func (m *mockProcess) Wait(ctx context.Context) (<-chan containerd.ExitStatus, error) {
+	args := m.Called(ctx)
+	if ch := args.Get(0); ch != nil {
+		return ch.(<-chan containerd.ExitStatus), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *mockProcess) Delete(ctx context.Context, _ ...containerd.ProcessDeleteOpts) (*containerd.ExitStatus, error) {
+	args := m.Called(ctx)
+	return nil, args.Error(0)
+}
 
 type mockAPIClient struct {
 	mock.Mock
@@ -123,8 +158,12 @@ func (m *mockTask) Pause(ctx context.Context) error {
 func (m *mockTask) Resume(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
-func (m *mockTask) Exec(context.Context, string, *specs.Process, cio.Creator) (containerd.Process, error) {
-	return nil, nil
+func (m *mockTask) Exec(ctx context.Context, id string, pspec *specs.Process, _ cio.Creator) (containerd.Process, error) {
+	args := m.Called(ctx, id, pspec)
+	if p := args.Get(0); p != nil {
+		return p.(containerd.Process), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 func (m *mockTask) Pids(context.Context) ([]containerd.ProcessInfo, error) { return nil, nil }
 func (m *mockTask) Checkpoint(context.Context, ...containerd.CheckpointTaskOpts) (containerd.Image, error) {
@@ -631,4 +670,329 @@ func TestParseSignal(t *testing.T) {
 			assert.Equal(t, tt.expected, parseSignal(tt.input))
 		})
 	}
+}
+
+// --- exec helpers ---
+
+// newSuccessProcess creates a mock process that starts, waits, and exits with code 0.
+func newSuccessProcess() *mockProcess {
+	p := new(mockProcess)
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- *containerd.NewExitStatus(0, time.Now(), nil)
+	p.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	p.On("Start", mock.Anything).Return(nil)
+	p.On("Delete", mock.Anything).Return(nil)
+	return p
+}
+
+// newFailProcess creates a mock process that exits with a non-zero code.
+func newFailProcess(code uint32) *mockProcess {
+	p := new(mockProcess)
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- *containerd.NewExitStatus(code, time.Now(), nil)
+	p.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	p.On("Start", mock.Anything).Return(nil)
+	p.On("Delete", mock.Anything).Return(nil)
+	return p
+}
+
+// setupExec wires a mock task to return the given process on Exec.
+func setupExec(task *mockTask, proc *mockProcess) {
+	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(proc, nil)
+}
+
+// --- exec tests ---
+
+func TestExecContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", []string{"-la"}, true)
+	assert.NoError(t, err)
+}
+
+func TestExecContainer_Success(t *testing.T) {
+	proc := newSuccessProcess()
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "echo", []string{"hello"}, false)
+	assert.NoError(t, err)
+	proc.AssertCalled(t, "Start", mock.Anything)
+	proc.AssertCalled(t, "Delete", mock.Anything)
+}
+
+func TestExecContainer_NonZeroExit(t *testing.T) {
+	proc := newFailProcess(1)
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "false", nil, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "exited with code 1")
+}
+
+func TestExecContainer_LoadError(t *testing.T) {
+	api := new(mockAPIClient)
+	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+
+	client := newTestClient(api)
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load container")
+}
+
+func TestExecContainer_TaskError(t *testing.T) {
+	mc := newMockContainer("c1", "nginx", nil, nil) // nil task -> ErrNotFound
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get task")
+}
+
+func TestExecContainer_ExecError(t *testing.T) {
+	task := newRunningTask()
+	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to exec")
+}
+
+func TestExecContainer_StartError(t *testing.T) {
+	proc := new(mockProcess)
+	exitCh := make(chan containerd.ExitStatus, 1)
+	proc.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	proc.On("Start", mock.Anything).Return(assert.AnError)
+
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to start exec")
+}
+
+// --- netem tests ---
+
+func TestNetemContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
+		[]string{"delay", "100ms"}, nil, nil, nil, 0, "", false, true)
+	assert.NoError(t, err)
+}
+
+func TestNetemContainer_Success(t *testing.T) {
+	proc := newSuccessProcess()
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
+		[]string{"delay", "100ms"}, nil, nil, nil, 0, "", false, false)
+	assert.NoError(t, err)
+}
+
+func TestStopNetemContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.StopNetemContainer(context.Background(), testContainer("c1"), "eth0",
+		nil, nil, nil, "", false, true)
+	assert.NoError(t, err)
+}
+
+func TestStopNetemContainer_Success(t *testing.T) {
+	proc := newSuccessProcess()
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StopNetemContainer(context.Background(), testContainer("c1"), "eth0",
+		nil, nil, nil, "", false, false)
+	assert.NoError(t, err)
+}
+
+// --- iptables tests ---
+
+func TestIPTablesContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
+		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, true)
+	assert.NoError(t, err)
+}
+
+func TestIPTablesContainer_Success(t *testing.T) {
+	proc := newSuccessProcess()
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
+		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
+	assert.NoError(t, err)
+}
+
+func TestStopIPTablesContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.StopIPTablesContainer(context.Background(), testContainer("c1"),
+		[]string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, true)
+	assert.NoError(t, err)
+}
+
+func TestStopIPTablesContainer_Success(t *testing.T) {
+	proc := newSuccessProcess()
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StopIPTablesContainer(context.Background(), testContainer("c1"),
+		[]string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, false)
+	assert.NoError(t, err)
+}
+
+// --- stress tests ---
+
+func TestStressContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, true)
+	assert.NoError(t, err)
+	assert.Equal(t, "c1", id)
+	assert.Nil(t, outCh)
+	assert.Nil(t, errCh)
+}
+
+func TestStressContainer_Success(t *testing.T) {
+	proc := newSuccessProcess()
+	task := newRunningTask()
+	setupExec(task, proc)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, false)
+	assert.NoError(t, err)
+	assert.Equal(t, "c1", id)
+
+	select {
+	case out := <-outCh:
+		assert.Equal(t, "c1", out)
+	case e := <-errCh:
+		t.Fatalf("unexpected error: %v", e)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for stress result")
+	}
+}
+
+func TestStressContainer_ExecError(t *testing.T) {
+	task := newRunningTask()
+	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, false)
+	assert.NoError(t, err)
+	assert.Equal(t, "c1", id)
+
+	select {
+	case e := <-errCh:
+		assert.Error(t, e)
+	case <-outCh:
+		t.Fatal("expected error, got success")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for stress error")
+	}
+}
+
+// --- command builder tests ---
+
+func TestBuildNetemArgs(t *testing.T) {
+	args := buildNetemArgs("eth0", []string{"delay", "100ms"}, nil, nil, nil)
+	assert.Equal(t, []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"}, args)
+}
+
+func TestBuildNetemArgs_WithMultipleCommands(t *testing.T) {
+	args := buildNetemArgs("eth0", []string{"delay", "100ms", "loss", "10%"}, nil, nil, nil)
+	assert.Equal(t, []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms", "loss", "10%"}, args)
+}
+
+func TestBuildStopNetemArgs(t *testing.T) {
+	args := buildStopNetemArgs("eth0")
+	assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "root"}, args)
+}
+
+func TestBuildIPTablesArgs_Basic(t *testing.T) {
+	args := buildIPTablesArgs(
+		[]string{"-A", "INPUT"},
+		[]string{"-j", "DROP"},
+		nil, nil, nil, nil,
+	)
+	assert.Equal(t, []string{"-A", "INPUT", "-j", "DROP"}, args)
+}
+
+func TestBuildIPTablesArgs_WithIPs(t *testing.T) {
+	_, srcNet, _ := net.ParseCIDR("10.0.0.0/8")
+	_, dstNet, _ := net.ParseCIDR("192.168.1.0/24")
+	args := buildIPTablesArgs(
+		[]string{"-A", "INPUT"},
+		[]string{"-j", "DROP"},
+		[]*net.IPNet{srcNet},
+		[]*net.IPNet{dstNet},
+		nil, nil,
+	)
+	assert.Equal(t, []string{"-A", "INPUT", "-s", "10.0.0.0/8", "-d", "192.168.1.0/24", "-j", "DROP"}, args)
+}
+
+func TestBuildIPTablesArgs_WithPorts(t *testing.T) {
+	args := buildIPTablesArgs(
+		[]string{"-A", "INPUT"},
+		[]string{"-j", "DROP"},
+		nil, nil,
+		[]string{"80", "443"},
+		[]string{"8080"},
+	)
+	assert.Equal(t, []string{"-A", "INPUT", "--sport", "80,443", "--dport=8080", "-j", "DROP"}, args)
 }
