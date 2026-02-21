@@ -4,6 +4,7 @@ import (
 	"context"
 	"syscall"
 	"testing"
+	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	containerd "github.com/containerd/containerd/v2/client"
@@ -56,9 +57,17 @@ func (m *mockContainer) Task(ctx context.Context, _ cio.Attach) (containerd.Task
 	return nil, args.Error(1)
 }
 
-func (m *mockContainer) Delete(context.Context, ...containerd.DeleteOpts) error { return nil }
-func (m *mockContainer) NewTask(context.Context, cio.Creator, ...containerd.NewTaskOpts) (containerd.Task, error) {
-	return nil, nil
+func (m *mockContainer) Delete(ctx context.Context, _ ...containerd.DeleteOpts) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *mockContainer) NewTask(ctx context.Context, _ cio.Creator, _ ...containerd.NewTaskOpts) (containerd.Task, error) {
+	args := m.Called(ctx)
+	if t := args.Get(0); t != nil {
+		return t.(containerd.Task), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 func (m *mockContainer) Spec(context.Context) (*oci.Spec, error)                                     { return nil, nil }
 func (m *mockContainer) Image(context.Context) (containerd.Image, error)                             { return nil, nil }
@@ -82,17 +91,38 @@ func (m *mockTask) Status(ctx context.Context) (containerd.Status, error) {
 
 func (m *mockTask) ID() string                                                        { return "" }
 func (m *mockTask) Pid() uint32                                                       { return 0 }
-func (m *mockTask) Start(context.Context) error                                       { return nil }
-func (m *mockTask) Delete(context.Context, ...containerd.ProcessDeleteOpts) (*containerd.ExitStatus, error) {
-	return nil, nil
+func (m *mockTask) Start(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
 }
-func (m *mockTask) Kill(context.Context, syscall.Signal, ...containerd.KillOpts) error { return nil }
-func (m *mockTask) Wait(context.Context) (<-chan containerd.ExitStatus, error)         { return nil, nil }
-func (m *mockTask) CloseIO(context.Context, ...containerd.IOCloserOpts) error          { return nil }
-func (m *mockTask) Resize(context.Context, uint32, uint32) error                       { return nil }
-func (m *mockTask) IO() cio.IO                                                        { return nil }
-func (m *mockTask) Pause(context.Context) error                                       { return nil }
-func (m *mockTask) Resume(context.Context) error                                      { return nil }
+
+func (m *mockTask) Delete(ctx context.Context, _ ...containerd.ProcessDeleteOpts) (*containerd.ExitStatus, error) {
+	args := m.Called(ctx)
+	return nil, args.Error(0)
+}
+
+func (m *mockTask) Kill(ctx context.Context, sig syscall.Signal, _ ...containerd.KillOpts) error {
+	return m.Called(ctx, sig).Error(0)
+}
+
+func (m *mockTask) Wait(ctx context.Context) (<-chan containerd.ExitStatus, error) {
+	args := m.Called(ctx)
+	if ch := args.Get(0); ch != nil {
+		return ch.(<-chan containerd.ExitStatus), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *mockTask) CloseIO(context.Context, ...containerd.IOCloserOpts) error { return nil }
+func (m *mockTask) Resize(context.Context, uint32, uint32) error              { return nil }
+func (m *mockTask) IO() cio.IO                                               { return nil }
+
+func (m *mockTask) Pause(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
+}
+
+func (m *mockTask) Resume(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
+}
 func (m *mockTask) Exec(context.Context, string, *specs.Process, cio.Creator) (containerd.Process, error) {
 	return nil, nil
 }
@@ -294,4 +324,311 @@ func TestListContainers_EmptyList(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
+}
+
+// --- lifecycle helpers ---
+
+func testContainer(id string) *ctr.Container {
+	return &ctr.Container{
+		ContainerID:   id,
+		ContainerName: id,
+		State:         ctr.StateRunning,
+	}
+}
+
+// setupLoadContainer wires api.LoadContainer to return mc for the given id.
+func setupLoadContainer(api *mockAPIClient, id string, mc *mockContainer) {
+	api.On("LoadContainer", mock.Anything, id).Return(mc, nil)
+}
+
+// --- lifecycle tests ---
+
+func TestStopContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.StopContainer(context.Background(), testContainer("c1"), 10, true)
+	assert.NoError(t, err)
+}
+
+func TestStopContainer_Success(t *testing.T) {
+	task := newRunningTask()
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGTERM)
+}
+
+func TestStopContainer_Timeout_SIGKILL(t *testing.T) {
+	task := newRunningTask()
+	exitCh := make(chan containerd.ExitStatus, 1)
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+	task.On("Kill", mock.Anything, syscall.SIGKILL).Run(func(_ mock.Arguments) {
+		exitCh <- containerd.ExitStatus{}
+	}).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StopContainer(context.Background(), testContainer("c1"), 0, false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
+}
+
+func TestStopContainer_LoadError(t *testing.T) {
+	api := new(mockAPIClient)
+	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+
+	client := newTestClient(api)
+	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load container")
+}
+
+func TestKillContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.KillContainer(context.Background(), testContainer("c1"), "SIGTERM", true)
+	assert.NoError(t, err)
+}
+
+func TestKillContainer_Success(t *testing.T) {
+	task := newRunningTask()
+	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.KillContainer(context.Background(), testContainer("c1"), "SIGKILL", false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
+}
+
+func TestKillContainer_SignalParsing(t *testing.T) {
+	task := newRunningTask()
+	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	// "term" without SIG prefix should be parsed to SIGTERM
+	err := client.KillContainer(context.Background(), testContainer("c1"), "term", false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGTERM)
+}
+
+func TestKillContainer_UnknownSignal_DefaultsSIGKILL(t *testing.T) {
+	task := newRunningTask()
+	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.KillContainer(context.Background(), testContainer("c1"), "NONSENSE", false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
+}
+
+func TestStartContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.StartContainer(context.Background(), testContainer("c1"), true)
+	assert.NoError(t, err)
+}
+
+func TestStartContainer_ExistingTask(t *testing.T) {
+	task := newRunningTask()
+	task.On("Start", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StartContainer(context.Background(), testContainer("c1"), false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Start", mock.Anything)
+}
+
+func TestStartContainer_NewTask(t *testing.T) {
+	newTask := new(mockTask)
+	newTask.On("Start", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, nil) // nil task -> ErrNotFound
+	mc.On("NewTask", mock.Anything).Return(newTask, nil)
+
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StartContainer(context.Background(), testContainer("c1"), false)
+	assert.NoError(t, err)
+	newTask.AssertCalled(t, "Start", mock.Anything)
+}
+
+func TestRestartContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, true)
+	assert.NoError(t, err)
+}
+
+func TestRestartContainer_Success(t *testing.T) {
+	// Stop phase: task for the stop call
+	stopTask := new(mockTask)
+	stopTask.On("Status", mock.Anything).Return(containerd.Status{Status: containerd.Running}, nil)
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- containerd.ExitStatus{}
+	stopTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	stopTask.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+
+	// Start phase: task for the start call
+	startTask := new(mockTask)
+	startTask.On("Start", mock.Anything).Return(nil)
+
+	// Two LoadContainer calls: one for stop, one for start
+	mcStop := newMockContainer("c1", "nginx", nil, stopTask)
+	mcStart := newMockContainer("c1", "nginx", nil, startTask)
+
+	api := new(mockAPIClient)
+	api.On("LoadContainer", mock.Anything, "c1").Return(mcStop, nil).Once()
+	api.On("LoadContainer", mock.Anything, "c1").Return(mcStart, nil).Once()
+
+	client := newTestClient(api)
+	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, false)
+	assert.NoError(t, err)
+}
+
+func TestRestartContainer_StopFails(t *testing.T) {
+	api := new(mockAPIClient)
+	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+
+	client := newTestClient(api)
+	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "restart: stop failed")
+}
+
+func TestRemoveContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, true)
+	assert.NoError(t, err)
+}
+
+func TestRemoveContainer_Success(t *testing.T) {
+	mc := newMockContainer("c1", "nginx", nil, nil)
+	mc.On("Delete", mock.Anything).Return(nil)
+
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
+	assert.NoError(t, err)
+	mc.AssertCalled(t, "Delete", mock.Anything)
+}
+
+func TestRemoveContainer_LoadError(t *testing.T) {
+	api := new(mockAPIClient)
+	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+
+	client := newTestClient(api)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load container")
+}
+
+func TestPauseContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.PauseContainer(context.Background(), testContainer("c1"), true)
+	assert.NoError(t, err)
+}
+
+func TestPauseContainer_Success(t *testing.T) {
+	task := newRunningTask()
+	task.On("Pause", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.PauseContainer(context.Background(), testContainer("c1"), false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Pause", mock.Anything)
+}
+
+func TestUnpauseContainer_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.UnpauseContainer(context.Background(), testContainer("c1"), true)
+	assert.NoError(t, err)
+}
+
+func TestUnpauseContainer_Success(t *testing.T) {
+	task := newRunningTask()
+	task.On("Resume", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.UnpauseContainer(context.Background(), testContainer("c1"), false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Resume", mock.Anything)
+}
+
+func TestStopContainerWithID_Dryrun(t *testing.T) {
+	client := newTestClient(new(mockAPIClient))
+	err := client.StopContainerWithID(context.Background(), "c1", 10*time.Second, true)
+	assert.NoError(t, err)
+}
+
+func TestStopContainerWithID_Success(t *testing.T) {
+	task := newRunningTask()
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StopContainerWithID(context.Background(), "c1", 10*time.Second, false)
+	assert.NoError(t, err)
+}
+
+func TestParseSignal(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected syscall.Signal
+	}{
+		{"SIGTERM", syscall.SIGTERM},
+		{"SIGKILL", syscall.SIGKILL},
+		{"term", syscall.SIGTERM},
+		{"kill", syscall.SIGKILL},
+		{"SIGUSR1", syscall.SIGUSR1},
+		{"hup", syscall.SIGHUP},
+		{"unknown", syscall.SIGKILL},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.Equal(t, tt.expected, parseSignal(tt.input))
+		})
+	}
 }

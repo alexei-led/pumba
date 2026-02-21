@@ -36,13 +36,13 @@ The `pkg/container.Client` interface defines focused sub-interfaces (Lister, Lif
 
 ### Task 3: Lifecycle Interface
 
-- [ ] Implement `StopContainer`, `KillContainer`, `StartContainer`
-- [ ] Implement `RestartContainer`, `RemoveContainer`
-- [ ] Implement `PauseContainer`, `UnpauseContainer`
-- [ ] Implement `StopContainerWithID`
-- [ ] Handle task/process lifecycle via containerd API
-- [ ] Write unit tests for lifecycle methods
-- [ ] Verify `make test` and `make lint` pass
+- [x] Implement `StopContainer`, `KillContainer`, `StartContainer`
+- [x] Implement `RestartContainer`, `RemoveContainer`
+- [x] Implement `PauseContainer`, `UnpauseContainer`
+- [x] Implement `StopContainerWithID`
+- [x] Handle task/process lifecycle via containerd API
+- [x] Write unit tests for lifecycle methods
+- [x] Verify `make test` and `make lint` pass
 
 ### Task 4: Executor and Network Interfaces
 
