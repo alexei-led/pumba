@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/errdefs"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -16,72 +17,91 @@ import (
 
 // signalMap maps signal names to syscall signals.
 var signalMap = map[string]syscall.Signal{
-	"SIGTERM": syscall.SIGTERM,
-	"SIGKILL": syscall.SIGKILL,
-	"SIGINT":  syscall.SIGINT,
+	"SIGABRT": syscall.SIGABRT,
+	"SIGALRM": syscall.SIGALRM,
+	"SIGCONT": syscall.SIGCONT,
 	"SIGHUP":  syscall.SIGHUP,
+	"SIGINT":  syscall.SIGINT,
+	"SIGKILL": syscall.SIGKILL,
+	"SIGPIPE": syscall.SIGPIPE,
+	"SIGQUIT": syscall.SIGQUIT,
+	"SIGSTOP": syscall.SIGSTOP,
+	"SIGTERM": syscall.SIGTERM,
+	"SIGTRAP": syscall.SIGTRAP,
 	"SIGUSR1": syscall.SIGUSR1,
 	"SIGUSR2": syscall.SIGUSR2,
-	"SIGSTOP": syscall.SIGSTOP,
 }
 
-func parseSignal(signal string) syscall.Signal {
+func parseSignal(signal string) (syscall.Signal, error) {
 	signal = strings.ToUpper(signal)
 	if !strings.HasPrefix(signal, "SIG") {
 		signal = "SIG" + signal
 	}
 	if sig, ok := signalMap[signal]; ok {
-		return sig
+		return sig, nil
 	}
-	return syscall.SIGKILL
+	return 0, fmt.Errorf("unknown signal: %s", signal)
 }
 
-func (c *containerdClient) stopTask(ctx context.Context, containerID string, timeout time.Duration) error {
+// killTimeout is the maximum time to wait for SIGKILL to take effect.
+const killTimeout = 30 * time.Second
+
+func (c *containerdClient) getTask(ctx context.Context, containerID string) (containerd.Task, error) {
 	cntr, err := c.client.LoadContainer(ctx, containerID)
 	if err != nil {
-		return fmt.Errorf("failed to load container %s: %w", containerID, err)
+		return nil, fmt.Errorf("failed to load container %s: %w", containerID, err)
 	}
 	task, err := cntr.Task(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get task for %s: %w", containerID, err)
+		return nil, fmt.Errorf("failed to get task for %s: %w", containerID, err)
+	}
+	return task, nil
+}
+
+func (c *containerdClient) stopTask(ctx context.Context, containerID string, signal syscall.Signal, timeout time.Duration) error {
+	task, err := c.getTask(ctx, containerID)
+	if err != nil {
+		return err
 	}
 	waitCh, err := task.Wait(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to wait on task %s: %w", containerID, err)
 	}
-	// Send SIGTERM first
-	if err := task.Kill(ctx, syscall.SIGTERM); err != nil {
-		return fmt.Errorf("failed to send SIGTERM to %s: %w", containerID, err)
+	if err := task.Kill(ctx, signal); err != nil {
+		return fmt.Errorf("failed to send %s to %s: %w", signal, containerID, err)
 	}
 	select {
 	case <-waitCh:
+		_, _ = task.Delete(ctx)
 		return nil
 	case <-ctx.Done():
-		return fmt.Errorf("context canceled waiting for SIGTERM on %s: %w", containerID, ctx.Err())
+		return fmt.Errorf("context canceled waiting for %s on %s: %w", signal, containerID, ctx.Err())
 	case <-time.After(timeout):
-		log.WithField("id", containerID).Debug("SIGTERM timeout, sending SIGKILL")
+		log.WithField("id", containerID).Debug("graceful stop timeout, sending SIGKILL")
 		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
 			return fmt.Errorf("failed to send SIGKILL to %s: %w", containerID, err)
 		}
 		select {
 		case <-waitCh:
+			_, _ = task.Delete(ctx)
 			return nil
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled waiting for SIGKILL on %s: %w", containerID, ctx.Err())
+		case <-time.After(killTimeout):
+			return fmt.Errorf("timeout waiting for SIGKILL on %s", containerID)
 		}
 	}
 }
 
 func (c *containerdClient) killTask(ctx context.Context, containerID, signal string) error {
-	cntr, err := c.client.LoadContainer(ctx, containerID)
+	task, err := c.getTask(ctx, containerID)
 	if err != nil {
-		return fmt.Errorf("failed to load container %s: %w", containerID, err)
+		return err
 	}
-	task, err := cntr.Task(ctx, nil)
+	sig, err := parseSignal(signal)
 	if err != nil {
-		return fmt.Errorf("failed to get task for %s: %w", containerID, err)
+		return fmt.Errorf("invalid signal for %s: %w", containerID, err)
 	}
-	sig := parseSignal(signal)
 	return task.Kill(ctx, sig)
 }
 
@@ -104,37 +124,25 @@ func (c *containerdClient) startTask(ctx context.Context, containerID string) er
 }
 
 func (c *containerdClient) pauseTask(ctx context.Context, containerID string) error {
-	cntr, err := c.client.LoadContainer(ctx, containerID)
+	task, err := c.getTask(ctx, containerID)
 	if err != nil {
-		return fmt.Errorf("failed to load container %s: %w", containerID, err)
-	}
-	task, err := cntr.Task(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get task for %s: %w", containerID, err)
+		return err
 	}
 	return task.Pause(ctx)
 }
 
 func (c *containerdClient) resumeTask(ctx context.Context, containerID string) error {
-	cntr, err := c.client.LoadContainer(ctx, containerID)
+	task, err := c.getTask(ctx, containerID)
 	if err != nil {
-		return fmt.Errorf("failed to load container %s: %w", containerID, err)
-	}
-	task, err := cntr.Task(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get task for %s: %w", containerID, err)
+		return err
 	}
 	return task.Resume(ctx)
 }
 
 func (c *containerdClient) execInContainer(ctx context.Context, containerID, command string, args []string) error {
-	cntr, err := c.client.LoadContainer(ctx, containerID)
+	task, err := c.getTask(ctx, containerID)
 	if err != nil {
-		return fmt.Errorf("failed to load container %s: %w", containerID, err)
-	}
-	task, err := cntr.Task(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get task for %s: %w", containerID, err)
+		return err
 	}
 
 	cmdArgs := append([]string{command}, args...)
@@ -156,6 +164,7 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 
 	exitCh, err := execProcess.Wait(ctx)
 	if err != nil {
+		_, _ = execProcess.Delete(ctx)
 		return fmt.Errorf("failed to wait on exec in %s: %w", containerID, err)
 	}
 

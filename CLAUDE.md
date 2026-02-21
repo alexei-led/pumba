@@ -29,6 +29,7 @@ Integration tests use [bats](https://github.com/bats-core/bats-core) and run ins
 - **Go version:** 1.26 (see go.mod)
 - **CLI framework:** `github.com/urfave/cli` (v1)
 - **Docker SDK:** `github.com/docker/docker` v28.5.2
+- **Containerd SDK:** `github.com/containerd/containerd/v2` (containerd runtime support)
 - **Error handling:** `github.com/pkg/errors` (deprecated — migrate to `fmt.Errorf` with `%w`)
 - **Logging:** `github.com/sirupsen/logrus`
 - **Testing:** `github.com/stretchr/testify` (assert, mock, require)
@@ -52,7 +53,10 @@ pkg/
     iptables/cmd/      — CLI command builders for iptables
     stress/            — stress-ng based resource stress
     stress/cmd/        — CLI command builder for stress
-  container/           — Docker client abstraction, container types, filtering
+  container/           — Container model, interfaces (Client, Lister, Lifecycle, Executor, Netem, etc.), filtering
+  runtime/
+    docker/            — Docker runtime implementation of container.Client
+    containerd/        — Containerd runtime implementation of container.Client
   util/                — Shared utilities (IP/port parsing)
 mocks/                 — Generated mock files (mockery)
 tests/                 — Bats integration tests
@@ -63,8 +67,9 @@ examples/              — Demo scripts
 
 ## Architecture
 
-- **Container client** (`pkg/container/client.go`): Interface over Docker API for listing, killing, stopping, pausing, exec, netem, stress operations
-- **Docker client** (`pkg/container/docker_client.go`): Concrete implementation using Docker SDK
+- **Container interfaces** (`pkg/container/client.go`): Focused sub-interfaces (Lister, Lifecycle, Executor, Netem, IPTables, Stressor) composed into a unified Client interface
+- **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client
+- **Containerd runtime** (`pkg/runtime/containerd/`): Containerd implementation of container.Client (socket: `/run/containerd/containerd.sock`, namespace: `k8s.io`)
 - **Chaos commands**: Each action implements `ChaosCommand` interface with `Run(ctx, random)` method
 - **Network emulation**: Executes `tc` commands inside a sidecar container via Docker exec
 - **Stress testing**: Two modes — (1) default child-cgroup mode places stress-ng sidecar in target's cgroup via Docker's `--cgroup-parent`; (2) inject-cgroup mode (`--inject-cgroup`) uses `cg-inject` binary to write sidecar PID into target's `cgroup.procs` for shared resource accounting

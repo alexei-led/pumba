@@ -42,18 +42,12 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 		}
 	}
 
-	labels := info.Labels
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
 	return &ctr.Container{
 		ContainerID:   c.ID(),
 		ContainerName: c.ID(),
 		Image:         info.Image,
 		ImageID:       info.Image,
 		State:         state,
-		Labels:        labels,
-		Networks:      make(map[string]ctr.NetworkLink),
+		Labels:        info.Labels,
 	}, false, nil
 }

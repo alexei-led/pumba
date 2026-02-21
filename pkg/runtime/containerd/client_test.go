@@ -355,7 +355,6 @@ func TestListContainers_ContainerConversion(t *testing.T) {
 	assert.Equal(t, "myapp:v2", c.ImageID)
 	assert.Equal(t, ctr.StateRunning, c.State)
 	assert.Equal(t, labels, c.Labels)
-	assert.NotNil(t, c.Networks)
 }
 
 func TestListContainers_EmptyList(t *testing.T) {
@@ -398,6 +397,7 @@ func TestStopContainer_Success(t *testing.T) {
 	exitCh <- containerd.ExitStatus{}
 	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
 	api := new(mockAPIClient)
@@ -417,6 +417,7 @@ func TestStopContainer_Timeout_SIGKILL(t *testing.T) {
 	task.On("Kill", mock.Anything, syscall.SIGKILL).Run(func(_ mock.Arguments) {
 		exitCh <- containerd.ExitStatus{}
 	}).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
 	api := new(mockAPIClient)
@@ -473,18 +474,16 @@ func TestKillContainer_SignalParsing(t *testing.T) {
 	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGTERM)
 }
 
-func TestKillContainer_UnknownSignal_DefaultsSIGKILL(t *testing.T) {
+func TestKillContainer_UnknownSignal_ReturnsError(t *testing.T) {
 	task := newRunningTask()
-	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
-
 	mc := newMockContainer("c1", "nginx", nil, task)
 	api := new(mockAPIClient)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
 	err := client.KillContainer(context.Background(), testContainer("c1"), "NONSENSE", false)
-	assert.NoError(t, err)
-	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid signal")
 }
 
 func TestStartContainer_Dryrun(t *testing.T) {
@@ -537,6 +536,7 @@ func TestRestartContainer_Success(t *testing.T) {
 	exitCh <- containerd.ExitStatus{}
 	stopTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	stopTask.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+	stopTask.On("Delete", mock.Anything).Return(nil)
 
 	// Start phase: task for the start call
 	startTask := new(mockTask)
@@ -646,6 +646,7 @@ func TestStopContainerWithID_Success(t *testing.T) {
 	exitCh <- containerd.ExitStatus{}
 	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
 	api := new(mockAPIClient)
@@ -667,13 +668,22 @@ func TestParseSignal(t *testing.T) {
 		{"kill", syscall.SIGKILL},
 		{"SIGUSR1", syscall.SIGUSR1},
 		{"hup", syscall.SIGHUP},
-		{"unknown", syscall.SIGKILL},
+		{"SIGQUIT", syscall.SIGQUIT},
+		{"SIGABRT", syscall.SIGABRT},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			assert.Equal(t, tt.expected, parseSignal(tt.input))
+			sig, err := parseSignal(tt.input)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, sig)
 		})
 	}
+}
+
+func TestParseSignal_UnknownReturnsError(t *testing.T) {
+	_, err := parseSignal("NONSENSE")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown signal")
 }
 
 // --- exec helpers ---
@@ -1011,4 +1021,109 @@ func TestBuildIPTablesCommands_WithPorts(t *testing.T) {
 		{"-A", "INPUT", "--dport", "8080", "-j", "DROP"},
 	}
 	assert.Equal(t, expected, cmds)
+}
+
+// --- additional coverage ---
+
+func TestRemoveContainer_Force(t *testing.T) {
+	task := newRunningTask()
+	waitCh := make(chan containerd.ExitStatus, 1)
+	waitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(waitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	mc.On("Delete", mock.Anything).Return(nil)
+
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), true, false, false, false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
+	task.AssertCalled(t, "Delete", mock.Anything)
+	mc.AssertCalled(t, "Delete", mock.Anything)
+}
+
+func TestListContainers_LabelsNotSupported(t *testing.T) {
+	api := new(mockAPIClient)
+	client := newTestClient(api)
+	_, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{
+		Labels: []string{"app=web"},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "label filtering is not yet implemented")
+}
+
+func TestBuildNetemArgs_RejectsIPFiltering(t *testing.T) {
+	_, srcNet, _ := net.ParseCIDR("10.0.0.0/8")
+	_, err := buildNetemArgs("eth0", []string{"delay", "100ms"}, []*net.IPNet{srcNet}, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "IP/port filtering for netem is not yet implemented")
+}
+
+func TestBuildNetemArgs_RejectsPortFiltering(t *testing.T) {
+	_, err := buildNetemArgs("eth0", []string{"delay", "100ms"}, nil, []string{"80"}, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "IP/port filtering for netem is not yet implemented")
+}
+
+func TestIPTablesContainer_ExecError(t *testing.T) {
+	task := newRunningTask()
+	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
+		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to run iptables command")
+}
+
+func TestStopContainer_HonorsStopSignal(t *testing.T) {
+	task := newRunningTask()
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGHUP).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	container := &ctr.Container{
+		ContainerID:   "c1",
+		ContainerName: "c1",
+		State:         ctr.StateRunning,
+		Labels:        map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGHUP"},
+	}
+
+	client := newTestClient(api)
+	err := client.StopContainer(context.Background(), container, 10, false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGHUP)
+}
+
+func TestStopContainer_TaskDeleteCalledAfterExit(t *testing.T) {
+	task := newRunningTask()
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
+	assert.NoError(t, err)
+	task.AssertCalled(t, "Delete", mock.Anything)
 }

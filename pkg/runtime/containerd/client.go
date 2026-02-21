@@ -11,6 +11,7 @@ import (
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
+	"github.com/containerd/errdefs"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -78,13 +79,22 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn ctr.FilterFunc
 	return result, nil
 }
 
-// StopContainer stops a container by sending SIGTERM to its task and waiting.
+// StopContainer stops a container by sending its configured stop signal and waiting.
 func (c *containerdClient) StopContainer(ctx context.Context, container *ctr.Container, timeout int, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "timeout": timeout}).Debug("stopping containerd container")
+	sig := syscall.SIGTERM
+	if s := container.StopSignal(); s != "" {
+		parsed, err := parseSignal(s)
+		if err != nil {
+			log.WithError(err).WithField("id", container.ID()).Warn("invalid stop signal, using SIGTERM")
+		} else {
+			sig = parsed
+		}
+	}
+	log.WithFields(log.Fields{"id": container.ID(), "timeout": timeout, "signal": sig}).Debug("stopping containerd container")
 	if dryrun {
 		return nil
 	}
-	return c.stopTask(c.nsCtx(ctx), container.ID(), time.Duration(timeout)*time.Second)
+	return c.stopTask(c.nsCtx(ctx), container.ID(), sig, time.Duration(timeout)*time.Second)
 }
 
 // KillContainer sends a signal to the container's task.
@@ -112,7 +122,7 @@ func (c *containerdClient) RestartContainer(ctx context.Context, container *ctr.
 		return nil
 	}
 	ctx = c.nsCtx(ctx)
-	if err := c.stopTask(ctx, container.ID(), timeout); err != nil {
+	if err := c.stopTask(ctx, container.ID(), syscall.SIGTERM, timeout); err != nil {
 		return fmt.Errorf("restart: stop failed: %w", err)
 	}
 	return c.startTask(ctx, container.ID())
@@ -133,7 +143,9 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 		task, err := cntr.Task(ctx, nil)
 		if err == nil {
 			waitCh, wErr := task.Wait(ctx)
-			_ = task.Kill(ctx, syscall.SIGKILL)
+			if killErr := task.Kill(ctx, syscall.SIGKILL); killErr != nil {
+				log.WithError(killErr).WithField("id", container.ID()).Warn("failed to kill task during force remove")
+			}
 			if wErr == nil {
 				select {
 				case <-waitCh:
@@ -141,6 +153,8 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 				}
 			}
 			_, _ = task.Delete(ctx)
+		} else if !errdefs.IsNotFound(err) {
+			log.WithError(err).WithField("id", container.ID()).Warn("failed to get task during force remove")
 		}
 	}
 	return cntr.Delete(ctx, containerd.WithSnapshotCleanup)
@@ -170,7 +184,7 @@ func (c *containerdClient) StopContainerWithID(ctx context.Context, containerID 
 	if dryrun {
 		return nil
 	}
-	return c.stopTask(c.nsCtx(ctx), containerID, timeout)
+	return c.stopTask(c.nsCtx(ctx), containerID, syscall.SIGTERM, timeout)
 }
 
 // ExecContainer executes a command inside a running container.
