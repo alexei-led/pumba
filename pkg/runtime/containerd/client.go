@@ -19,7 +19,7 @@ const (
 
 // containerdClient implements ctr.Client for the containerd runtime.
 type containerdClient struct {
-	client    *containerd.Client
+	client    apiClient
 	namespace string
 }
 

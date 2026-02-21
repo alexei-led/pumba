@@ -26,13 +26,13 @@ The `pkg/container.Client` interface defines focused sub-interfaces (Lister, Lif
 
 ### Task 2: Lister Interface - ListContainers
 
-- [ ] Implement `ListContainers` on ContainerdClient
-- [ ] Connect to containerd socket (default `/run/containerd/containerd.sock`)
-- [ ] List containers from configurable namespace (default `k8s.io`)
-- [ ] Convert containerd containers to `pkg/container.Container`
-- [ ] Apply FilterFunc to results
-- [ ] Write unit tests with mocked containerd client
-- [ ] Verify `make test` and `make lint` pass
+- [x] Implement `ListContainers` on ContainerdClient
+- [x] Connect to containerd socket (default `/run/containerd/containerd.sock`)
+- [x] List containers from configurable namespace (default `k8s.io`)
+- [x] Convert containerd containers to `pkg/container.Container`
+- [x] Apply FilterFunc to results
+- [x] Write unit tests with mocked containerd client
+- [x] Verify `make test` and `make lint` pass
 
 ### Task 3: Lifecycle Interface
 
