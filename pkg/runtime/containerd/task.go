@@ -143,6 +143,7 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 		Args: cmdArgs,
 		Cwd:  "/",
 		Env:  []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
+		User: specs.User{UID: 0, GID: 0},
 	}
 
 	var stdout, stderr bytes.Buffer

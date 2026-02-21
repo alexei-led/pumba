@@ -245,7 +245,7 @@ func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.C
 	stressors []string, _ string, _ bool, duration time.Duration, _, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithField("id", container.ID()).Debug("stress on containerd container")
 	if dryrun {
-		return container.ID(), nil, nil, nil
+		return "", nil, nil, nil
 	}
 	errCh := make(chan error, 1)
 	outCh := make(chan string, 1)

@@ -898,7 +898,7 @@ func TestStressContainer_Dryrun(t *testing.T) {
 	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
 		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, true)
 	assert.NoError(t, err)
-	assert.Equal(t, "c1", id)
+	assert.Equal(t, "", id)
 	assert.Nil(t, outCh)
 	assert.Nil(t, errCh)
 }
