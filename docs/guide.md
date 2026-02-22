@@ -40,9 +40,25 @@ pumba --runtime containerd --containerd-namespace moby kill <container-id>
 | `--containerd-socket` | `/run/containerd/containerd.sock` | containerd socket path |
 | `--containerd-namespace` | `k8s.io` | containerd namespace |
 
+**Container name resolution:**
+
+Pumba resolves container names from well-known labels (checked in priority order):
+1. **Kubernetes**: `io.kubernetes.container.name` → `namespace/pod/container`
+2. **nerdctl**: `nerdctl/name`
+3. **Docker Compose**: `com.docker.compose.service`
+4. **Fallback**: container ID
+
+**Sidecar container for network chaos:**
+
+By default, Pumba executes `tc`/`iptables` commands directly inside the target container. If the target doesn't have these tools, use `--tc-image` to spawn a sidecar container that shares the target's network namespace:
+
+```bash
+# Sidecar mode — works even if the target has no tc tools
+pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --duration 5m delay --time 3000 <container-id>
+```
+
 **Known limitations of the containerd runtime:**
-- Containers are identified by **ID**, not by friendly name (containerd doesn't store Docker-style names)
-- **Network chaos** (netem, iptables): executes `tc`/`iptables` directly inside the target container — the container image must include these tools (e.g., `iproute2` for `tc`)
 - **Stress testing**: executes `stress-ng` directly inside the target container — the container image must include `stress-ng`
 - **Remove** (`rm`): For Docker-managed containers in the `moby` namespace, kills the task but Docker retains its own metadata
 

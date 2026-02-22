@@ -197,6 +197,67 @@ No `SYS_ADMIN` capability is required.
 
 See `deploy/pumba_kube_stress.yml` for a complete example. For details on cgroup placement modes, see [Stress Testing](stress-testing.md#kubernetes-cgroup-path-resolution).
 
+### Containerd Runtime on Kubernetes
+
+Modern Kubernetes clusters use containerd as the container runtime (Docker shim was removed in Kubernetes 1.24+). Pumba can target containerd directly:
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: pumba-containerd
+  namespace: pumba
+spec:
+  selector:
+    matchLabels:
+      app: pumba
+  template:
+    metadata:
+      labels:
+        app: pumba
+    spec:
+      hostPID: true  # needed for sidecar network namespace sharing
+      containers:
+        - name: pumba
+          image: ghcr.io/alexei-led/pumba
+          args:
+            - --runtime
+            - containerd
+            - --containerd-socket
+            - /run/containerd/containerd.sock
+            - --containerd-namespace
+            - k8s.io
+            - --log-level
+            - info
+            - --label
+            - io.kubernetes.pod.name=target-pod
+            - --interval
+            - 30s
+            - netem
+            - --duration
+            - 20s
+            - --tc-image
+            - ghcr.io/alexei-led/pumba-alpine-nettools:latest
+            - delay
+            - --time
+            - "3000"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: containerd-socket
+              mountPath: /run/containerd/containerd.sock
+      volumes:
+        - name: containerd-socket
+          hostPath:
+            path: /run/containerd/containerd.sock
+```
+
+**Key differences from Docker mode:**
+- Mount the **containerd socket** instead of the Docker socket
+- Use `--containerd-namespace k8s.io` (Kubernetes containers live in this namespace)
+- Use `--tc-image` for network chaos (sidecar approach — no tools needed in target image)
+- Container names are resolved from Kubernetes labels automatically (`namespace/pod/container`)
+
 ### Limitations
 
 - `pumba netem` commands do not work on minikube because the `sch_netem` kernel module is missing in the minikube VM

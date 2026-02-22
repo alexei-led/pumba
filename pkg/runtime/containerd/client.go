@@ -240,8 +240,8 @@ func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Con
 
 // NetemContainer applies network emulation to a container by executing tc commands.
 func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Container, netInterface string, netemCmd []string,
-	ips []*net.IPNet, sports, dports []string, _ time.Duration, _ string, _, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface}).Debug("netem on containerd container")
+	ips []*net.IPNet, sports, dports []string, _ time.Duration, tcimg string, pull, dryrun bool) error {
+	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface, "tc-image": tcimg}).Debug("netem on containerd container")
 	if dryrun {
 		return nil
 	}
@@ -249,46 +249,60 @@ func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Co
 	if err != nil {
 		return err
 	}
+	// Use sidecar container if tc-image is specified, otherwise exec directly
+	if tcimg != "" {
+		return c.sidecarExec(ctx, container, tcimg, pull, "tc", [][]string{tcArgs})
+	}
 	return c.execInContainer(c.nsCtx(ctx), container.ID(), "tc", tcArgs)
 }
 
 // StopNetemContainer removes network emulation from a container.
 func (c *containerdClient) StopNetemContainer(ctx context.Context, container *ctr.Container, netInterface string,
-	_ []*net.IPNet, _, _ []string, _ string, _, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface}).Debug("stop netem on containerd container")
+	_ []*net.IPNet, _, _ []string, tcimg string, pull, dryrun bool) error {
+	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface, "tc-image": tcimg}).Debug("stop netem on containerd container")
 	if dryrun {
 		return nil
 	}
 	tcArgs := buildStopNetemArgs(netInterface)
+	if tcimg != "" {
+		return c.sidecarExec(ctx, container, tcimg, pull, "tc", [][]string{tcArgs})
+	}
 	return c.execInContainer(c.nsCtx(ctx), container.ID(), "tc", tcArgs)
 }
 
 // IPTablesContainer applies iptables rules to a container.
 func (c *containerdClient) IPTablesContainer(ctx context.Context, container *ctr.Container,
 	cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string,
-	_ time.Duration, _ string, _, dryrun bool) error {
+	_ time.Duration, tcimg string, pull, dryrun bool) error {
 	log.WithField("id", container.ID()).Debug("iptables on containerd container")
 	if dryrun {
 		return nil
 	}
-	return c.runIPTablesCommands(ctx, container.ID(), cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
+	commands := buildIPTablesCommands(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
+	if tcimg != "" {
+		return c.sidecarExec(ctx, container, tcimg, pull, "iptables", commands)
+	}
+	return c.runIPTablesCommands(ctx, container.ID(), commands)
 }
 
 // StopIPTablesContainer removes iptables rules from a container.
 func (c *containerdClient) StopIPTablesContainer(ctx context.Context, container *ctr.Container,
 	cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string,
-	_ string, _, dryrun bool) error {
+	tcimg string, pull, dryrun bool) error {
 	log.WithField("id", container.ID()).Debug("stop iptables on containerd container")
 	if dryrun {
 		return nil
 	}
-	return c.runIPTablesCommands(ctx, container.ID(), cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
+	commands := buildIPTablesCommands(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
+	if tcimg != "" {
+		return c.sidecarExec(ctx, container, tcimg, pull, "iptables", commands)
+	}
+	return c.runIPTablesCommands(ctx, container.ID(), commands)
 }
 
-func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID string,
-	cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string) error {
+func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID string, commands [][]string) error {
 	ctx = c.nsCtx(ctx)
-	for _, args := range buildIPTablesCommands(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports) {
+	for _, args := range commands {
 		if err := c.execInContainer(ctx, containerID, "iptables", args); err != nil {
 			return fmt.Errorf("failed to run iptables command: %w", err)
 		}

@@ -71,6 +71,21 @@ func (m *mockAPIClient) LoadContainer(ctx context.Context, id string) (container
 	return args.Get(0).(containerd.Container), args.Error(1)
 }
 
+func (m *mockAPIClient) GetImage(ctx context.Context, ref string) (containerd.Image, error) {
+	args := m.Called(ctx, ref)
+	return args.Get(0).(containerd.Image), args.Error(1)
+}
+
+func (m *mockAPIClient) Pull(ctx context.Context, ref string, opts ...containerd.RemoteOpt) (containerd.Image, error) {
+	args := m.Called(ctx, ref)
+	return args.Get(0).(containerd.Image), args.Error(1)
+}
+
+func (m *mockAPIClient) NewContainer(ctx context.Context, id string, opts ...containerd.NewContainerOpts) (containerd.Container, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(containerd.Container), args.Error(1)
+}
+
 func (m *mockAPIClient) Close() error {
 	return nil
 }

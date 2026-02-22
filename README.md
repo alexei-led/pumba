@@ -104,6 +104,12 @@ pumba --runtime containerd --containerd-namespace moby \
 | `--containerd-socket` | `/run/containerd/containerd.sock` | containerd socket path |
 | `--containerd-namespace` | `k8s.io` | containerd namespace (`k8s.io` for Kubernetes, `moby` for Docker) |
 
+> **Tip:** For network chaos on containers without `tc`/`iptables`, use `--tc-image` to spawn a sidecar:
+> ```bash
+> pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+>   --duration 5m delay --time 3000 <container-id>
+> ```
+
 ### Run with Docker
 
 ```bash

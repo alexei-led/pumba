@@ -44,10 +44,41 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 
 	return &ctr.Container{
 		ContainerID:   c.ID(),
-		ContainerName: c.ID(),
+		ContainerName: resolveContainerName(c.ID(), info.Labels),
 		Image:         info.Image,
 		ImageID:       info.Image,
 		State:         state,
 		Labels:        info.Labels,
 	}, false, nil
+}
+
+// resolveContainerName tries to extract a human-readable name from well-known
+// container labels. Falls back to the container ID if no name label is found.
+//
+// Supported label sources (checked in priority order):
+//   - Kubernetes: io.kubernetes.container.name (+ pod name + namespace)
+//   - nerdctl:    nerdctl/name
+//   - Docker:     com.docker.compose.service
+func resolveContainerName(id string, labels map[string]string) string {
+	// Kubernetes labels (most specific)
+	if name := labels["io.kubernetes.container.name"]; name != "" {
+		pod := labels["io.kubernetes.pod.name"]
+		ns := labels["io.kubernetes.pod.namespace"]
+		if pod != "" && ns != "" {
+			return ns + "/" + pod + "/" + name
+		}
+		if pod != "" {
+			return pod + "/" + name
+		}
+		return name
+	}
+	// nerdctl labels
+	if name := labels["nerdctl/name"]; name != "" {
+		return name
+	}
+	// Docker Compose labels
+	if name := labels["com.docker.compose.service"]; name != "" {
+		return name
+	}
+	return id
 }

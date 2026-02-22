@@ -11,5 +11,8 @@ import (
 type apiClient interface {
 	Containers(ctx context.Context, filters ...string) ([]containerd.Container, error)
 	LoadContainer(ctx context.Context, id string) (containerd.Container, error)
+	GetImage(ctx context.Context, ref string) (containerd.Image, error)
+	Pull(ctx context.Context, ref string, opts ...containerd.RemoteOpt) (containerd.Image, error)
+	NewContainer(ctx context.Context, id string, opts ...containerd.NewContainerOpts) (containerd.Container, error)
 	Close() error
 }
