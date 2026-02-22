@@ -16,6 +16,7 @@ import (
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
+	"github.com/alexei-led/pumba/pkg/runtime/containerd"
 	"github.com/alexei-led/pumba/pkg/runtime/docker"
 	"github.com/johntdyer/slackrus"
 	log "github.com/sirupsen/logrus"
@@ -86,6 +87,21 @@ func main() {
 			Usage:  "daemon socket to connect to",
 			Value:  "unix:///var/run/docker.sock",
 			EnvVar: "DOCKER_HOST",
+		},
+		cli.StringFlag{
+			Name:  "runtime",
+			Usage: "container runtime (docker, containerd)",
+			Value: "docker",
+		},
+		cli.StringFlag{
+			Name:  "containerd-socket",
+			Usage: "containerd socket location",
+			Value: "/run/containerd/containerd.sock",
+		},
+		cli.StringFlag{
+			Name:  "containerd-namespace",
+			Usage: "containerd namespace",
+			Value: "k8s.io",
 		},
 		cli.BoolFlag{
 			Name:  "tls",
@@ -192,15 +208,29 @@ func before(c *cli.Context) error {
 		})
 	}
 	// Set-up container client
-	tlsCfg, err := tlsConfig(c)
-	if err != nil {
-		return err
+	var err error
+	switch runtime := c.GlobalString("runtime"); runtime {
+	case "docker":
+		tlsCfg, err := tlsConfig(c)
+		if err != nil {
+			return err
+		}
+		// create new Docker client
+		chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
+		if err != nil {
+			return fmt.Errorf("could not create Docker client: %w", err)
+		}
+	case "containerd":
+		socket := c.GlobalString("containerd-socket")
+		namespace := c.GlobalString("containerd-namespace")
+		chaos.DockerClient, err = containerd.NewClient(socket, namespace)
+		if err != nil {
+			return fmt.Errorf("could not create containerd client: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported runtime: %s", runtime)
 	}
-	// create new Docker client
-	chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
-	if err != nil {
-		return fmt.Errorf("could not create Docker client: %w", err)
-	}
+
 	return nil
 }
 
