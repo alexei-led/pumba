@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 	"syscall"
 	"time"
 
@@ -198,9 +199,19 @@ func (c *containerdClient) StopContainerWithID(ctx context.Context, containerID 
 
 // ExecContainer executes a command inside a running container.
 func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Container, command string, args []string, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "command": command}).Debug("exec in containerd container")
+	log.WithFields(log.Fields{"id": container.ID(), "command": command, "args": args}).Debug("exec in containerd container")
 	if dryrun {
 		return nil
+	}
+	// If args are empty, try to split command into command+args
+	if len(args) == 0 {
+		fields := strings.Fields(command)
+		if len(fields) > 0 {
+			command = fields[0]
+			if len(fields) > 1 {
+				args = fields[1:]
+			}
+		}
 	}
 	return c.execInContainer(c.nsCtx(ctx), container.ID(), command, args)
 }
