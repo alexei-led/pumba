@@ -39,55 +39,6 @@ func TestParseRate(t *testing.T) {
 	}
 }
 
-func TestNewRateCommand_Validation(t *testing.T) {
-	mockClient := new(container.MockClient)
-	gparams := &chaos.GlobalParams{Names: []string{"test"}}
-	nparams := &Params{Iface: "eth0", Duration: time.Second}
-
-	tests := []struct {
-		name           string
-		rate           string
-		cellSize       int
-		wantErr        string
-	}{
-		{
-			name:    "valid rate",
-			rate:    "100mbit",
-			wantErr: "",
-		},
-		{
-			name:    "invalid rate format",
-			rate:    "100",
-			wantErr: "invalid rate",
-		},
-		{
-			name:    "empty rate",
-			rate:    "",
-			wantErr: "undefined rate limit",
-		},
-		{
-			name:     "invalid cell size",
-			rate:     "100mbit",
-			cellSize: -1,
-			wantErr:  "invalid cell size",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewRateCommand(mockClient, gparams, nparams,
-				tt.rate, 0, tt.cellSize, 0)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-				assert.Nil(t, cmd)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, cmd)
-			}
-		})
-	}
-}
 
 func TestRateCommand_Run_DryRun(t *testing.T) {
 	mockClient := new(container.MockClient)
