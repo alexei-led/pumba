@@ -43,7 +43,15 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
   integration:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
     steps:
@@ -63,10 +71,9 @@ jobs:
           context: .
           tags: pumba:test
           target: integration-tests
-          outputs: type=docker,dest=/tmp/image.tar
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
       - name: Run Integration Tests
         run: |
-          docker load -i /tmp/image.tar
           docker run -i --rm --name integration-tests -v /var/run/docker.sock:/var/run/docker.sock pumba:test

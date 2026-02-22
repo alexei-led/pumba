@@ -18,17 +18,37 @@ on:
 
 jobs:
   build-and-push:
-    name: Build and Push Multi-Arch Images
-    runs-on: ubuntu-latest
+    name: Build and Push
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        image:
-          - name: alpine-nettools
+        include:
+          # Alpine - AMD64
+          - image: alpine-nettools
             file: docker/alpine-nettools.Dockerfile
             base: alpine
-          - name: debian-nettools
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          # Alpine - ARM64
+          - image: alpine-nettools
+            file: docker/alpine-nettools.Dockerfile
+            base: alpine
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+          # Debian - AMD64
+          - image: debian-nettools
             file: docker/debian-nettools.Dockerfile
             base: debian
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          # Debian - ARM64
+          - image: debian-nettools
+            file: docker/debian-nettools.Dockerfile
+            base: debian
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    
     permissions:
       contents: read
       packages: write
@@ -39,16 +59,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
-          platforms: linux/amd64,linux/arm64
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -61,25 +73,99 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image.name }}
+          images: ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+            type=raw,value=${{ matrix.base }}
+            type=sha,format=short
+
+      - name: Build and Push by Digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.platform }}
+          provenance: false
+          sbom: true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image }}-${{ matrix.runner }}
+          path: /tmp/digests
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-manifests:
+    name: Merge Manifests
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    strategy:
+      matrix:
+        image:
+          - alpine-nettools
+          - debian-nettools
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image }}
           flavor: |
             latest=true
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
-            type=raw,value=${{ matrix.image.base }}
+            type=raw,value=${{ matrix.image == 'alpine-nettools' && 'alpine' || 'debian' }}
             type=sha,format=short
 
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.image.file }}
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: true
-          sbom: true
+      - name: Create and push manifest list
+        run: |
+          printf 'ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image }}@sha256:%s\n' * > /tmp/sources.txt
+          
+          TAGS_ARGS=""
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
+            TAGS_ARGS="$TAGS_ARGS -t $tag"
+          done
+          
+          docker buildx imagetools create $TAGS_ARGS $(cat /tmp/sources.txt)
+
+      - name: Inspect image
+        run: |
+          tag=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | cut -d, -f1)
+          docker buildx imagetools inspect "$tag"
