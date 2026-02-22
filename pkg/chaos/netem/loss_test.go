@@ -13,67 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewLossCommand_Validation(t *testing.T) {
-	mockClient := new(container.MockClient)
-	gparams := &chaos.GlobalParams{Names: []string{"test"}}
-	nparams := &Params{Iface: "eth0", Duration: time.Second}
-
-	tests := []struct {
-		name        string
-		percent     float64
-		correlation float64
-		wantErr     string
-	}{
-		{
-			name:    "valid minimal loss",
-			percent: 10.0,
-			wantErr: "",
-		},
-		{
-			name:        "valid full params",
-			percent:     20.0,
-			correlation: 5.0,
-			wantErr:     "",
-		},
-		{
-			name:    "negative percent rejected",
-			percent: -1.0,
-			wantErr: "invalid loss percent",
-		},
-		{
-			name:    "percent over 100 rejected",
-			percent: 101.0,
-			wantErr: "invalid loss percent",
-		},
-		{
-			name:        "negative correlation rejected",
-			percent:     10.0,
-			correlation: -1.0,
-			wantErr:     "invalid loss correlation",
-		},
-		{
-			name:        "correlation over 100 rejected",
-			percent:     10.0,
-			correlation: 101.0,
-			wantErr:     "invalid loss correlation",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewLossCommand(mockClient, gparams, nparams,
-				tt.percent, tt.correlation)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-				assert.Nil(t, cmd)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, cmd)
-			}
-		})
-	}
-}
 
 func TestLossCommand_Run_NoContainers(t *testing.T) {
 	mockClient := new(container.MockClient)

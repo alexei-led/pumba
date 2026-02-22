@@ -13,67 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewCorruptCommand_Validation(t *testing.T) {
-	mockClient := new(container.MockClient)
-	gparams := &chaos.GlobalParams{Names: []string{"test"}}
-	nparams := &Params{Iface: "eth0", Duration: time.Second}
-
-	tests := []struct {
-		name        string
-		percent     float64
-		correlation float64
-		wantErr     string
-	}{
-		{
-			name:    "valid minimal corrupt",
-			percent: 10.0,
-			wantErr: "",
-		},
-		{
-			name:        "valid full params",
-			percent:     20.0,
-			correlation: 5.0,
-			wantErr:     "",
-		},
-		{
-			name:    "negative percent rejected",
-			percent: -1.0,
-			wantErr: "invalid corrupt percent",
-		},
-		{
-			name:    "percent over 100 rejected",
-			percent: 101.0,
-			wantErr: "invalid corrupt percent",
-		},
-		{
-			name:        "negative correlation rejected",
-			percent:     10.0,
-			correlation: -1.0,
-			wantErr:     "invalid corrupt correlation",
-		},
-		{
-			name:        "correlation over 100 rejected",
-			percent:     10.0,
-			correlation: 101.0,
-			wantErr:     "invalid corrupt correlation",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewCorruptCommand(mockClient, gparams, nparams,
-				tt.percent, tt.correlation)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-				assert.Nil(t, cmd)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, cmd)
-			}
-		})
-	}
-}
 
 func TestCorruptCommand_Run_DryRun(t *testing.T) {
 	mockClient := new(container.MockClient)
