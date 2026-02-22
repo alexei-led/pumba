@@ -167,7 +167,29 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 			log.WithError(err).WithField("id", container.ID()).Warn("failed to get task during force remove")
 		}
 	}
-	return cntr.Delete(ctx, containerd.WithSnapshotCleanup)
+	// Try to delete with snapshot cleanup first; if that fails (e.g. Docker-managed
+	// containers in the moby namespace have no snapshot key), fall back to plain delete.
+	// Note: For Docker-managed containers, Docker daemon may react to the task being
+	// killed and clean up the container automatically, so "not found" is acceptable.
+	info, infoErr := cntr.Info(ctx)
+	if infoErr != nil {
+		if errdefs.IsNotFound(infoErr) {
+			// Container was already removed (e.g. by Docker daemon after task kill)
+			return nil
+		}
+		return fmt.Errorf("failed to get container info %s: %w", container.ID(), infoErr)
+	}
+	var deleteErr error
+	if info.SnapshotKey != "" {
+		deleteErr = cntr.Delete(ctx, containerd.WithSnapshotCleanup)
+	} else {
+		deleteErr = cntr.Delete(ctx)
+	}
+	if deleteErr != nil && errdefs.IsNotFound(deleteErr) {
+		// Container was removed between Info and Delete (race with Docker daemon)
+		return nil
+	}
+	return deleteErr
 }
 
 // PauseContainer pauses a container's task.

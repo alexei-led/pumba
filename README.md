@@ -1,7 +1,7 @@
 <p align="center">
   <img src="docs/img/pumba_logo.png" alt="Pumba" width="300">
   <br>
-  <strong>Chaos testing tool for Docker</strong>
+  <strong>Chaos testing tool for Docker and containerd</strong>
 </p>
 
 <p align="center">
@@ -23,24 +23,25 @@
 
 ---
 
-Pumba is a chaos testing and network emulation tool for Docker containers. Inspired by [Netflix Chaos Monkey](https://netflix.github.io/chaosmonkey/), Pumba brings chaos engineering to the container level — kill, stop, pause, and remove containers, inject network delays and packet loss, or stress-test container resources.
+Pumba is a chaos testing and network emulation tool for Docker and containerd containers. Inspired by [Netflix Chaos Monkey](https://netflix.github.io/chaosmonkey/), Pumba brings chaos engineering to the container level — kill, stop, pause, and remove containers, inject network delays and packet loss, or stress-test container resources.
 
 ## How It Works
 
 ```mermaid
 graph LR
-    A[Pumba CLI] -->|Docker API| B[Docker Engine]
+    A[Pumba CLI] -->|Docker API / containerd API| B[Container Runtime]
     B -->|List & Filter| C[Target Containers]
 
     A -->|kill / stop / pause / rm| C
 
-    A -->|netem / iptables| D[Helper Container]
+    A -->|netem / iptables| D[Helper Container / Direct Exec]
     D -->|Shares network namespace| C
     D -->|Runs tc / iptables| E[Network Chaos]
 ```
 
-For **container chaos** (kill, stop, pause, rm), Pumba talks directly to Docker.  
-For **network chaos** (netem, iptables), Pumba creates a helper container that shares the target's network namespace and injects `tc` or `iptables` rules.
+Pumba supports two container runtimes:
+- **Docker** (default): Uses the Docker API. For network chaos, creates a helper container sharing the target's network namespace.
+- **containerd**: Uses the containerd API directly. For network chaos, executes `tc`/`iptables` commands directly inside the target container (requires tools to be installed in the container image).
 
 ## Features
 
@@ -85,6 +86,23 @@ pumba iptables --duration 2m loss --probability 0.1 myapp
 # Stress CPU of mycontainer for 60 seconds
 pumba stress --duration 60s --stressors="--cpu 4 --timeout 60s" mycontainer
 ```
+
+### Containerd Runtime
+
+```bash
+# Kill a container by ID via containerd
+pumba --runtime containerd --containerd-namespace k8s.io kill <container-id>
+
+# Add network delay via containerd (requires tc in the container image)
+pumba --runtime containerd --containerd-namespace moby \
+  netem --duration 5m delay --time 3000 <container-id>
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--runtime` | `docker` | Container runtime (`docker` or `containerd`) |
+| `--containerd-socket` | `/run/containerd/containerd.sock` | containerd socket path |
+| `--containerd-namespace` | `k8s.io` | containerd namespace (`k8s.io` for Kubernetes, `moby` for Docker) |
 
 ### Run with Docker
 
