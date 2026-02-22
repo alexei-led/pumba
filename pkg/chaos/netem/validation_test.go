@@ -99,19 +99,21 @@ func TestNewDuplicateCommand_Validation(t *testing.T) {
 
 func TestNewRateCommand_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
-		rate    string
-		wantErr string
+		name     string
+		rate     string
+		cellSize int
+		wantErr  string
 	}{
-		{"valid kbit", "100kbit", ""},
-		{"valid mbit", "10mbit", ""},
-		{"valid gbit", "1gbit", ""},
-		{"empty rate", "", "undefined rate limit"},
-		{"invalid rate", "notarate", "invalid rate"},
+		{"valid kbit", "100kbit", 0, ""},
+		{"valid mbit", "10mbit", 0, ""},
+		{"valid gbit", "1gbit", 0, ""},
+		{"empty rate", "", 0, "undefined rate limit"},
+		{"invalid rate", "notarate", 0, "invalid rate"},
+		{"invalid cell size", "100mbit", -1, "invalid cell size"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewRateCommand(testClient, testGParams, testNParams, tt.rate, 0, 0, 0)
+			cmd, err := NewRateCommand(testClient, testGParams, testNParams, tt.rate, 0, tt.cellSize, 0)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
