@@ -154,6 +154,7 @@ jobs:
             type=sha,format=short
 
       - name: Create and push manifest list
+        working-directory: /tmp/digests
         run: |
           printf 'ghcr.io/${{ github.repository_owner }}/pumba-${{ matrix.image }}@sha256:%s\n' * > /tmp/sources.txt
           
