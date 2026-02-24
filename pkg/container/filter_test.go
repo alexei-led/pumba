@@ -106,92 +106,99 @@ func TestMatchPattern(t *testing.T) {
 	}
 }
 
-func TestApplyContainerFilter_SkipsPumba(t *testing.T) {
-	labels := map[string]string{"com.gaiaadm.pumba": "true"}
-	c := &Container{
-		ContainerName: "pumba-container",
-		Labels:        labels,
-		Networks:      map[string]NetworkLink{},
+func TestApplyContainerFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		container *Container
+		filter    filter
+		expected  bool
+	}{
+		{
+			name: "skips pumba-labeled container",
+			container: &Container{
+				ContainerName: "pumba-container",
+				Labels:        map[string]string{"com.gaiaadm.pumba": "true"},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"pumba-container"}, Opts: ListOpts{All: false}},
+			expected: false,
+		},
+		{
+			name: "skips pumba-skip-labeled container",
+			container: &Container{
+				ContainerName: "skip-container",
+				Labels:        map[string]string{"com.gaiaadm.pumba.skip": "true"},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"skip-container"}, Opts: ListOpts{All: false}},
+			expected: false,
+		},
+		{
+			name: "matches by name",
+			container: &Container{
+				ContainerName: "target",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"target"}, Opts: ListOpts{All: false}},
+			expected: true,
+		},
+		{
+			name: "matches named target with all flag",
+			container: &Container{
+				ContainerName: "target",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"target"}, Opts: ListOpts{All: true}},
+			expected: true,
+		},
+		{
+			name: "excludes non-target with all flag",
+			container: &Container{
+				ContainerName: "other",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"target"}, Opts: ListOpts{All: true}},
+			expected: false,
+		},
+		{
+			name: "matches by pattern with all flag",
+			container: &Container{
+				ContainerName: "app-web-1",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Pattern: "^app-", Opts: ListOpts{All: true}},
+			expected: true,
+		},
+		{
+			name: "excludes non-matching pattern with all flag",
+			container: &Container{
+				ContainerName: "db-postgres-1",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Pattern: "^app-", Opts: ListOpts{All: true}},
+			expected: false,
+		},
+		{
+			name: "matches by pattern",
+			container: &Container{
+				ContainerName: "app-web",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Pattern: "^app-", Opts: ListOpts{All: false}},
+			expected: true,
+		},
 	}
-	flt := filter{Names: []string{"pumba-container"}, Opts: ListOpts{All: false}}
-	fn := applyContainerFilter(flt)
 
-	assert.False(t, fn(c))
-}
-
-func TestApplyContainerFilter_SkipsPumbaSkip(t *testing.T) {
-	labels := map[string]string{"com.gaiaadm.pumba.skip": "true"}
-	c := &Container{
-		ContainerName: "skip-container",
-		Labels:        labels,
-		Networks:      map[string]NetworkLink{},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fn := applyContainerFilter(tt.filter)
+			assert.Equal(t, tt.expected, fn(tt.container))
+		})
 	}
-	flt := filter{Names: []string{"skip-container"}, Opts: ListOpts{All: false}}
-	fn := applyContainerFilter(flt)
-
-	assert.False(t, fn(c))
-}
-
-func TestApplyContainerFilter_MatchesByName(t *testing.T) {
-	c := &Container{
-		ContainerName: "target",
-		Labels:        map[string]string{},
-		Networks:      map[string]NetworkLink{},
-	}
-
-	flt := filter{Names: []string{"target"}, Opts: ListOpts{All: false}}
-	fn := applyContainerFilter(flt)
-
-	assert.True(t, fn(c))
-}
-
-func TestApplyContainerFilter_MatchesByNameWithAllFlag(t *testing.T) {
-	target := &Container{
-		ContainerName: "target",
-		Labels:        map[string]string{},
-		Networks:      map[string]NetworkLink{},
-	}
-	other := &Container{
-		ContainerName: "other",
-		Labels:        map[string]string{},
-		Networks:      map[string]NetworkLink{},
-	}
-
-	flt := filter{Names: []string{"target"}, Opts: ListOpts{All: true}}
-	fn := applyContainerFilter(flt)
-
-	assert.True(t, fn(target))
-	assert.False(t, fn(other))
-}
-
-func TestApplyContainerFilter_MatchesByPatternWithAllFlag(t *testing.T) {
-	matching := &Container{
-		ContainerName: "app-web-1",
-		Labels:        map[string]string{},
-		Networks:      map[string]NetworkLink{},
-	}
-	nonMatching := &Container{
-		ContainerName: "db-postgres-1",
-		Labels:        map[string]string{},
-		Networks:      map[string]NetworkLink{},
-	}
-
-	flt := filter{Pattern: "^app-", Opts: ListOpts{All: true}}
-	fn := applyContainerFilter(flt)
-
-	assert.True(t, fn(matching))
-	assert.False(t, fn(nonMatching))
-}
-
-func TestApplyContainerFilter_MatchesByPattern(t *testing.T) {
-	c := &Container{
-		ContainerName: "app-web",
-		Labels:        map[string]string{},
-		Networks:      map[string]NetworkLink{},
-	}
-
-	flt := filter{Pattern: "^app-", Opts: ListOpts{All: false}}
-	fn := applyContainerFilter(flt)
-
-	assert.True(t, fn(c))
 }

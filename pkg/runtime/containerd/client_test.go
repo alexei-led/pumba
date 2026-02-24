@@ -58,39 +58,6 @@ func (m *mockProcess) Delete(ctx context.Context, _ ...containerd.ProcessDeleteO
 	return nil, args.Error(0)
 }
 
-type mockAPIClient struct {
-	mock.Mock
-}
-
-func (m *mockAPIClient) Containers(ctx context.Context, filters ...string) ([]containerd.Container, error) {
-	args := m.Called(ctx, filters)
-	return args.Get(0).([]containerd.Container), args.Error(1)
-}
-
-func (m *mockAPIClient) LoadContainer(ctx context.Context, id string) (containerd.Container, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(containerd.Container), args.Error(1)
-}
-
-func (m *mockAPIClient) GetImage(ctx context.Context, ref string) (containerd.Image, error) {
-	args := m.Called(ctx, ref)
-	return args.Get(0).(containerd.Image), args.Error(1)
-}
-
-func (m *mockAPIClient) Pull(ctx context.Context, ref string, opts ...containerd.RemoteOpt) (containerd.Image, error) {
-	args := m.Called(ctx, ref)
-	return args.Get(0).(containerd.Image), args.Error(1)
-}
-
-func (m *mockAPIClient) NewContainer(ctx context.Context, id string, opts ...containerd.NewContainerOpts) (containerd.Container, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(containerd.Container), args.Error(1)
-}
-
-func (m *mockAPIClient) Close() error {
-	return nil
-}
-
 type mockContainer struct {
 	mock.Mock
 }
@@ -240,8 +207,8 @@ func testContainer(id string) *ctr.Container {
 	}
 }
 
-func setupLoadContainer(api *mockAPIClient, id string, mc *mockContainer) {
-	api.On("LoadContainer", mock.Anything, id).Return(mc, nil)
+func setupLoadContainer(api *MockapiClient, id string, mc *mockContainer) {
+	api.EXPECT().LoadContainer(mock.Anything, id).Return(mc, nil)
 }
 
 func newSuccessProcess() *mockProcess {
@@ -400,13 +367,13 @@ func TestListContainers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			api := new(mockAPIClient)
+			api := NewMockapiClient(t)
 			ctrs := tt.containers()
 			if tt.wantErrSubstr != "label filtering is not yet implemented" {
 				if tt.wantErr {
-					api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container(nil), assert.AnError)
+					api.EXPECT().Containers(mock.Anything).Return([]containerd.Container(nil), assert.AnError)
 				} else {
-					api.On("Containers", mock.Anything, mock.Anything).Return(ctrs, nil)
+					api.EXPECT().Containers(mock.Anything).Return(ctrs, nil)
 				}
 			}
 
@@ -435,7 +402,7 @@ func TestListContainers(t *testing.T) {
 // --- stop container tests ---
 
 func TestStopContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.StopContainer(context.Background(), testContainer("c1"), 10, true)
 	assert.NoError(t, err)
 }
@@ -449,7 +416,7 @@ func TestStopContainer_Success(t *testing.T) {
 	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -470,7 +437,7 @@ func TestStopContainer_Timeout_SIGKILL(t *testing.T) {
 	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -480,8 +447,8 @@ func TestStopContainer_Timeout_SIGKILL(t *testing.T) {
 }
 
 func TestStopContainer_LoadError(t *testing.T) {
-	api := new(mockAPIClient)
-	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+	api := NewMockapiClient(t)
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
 	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
@@ -498,7 +465,7 @@ func TestStopContainer_HonorsStopSignal(t *testing.T) {
 	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	container := &ctr.Container{
@@ -517,7 +484,7 @@ func TestStopContainer_HonorsStopSignal(t *testing.T) {
 // --- kill container tests ---
 
 func TestKillContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.KillContainer(context.Background(), testContainer("c1"), "SIGTERM", true)
 	assert.NoError(t, err)
 }
@@ -538,7 +505,7 @@ func TestKillContainer_Success(t *testing.T) {
 			task.On("Kill", mock.Anything, tt.wantSig).Return(nil)
 
 			mc := newMockContainer("c1", "nginx", nil, task)
-			api := new(mockAPIClient)
+			api := NewMockapiClient(t)
 			setupLoadContainer(api, "c1", mc)
 
 			client := newTestClient(api)
@@ -552,7 +519,7 @@ func TestKillContainer_Success(t *testing.T) {
 func TestKillContainer_UnknownSignal_ReturnsError(t *testing.T) {
 	task := newRunningTask()
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -564,7 +531,7 @@ func TestKillContainer_UnknownSignal_ReturnsError(t *testing.T) {
 // --- start container tests ---
 
 func TestStartContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.StartContainer(context.Background(), testContainer("c1"), true)
 	assert.NoError(t, err)
 }
@@ -574,7 +541,7 @@ func TestStartContainer_ExistingTask(t *testing.T) {
 	task.On("Start", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -590,7 +557,7 @@ func TestStartContainer_NewTask(t *testing.T) {
 	mc := newMockContainer("c1", "nginx", nil, nil)
 	mc.On("NewTask", mock.Anything).Return(newTask, nil)
 
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -602,7 +569,7 @@ func TestStartContainer_NewTask(t *testing.T) {
 // --- restart container tests ---
 
 func TestRestartContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, true)
 	assert.NoError(t, err)
 }
@@ -622,9 +589,9 @@ func TestRestartContainer_Success(t *testing.T) {
 	mcStop := newMockContainer("c1", "nginx", nil, stopTask)
 	mcStart := newMockContainer("c1", "nginx", nil, startTask)
 
-	api := new(mockAPIClient)
-	api.On("LoadContainer", mock.Anything, "c1").Return(mcStop, nil).Once()
-	api.On("LoadContainer", mock.Anything, "c1").Return(mcStart, nil).Once()
+	api := NewMockapiClient(t)
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(mcStop, nil).Once()
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(mcStart, nil).Once()
 
 	client := newTestClient(api)
 	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, false)
@@ -632,8 +599,8 @@ func TestRestartContainer_Success(t *testing.T) {
 }
 
 func TestRestartContainer_StopFails(t *testing.T) {
-	api := new(mockAPIClient)
-	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+	api := NewMockapiClient(t)
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
 	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, false)
@@ -644,7 +611,7 @@ func TestRestartContainer_StopFails(t *testing.T) {
 // --- remove container tests ---
 
 func TestRemoveContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, true)
 	assert.NoError(t, err)
 }
@@ -653,7 +620,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 	mc := newMockContainer("c1", "nginx", nil, nil)
 	mc.On("Delete", mock.Anything).Return(nil)
 
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -673,7 +640,7 @@ func TestRemoveContainer_Force(t *testing.T) {
 	mc := newMockContainer("c1", "nginx", nil, task)
 	mc.On("Delete", mock.Anything).Return(nil)
 
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -685,8 +652,8 @@ func TestRemoveContainer_Force(t *testing.T) {
 }
 
 func TestRemoveContainer_LoadError(t *testing.T) {
-	api := new(mockAPIClient)
-	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+	api := NewMockapiClient(t)
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
 	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
@@ -697,7 +664,7 @@ func TestRemoveContainer_LoadError(t *testing.T) {
 // --- pause/unpause container tests ---
 
 func TestPauseContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.PauseContainer(context.Background(), testContainer("c1"), true)
 	assert.NoError(t, err)
 }
@@ -707,7 +674,7 @@ func TestPauseContainer_Success(t *testing.T) {
 	task.On("Pause", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -717,7 +684,7 @@ func TestPauseContainer_Success(t *testing.T) {
 }
 
 func TestUnpauseContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.UnpauseContainer(context.Background(), testContainer("c1"), true)
 	assert.NoError(t, err)
 }
@@ -727,7 +694,7 @@ func TestUnpauseContainer_Success(t *testing.T) {
 	task.On("Resume", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -739,7 +706,7 @@ func TestUnpauseContainer_Success(t *testing.T) {
 // --- stop container with id tests ---
 
 func TestStopContainerWithID_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.StopContainerWithID(context.Background(), "c1", 10*time.Second, true)
 	assert.NoError(t, err)
 }
@@ -753,7 +720,7 @@ func TestStopContainerWithID_Success(t *testing.T) {
 	task.On("Delete", mock.Anything).Return(nil)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -818,7 +785,7 @@ func TestParseSignal_InvalidInputs(t *testing.T) {
 // --- exec container tests ---
 
 func TestExecContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", []string{"-la"}, true)
 	assert.NoError(t, err)
 }
@@ -829,7 +796,7 @@ func TestExecContainer_Success(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -845,7 +812,7 @@ func TestExecContainer_NonZeroExit(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -855,8 +822,8 @@ func TestExecContainer_NonZeroExit(t *testing.T) {
 }
 
 func TestExecContainer_LoadError(t *testing.T) {
-	api := new(mockAPIClient)
-	api.On("LoadContainer", mock.Anything, "c1").Return((*mockContainer)(nil), assert.AnError)
+	api := NewMockapiClient(t)
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
@@ -866,7 +833,7 @@ func TestExecContainer_LoadError(t *testing.T) {
 
 func TestExecContainer_TaskError(t *testing.T) {
 	mc := newMockContainer("c1", "nginx", nil, nil)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -880,7 +847,7 @@ func TestExecContainer_ExecError(t *testing.T) {
 	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -900,7 +867,7 @@ func TestExecContainer_StartError(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -912,7 +879,7 @@ func TestExecContainer_StartError(t *testing.T) {
 // --- netem tests ---
 
 func TestNetemContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
 		[]string{"delay", "100ms"}, nil, nil, nil, 0, "", false, true)
 	assert.NoError(t, err)
@@ -924,7 +891,7 @@ func TestNetemContainer_Success(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -934,7 +901,7 @@ func TestNetemContainer_Success(t *testing.T) {
 }
 
 func TestStopNetemContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.StopNetemContainer(context.Background(), testContainer("c1"), "eth0",
 		nil, nil, nil, "", false, true)
 	assert.NoError(t, err)
@@ -946,7 +913,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -958,7 +925,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 // --- iptables tests ---
 
 func TestIPTablesContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
 		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, true)
 	assert.NoError(t, err)
@@ -970,7 +937,7 @@ func TestIPTablesContainer_Success(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -984,7 +951,7 @@ func TestIPTablesContainer_ExecError(t *testing.T) {
 	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -995,7 +962,7 @@ func TestIPTablesContainer_ExecError(t *testing.T) {
 }
 
 func TestStopIPTablesContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	err := client.StopIPTablesContainer(context.Background(), testContainer("c1"),
 		[]string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, true)
 	assert.NoError(t, err)
@@ -1007,7 +974,7 @@ func TestStopIPTablesContainer_Success(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -1019,7 +986,7 @@ func TestStopIPTablesContainer_Success(t *testing.T) {
 // --- stress tests ---
 
 func TestStressContainer_Dryrun(t *testing.T) {
-	client := newTestClient(new(mockAPIClient))
+	client := newTestClient(NewMockapiClient(t))
 	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
 		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, true)
 	assert.NoError(t, err)
@@ -1034,7 +1001,7 @@ func TestStressContainer_Success(t *testing.T) {
 	setupExec(task, proc)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
@@ -1058,7 +1025,7 @@ func TestStressContainer_ExecError(t *testing.T) {
 	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
+	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)

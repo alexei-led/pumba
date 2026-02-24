@@ -39,3 +39,11 @@ packages:
       ContainerAPIClient:
       ImageAPIClient:
       APIClient:
+
+  github.com/alexei-led/pumba/pkg/runtime/containerd:
+    config:
+      dir: "{{.ConfigDir}}/pkg/runtime/containerd"
+      inpackage: true
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      apiClient:

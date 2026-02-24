@@ -2,6 +2,8 @@ package containerd
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestResolveContainerName(t *testing.T) {
@@ -100,9 +102,7 @@ func TestResolveContainerName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := resolveContainerName(tt.id, tt.labels)
-			if result != tt.expected {
-				t.Errorf("resolveContainerName(%q, %v) = %q, want %q", tt.id, tt.labels, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
