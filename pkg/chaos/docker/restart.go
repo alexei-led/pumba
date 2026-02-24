@@ -13,7 +13,7 @@ import (
 // restartClient is the narrow interface needed by the restart command.
 type restartClient interface {
 	container.Lister
-	container.Lifecycle
+	RestartContainer(context.Context, *container.Container, time.Duration, bool) error
 }
 
 // `docker restart` command

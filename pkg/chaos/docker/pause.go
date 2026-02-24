@@ -13,7 +13,8 @@ import (
 // pauseClient is the narrow interface needed by the pause command.
 type pauseClient interface {
 	container.Lister
-	container.Lifecycle
+	PauseContainer(context.Context, *container.Container, bool) error
+	UnpauseContainer(context.Context, *container.Container, bool) error
 }
 
 // `docker pause` command

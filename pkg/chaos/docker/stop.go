@@ -18,7 +18,8 @@ const (
 // stopClient is the narrow interface needed by the stop command.
 type stopClient interface {
 	container.Lister
-	container.Lifecycle
+	StopContainer(context.Context, *container.Container, int, bool) error
+	StartContainer(context.Context, *container.Container, bool) error
 }
 
 // `docker stop` command

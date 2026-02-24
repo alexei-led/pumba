@@ -51,7 +51,7 @@ var linuxSignals = map[string]syscall.Signal{
 // killClient is the narrow interface needed by the kill command.
 type killClient interface {
 	container.Lister
-	container.Lifecycle
+	KillContainer(context.Context, *container.Container, string, bool) error
 }
 
 // `docker kill` command

@@ -16,7 +16,7 @@ import (
 type stressClient interface {
 	container.Lister
 	container.Stressor
-	container.Lifecycle
+	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
 // `stress-ng` command
