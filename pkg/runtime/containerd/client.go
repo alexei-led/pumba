@@ -1,3 +1,4 @@
+// Package containerd implements the container.Client interface for the containerd runtime.
 package containerd
 
 import (
@@ -235,12 +236,8 @@ func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Con
 		return nil
 	}
 	if len(args) == 0 {
-		fields := strings.Fields(command)
-		if len(fields) > 0 {
-			command = fields[0]
-			if len(fields) > 1 {
-				args = fields[1:]
-			}
+		if fields := strings.Fields(command); len(fields) > 0 {
+			command, args = fields[0], fields[1:]
 		}
 	}
 	return c.execInContainer(c.nsCtx(ctx), container.ID(), command, args)
@@ -325,7 +322,7 @@ func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.C
 	stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithField("id", container.ID()).Debug("stress on containerd container")
 	if image != "" || pull || injectCgroup {
-		log.WithField("id", container.ID()).Debug("containerd runtime: sidecar/inject-cgroup stress modes not supported, using direct exec")
+		log.WithField("id", container.ID()).Warn("containerd runtime: sidecar/inject-cgroup stress modes not supported, using direct exec")
 	}
 	if dryrun {
 		return "", nil, nil, nil

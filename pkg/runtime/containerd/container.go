@@ -27,10 +27,11 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 		if !all {
 			return nil, true, nil
 		}
-	} else {
-		status, err := task.Status(ctx)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to get task status for %s: %w", c.ID(), err)
+	}
+	if err == nil {
+		status, serr := task.Status(ctx)
+		if serr != nil {
+			return nil, false, fmt.Errorf("failed to get task status for %s: %w", c.ID(), serr)
 		}
 		if status.Status == containerd.Running {
 			state = ctr.StateRunning

@@ -22,8 +22,6 @@ import (
 	metrictypes "github.com/containerd/containerd/api/types"
 )
 
-// --- mocks ---
-
 type mockProcess struct {
 	mock.Mock
 }
@@ -165,8 +163,6 @@ func (m *mockTask) LoadProcess(context.Context, string, cio.Attach) (containerd.
 func (m *mockTask) Metrics(context.Context) (*metrictypes.Metric, error) { return nil, nil }
 func (m *mockTask) Spec(context.Context) (*oci.Spec, error)              { return nil, nil }
 
-// --- helpers ---
-
 func newTestClient(api apiClient) *containerdClient {
 	return &containerdClient{client: api, namespace: "test-ns"}
 }
@@ -234,8 +230,6 @@ func newFailProcess(code uint32) *mockProcess {
 func setupExec(task *mockTask, proc *mockProcess) {
 	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(proc, nil)
 }
-
-// --- list containers tests ---
 
 func TestListContainers(t *testing.T) {
 	t.Parallel()
@@ -399,8 +393,6 @@ func TestListContainers(t *testing.T) {
 	}
 }
 
-// --- stop container tests ---
-
 func TestStopContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	err := client.StopContainer(context.Background(), testContainer("c1"), 10, true)
@@ -481,8 +473,6 @@ func TestStopContainer_HonorsStopSignal(t *testing.T) {
 	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGHUP)
 }
 
-// --- kill container tests ---
-
 func TestKillContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	err := client.KillContainer(context.Background(), testContainer("c1"), "SIGTERM", true)
@@ -528,8 +518,6 @@ func TestKillContainer_UnknownSignal_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid signal")
 }
 
-// --- start container tests ---
-
 func TestStartContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	err := client.StartContainer(context.Background(), testContainer("c1"), true)
@@ -565,8 +553,6 @@ func TestStartContainer_NewTask(t *testing.T) {
 	require.NoError(t, err)
 	newTask.AssertCalled(t, "Start", mock.Anything)
 }
-
-// --- restart container tests ---
 
 func TestRestartContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
@@ -607,8 +593,6 @@ func TestRestartContainer_StopFails(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "restart: stop failed")
 }
-
-// --- remove container tests ---
 
 func TestRemoveContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
@@ -661,8 +645,6 @@ func TestRemoveContainer_LoadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to load container")
 }
 
-// --- pause/unpause container tests ---
-
 func TestPauseContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	err := client.PauseContainer(context.Background(), testContainer("c1"), true)
@@ -703,8 +685,6 @@ func TestUnpauseContainer_Success(t *testing.T) {
 	task.AssertCalled(t, "Resume", mock.Anything)
 }
 
-// --- stop container with id tests ---
-
 func TestStopContainerWithID_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	err := client.StopContainerWithID(context.Background(), "c1", 10*time.Second, true)
@@ -727,8 +707,6 @@ func TestStopContainerWithID_Success(t *testing.T) {
 	err := client.StopContainerWithID(context.Background(), "c1", 10*time.Second, false)
 	require.NoError(t, err)
 }
-
-// --- parse signal tests ---
 
 func TestParseSignal(t *testing.T) {
 	t.Parallel()
@@ -781,8 +759,6 @@ func TestParseSignal_InvalidInputs(t *testing.T) {
 		})
 	}
 }
-
-// --- exec container tests ---
 
 func TestExecContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
@@ -876,8 +852,6 @@ func TestExecContainer_StartError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to start exec")
 }
 
-// --- netem tests ---
-
 func TestNetemContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
@@ -921,8 +895,6 @@ func TestStopNetemContainer_Success(t *testing.T) {
 		nil, nil, nil, "", false, false)
 	require.NoError(t, err)
 }
-
-// --- iptables tests ---
 
 func TestIPTablesContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
@@ -983,8 +955,6 @@ func TestStopIPTablesContainer_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// --- stress tests ---
-
 func TestStressContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
@@ -1043,8 +1013,6 @@ func TestStressContainer_ExecError(t *testing.T) {
 		t.Fatal("timeout waiting for stress error")
 	}
 }
-
-// --- command builder tests ---
 
 func TestBuildNetemArgs(t *testing.T) {
 	t.Parallel()

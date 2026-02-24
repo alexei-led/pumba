@@ -43,7 +43,7 @@ type GlobalParams struct {
 func splitLabels(raw []string) []string {
 	var result []string
 	for _, l := range raw {
-		for _, part := range strings.Split(l, ",") {
+		for part := range strings.SplitSeq(l, ",") {
 			part = strings.TrimSpace(part)
 			if part != "" {
 				result = append(result, part)
@@ -90,8 +90,8 @@ func getNamesOrPattern(c *cli.Context) ([]string, string) {
 			log.WithField("names", names).Debug("using names")
 		} else {
 			first := c.Args().First()
-			if strings.HasPrefix(first, Re2Prefix) {
-				pattern = strings.TrimPrefix(first, Re2Prefix)
+			if rest, found := strings.CutPrefix(first, Re2Prefix); found {
+				pattern = rest
 				log.WithField("pattern", pattern).Debug("using pattern")
 			} else {
 				names = append(names, first)

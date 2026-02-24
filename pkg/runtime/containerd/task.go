@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
 )
+
+// execCounter generates unique IDs for exec and sidecar operations.
+var execCounter atomic.Uint64
 
 // signalMap maps signal names to syscall signals.
 var signalMap = map[string]syscall.Signal{
@@ -79,26 +83,30 @@ func (c *containerdClient) stopTask(ctx context.Context, containerID string, sig
 			return fmt.Errorf("failed to send %s to %s: %w", signal, containerID, err)
 		}
 	}
+	stopTimer := time.NewTimer(timeout)
+	defer stopTimer.Stop()
 	select {
 	case <-waitCh:
 		_, _ = task.Delete(ctx)
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("context canceled waiting for %s on %s: %w", signal, containerID, ctx.Err())
-	case <-time.After(timeout):
+	case <-stopTimer.C:
 		log.WithField("id", containerID).Debug("graceful stop timeout, sending SIGKILL")
 		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
 			if !errdefs.IsNotFound(err) {
 				return fmt.Errorf("failed to send SIGKILL to %s: %w", containerID, err)
 			}
 		}
+		killTimer := time.NewTimer(killTimeout)
+		defer killTimer.Stop()
 		select {
 		case <-waitCh:
 			_, _ = task.Delete(ctx)
 			return nil
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled waiting for SIGKILL on %s: %w", containerID, ctx.Err())
-		case <-time.After(killTimeout):
+		case <-killTimer.C:
 			return fmt.Errorf("timeout waiting for SIGKILL on %s", containerID)
 		}
 	}
@@ -200,7 +208,7 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 	}
 
 	cmdArgs := append([]string{command}, args...)
-	execID := fmt.Sprintf("pumba-exec-%d", time.Now().UnixNano())
+	execID := fmt.Sprintf("pumba-exec-%d", execCounter.Add(1))
 	pspec := &specs.Process{
 		Args: cmdArgs,
 		Cwd:  "/",

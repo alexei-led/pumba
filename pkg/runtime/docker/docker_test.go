@@ -576,21 +576,15 @@ func Test_tcContainerCommands(t *testing.T) {
 		// Use default entrypoint and cmd from image (new version doesn't set these)
 		Image: "pumba/tcimage",
 	}
-	// host config
 	hconfig := ctypes.HostConfig{
-		// Don't auto-remove, since we may want to run multiple commands
-		AutoRemove: false,
-		// NET_ADMIN is required for "tc netem"
-		CapAdd: []string{"NET_ADMIN"},
-		// use target container network stack
-		NetworkMode: ctypes.NetworkMode("container:targetID"),
-		// others
+		AutoRemove:   false,
+		CapAdd:       []string{"NET_ADMIN"},
+		NetworkMode:  ctypes.NetworkMode("container:targetID"),
 		PortBindings: nat.PortMap{},
 		DNS:          []string{},
 		DNSOptions:   []string{},
 		DNSSearch:    []string{},
 	}
-	// pull response
 	pullResponse := imagePullResponse{
 		Status:   "ok",
 		Error:    "no error",
@@ -609,24 +603,13 @@ func Test_tcContainerCommands(t *testing.T) {
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
-	// pull image
 	engineClient.EXPECT().ImagePull(ctx, config.Image, imagetypes.PullOptions{}).Return(io.NopCloser(readerResponse), nil)
-	// create container
 	engineClient.EXPECT().ContainerCreate(ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(ctypes.CreateResponse{ID: "tcID"}, nil)
-	// start container
 	engineClient.EXPECT().ContainerStart(ctx, "tcID", ctypes.StartOptions{}).Return(nil)
-
-	// create exec for first command
 	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{Cmd: []string{"tc", "test", "one"}}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
-	// start exec for first command
 	engineClient.EXPECT().ContainerExecStart(ctx, "execID1", ctypes.ExecStartOptions{}).Return(nil)
-
-	// create exec for second command
 	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{Cmd: []string{"tc", "test", "two"}}).Return(ctypes.ExecCreateResponse{ID: "execID2"}, nil)
-	// start exec for second command
 	engineClient.EXPECT().ContainerExecStart(ctx, "execID2", ctypes.ExecStartOptions{}).Return(nil)
-
-	// remove container
 	engineClient.EXPECT().ContainerRemove(ctx, "tcID", ctypes.RemoveOptions{Force: true}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}

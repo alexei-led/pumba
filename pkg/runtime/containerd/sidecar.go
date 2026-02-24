@@ -41,7 +41,7 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		return fmt.Errorf("failed to get sidecar image %s: %w", sidecarImage, err)
 	}
 
-	sidecarID := fmt.Sprintf("pumba-sidecar-%d", time.Now().UnixNano())
+	sidecarID := fmt.Sprintf("pumba-sidecar-%d", execCounter.Add(1))
 	sidecarContainer, err := c.client.NewContainer(ctx, sidecarID,
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(sidecarID+"-snapshot", image),
@@ -89,7 +89,7 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 // runSidecarCmd executes a single command inside a running sidecar task.
 func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) error {
 	cmdArgs := append([]string{command}, args...)
-	execID := fmt.Sprintf("pumba-sc-exec-%d", time.Now().UnixNano())
+	execID := fmt.Sprintf("pumba-sc-exec-%d", execCounter.Add(1))
 	pspec := &specs.Process{
 		Args: cmdArgs,
 		Cwd:  "/",

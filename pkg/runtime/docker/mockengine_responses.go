@@ -13,7 +13,7 @@ func Containers(containers ...ctypes.Summary) []ctypes.Summary {
 }
 
 // Response mock single container
-func Response(params map[string]interface{}) ctypes.Summary {
+func Response(params map[string]any) ctypes.Summary {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 	Names := lookupWithDefault(params, "Names", []string{"foo", "bar"}).([]string)
 
@@ -24,7 +24,7 @@ func Response(params map[string]interface{}) ctypes.Summary {
 }
 
 // DetailsResponse mock container details response
-func DetailsResponse(params map[string]interface{}) ctypes.InspectResponse {
+func DetailsResponse(params map[string]any) ctypes.InspectResponse {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 	Name := lookupWithDefault(params, "Name", "defaultName").(string)
 	Created := lookupWithDefault(params, "Created", "2015-07-01T12:00:01.000000000Z").(string)
@@ -60,7 +60,7 @@ func DetailsResponse(params map[string]interface{}) ctypes.InspectResponse {
 }
 
 // ImageDetailsResponse mock image response
-func ImageDetailsResponse(params map[string]interface{}) imagetypes.InspectResponse {
+func ImageDetailsResponse(params map[string]any) imagetypes.InspectResponse {
 	ID := lookupWithDefault(params, "ID", "defaultID").(string)
 
 	return imagetypes.InspectResponse{
@@ -69,7 +69,7 @@ func ImageDetailsResponse(params map[string]interface{}) imagetypes.InspectRespo
 }
 
 // NewTestContainer creates a Container directly from params for testing
-func NewTestContainer(params map[string]interface{}) *ctr.Container {
+func NewTestContainer(params map[string]any) *ctr.Container {
 	id := lookupWithDefault(params, "ID", "defaultID").(string)
 	name := lookupWithDefault(params, "Name", "defaultName").(string)
 	image := lookupWithDefault(params, "Image", "defaultImage").(string)
@@ -94,16 +94,16 @@ func NewTestContainer(params map[string]interface{}) *ctr.Container {
 	}
 }
 
-func lookupWithDefault(aMap map[string]interface{}, key string, defaultValue interface{}) interface{} {
+func lookupWithDefault(aMap map[string]any, key string, defaultValue any) any {
 	if value, present := aMap[key]; present {
 		return value
 	}
 	return defaultValue
 }
 
-// AsMap convert multiple arguments into map[string]interface{}
-func AsMap(args ...interface{}) map[string]interface{} {
-	paramMap := make(map[string]interface{})
+// AsMap convert multiple arguments into map[string]any
+func AsMap(args ...any) map[string]any {
+	paramMap := make(map[string]any)
 	for i := 0; i+1 < len(args); i += 2 {
 		paramMap[args[i].(string)] = args[i+1]
 	}
