@@ -31,7 +31,7 @@ teardown() {
 @test "Should apply netem delay via sidecar container (tc-image)" {
     # Run pumba with --tc-image to use sidecar approach
     # The target container (alpine) does NOT have tc installed
-    pumba --log-level debug netem --interface dummy0 --tc-image docker.io/nicolaka/netshoot:latest --duration 30s delay --time 100 test-sidecar-target &
+    pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --tc-image docker.io/nicolaka/netshoot:latest --duration 30s delay --time 100 test-sidecar-target &
     PUMBA_PID=$!
     sleep 3
 

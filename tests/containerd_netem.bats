@@ -6,10 +6,9 @@ setup() {
     # Clean up any leftovers
     sudo ctr -n moby t kill -s SIGKILL test-netem-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-netem-ctr >/dev/null 2>&1 || true
-    # Pull image with iproute2 (tc) installed
-    # Use nicolaka/netshoot which has all network tools
-    # Need --privileged for tc qdisc commands
+    # Pull images: netshoot for the target container, nettools for pumba's sidecar
     sudo ctr -n moby i pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1
+    sudo ctr -n moby i pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1
     # Create container with a dummy interface for testing
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-netem-ctr \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
@@ -30,7 +29,7 @@ teardown() {
     [ $status -eq 0 ]
 
     # Run pumba in BACKGROUND with long duration so we can inspect tc rules while active
-    pumba --log-level debug netem --interface dummy0 --duration 30s delay --time 100 test-netem-ctr &
+    pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s delay --time 100 test-netem-ctr &
     PUMBA_PID=$!
     # Give pumba time to apply tc rules
     sleep 2
@@ -50,7 +49,7 @@ teardown() {
 
 @test "Should apply packet loss via containerd runtime" {
     # Run pumba in BACKGROUND with long duration
-    pumba --log-level debug netem --interface dummy0 --duration 30s loss --percent 50 test-netem-ctr &
+    pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s loss --percent 50 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 

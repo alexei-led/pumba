@@ -11,6 +11,7 @@ func TestMatchNames(t *testing.T) {
 		name          string
 		names         []string
 		containerName string
+		containerID   string
 		expected      bool
 	}{
 		{
@@ -43,11 +44,25 @@ func TestMatchNames(t *testing.T) {
 			containerName: "/container1",
 			expected:      true,
 		},
+		{
+			name:          "matches by container ID",
+			names:         []string{"abc123def456"},
+			containerName: "/my-container",
+			containerID:   "abc123def456",
+			expected:      true,
+		},
+		{
+			name:          "no match by name or ID",
+			names:         []string{"abc123def456"},
+			containerName: "/my-container",
+			containerID:   "xyz789",
+			expected:      false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := matchNames(tt.names, tt.containerName)
+			result := matchNames(tt.names, tt.containerName, tt.containerID)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

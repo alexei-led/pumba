@@ -84,7 +84,7 @@ teardown() {
     [ $status -eq 0 ]
 
     # Remove via pumba
-    run pumba --log-level debug rm ctr-pure-victim
+    run pumba --runtime containerd --containerd-namespace moby --log-level debug rm ctr-pure-victim
     [ $status -eq 0 ]
 
     # Should be fully gone from containerd

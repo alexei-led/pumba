@@ -121,7 +121,7 @@ func (client dockerClient) listContainers(ctx context.Context, fn ctr.FilterFunc
 
 		imgInfo, err := client.imageAPI.ImageInspect(ctx, containerInfo.Image)
 		if err != nil {
-			return nil, fmt.Errorf("failed to inspect container image: %w", err)
+			log.WithError(err).WithField("image", containerInfo.Image).Warn("failed to inspect container image, skipping image metadata")
 		}
 		c := dockerInspectToContainer(containerInfo, &imgInfo)
 		if fn(c) {
@@ -172,19 +172,13 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 		return fmt.Errorf("exec create failed: %w", err)
 	}
 
-	attachRes, err := client.containerAPI.ContainerAttach(
-		ctx, createRes.ID, ctypes.AttachOptions{},
+	attachRes, err := client.containerAPI.ContainerExecAttach(
+		ctx, createRes.ID, ctypes.ExecAttachOptions{},
 	)
 	if err != nil {
 		return fmt.Errorf("exec attach failed: %w", err)
 	}
 	defer attachRes.Close()
-
-	if err = client.containerAPI.ContainerExecStart(
-		ctx, createRes.ID, ctypes.ExecStartOptions{},
-	); err != nil {
-		return fmt.Errorf("exec start failed: %w", err)
-	}
 
 	output, err := io.ReadAll(attachRes.Reader)
 	if err != nil {

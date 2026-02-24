@@ -33,7 +33,7 @@ teardown() {
     
     # RESTART (running -> stop -> start)
     # We use the ID "test-restart-ctr"
-    run pumba --log-level debug restart test-restart-ctr
+    run pumba --runtime containerd --containerd-namespace default --log-level debug restart test-restart-ctr
     
     if [ $status -ne 0 ]; then
         echo "Pumba restart output: $output"
@@ -59,7 +59,7 @@ teardown() {
     
     # EXEC
     # We use a simple command that definitely exists
-    run pumba --log-level debug exec --command "touch /tmp/pumba_exec" $full_id
+    run pumba --log-level debug exec --command "touch" --args "/tmp/pumba_exec" $full_id
     
     if [ $status -ne 0 ]; then
         echo "Pumba exec output: $output"

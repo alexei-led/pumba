@@ -131,10 +131,10 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	api.EXPECT().ImageInspect(mock.Anything, "abc123").Return(imageDetailsResponse, errors.New("whoops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
-	_, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
+	containers, err := client.ListContainers(context.TODO(), mockAllContainers, ctr.ListOpts{All: true})
 
-	assert.Error(t, err)
-	assert.EqualError(t, err, "failed to inspect container image: whoops")
+	assert.NoError(t, err)
+	assert.Len(t, containers, 1)
 	api.AssertExpectations(t)
 }
 
@@ -1739,7 +1739,7 @@ func TestExecContainer(t *testing.T) {
 
 				// Simulate successful attachment
 				mockReader := strings.NewReader("hello\n")
-				api.EXPECT().ContainerAttach(ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(func() types.HijackedResponse {
 					conn := &mockConn{}
 					conn.On("Close").Return(nil)
 					return types.HijackedResponse{
@@ -1748,8 +1748,6 @@ func TestExecContainer(t *testing.T) {
 					}
 				}(), nil)
 
-				// Start and inspect execution
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{
 					ExitCode: 0,
 				}, nil)
@@ -1775,7 +1773,7 @@ func TestExecContainer(t *testing.T) {
 				}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 
 				mockReader := strings.NewReader("total 0\n")
-				api.EXPECT().ContainerAttach(ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(func() types.HijackedResponse {
 					conn := &mockConn{}
 					conn.On("Close").Return(nil)
 					return types.HijackedResponse{
@@ -1784,7 +1782,6 @@ func TestExecContainer(t *testing.T) {
 					}
 				}(), nil)
 
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{
 					ExitCode: 0,
 				}, nil)
@@ -1809,7 +1806,7 @@ func TestExecContainer(t *testing.T) {
 				}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 
 				mockReader := strings.NewReader("/\n")
-				api.EXPECT().ContainerAttach(ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(func() types.HijackedResponse {
 					conn := &mockConn{}
 					conn.On("Close").Return(nil)
 					return types.HijackedResponse{
@@ -1818,7 +1815,6 @@ func TestExecContainer(t *testing.T) {
 					}
 				}(), nil)
 
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{
 					ExitCode: 0,
 				}, nil)
@@ -1844,7 +1840,7 @@ func TestExecContainer(t *testing.T) {
 				}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 
 				mockReader := strings.NewReader("ls: /nonexistent: No such file or directory\n")
-				api.EXPECT().ContainerAttach(ctx, "execID", ctypes.AttachOptions{}).Return(func() types.HijackedResponse {
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(func() types.HijackedResponse {
 					conn := &mockConn{}
 					conn.On("Close").Return(nil)
 					return types.HijackedResponse{
@@ -1853,14 +1849,12 @@ func TestExecContainer(t *testing.T) {
 					}
 				}(), nil)
 
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{
 					ExitCode: 1,
 				}, nil)
 			},
 			wantErr: true,
 		},
-		// ... keep existing error test cases but update them with execArgs parameter ...
 	}
 
 	for _, tt := range tests {

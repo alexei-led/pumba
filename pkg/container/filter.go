@@ -2,11 +2,11 @@ package container
 
 import "regexp"
 
-// matchNames checks if containerName matches any of the provided names.
+// matchNames checks if containerName or containerID matches any of the provided names.
 // Container names may start with a forward slash when using inspect function.
-func matchNames(names []string, containerName string) bool {
+func matchNames(names []string, containerName, containerID string) bool {
 	for _, name := range names {
-		if name == containerName {
+		if name == containerName || name == containerID {
 			return true
 		}
 		// container name may start with forward slash
@@ -42,7 +42,7 @@ func applyContainerFilter(flt filter) FilterFunc {
 		}
 		// match names
 		if len(flt.Names) > 0 {
-			return matchNames(flt.Names, c.ContainerName)
+			return matchNames(flt.Names, c.ContainerName, c.ContainerID)
 		}
 		return matchPattern(flt.Pattern, c.ContainerName)
 	}

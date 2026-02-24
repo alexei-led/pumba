@@ -62,8 +62,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build make build TARGETOS=${TARGET
 #
 FROM --platform=$TARGETPLATFORM bats/bats:1.11.1 AS integration-tests
 
-# install required packages
-RUN apk add --no-cache docker iproute2 iptables
+# install required packages (containerd-ctr for containerd tests, sudo for ctr commands)
+RUN apk add --no-cache docker iproute2 iptables containerd-ctr sudo
 
 # copy bats tests
 COPY ./tests /code/tests

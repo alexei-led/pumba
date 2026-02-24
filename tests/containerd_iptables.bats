@@ -20,7 +20,7 @@ teardown() {
 
 @test "Should apply iptables packet loss via containerd runtime" {
     # Run pumba in background with long duration
-    pumba --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 test-ipt-ctr &
+    pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
