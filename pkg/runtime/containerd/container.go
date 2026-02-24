@@ -32,13 +32,10 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to get task status for %s: %w", c.ID(), err)
 		}
-		switch status.Status { //nolint:exhaustive
-		case containerd.Running:
+		if status.Status == containerd.Running {
 			state = ctr.StateRunning
-		default:
-			if !all {
-				return nil, true, nil
-			}
+		} else if !all {
+			return nil, true, nil
 		}
 	}
 
@@ -61,7 +58,6 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 //   - nerdctl:    nerdctl/name
 //   - Docker:     com.docker.compose.service
 func resolveContainerName(id string, labels map[string]string) string {
-	// Kubernetes labels (most specific)
 	if name := labels["io.kubernetes.container.name"]; name != "" {
 		pod := labels["io.kubernetes.pod.name"]
 		ns := labels["io.kubernetes.pod.namespace"]
@@ -73,11 +69,9 @@ func resolveContainerName(id string, labels map[string]string) string {
 		}
 		return name
 	}
-	// nerdctl labels
 	if name := labels["nerdctl/name"]; name != "" {
 		return name
 	}
-	// Docker Compose labels
 	if name := labels["com.docker.compose.service"]; name != "" {
 		return name
 	}

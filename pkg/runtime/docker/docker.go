@@ -47,6 +47,9 @@ type dockerClient struct {
 	systemAPI    dockerapi.SystemAPIClient
 }
 
+// Close is a no-op for the Docker client; the underlying HTTP connections are managed by the SDK.
+func (client dockerClient) Close() error { return nil }
+
 type imagePullResponse struct {
 	Status         string `json:"status"`
 	Error          string `json:"error"`

@@ -52,6 +52,42 @@ func (c *containerdClient) nsCtx(ctx context.Context) context.Context {
 	return namespaces.WithNamespace(ctx, c.namespace)
 }
 
+// resolveStopSignal parses the container's configured stop signal, falling back to SIGTERM.
+func resolveStopSignal(container *ctr.Container) syscall.Signal {
+	sig := syscall.SIGTERM
+	if s := container.StopSignal(); s != "" {
+		parsed, err := parseSignal(s)
+		if err != nil {
+			log.WithError(err).WithField("id", container.ID()).Warn("invalid stop signal, using SIGTERM")
+		} else {
+			sig = parsed
+		}
+	}
+	return sig
+}
+
+// forceKillTask kills and deletes a container's task for forced removal.
+func (c *containerdClient) forceKillTask(ctx context.Context, cntr containerd.Container, id string) {
+	task, err := cntr.Task(ctx, nil)
+	if err != nil {
+		if !errdefs.IsNotFound(err) {
+			log.WithError(err).WithField("id", id).Warn("failed to get task during force remove")
+		}
+		return
+	}
+	waitCh, wErr := task.Wait(ctx)
+	if killErr := task.Kill(ctx, syscall.SIGKILL); killErr != nil {
+		log.WithError(killErr).WithField("id", id).Warn("failed to kill task during force remove")
+	}
+	if wErr == nil {
+		select {
+		case <-waitCh:
+		case <-ctx.Done():
+		}
+	}
+	_, _ = task.Delete(ctx)
+}
+
 // ListContainers lists containers from containerd and applies the filter.
 func (c *containerdClient) ListContainers(ctx context.Context, fn ctr.FilterFunc, opts ctr.ListOpts) ([]*ctr.Container, error) {
 	if len(opts.Labels) > 0 {
@@ -82,15 +118,7 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn ctr.FilterFunc
 
 // StopContainer stops a container by sending its configured stop signal and waiting.
 func (c *containerdClient) StopContainer(ctx context.Context, container *ctr.Container, timeout int, dryrun bool) error {
-	sig := syscall.SIGTERM
-	if s := container.StopSignal(); s != "" {
-		parsed, err := parseSignal(s)
-		if err != nil {
-			log.WithError(err).WithField("id", container.ID()).Warn("invalid stop signal, using SIGTERM")
-		} else {
-			sig = parsed
-		}
-	}
+	sig := resolveStopSignal(container)
 	log.WithFields(log.Fields{"id": container.ID(), "timeout": timeout, "signal": sig}).Debug("stopping containerd container")
 	if dryrun {
 		return nil
@@ -123,15 +151,7 @@ func (c *containerdClient) RestartContainer(ctx context.Context, container *ctr.
 		return nil
 	}
 	ctx = c.nsCtx(ctx)
-	sig := syscall.SIGTERM
-	if s := container.StopSignal(); s != "" {
-		parsed, err := parseSignal(s)
-		if err != nil {
-			log.WithError(err).WithField("id", container.ID()).Warn("invalid stop signal, using SIGTERM")
-		} else {
-			sig = parsed
-		}
-	}
+	sig := resolveStopSignal(container)
 	if err := c.stopTask(ctx, container.ID(), sig, timeout); err != nil {
 		return fmt.Errorf("restart: stop failed: %w", err)
 	}
@@ -139,8 +159,11 @@ func (c *containerdClient) RestartContainer(ctx context.Context, container *ctr.
 }
 
 // RemoveContainer deletes a container and optionally its task.
-func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.Container, force, _, _, dryrun bool) error {
+func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.Container, force, links, volumes, dryrun bool) error {
 	log.WithFields(log.Fields{"id": container.ID(), "force": force}).Debug("removing containerd container")
+	if links || volumes {
+		log.WithField("id", container.ID()).Debug("containerd runtime: links/volumes removal not supported, ignored")
+	}
 	if dryrun {
 		return nil
 	}
@@ -150,22 +173,7 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 		return fmt.Errorf("failed to load container %s: %w", container.ID(), err)
 	}
 	if force {
-		task, err := cntr.Task(ctx, nil)
-		if err == nil {
-			waitCh, wErr := task.Wait(ctx)
-			if killErr := task.Kill(ctx, syscall.SIGKILL); killErr != nil {
-				log.WithError(killErr).WithField("id", container.ID()).Warn("failed to kill task during force remove")
-			}
-			if wErr == nil {
-				select {
-				case <-waitCh:
-				case <-ctx.Done():
-				}
-			}
-			_, _ = task.Delete(ctx)
-		} else if !errdefs.IsNotFound(err) {
-			log.WithError(err).WithField("id", container.ID()).Warn("failed to get task during force remove")
-		}
+		c.forceKillTask(ctx, cntr, container.ID())
 	}
 	// Try to delete with snapshot cleanup first; if that fails (e.g. Docker-managed
 	// containers in the moby namespace have no snapshot key), fall back to plain delete.
@@ -174,7 +182,6 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 	info, infoErr := cntr.Info(ctx)
 	if infoErr != nil {
 		if errdefs.IsNotFound(infoErr) {
-			// Container was already removed (e.g. by Docker daemon after task kill)
 			return nil
 		}
 		return fmt.Errorf("failed to get container info %s: %w", container.ID(), infoErr)
@@ -187,7 +194,6 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 	}
 	if deleteErr != nil {
 		if errdefs.IsNotFound(deleteErr) {
-			// Container was removed between Info and Delete (race with Docker daemon)
 			return nil
 		}
 		return fmt.Errorf("failed to delete container %s: %w", container.ID(), deleteErr)
@@ -228,7 +234,6 @@ func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Con
 	if dryrun {
 		return nil
 	}
-	// If args are empty, try to split command into command+args
 	if len(args) == 0 {
 		fields := strings.Fields(command)
 		if len(fields) > 0 {
@@ -252,7 +257,6 @@ func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Co
 	if err != nil {
 		return err
 	}
-	// Use sidecar container if tc-image is specified, otherwise exec directly
 	if tcimg != "" {
 		return c.sidecarExec(ctx, container, tcimg, pull, "tc", [][]string{tcArgs})
 	}
@@ -318,8 +322,11 @@ func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID 
 
 // StressContainer runs stress-ng inside a container.
 func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.Container,
-	stressors []string, _ string, _ bool, duration time.Duration, _, dryrun bool) (string, <-chan string, <-chan error, error) {
+	stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error) {
 	log.WithField("id", container.ID()).Debug("stress on containerd container")
+	if image != "" || pull || injectCgroup {
+		log.WithField("id", container.ID()).Debug("containerd runtime: sidecar/inject-cgroup stress modes not supported, using direct exec")
+	}
 	if dryrun {
 		return "", nil, nil, nil
 	}

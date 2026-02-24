@@ -1,7 +1,6 @@
 package containerd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -19,32 +18,29 @@ import (
 
 // sidecarExec creates a short-lived sidecar container that shares the target
 // container's network namespace and runs the given command+args inside it.
-// This allows running tc/iptables commands even when the target container
-// does not have these tools installed.
 func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, sidecarImage string, pull bool, command string, argsList [][]string) error {
 	ctx = c.nsCtx(ctx)
 
-	// 1. Pull sidecar image if requested
 	if pull {
 		if err := c.pullImage(ctx, sidecarImage); err != nil {
 			return fmt.Errorf("failed to pull sidecar image %s: %w", sidecarImage, err)
 		}
 	}
 
-	// 2. Get target container's task PID for network namespace
 	targetTask, err := c.getTask(ctx, target.ID())
 	if err != nil {
 		return fmt.Errorf("failed to get target task for sidecar: %w", err)
 	}
 	targetPID := targetTask.Pid()
+	if targetPID == 0 {
+		return fmt.Errorf("target task for %s has PID 0 (not running)", target.ID())
+	}
 
-	// 3. Get the sidecar image
 	image, err := c.client.GetImage(ctx, sidecarImage)
 	if err != nil {
 		return fmt.Errorf("failed to get sidecar image %s: %w", sidecarImage, err)
 	}
 
-	// 4. Create sidecar container sharing target's network namespace
 	sidecarID := fmt.Sprintf("pumba-sidecar-%d", time.Now().UnixNano())
 	sidecarContainer, err := c.client.NewContainer(ctx, sidecarID,
 		containerd.WithImage(image),
@@ -52,12 +48,10 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		containerd.WithNewSpec(
 			oci.WithImageConfig(image),
 			oci.WithProcessArgs("sleep", "infinity"),
-			// Share the target container's network namespace
 			oci.WithLinuxNamespace(specs.LinuxNamespace{
 				Type: specs.NetworkNamespace,
 				Path: fmt.Sprintf("/proc/%d/ns/net", targetPID),
 			}),
-			// Need NET_ADMIN for tc and iptables
 			oci.WithCapabilities([]string{"CAP_NET_ADMIN", "CAP_NET_RAW"}),
 		),
 	)
@@ -65,7 +59,6 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		return fmt.Errorf("failed to create sidecar container: %w", err)
 	}
 
-	// Cleanup: always remove the sidecar container.
 	// Use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled.
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
@@ -76,7 +69,6 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		}
 	}()
 
-	// 5. Start sidecar task
 	task, err := sidecarContainer.NewTask(ctx, cio.NullIO)
 	if err != nil {
 		return fmt.Errorf("failed to create sidecar task: %w", err)
@@ -85,7 +77,6 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		return fmt.Errorf("failed to start sidecar task: %w", err)
 	}
 
-	// 6. Execute each command set in the sidecar
 	for _, args := range argsList {
 		if err := c.runSidecarCmd(ctx, task, command, args); err != nil {
 			return err
@@ -112,36 +103,8 @@ func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Ta
 		},
 	}
 
-	var stdout, stderr bytes.Buffer
-	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
-		cio.WithStreams(nil, &stdout, &stderr),
-	))
-	if err != nil {
-		return fmt.Errorf("failed to exec %s in sidecar: %w", strings.Join(cmdArgs, " "), err)
-	}
-
-	exitCh, err := execProcess.Wait(ctx)
-	if err != nil {
-		_, _ = execProcess.Delete(ctx)
-		return fmt.Errorf("failed to wait on sidecar exec: %w", err)
-	}
-
-	if err := execProcess.Start(ctx); err != nil {
-		_, _ = execProcess.Delete(ctx)
-		return fmt.Errorf("failed to start sidecar exec: %w", err)
-	}
-
-	status := <-exitCh
-	code, _, err := status.Result()
-	if err != nil {
-		return fmt.Errorf("sidecar exec failed: %w", err)
-	}
-	if _, err := execProcess.Delete(ctx); err != nil {
-		log.WithError(err).Warn("failed to delete sidecar exec process")
-	}
-	if code != 0 {
-		return fmt.Errorf("sidecar exec '%s' exited with code %d: %s",
-			strings.Join(cmdArgs, " "), code, stderr.String())
+	if err := execTask(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " "))); err != nil {
+		return err
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("sidecar exec completed")
 	return nil
@@ -157,29 +120,28 @@ func (c *containerdClient) pullImage(ctx context.Context, ref string) error {
 	return nil
 }
 
-// sidecarCleanupTimeout is the maximum time allowed for sidecar container cleanup.
-const sidecarCleanupTimeout = 30 * time.Second
-
-// sidecarKillTimeout is the maximum time to wait for sidecar SIGKILL to take effect.
-const sidecarKillTimeout = 5 * time.Second
+const (
+	sidecarCleanupTimeout = 30 * time.Second
+	sidecarKillTimeout    = 5 * time.Second
+)
 
 // cleanupSidecar kills the task and removes the sidecar container and its snapshot.
 func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container) error {
-	// Kill and delete task
 	task, err := cntr.Task(ctx, nil)
 	if err == nil {
-		waitCh, _ := task.Wait(ctx)
+		waitCh, waitErr := task.Wait(ctx)
 		_ = task.Kill(ctx, syscall.SIGKILL)
-		select {
-		case <-waitCh:
-		case <-time.After(sidecarKillTimeout):
+		if waitErr == nil {
+			select {
+			case <-waitCh:
+			case <-time.After(sidecarKillTimeout):
+			}
 		}
 		_, _ = task.Delete(ctx)
 	} else if !errdefs.IsNotFound(err) {
 		log.WithError(err).Warn("failed to get sidecar task for cleanup")
 	}
 
-	// Delete container with snapshot cleanup
 	if err := cntr.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
 		if !errdefs.IsNotFound(err) {
 			return fmt.Errorf("failed to delete sidecar container: %w", err)

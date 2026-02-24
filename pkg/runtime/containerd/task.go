@@ -153,6 +153,46 @@ func (c *containerdClient) resumeTask(ctx context.Context, containerID string) e
 	return task.Resume(ctx)
 }
 
+// execTask runs a command inside a containerd task and waits for completion.
+// Handles the full exec lifecycle: create, wait, start, collect exit status, delete.
+func execTask(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) error {
+	var stdout, stderr bytes.Buffer
+	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
+		cio.WithStreams(nil, &stdout, &stderr),
+	))
+	if err != nil {
+		return fmt.Errorf("failed to exec %s: %w", description, err)
+	}
+	defer func() {
+		if _, delErr := execProcess.Delete(ctx); delErr != nil {
+			log.WithError(delErr).WithField("exec", description).Warn("failed to delete exec process")
+		}
+	}()
+
+	exitCh, err := execProcess.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to wait on %s: %w", description, err)
+	}
+
+	if err := execProcess.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start %s: %w", description, err)
+	}
+
+	select {
+	case status := <-exitCh:
+		code, _, err := status.Result()
+		if err != nil {
+			return fmt.Errorf("%s failed: %w", description, err)
+		}
+		if code != 0 {
+			return fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+		}
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("%s canceled: %w", description, ctx.Err())
+	}
+}
+
 func (c *containerdClient) execInContainer(ctx context.Context, containerID, command string, args []string) error {
 	task, err := c.getTask(ctx, containerID)
 	if err != nil {
@@ -168,37 +208,5 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 		User: specs.User{UID: 0, GID: 0},
 	}
 
-	var stdout, stderr bytes.Buffer
-	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
-		cio.WithStreams(nil, &stdout, &stderr),
-	))
-	if err != nil {
-		return fmt.Errorf("failed to exec in %s: %w", containerID, err)
-	}
-
-	exitCh, err := execProcess.Wait(ctx)
-	if err != nil {
-		_, _ = execProcess.Delete(ctx)
-		return fmt.Errorf("failed to wait on exec in %s: %w", containerID, err)
-	}
-
-	if err := execProcess.Start(ctx); err != nil {
-		_, _ = execProcess.Delete(ctx)
-		return fmt.Errorf("failed to start exec in %s: %w", containerID, err)
-	}
-
-	status := <-exitCh
-	code, _, err := status.Result()
-	if err != nil {
-		return fmt.Errorf("exec in %s failed: %w", containerID, err)
-	}
-
-	if _, err := execProcess.Delete(ctx); err != nil {
-		log.WithError(err).WithField("id", containerID).Warn("failed to delete exec process")
-	}
-
-	if code != 0 {
-		return fmt.Errorf("exec in %s exited with code %d: %s", containerID, code, stderr.String())
-	}
-	return nil
+	return execTask(ctx, task, pspec, execID, fmt.Sprintf("exec in %s '%s'", containerID, strings.Join(cmdArgs, " ")))
 }

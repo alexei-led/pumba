@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -82,10 +81,7 @@ func main() {
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
 	app.Before = before
 	app.After = func(_ *cli.Context) error {
-		if closer, ok := chaos.DockerClient.(io.Closer); ok {
-			return closer.Close()
-		}
-		return nil
+		return chaos.DockerClient.Close()
 	}
 	app.Commands = initializeCLICommands()
 	app.Flags = globalFlags(rootCertPath)
