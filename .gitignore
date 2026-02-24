@@ -19,3 +19,6 @@ vendor
 
 # ralphex progress logs
 progress*.txt
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
