@@ -1,0 +1,41 @@
+with-expecter: true
+issue-845-fix: true
+resolve-type-alias: false
+disable-version-string: true
+log-level: warn
+
+packages:
+  github.com/alexei-led/pumba/pkg/chaos:
+    config:
+      dir: "{{.ConfigDir}}/mocks"
+      outpkg: mocks
+      mockname: "{{.InterfaceName}}"
+      filename: "ChaosCommand.go"
+    interfaces:
+      Command:
+
+  github.com/alexei-led/pumba/pkg/container:
+    config:
+      dir: "{{.ConfigDir}}/pkg/container"
+      inpackage: true
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      Client:
+      Lister:
+      Lifecycle:
+      Executor:
+      Netem:
+      IPTables:
+      Stressor:
+      FilterFunc:
+
+  github.com/docker/docker/client:
+    config:
+      dir: "{{.ConfigDir}}/mocks"
+      outpkg: mocks
+      mockname: "{{.InterfaceName}}"
+      filename: "{{.InterfaceName}}.go"
+    interfaces:
+      ContainerAPIClient:
+      ImageAPIClient:
+      APIClient:
