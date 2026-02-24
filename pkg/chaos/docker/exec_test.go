@@ -7,7 +7,9 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExecCommand_Run(t *testing.T) {
@@ -42,9 +44,7 @@ func TestExecCommand_Run(t *testing.T) {
 				command: "kill",
 				args:    []string{"-9"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -57,9 +57,7 @@ func TestExecCommand_Run(t *testing.T) {
 				command: "ls",
 				args:    []string{"-la"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateLabeledTestContainers(3, map[string]string{"key": "value"}),
 		},
 		{
@@ -72,9 +70,7 @@ func TestExecCommand_Run(t *testing.T) {
 				args:    []string{"-STOP", "1"},
 				limit:   2,
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -86,10 +82,7 @@ func TestExecCommand_Run(t *testing.T) {
 				command: "kill",
 				args:    []string{"1"},
 			},
-			args: args{
-				ctx:    context.TODO(),
-				random: true,
-			},
+			args:     args{ctx: context.TODO(), random: true},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -101,9 +94,7 @@ func TestExecCommand_Run(t *testing.T) {
 				command: "kill",
 				args:    []string{"1"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args: args{ctx: context.TODO()},
 		},
 		{
 			name: "error listing containers",
@@ -114,9 +105,7 @@ func TestExecCommand_Run(t *testing.T) {
 				command: "kill",
 				args:    []string{"1"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:    args{ctx: context.TODO()},
 			wantErr: true,
 			errs:    wantErrors{listError: true},
 		},
@@ -129,9 +118,7 @@ func TestExecCommand_Run(t *testing.T) {
 				command: "kill",
 				args:    []string{"1"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{execError: true},
@@ -139,7 +126,7 @@ func TestExecCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(container.MockClient)
+			mockClient := container.NewMockClient(t)
 			k := &execCommand{
 				client:  mockClient,
 				names:   tt.fields.params.Names,
@@ -151,36 +138,31 @@ func TestExecCommand_Run(t *testing.T) {
 				dryRun:  tt.fields.params.DryRun,
 			}
 			opts := container.ListOpts{Labels: tt.fields.params.Labels}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), opts)
 			if tt.errs.listError {
-				call.Return(tt.expected, errors.New("ERROR"))
-				goto Invoke
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), opts).Return(nil, errors.New("ERROR"))
 			} else {
-				call.Return(tt.expected, nil)
-				if tt.expected == nil {
-					goto Invoke
-				}
-			}
-			if tt.args.random {
-				mockClient.On("ExecContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.args, tt.fields.params.DryRun).Return(nil)
-			} else {
-				for i := range tt.expected {
-					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("ExecContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.args, tt.fields.params.DryRun)
-						if tt.errs.execError {
-							call.Return(errors.New("ERROR"))
-							goto Invoke
-						} else {
-							call.Return(nil)
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), opts).Return(tt.expected, nil)
+				if tt.expected != nil {
+					execCall := mockClient.EXPECT().ExecContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.command, tt.fields.args, tt.fields.params.DryRun)
+					if tt.errs.execError {
+						execCall.Return(errors.New("ERROR")).Once()
+					} else if tt.args.random {
+						execCall.Return(nil).Once()
+					} else {
+						count := len(tt.expected)
+						if tt.fields.limit > 0 && tt.fields.limit < count {
+							count = tt.fields.limit
 						}
+						execCall.Return(nil).Times(count)
 					}
 				}
 			}
-		Invoke:
-			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("ExecCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+			err := k.Run(tt.args.ctx, tt.args.random)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			mockClient.AssertExpectations(t)
 		})
 	}
 }

@@ -122,31 +122,27 @@ func Test_runIPTables(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// create client mock
 			mockClient := &container.MockClient{}
-			// create timeout context
 			ctx, cancel := context.WithCancel(context.TODO())
-			// set IPTablesContainer mock call
-			call := mockClient.On("IPTablesContainer", ctx, tt.args.container, tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun)
+
+			startErr := error(nil)
 			if tt.errs.startErr {
-				call.Return(errors.New("test error"))
-				goto Invoke
-			} else {
-				call.Return(nil)
+				startErr = errors.New("test error")
 			}
-			// set StopContainer mock call
-			call = mockClient.On("StopIPTablesContainer", context.Background(), tt.args.container, tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun)
-			if tt.errs.stopErr {
-				call.Return(errors.New("test error"))
-			} else {
-				call.Return(nil)
+			mockClient.EXPECT().IPTablesContainer(ctx, tt.args.container, tt.args.cmdPrefix, tt.args.cmdPrefix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun).Return(startErr)
+
+			if !tt.errs.startErr {
+				stopErr := error(nil)
+				if tt.errs.stopErr {
+					stopErr = errors.New("test error")
+				}
+				mockClient.EXPECT().StopIPTablesContainer(context.Background(), tt.args.container, tt.args.cmdPrefix, tt.args.cmdPrefix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun).Return(stopErr)
 			}
-			// invoke
-		Invoke:
+
 			if err := runIPTables(ctx, mockClient, tt.args.container, tt.args.cmdPrefix, tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			// abort
+
 			if tt.abort {
 				t.Log("cancel iptables")
 				cancel()
@@ -154,7 +150,6 @@ func Test_runIPTables(t *testing.T) {
 				t.Log("timeout iptables")
 				defer cancel()
 			}
-			// asset mock
 			mockClient.AssertExpectations(t)
 		})
 	}

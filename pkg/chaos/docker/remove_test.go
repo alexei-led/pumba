@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRemoveCommand_Run(t *testing.T) {
@@ -41,9 +43,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 				names: []string{"c1", "c2", "c3"},
 				force: true,
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -54,9 +54,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 				links:   true,
 				limit:   2,
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -67,10 +65,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 				links:   true,
 				volumes: true,
 			},
-			args: args{
-				ctx:    context.TODO(),
-				random: true,
-			},
+			args:     args{ctx: context.TODO(), random: true},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -78,18 +73,14 @@ func TestRemoveCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args: args{ctx: context.TODO()},
 		},
 		{
 			name: "error listing containers",
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:    args{ctx: context.TODO()},
 			wantErr: true,
 			errs:    wantErrors{listError: true},
 		},
@@ -98,9 +89,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{removeError: true},
@@ -108,7 +97,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(container.MockClient)
+			mockClient := container.NewMockClient(t)
 			k := &removeCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
@@ -119,36 +108,31 @@ func TestRemoveCommand_Run(t *testing.T) {
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true }))
 			if tt.errs.listError {
-				call.Return(tt.expected, errors.New("ERROR"))
-				goto Invoke
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(nil, errors.New("ERROR"))
 			} else {
-				call.Return(tt.expected, nil)
-				if tt.expected == nil {
-					goto Invoke
-				}
-			}
-			if tt.args.random {
-				mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun).Return(nil)
-			} else {
-				for i := range tt.expected {
-					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("RemoveContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
-						if tt.errs.removeError {
-							call.Return(errors.New("ERROR"))
-							goto Invoke
-						} else {
-							call.Return(nil)
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(tt.expected, nil)
+				if tt.expected != nil {
+					removeCall := mockClient.EXPECT().RemoveContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
+					if tt.errs.removeError {
+						removeCall.Return(errors.New("ERROR")).Once()
+					} else if tt.args.random {
+						removeCall.Return(nil).Once()
+					} else {
+						count := len(tt.expected)
+						if tt.fields.limit > 0 && tt.fields.limit < count {
+							count = tt.fields.limit
 						}
+						removeCall.Return(nil).Times(count)
 					}
 				}
 			}
-		Invoke:
-			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("removeCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+			err := k.Run(tt.args.ctx, tt.args.random)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			mockClient.AssertExpectations(t)
 		})
 	}
 }

@@ -17,6 +17,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	metrictypes "github.com/containerd/containerd/api/types"
 )
@@ -27,9 +28,9 @@ type mockProcess struct {
 	mock.Mock
 }
 
-func (m *mockProcess) ID() string   { return "exec-proc" }
-func (m *mockProcess) Pid() uint32  { return 0 }
-func (m *mockProcess) IO() cio.IO   { return nil }
+func (m *mockProcess) ID() string  { return "exec-proc" }
+func (m *mockProcess) Pid() uint32 { return 0 }
+func (m *mockProcess) IO() cio.IO  { return nil }
 func (m *mockProcess) Status(context.Context) (containerd.Status, error) {
 	return containerd.Status{}, nil
 }
@@ -123,12 +124,14 @@ func (m *mockContainer) NewTask(ctx context.Context, _ cio.Creator, _ ...contain
 	}
 	return nil, args.Error(1)
 }
-func (m *mockContainer) Spec(context.Context) (*oci.Spec, error)                                     { return nil, nil }
-func (m *mockContainer) Image(context.Context) (containerd.Image, error)                             { return nil, nil }
-func (m *mockContainer) Labels(context.Context) (map[string]string, error)                           { return nil, nil }
-func (m *mockContainer) SetLabels(context.Context, map[string]string) (map[string]string, error)     { return nil, nil }
-func (m *mockContainer) Extensions(context.Context) (map[string]types.Any, error)                    { return nil, nil }
-func (m *mockContainer) Update(context.Context, ...containerd.UpdateContainerOpts) error             { return nil }
+func (m *mockContainer) Spec(context.Context) (*oci.Spec, error)           { return nil, nil }
+func (m *mockContainer) Image(context.Context) (containerd.Image, error)   { return nil, nil }
+func (m *mockContainer) Labels(context.Context) (map[string]string, error) { return nil, nil }
+func (m *mockContainer) SetLabels(context.Context, map[string]string) (map[string]string, error) {
+	return nil, nil
+}
+func (m *mockContainer) Extensions(context.Context) (map[string]types.Any, error)        { return nil, nil }
+func (m *mockContainer) Update(context.Context, ...containerd.UpdateContainerOpts) error { return nil }
 func (m *mockContainer) Checkpoint(context.Context, string, ...containerd.CheckpointOpts) (containerd.Image, error) {
 	return nil, nil
 }
@@ -143,8 +146,8 @@ func (m *mockTask) Status(ctx context.Context) (containerd.Status, error) {
 	return args.Get(0).(containerd.Status), args.Error(1)
 }
 
-func (m *mockTask) ID() string                                                        { return "" }
-func (m *mockTask) Pid() uint32                                                       { return 0 }
+func (m *mockTask) ID() string  { return "" }
+func (m *mockTask) Pid() uint32 { return 0 }
 func (m *mockTask) Start(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
@@ -168,7 +171,7 @@ func (m *mockTask) Wait(ctx context.Context) (<-chan containerd.ExitStatus, erro
 
 func (m *mockTask) CloseIO(context.Context, ...containerd.IOCloserOpts) error { return nil }
 func (m *mockTask) Resize(context.Context, uint32, uint32) error              { return nil }
-func (m *mockTask) IO() cio.IO                                               { return nil }
+func (m *mockTask) IO() cio.IO                                                { return nil }
 
 func (m *mockTask) Pause(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
@@ -229,163 +232,6 @@ func newStoppedTask() *mockTask {
 	return t
 }
 
-// --- tests ---
-
-func TestListContainers_RunningOnly(t *testing.T) {
-	task := newRunningTask()
-	mc := newMockContainer("c1", "nginx:latest", nil, task)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: false})
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "c1", result[0].ID())
-	assert.Equal(t, ctr.StateRunning, result[0].State)
-	api.AssertExpectations(t)
-}
-
-func TestListContainers_SkipsStoppedWhenNotAll(t *testing.T) {
-	task := newStoppedTask()
-	mc := newMockContainer("c1", "nginx:latest", nil, task)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: false})
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-func TestListContainers_IncludesStoppedWhenAll(t *testing.T) {
-	task := newStoppedTask()
-	mc := newMockContainer("c1", "nginx:latest", nil, task)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: true})
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, ctr.StateExited, result[0].State)
-}
-
-func TestListContainers_NoTask_SkippedWhenNotAll(t *testing.T) {
-	mc := newMockContainer("c1", "nginx:latest", nil, nil)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: false})
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-func TestListContainers_NoTask_IncludedWhenAll(t *testing.T) {
-	mc := newMockContainer("c1", "nginx:latest", nil, nil)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: true})
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, ctr.StateExited, result[0].State)
-}
-
-func TestListContainers_FilterFunc(t *testing.T) {
-	t1 := newRunningTask()
-	t2 := newRunningTask()
-	mc1 := newMockContainer("keep", "nginx:latest", nil, t1)
-	mc2 := newMockContainer("drop", "redis:latest", nil, t2)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc1, mc2}, nil)
-
-	filterKeep := func(c *ctr.Container) bool { return c.ID() == "keep" }
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), filterKeep, ctr.ListOpts{All: false})
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "keep", result[0].ID())
-}
-
-func TestListContainers_NilFilter_ReturnsAll(t *testing.T) {
-	t1 := newRunningTask()
-	t2 := newRunningTask()
-	mc1 := newMockContainer("c1", "nginx:latest", nil, t1)
-	mc2 := newMockContainer("c2", "redis:latest", nil, t2)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc1, mc2}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: false})
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 2)
-}
-
-func TestListContainers_APIError(t *testing.T) {
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container(nil), assert.AnError)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{})
-
-	assert.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "failed to list containerd containers")
-}
-
-func TestListContainers_ContainerConversion(t *testing.T) {
-	task := newRunningTask()
-	labels := map[string]string{"env": "prod", "app": "web"}
-	mc := newMockContainer("abc123", "myapp:v2", labels, task)
-
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{mc}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: false})
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	c := result[0]
-	assert.Equal(t, "abc123", c.ID())
-	assert.Equal(t, "abc123", c.Name())
-	assert.Equal(t, "myapp:v2", c.Image)
-	assert.Equal(t, "myapp:v2", c.ImageID)
-	assert.Equal(t, ctr.StateRunning, c.State)
-	assert.Equal(t, labels, c.Labels)
-	assert.NotNil(t, c.Networks)
-}
-
-func TestListContainers_EmptyList(t *testing.T) {
-	api := new(mockAPIClient)
-	api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container{}, nil)
-
-	client := newTestClient(api)
-	result, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{All: true})
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-// --- lifecycle helpers ---
-
 func testContainer(id string) *ctr.Container {
 	return &ctr.Container{
 		ContainerID:   id,
@@ -394,12 +240,199 @@ func testContainer(id string) *ctr.Container {
 	}
 }
 
-// setupLoadContainer wires api.LoadContainer to return mc for the given id.
 func setupLoadContainer(api *mockAPIClient, id string, mc *mockContainer) {
 	api.On("LoadContainer", mock.Anything, id).Return(mc, nil)
 }
 
-// --- lifecycle tests ---
+func newSuccessProcess() *mockProcess {
+	p := new(mockProcess)
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- *containerd.NewExitStatus(0, time.Now(), nil)
+	p.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	p.On("Start", mock.Anything).Return(nil)
+	p.On("Delete", mock.Anything).Return(nil)
+	return p
+}
+
+func newFailProcess(code uint32) *mockProcess {
+	p := new(mockProcess)
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- *containerd.NewExitStatus(code, time.Now(), nil)
+	p.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	p.On("Start", mock.Anything).Return(nil)
+	p.On("Delete", mock.Anything).Return(nil)
+	return p
+}
+
+func setupExec(task *mockTask, proc *mockProcess) {
+	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(proc, nil)
+}
+
+// --- list containers tests ---
+
+func TestListContainers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		containers    func() []containerd.Container
+		opts          ctr.ListOpts
+		filter        func(*ctr.Container) bool
+		wantLen       int
+		wantState     string
+		wantErr       bool
+		wantErrSubstr string
+		verify        func(t *testing.T, result []*ctr.Container)
+	}{
+		{
+			name: "running_only_includes_running_container",
+			containers: func() []containerd.Container {
+				return []containerd.Container{newMockContainer("c1", "nginx:latest", nil, newRunningTask())}
+			},
+			opts:      ctr.ListOpts{All: false},
+			wantLen:   1,
+			wantState: ctr.StateRunning,
+		},
+		{
+			name: "stopped_skipped_when_not_all",
+			containers: func() []containerd.Container {
+				return []containerd.Container{newMockContainer("c1", "nginx:latest", nil, newStoppedTask())}
+			},
+			opts:    ctr.ListOpts{All: false},
+			wantLen: 0,
+		},
+		{
+			name: "stopped_included_when_all",
+			containers: func() []containerd.Container {
+				return []containerd.Container{newMockContainer("c1", "nginx:latest", nil, newStoppedTask())}
+			},
+			opts:      ctr.ListOpts{All: true},
+			wantLen:   1,
+			wantState: ctr.StateExited,
+		},
+		{
+			name: "no_task_skipped_when_not_all",
+			containers: func() []containerd.Container {
+				return []containerd.Container{newMockContainer("c1", "nginx:latest", nil, nil)}
+			},
+			opts:    ctr.ListOpts{All: false},
+			wantLen: 0,
+		},
+		{
+			name: "no_task_included_when_all",
+			containers: func() []containerd.Container {
+				return []containerd.Container{newMockContainer("c1", "nginx:latest", nil, nil)}
+			},
+			opts:      ctr.ListOpts{All: true},
+			wantLen:   1,
+			wantState: ctr.StateExited,
+		},
+		{
+			name: "filter_func_excludes_non_matching",
+			containers: func() []containerd.Container {
+				return []containerd.Container{
+					newMockContainer("keep", "nginx:latest", nil, newRunningTask()),
+					newMockContainer("drop", "redis:latest", nil, newRunningTask()),
+				}
+			},
+			opts:    ctr.ListOpts{All: false},
+			filter:  func(c *ctr.Container) bool { return c.ID() == "keep" },
+			wantLen: 1,
+		},
+		{
+			name: "nil_filter_returns_all_running",
+			containers: func() []containerd.Container {
+				return []containerd.Container{
+					newMockContainer("c1", "nginx:latest", nil, newRunningTask()),
+					newMockContainer("c2", "redis:latest", nil, newRunningTask()),
+				}
+			},
+			opts:    ctr.ListOpts{All: false},
+			wantLen: 2,
+		},
+		{
+			name: "empty_list_returns_empty",
+			containers: func() []containerd.Container {
+				return []containerd.Container{}
+			},
+			opts:    ctr.ListOpts{All: true},
+			wantLen: 0,
+		},
+		{
+			name: "api_error_returns_error",
+			containers: func() []containerd.Container {
+				return nil
+			},
+			opts:          ctr.ListOpts{},
+			wantErr:       true,
+			wantErrSubstr: "failed to list containerd containers",
+		},
+		{
+			name: "container_conversion_maps_fields",
+			containers: func() []containerd.Container {
+				return []containerd.Container{
+					newMockContainer("abc123", "myapp:v2", map[string]string{"env": "prod", "app": "web"}, newRunningTask()),
+				}
+			},
+			opts:      ctr.ListOpts{All: false},
+			wantLen:   1,
+			wantState: ctr.StateRunning,
+			verify: func(t *testing.T, result []*ctr.Container) {
+				c := result[0]
+				assert.Equal(t, "abc123", c.ID())
+				assert.Equal(t, "abc123", c.Name())
+				assert.Equal(t, "myapp:v2", c.Image)
+				assert.Equal(t, "myapp:v2", c.ImageID)
+				assert.Equal(t, map[string]string{"env": "prod", "app": "web"}, c.Labels)
+				assert.NotNil(t, c.Networks)
+			},
+		},
+		{
+			name:          "labels_not_supported_returns_error",
+			containers:    func() []containerd.Container { return nil },
+			opts:          ctr.ListOpts{Labels: []string{"app=web"}},
+			wantErr:       true,
+			wantErrSubstr: "label filtering is not yet implemented",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			api := new(mockAPIClient)
+			ctrs := tt.containers()
+			if tt.wantErrSubstr != "label filtering is not yet implemented" {
+				if tt.wantErr {
+					api.On("Containers", mock.Anything, mock.Anything).Return([]containerd.Container(nil), assert.AnError)
+				} else {
+					api.On("Containers", mock.Anything, mock.Anything).Return(ctrs, nil)
+				}
+			}
+
+			client := newTestClient(api)
+			result, err := client.ListContainers(context.Background(), tt.filter, tt.opts)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrSubstr)
+				assert.Nil(t, result)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, result, tt.wantLen)
+			if tt.wantLen > 0 && tt.wantState != "" {
+				assert.Equal(t, tt.wantState, result[0].State)
+			}
+			if tt.verify != nil {
+				tt.verify(t, result)
+			}
+		})
+	}
+}
+
+// --- stop container tests ---
 
 func TestStopContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -421,8 +454,9 @@ func TestStopContainer_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGTERM)
+	task.AssertCalled(t, "Delete", mock.Anything)
 }
 
 func TestStopContainer_Timeout_SIGKILL(t *testing.T) {
@@ -441,7 +475,7 @@ func TestStopContainer_Timeout_SIGKILL(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.StopContainer(context.Background(), testContainer("c1"), 0, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
 }
 
@@ -451,9 +485,36 @@ func TestStopContainer_LoadError(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load container")
 }
+
+func TestStopContainer_HonorsStopSignal(t *testing.T) {
+	task := newRunningTask()
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGHUP).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	container := &ctr.Container{
+		ContainerID:   "c1",
+		ContainerName: "c1",
+		State:         ctr.StateRunning,
+		Labels:        map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGHUP"},
+	}
+
+	client := newTestClient(api)
+	err := client.StopContainer(context.Background(), container, 10, false)
+	require.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGHUP)
+}
+
+// --- kill container tests ---
 
 func TestKillContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -462,32 +523,30 @@ func TestKillContainer_Dryrun(t *testing.T) {
 }
 
 func TestKillContainer_Success(t *testing.T) {
-	task := newRunningTask()
-	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
+	tests := []struct {
+		name    string
+		signal  string
+		wantSig syscall.Signal
+	}{
+		{"sigkill_uppercase", "SIGKILL", syscall.SIGKILL},
+		{"sigterm_lowercase_no_prefix", "term", syscall.SIGTERM},
+	}
 
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
-	setupLoadContainer(api, "c1", mc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := newRunningTask()
+			task.On("Kill", mock.Anything, tt.wantSig).Return(nil)
 
-	client := newTestClient(api)
-	err := client.KillContainer(context.Background(), testContainer("c1"), "SIGKILL", false)
-	assert.NoError(t, err)
-	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
-}
+			mc := newMockContainer("c1", "nginx", nil, task)
+			api := new(mockAPIClient)
+			setupLoadContainer(api, "c1", mc)
 
-func TestKillContainer_SignalParsing(t *testing.T) {
-	task := newRunningTask()
-	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
-
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
-	setupLoadContainer(api, "c1", mc)
-
-	client := newTestClient(api)
-	// "term" without SIG prefix should be parsed to SIGTERM
-	err := client.KillContainer(context.Background(), testContainer("c1"), "term", false)
-	assert.NoError(t, err)
-	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGTERM)
+			client := newTestClient(api)
+			err := client.KillContainer(context.Background(), testContainer("c1"), tt.signal, false)
+			require.NoError(t, err)
+			task.AssertCalled(t, "Kill", mock.Anything, tt.wantSig)
+		})
+	}
 }
 
 func TestKillContainer_UnknownSignal_ReturnsError(t *testing.T) {
@@ -498,9 +557,11 @@ func TestKillContainer_UnknownSignal_ReturnsError(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.KillContainer(context.Background(), testContainer("c1"), "NONSENSE", false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid signal")
 }
+
+// --- start container tests ---
 
 func TestStartContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -518,7 +579,7 @@ func TestStartContainer_ExistingTask(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.StartContainer(context.Background(), testContainer("c1"), false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	task.AssertCalled(t, "Start", mock.Anything)
 }
 
@@ -526,7 +587,7 @@ func TestStartContainer_NewTask(t *testing.T) {
 	newTask := new(mockTask)
 	newTask.On("Start", mock.Anything).Return(nil)
 
-	mc := newMockContainer("c1", "nginx", nil, nil) // nil task -> ErrNotFound
+	mc := newMockContainer("c1", "nginx", nil, nil)
 	mc.On("NewTask", mock.Anything).Return(newTask, nil)
 
 	api := new(mockAPIClient)
@@ -534,9 +595,11 @@ func TestStartContainer_NewTask(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.StartContainer(context.Background(), testContainer("c1"), false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	newTask.AssertCalled(t, "Start", mock.Anything)
 }
+
+// --- restart container tests ---
 
 func TestRestartContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -545,7 +608,6 @@ func TestRestartContainer_Dryrun(t *testing.T) {
 }
 
 func TestRestartContainer_Success(t *testing.T) {
-	// Stop phase: task for the stop call
 	stopTask := new(mockTask)
 	stopTask.On("Status", mock.Anything).Return(containerd.Status{Status: containerd.Running}, nil)
 	exitCh := make(chan containerd.ExitStatus, 1)
@@ -554,11 +616,9 @@ func TestRestartContainer_Success(t *testing.T) {
 	stopTask.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
 	stopTask.On("Delete", mock.Anything).Return(nil)
 
-	// Start phase: task for the start call
 	startTask := new(mockTask)
 	startTask.On("Start", mock.Anything).Return(nil)
 
-	// Two LoadContainer calls: one for stop, one for start
 	mcStop := newMockContainer("c1", "nginx", nil, stopTask)
 	mcStart := newMockContainer("c1", "nginx", nil, startTask)
 
@@ -568,7 +628,7 @@ func TestRestartContainer_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestRestartContainer_StopFails(t *testing.T) {
@@ -577,9 +637,11 @@ func TestRestartContainer_StopFails(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.RestartContainer(context.Background(), testContainer("c1"), 10*time.Second, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "restart: stop failed")
 }
+
+// --- remove container tests ---
 
 func TestRemoveContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -596,7 +658,29 @@ func TestRemoveContainer_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	mc.AssertCalled(t, "Delete", mock.Anything)
+}
+
+func TestRemoveContainer_Force(t *testing.T) {
+	task := newRunningTask()
+	waitCh := make(chan containerd.ExitStatus, 1)
+	waitCh <- containerd.ExitStatus{}
+	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(waitCh), nil)
+	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
+	task.On("Delete", mock.Anything).Return(nil)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	mc.On("Delete", mock.Anything).Return(nil)
+
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), true, false, false, false)
+	require.NoError(t, err)
+	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
+	task.AssertCalled(t, "Delete", mock.Anything)
 	mc.AssertCalled(t, "Delete", mock.Anything)
 }
 
@@ -606,9 +690,11 @@ func TestRemoveContainer_LoadError(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load container")
 }
+
+// --- pause/unpause container tests ---
 
 func TestPauseContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -626,7 +712,7 @@ func TestPauseContainer_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.PauseContainer(context.Background(), testContainer("c1"), false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	task.AssertCalled(t, "Pause", mock.Anything)
 }
 
@@ -646,9 +732,11 @@ func TestUnpauseContainer_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.UnpauseContainer(context.Background(), testContainer("c1"), false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	task.AssertCalled(t, "Resume", mock.Anything)
 }
+
+// --- stop container with id tests ---
 
 func TestStopContainerWithID_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -670,10 +758,14 @@ func TestStopContainerWithID_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.StopContainerWithID(context.Background(), "c1", 10*time.Second, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
+// --- parse signal tests ---
+
 func TestParseSignal(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		expected syscall.Signal
@@ -692,59 +784,38 @@ func TestParseSignal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			sig, err := parseSignal(tt.input)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expected, sig)
 		})
 	}
 }
 
-func TestParseSignal_UnknownReturnsError(t *testing.T) {
-	_, err := parseSignal("NONSENSE")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown signal")
-}
+func TestParseSignal_InvalidInputs(t *testing.T) {
+	t.Parallel()
 
-func TestParseSignal_InvalidNumericReturnsError(t *testing.T) {
-	for _, input := range []string{"0", "-1"} {
-		t.Run(input, func(t *testing.T) {
-			_, err := parseSignal(input)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid signal number")
+	tests := []struct {
+		name          string
+		input         string
+		wantErrSubstr string
+	}{
+		{"unknown_name", "NONSENSE", "unknown signal"},
+		{"zero_numeric", "0", "invalid signal number"},
+		{"negative_numeric", "-1", "invalid signal number"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseSignal(tt.input)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErrSubstr)
 		})
 	}
 }
 
-// --- exec helpers ---
-
-// newSuccessProcess creates a mock process that starts, waits, and exits with code 0.
-func newSuccessProcess() *mockProcess {
-	p := new(mockProcess)
-	exitCh := make(chan containerd.ExitStatus, 1)
-	exitCh <- *containerd.NewExitStatus(0, time.Now(), nil)
-	p.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	p.On("Start", mock.Anything).Return(nil)
-	p.On("Delete", mock.Anything).Return(nil)
-	return p
-}
-
-// newFailProcess creates a mock process that exits with a non-zero code.
-func newFailProcess(code uint32) *mockProcess {
-	p := new(mockProcess)
-	exitCh := make(chan containerd.ExitStatus, 1)
-	exitCh <- *containerd.NewExitStatus(code, time.Now(), nil)
-	p.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	p.On("Start", mock.Anything).Return(nil)
-	p.On("Delete", mock.Anything).Return(nil)
-	return p
-}
-
-// setupExec wires a mock task to return the given process on Exec.
-func setupExec(task *mockTask, proc *mockProcess) {
-	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(proc, nil)
-}
-
-// --- exec tests ---
+// --- exec container tests ---
 
 func TestExecContainer_Dryrun(t *testing.T) {
 	client := newTestClient(new(mockAPIClient))
@@ -763,7 +834,7 @@ func TestExecContainer_Success(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "echo", []string{"hello"}, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	proc.AssertCalled(t, "Start", mock.Anything)
 	proc.AssertCalled(t, "Delete", mock.Anything)
 }
@@ -779,7 +850,7 @@ func TestExecContainer_NonZeroExit(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "false", nil, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exited with code 1")
 }
 
@@ -789,18 +860,18 @@ func TestExecContainer_LoadError(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load container")
 }
 
 func TestExecContainer_TaskError(t *testing.T) {
-	mc := newMockContainer("c1", "nginx", nil, nil) // nil task -> ErrNotFound
+	mc := newMockContainer("c1", "nginx", nil, nil)
 	api := new(mockAPIClient)
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get task")
 }
 
@@ -814,7 +885,7 @@ func TestExecContainer_ExecError(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to exec")
 }
 
@@ -834,7 +905,7 @@ func TestExecContainer_StartError(t *testing.T) {
 
 	client := newTestClient(api)
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "ls", nil, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start exec")
 }
 
@@ -859,7 +930,7 @@ func TestNetemContainer_Success(t *testing.T) {
 	client := newTestClient(api)
 	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
 		[]string{"delay", "100ms"}, nil, nil, nil, 0, "", false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestStopNetemContainer_Dryrun(t *testing.T) {
@@ -881,7 +952,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	client := newTestClient(api)
 	err := client.StopNetemContainer(context.Background(), testContainer("c1"), "eth0",
 		nil, nil, nil, "", false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // --- iptables tests ---
@@ -905,7 +976,22 @@ func TestIPTablesContainer_Success(t *testing.T) {
 	client := newTestClient(api)
 	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
 		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+}
+
+func TestIPTablesContainer_ExecError(t *testing.T) {
+	task := newRunningTask()
+	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := new(mockAPIClient)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
+		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to run iptables command")
 }
 
 func TestStopIPTablesContainer_Dryrun(t *testing.T) {
@@ -927,7 +1013,7 @@ func TestStopIPTablesContainer_Success(t *testing.T) {
 	client := newTestClient(api)
 	err := client.StopIPTablesContainer(context.Background(), testContainer("c1"),
 		[]string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // --- stress tests ---
@@ -954,7 +1040,7 @@ func TestStressContainer_Success(t *testing.T) {
 	client := newTestClient(api)
 	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
 		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "c1", id)
 
 	select {
@@ -978,7 +1064,7 @@ func TestStressContainer_ExecError(t *testing.T) {
 	client := newTestClient(api)
 	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
 		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "c1", id)
 
 	select {
@@ -994,15 +1080,61 @@ func TestStressContainer_ExecError(t *testing.T) {
 // --- command builder tests ---
 
 func TestBuildNetemArgs(t *testing.T) {
-	args, err := buildNetemArgs("eth0", []string{"delay", "100ms"}, nil, nil, nil)
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"}, args)
-}
+	t.Parallel()
 
-func TestBuildNetemArgs_WithMultipleCommands(t *testing.T) {
-	args, err := buildNetemArgs("eth0", []string{"delay", "100ms", "loss", "10%"}, nil, nil, nil)
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms", "loss", "10%"}, args)
+	tests := []struct {
+		name          string
+		iface         string
+		cmds          []string
+		srcIPs        []*net.IPNet
+		srcPorts      []string
+		wantArgs      []string
+		wantErr       bool
+		wantErrSubstr string
+	}{
+		{
+			name:     "basic_delay",
+			iface:    "eth0",
+			cmds:     []string{"delay", "100ms"},
+			wantArgs: []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"},
+		},
+		{
+			name:     "multiple_commands",
+			iface:    "eth0",
+			cmds:     []string{"delay", "100ms", "loss", "10%"},
+			wantArgs: []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms", "loss", "10%"},
+		},
+		{
+			name:          "rejects_ip_filtering",
+			iface:         "eth0",
+			cmds:          []string{"delay", "100ms"},
+			srcIPs:        func() []*net.IPNet { _, n, _ := net.ParseCIDR("10.0.0.0/8"); return []*net.IPNet{n} }(),
+			wantErr:       true,
+			wantErrSubstr: "IP/port filtering for netem is not yet implemented",
+		},
+		{
+			name:          "rejects_port_filtering",
+			iface:         "eth0",
+			cmds:          []string{"delay", "100ms"},
+			srcPorts:      []string{"80"},
+			wantErr:       true,
+			wantErrSubstr: "IP/port filtering for netem is not yet implemented",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			args, err := buildNetemArgs(tt.iface, tt.cmds, tt.srcIPs, tt.srcPorts, nil)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrSubstr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantArgs, args)
+		})
+	}
 }
 
 func TestBuildStopNetemArgs(t *testing.T) {
@@ -1010,149 +1142,58 @@ func TestBuildStopNetemArgs(t *testing.T) {
 	assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "root"}, args)
 }
 
-func TestBuildIPTablesCommands_Basic(t *testing.T) {
-	cmds := buildIPTablesCommands(
-		[]string{"-A", "INPUT"},
-		[]string{"-j", "DROP"},
-		nil, nil, nil, nil,
-	)
-	assert.Equal(t, [][]string{{"-A", "INPUT", "-j", "DROP"}}, cmds)
-}
+func TestBuildIPTablesCommands(t *testing.T) {
+	t.Parallel()
 
-func TestBuildIPTablesCommands_WithIPs(t *testing.T) {
 	_, srcNet, _ := net.ParseCIDR("10.0.0.0/8")
 	_, dstNet, _ := net.ParseCIDR("192.168.1.0/24")
-	cmds := buildIPTablesCommands(
-		[]string{"-A", "INPUT"},
-		[]string{"-j", "DROP"},
-		[]*net.IPNet{srcNet},
-		[]*net.IPNet{dstNet},
-		nil, nil,
-	)
-	expected := [][]string{
-		{"-A", "INPUT", "-s", "10.0.0.0/8", "-j", "DROP"},
-		{"-A", "INPUT", "-d", "192.168.1.0/24", "-j", "DROP"},
-	}
-	assert.Equal(t, expected, cmds)
-}
 
-func TestBuildIPTablesCommands_WithPorts(t *testing.T) {
-	cmds := buildIPTablesCommands(
-		[]string{"-A", "INPUT"},
-		[]string{"-j", "DROP"},
-		nil, nil,
-		[]string{"80", "443"},
-		[]string{"8080"},
-	)
-	expected := [][]string{
-		{"-A", "INPUT", "--sport", "80", "-j", "DROP"},
-		{"-A", "INPUT", "--sport", "443", "-j", "DROP"},
-		{"-A", "INPUT", "--dport", "8080", "-j", "DROP"},
-	}
-	assert.Equal(t, expected, cmds)
-}
-
-// --- additional coverage ---
-
-func TestRemoveContainer_Force(t *testing.T) {
-	task := newRunningTask()
-	waitCh := make(chan containerd.ExitStatus, 1)
-	waitCh <- containerd.ExitStatus{}
-	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(waitCh), nil)
-	task.On("Kill", mock.Anything, syscall.SIGKILL).Return(nil)
-	task.On("Delete", mock.Anything).Return(nil)
-
-	mc := newMockContainer("c1", "nginx", nil, task)
-	mc.On("Delete", mock.Anything).Return(nil)
-
-	api := new(mockAPIClient)
-	setupLoadContainer(api, "c1", mc)
-
-	client := newTestClient(api)
-	err := client.RemoveContainer(context.Background(), testContainer("c1"), true, false, false, false)
-	assert.NoError(t, err)
-	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
-	task.AssertCalled(t, "Delete", mock.Anything)
-	mc.AssertCalled(t, "Delete", mock.Anything)
-}
-
-func TestListContainers_LabelsNotSupported(t *testing.T) {
-	api := new(mockAPIClient)
-	client := newTestClient(api)
-	_, err := client.ListContainers(context.Background(), nil, ctr.ListOpts{
-		Labels: []string{"app=web"},
-	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "label filtering is not yet implemented")
-}
-
-func TestBuildNetemArgs_RejectsIPFiltering(t *testing.T) {
-	_, srcNet, _ := net.ParseCIDR("10.0.0.0/8")
-	_, err := buildNetemArgs("eth0", []string{"delay", "100ms"}, []*net.IPNet{srcNet}, nil, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "IP/port filtering for netem is not yet implemented")
-}
-
-func TestBuildNetemArgs_RejectsPortFiltering(t *testing.T) {
-	_, err := buildNetemArgs("eth0", []string{"delay", "100ms"}, nil, []string{"80"}, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "IP/port filtering for netem is not yet implemented")
-}
-
-func TestIPTablesContainer_ExecError(t *testing.T) {
-	task := newRunningTask()
-	task.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
-
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
-	setupLoadContainer(api, "c1", mc)
-
-	client := newTestClient(api)
-	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
-		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to run iptables command")
-}
-
-func TestStopContainer_HonorsStopSignal(t *testing.T) {
-	task := newRunningTask()
-	exitCh := make(chan containerd.ExitStatus, 1)
-	exitCh <- containerd.ExitStatus{}
-	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	task.On("Kill", mock.Anything, syscall.SIGHUP).Return(nil)
-	task.On("Delete", mock.Anything).Return(nil)
-
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
-	setupLoadContainer(api, "c1", mc)
-
-	container := &ctr.Container{
-		ContainerID:   "c1",
-		ContainerName: "c1",
-		State:         ctr.StateRunning,
-		Labels:        map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGHUP"},
+	tests := []struct {
+		name     string
+		flags    []string
+		target   []string
+		srcIPs   []*net.IPNet
+		dstIPs   []*net.IPNet
+		srcPorts []string
+		dstPorts []string
+		want     [][]string
+	}{
+		{
+			name:   "basic_rule",
+			flags:  []string{"-A", "INPUT"},
+			target: []string{"-j", "DROP"},
+			want:   [][]string{{"-A", "INPUT", "-j", "DROP"}},
+		},
+		{
+			name:   "with_src_and_dst_ips",
+			flags:  []string{"-A", "INPUT"},
+			target: []string{"-j", "DROP"},
+			srcIPs: []*net.IPNet{srcNet},
+			dstIPs: []*net.IPNet{dstNet},
+			want: [][]string{
+				{"-A", "INPUT", "-s", "10.0.0.0/8", "-j", "DROP"},
+				{"-A", "INPUT", "-d", "192.168.1.0/24", "-j", "DROP"},
+			},
+		},
+		{
+			name:     "with_src_and_dst_ports",
+			flags:    []string{"-A", "INPUT"},
+			target:   []string{"-j", "DROP"},
+			srcPorts: []string{"80", "443"},
+			dstPorts: []string{"8080"},
+			want: [][]string{
+				{"-A", "INPUT", "--sport", "80", "-j", "DROP"},
+				{"-A", "INPUT", "--sport", "443", "-j", "DROP"},
+				{"-A", "INPUT", "--dport", "8080", "-j", "DROP"},
+			},
+		},
 	}
 
-	client := newTestClient(api)
-	err := client.StopContainer(context.Background(), container, 10, false)
-	assert.NoError(t, err)
-	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGHUP)
-}
-
-func TestStopContainer_TaskDeleteCalledAfterExit(t *testing.T) {
-	task := newRunningTask()
-	exitCh := make(chan containerd.ExitStatus, 1)
-	exitCh <- containerd.ExitStatus{}
-	task.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	task.On("Kill", mock.Anything, syscall.SIGTERM).Return(nil)
-	task.On("Delete", mock.Anything).Return(nil)
-
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := new(mockAPIClient)
-	setupLoadContainer(api, "c1", mc)
-
-	client := newTestClient(api)
-	err := client.StopContainer(context.Background(), testContainer("c1"), 10, false)
-	assert.NoError(t, err)
-	task.AssertCalled(t, "Delete", mock.Anything)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cmds := buildIPTablesCommands(tt.flags, tt.target, tt.srcIPs, tt.dstIPs, tt.srcPorts, tt.dstPorts)
+			assert.Equal(t, tt.want, cmds)
+		})
+	}
 }

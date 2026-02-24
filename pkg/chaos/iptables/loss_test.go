@@ -60,7 +60,7 @@ func TestLossCommand_Run_NoContainers(t *testing.T) {
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
 	params := &Params{Iface: "eth0", Duration: time.Second}
 
-	mockClient.On("ListContainers", mock.Anything,
+	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{}, nil)

@@ -8,7 +8,9 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestKillCommand_Run(t *testing.T) {
@@ -42,9 +44,7 @@ func TestKillCommand_Run(t *testing.T) {
 				names:  []string{"c1", "c2", "c3"},
 				signal: "SIGKILL",
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -54,9 +54,7 @@ func TestKillCommand_Run(t *testing.T) {
 				labels: []string{"key=value"},
 				signal: "SIGKILL",
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateLabeledTestContainers(3, map[string]string{"key": "value"}),
 		},
 		{
@@ -66,9 +64,7 @@ func TestKillCommand_Run(t *testing.T) {
 				signal:  "SIGSTOP",
 				limit:   2,
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -77,10 +73,7 @@ func TestKillCommand_Run(t *testing.T) {
 				names:  []string{"c1", "c2", "c3"},
 				signal: "SIGKILL",
 			},
-			args: args{
-				ctx:    context.TODO(),
-				random: true,
-			},
+			args:     args{ctx: context.TODO(), random: true},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -89,9 +82,7 @@ func TestKillCommand_Run(t *testing.T) {
 				names:  []string{"c1", "c2", "c3"},
 				signal: "SIGKILL",
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args: args{ctx: context.TODO()},
 		},
 		{
 			name: "error listing containers",
@@ -99,9 +90,7 @@ func TestKillCommand_Run(t *testing.T) {
 				names:  []string{"c1", "c2", "c3"},
 				signal: "SIGKILL",
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:    args{ctx: context.TODO()},
 			wantErr: true,
 			errs:    wantErrors{listError: true},
 		},
@@ -111,9 +100,7 @@ func TestKillCommand_Run(t *testing.T) {
 				names:  []string{"c1", "c2", "c3"},
 				signal: "SIGKILL",
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{killError: true},
@@ -121,7 +108,7 @@ func TestKillCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(container.MockClient)
+			mockClient := container.NewMockClient(t)
 			k := &killCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
@@ -132,36 +119,31 @@ func TestKillCommand_Run(t *testing.T) {
 				dryRun:  tt.fields.dryRun,
 			}
 			opts := container.ListOpts{Labels: tt.fields.labels}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), opts)
 			if tt.errs.listError {
-				call.Return(tt.expected, errors.New("ERROR"))
-				goto Invoke
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), opts).Return(nil, errors.New("ERROR"))
 			} else {
-				call.Return(tt.expected, nil)
-				if tt.expected == nil {
-					goto Invoke
-				}
-			}
-			if tt.args.random {
-				mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.signal, tt.fields.dryRun).Return(nil)
-			} else {
-				for i := range tt.expected {
-					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("KillContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.signal, tt.fields.dryRun)
-						if tt.errs.killError {
-							call.Return(errors.New("ERROR"))
-							goto Invoke
-						} else {
-							call.Return(nil)
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), opts).Return(tt.expected, nil)
+				if tt.expected != nil {
+					killCall := mockClient.EXPECT().KillContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.signal, tt.fields.dryRun)
+					if tt.errs.killError {
+						killCall.Return(errors.New("ERROR")).Once()
+					} else if tt.args.random {
+						killCall.Return(nil).Once()
+					} else {
+						count := len(tt.expected)
+						if tt.fields.limit > 0 && tt.fields.limit < count {
+							count = tt.fields.limit
 						}
+						killCall.Return(nil).Times(count)
 					}
 				}
 			}
-		Invoke:
-			if err := k.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("killCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+			err := k.Run(tt.args.ctx, tt.args.random)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			mockClient.AssertExpectations(t)
 		})
 	}
 }
@@ -201,7 +183,7 @@ func TestNewKillCommand(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty signal",
+			name: "empty signal uses default",
 			args: args{
 				params: &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				signal: "",
@@ -215,13 +197,12 @@ func TestNewKillCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewKillCommand(tt.args.client, tt.args.params, tt.args.signal, tt.args.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewKillCommand() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewKillCommand() = %v, want %v", got, tt.want)
-			}
+			require.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(got, tt.want))
 		})
 	}
 }
