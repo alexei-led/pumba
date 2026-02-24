@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.github.com)",
+      "Bash(gh pr:*)",
+      "Bash(go build ./... 2>&1 && go vet ./... 2>&1)",
+      "Bash(go test -short -timeout=5m -coverprofile=/tmp/claude/coverage.out ./pkg/runtime/containerd/... 2>&1 && go tool cover -func=/tmp/claude/coverage.out 2>&1)",
+      "Bash(CGO_ENABLED=0 go build:*)"
+    ]
+  }
+}
