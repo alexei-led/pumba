@@ -32,7 +32,7 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to get task status for %s: %w", c.ID(), err)
 		}
-		switch status.Status { //nolint:exhaustive // only Running needs special handling
+		switch status.Status { //nolint:exhaustive
 		case containerd.Running:
 			state = ctr.StateRunning
 		default:
@@ -49,6 +49,7 @@ func toContainer(ctx context.Context, c containerd.Container, all bool) (*ctr.Co
 		ImageID:       info.Image,
 		State:         state,
 		Labels:        info.Labels,
+		Networks:      make(map[string]ctr.NetworkLink),
 	}, false, nil
 }
 

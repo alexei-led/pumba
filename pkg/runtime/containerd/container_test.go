@@ -81,8 +81,8 @@ func TestResolveContainerName(t *testing.T) {
 			name: "nerdctl takes priority over compose",
 			id:   "abc123",
 			labels: map[string]string{
-				"nerdctl/name":                   "my-nerdctl",
-				"com.docker.compose.service":     "redis",
+				"nerdctl/name":               "my-nerdctl",
+				"com.docker.compose.service": "redis",
 			},
 			expected: "my-nerdctl",
 		},

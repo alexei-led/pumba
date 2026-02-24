@@ -370,6 +370,7 @@ func TestListContainers_ContainerConversion(t *testing.T) {
 	assert.Equal(t, "myapp:v2", c.ImageID)
 	assert.Equal(t, ctr.StateRunning, c.State)
 	assert.Equal(t, labels, c.Labels)
+	assert.NotNil(t, c.Networks)
 }
 
 func TestListContainers_EmptyList(t *testing.T) {
@@ -685,6 +686,9 @@ func TestParseSignal(t *testing.T) {
 		{"hup", syscall.SIGHUP},
 		{"SIGQUIT", syscall.SIGQUIT},
 		{"SIGABRT", syscall.SIGABRT},
+		{"9", syscall.SIGKILL},
+		{"15", syscall.SIGTERM},
+		{"1", syscall.SIGHUP},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -699,6 +703,16 @@ func TestParseSignal_UnknownReturnsError(t *testing.T) {
 	_, err := parseSignal("NONSENSE")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown signal")
+}
+
+func TestParseSignal_InvalidNumericReturnsError(t *testing.T) {
+	for _, input := range []string{"0", "-1"} {
+		t.Run(input, func(t *testing.T) {
+			_, err := parseSignal(input)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid signal number")
+		})
+	}
 }
 
 // --- exec helpers ---

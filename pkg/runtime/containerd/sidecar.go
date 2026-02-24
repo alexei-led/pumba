@@ -65,9 +65,13 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		return fmt.Errorf("failed to create sidecar container: %w", err)
 	}
 
-	// Cleanup: always remove the sidecar container
+	// Cleanup: always remove the sidecar container.
+	// Use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled.
 	defer func() {
-		if cleanupErr := c.cleanupSidecar(ctx, sidecarContainer, sidecarID); cleanupErr != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
+		defer cancel()
+		cleanupCtx = c.nsCtx(cleanupCtx)
+		if cleanupErr := c.cleanupSidecar(cleanupCtx, sidecarContainer); cleanupErr != nil {
 			log.WithError(cleanupErr).Warn("failed to clean up sidecar container")
 		}
 	}()
@@ -83,55 +87,63 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 
 	// 6. Execute each command set in the sidecar
 	for _, args := range argsList {
-		cmdArgs := append([]string{command}, args...)
-		execID := fmt.Sprintf("pumba-sc-exec-%d", time.Now().UnixNano())
-		pspec := &specs.Process{
-			Args: cmdArgs,
-			Cwd:  "/",
-			Env:  []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
-			User: specs.User{UID: 0, GID: 0},
-			Capabilities: &specs.LinuxCapabilities{
-				Effective:   []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-				Bounding:    []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-				Permitted:   []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-				Inheritable: []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-			},
+		if err := c.runSidecarCmd(ctx, task, command, args); err != nil {
+			return err
 		}
-
-		var stdout, stderr bytes.Buffer
-		execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
-			cio.WithStreams(nil, &stdout, &stderr),
-		))
-		if err != nil {
-			return fmt.Errorf("failed to exec %s in sidecar: %w", strings.Join(cmdArgs, " "), err)
-		}
-
-		exitCh, err := execProcess.Wait(ctx)
-		if err != nil {
-			_, _ = execProcess.Delete(ctx)
-			return fmt.Errorf("failed to wait on sidecar exec: %w", err)
-		}
-
-		if err := execProcess.Start(ctx); err != nil {
-			_, _ = execProcess.Delete(ctx)
-			return fmt.Errorf("failed to start sidecar exec: %w", err)
-		}
-
-		status := <-exitCh
-		code, _, err := status.Result()
-		if err != nil {
-			return fmt.Errorf("sidecar exec failed: %w", err)
-		}
-		if _, err := execProcess.Delete(ctx); err != nil {
-			log.WithError(err).Warn("failed to delete sidecar exec process")
-		}
-		if code != 0 {
-			return fmt.Errorf("sidecar exec '%s' exited with code %d: %s",
-				strings.Join(cmdArgs, " "), code, stderr.String())
-		}
-		log.WithField("args", strings.Join(args, " ")).Debug("sidecar exec completed")
 	}
 
+	return nil
+}
+
+// runSidecarCmd executes a single command inside a running sidecar task.
+func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) error {
+	cmdArgs := append([]string{command}, args...)
+	execID := fmt.Sprintf("pumba-sc-exec-%d", time.Now().UnixNano())
+	pspec := &specs.Process{
+		Args: cmdArgs,
+		Cwd:  "/",
+		Env:  []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
+		User: specs.User{UID: 0, GID: 0},
+		Capabilities: &specs.LinuxCapabilities{
+			Effective:   []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
+			Bounding:    []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
+			Permitted:   []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
+			Inheritable: []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
+		},
+	}
+
+	var stdout, stderr bytes.Buffer
+	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
+		cio.WithStreams(nil, &stdout, &stderr),
+	))
+	if err != nil {
+		return fmt.Errorf("failed to exec %s in sidecar: %w", strings.Join(cmdArgs, " "), err)
+	}
+
+	exitCh, err := execProcess.Wait(ctx)
+	if err != nil {
+		_, _ = execProcess.Delete(ctx)
+		return fmt.Errorf("failed to wait on sidecar exec: %w", err)
+	}
+
+	if err := execProcess.Start(ctx); err != nil {
+		_, _ = execProcess.Delete(ctx)
+		return fmt.Errorf("failed to start sidecar exec: %w", err)
+	}
+
+	status := <-exitCh
+	code, _, err := status.Result()
+	if err != nil {
+		return fmt.Errorf("sidecar exec failed: %w", err)
+	}
+	if _, err := execProcess.Delete(ctx); err != nil {
+		log.WithError(err).Warn("failed to delete sidecar exec process")
+	}
+	if code != 0 {
+		return fmt.Errorf("sidecar exec '%s' exited with code %d: %s",
+			strings.Join(cmdArgs, " "), code, stderr.String())
+	}
+	log.WithField("args", strings.Join(args, " ")).Debug("sidecar exec completed")
 	return nil
 }
 
@@ -145,8 +157,14 @@ func (c *containerdClient) pullImage(ctx context.Context, ref string) error {
 	return nil
 }
 
+// sidecarCleanupTimeout is the maximum time allowed for sidecar container cleanup.
+const sidecarCleanupTimeout = 30 * time.Second
+
+// sidecarKillTimeout is the maximum time to wait for sidecar SIGKILL to take effect.
+const sidecarKillTimeout = 5 * time.Second
+
 // cleanupSidecar kills the task and removes the sidecar container and its snapshot.
-func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container, snapshotID string) error {
+func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container) error {
 	// Kill and delete task
 	task, err := cntr.Task(ctx, nil)
 	if err == nil {
@@ -154,7 +172,7 @@ func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.C
 		_ = task.Kill(ctx, syscall.SIGKILL)
 		select {
 		case <-waitCh:
-		case <-time.After(5 * time.Second):
+		case <-time.After(sidecarKillTimeout):
 		}
 		_, _ = task.Delete(ctx)
 	} else if !errdefs.IsNotFound(err) {

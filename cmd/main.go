@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -80,8 +81,149 @@ func main() {
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
 	app.Before = before
+	app.After = func(_ *cli.Context) error {
+		if closer, ok := chaos.DockerClient.(io.Closer); ok {
+			return closer.Close()
+		}
+		return nil
+	}
 	app.Commands = initializeCLICommands()
-	app.Flags = []cli.Flag{
+	app.Flags = globalFlags(rootCertPath)
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func before(c *cli.Context) error {
+	// set debug log level
+	switch level := c.GlobalString("log-level"); level {
+	case "debug", "DEBUG":
+		log.SetLevel(log.DebugLevel)
+	case "info", "INFO":
+		log.SetLevel(log.InfoLevel)
+	case "warning", "WARNING":
+		log.SetLevel(log.WarnLevel)
+	case "error", "ERROR":
+		log.SetLevel(log.ErrorLevel)
+	case "fatal", "FATAL":
+		log.SetLevel(log.FatalLevel)
+	case "panic", "PANIC":
+		log.SetLevel(log.PanicLevel)
+	default:
+		log.SetLevel(log.WarnLevel)
+	}
+	// set log formatter to JSON
+	if c.GlobalBool("json") {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+	// set Slack log channel
+	if c.GlobalString("slackhook") != "" {
+		log.AddHook(&slackrus.SlackrusHook{
+			HookURL:        c.GlobalString("slackhook"),
+			AcceptedLevels: slackrus.LevelThreshold(log.GetLevel()),
+			Channel:        c.GlobalString("slackchannel"),
+			IconEmoji:      ":boar:",
+			Username:       "pumba_bot",
+		})
+	}
+	// Set-up container client
+	var err error
+	switch runtime := c.GlobalString("runtime"); runtime {
+	case "docker":
+		tlsCfg, tlsErr := tlsConfig(c)
+		if tlsErr != nil {
+			return tlsErr
+		}
+		// create new Docker client
+		chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
+		if err != nil {
+			return fmt.Errorf("could not create Docker client: %w", err)
+		}
+	case "containerd":
+		socket := c.GlobalString("containerd-socket")
+		namespace := c.GlobalString("containerd-namespace")
+		chaos.DockerClient, err = containerd.NewClient(socket, namespace)
+		if err != nil {
+			return fmt.Errorf("could not create containerd client: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported runtime: %s", runtime)
+	}
+
+	return nil
+}
+
+func handleSignals() context.Context {
+	// Graceful shut-down on SIGINT/SIGTERM
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
+	// create cancelable context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		defer cancel()
+		sid := <-sig
+		log.Debugf("Received signal: %d\n", sid)
+		log.Debug("Canceling running chaos commands ...")
+		log.Debug("Gracefully exiting after some cleanup ...")
+	}()
+
+	return ctx
+}
+
+// tlsConfig translates the command-line options into a tls.Config struct
+func tlsConfig(c *cli.Context) (*tls.Config, error) {
+	var tlsCfg *tls.Config
+	var err error
+	caCertFlag := c.GlobalString("tlscacert")
+	certFlag := c.GlobalString("tlscert")
+	keyFlag := c.GlobalString("tlskey")
+
+	if c.GlobalBool("tls") || c.GlobalBool("tlsverify") {
+		tlsCfg = &tls.Config{
+			InsecureSkipVerify: !c.GlobalBool("tlsverify"), //nolint:gosec
+		}
+
+		// Load CA cert
+		if caCertFlag != "" {
+			var caCert []byte
+			if strings.HasPrefix(caCertFlag, "/") {
+				caCert, err = os.ReadFile(caCertFlag)
+				if err != nil {
+					return nil, fmt.Errorf("unable to read CA certificate: %w", err)
+				}
+			} else {
+				caCert = []byte(caCertFlag)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			tlsCfg.RootCAs = caCertPool
+		}
+
+		// Load client certificate
+		if certFlag != "" && keyFlag != "" {
+			var cert tls.Certificate
+			if strings.HasPrefix(certFlag, "/") && strings.HasPrefix(keyFlag, "/") {
+				cert, err = tls.LoadX509KeyPair(certFlag, keyFlag)
+				if err != nil {
+					return nil, fmt.Errorf("unable to load client certificate: %w", err)
+				}
+			} else {
+				cert, err = tls.X509KeyPair([]byte(certFlag), []byte(keyFlag))
+				if err != nil {
+					return nil, fmt.Errorf("unable to load client certificate: %w", err)
+				}
+			}
+			tlsCfg.Certificates = []tls.Certificate{cert}
+		}
+	}
+	return tlsCfg, nil
+}
+
+func globalFlags(rootCertPath string) []cli.Flag {
+	return []cli.Flag{
 		cli.StringFlag{
 			Name:   "host, H",
 			Usage:  "daemon socket to connect to",
@@ -169,137 +311,6 @@ func main() {
 			Usage: "skip chaos command error and retry to execute the command on next interval tick",
 		},
 	}
-
-	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func before(c *cli.Context) error {
-	// set debug log level
-	switch level := c.GlobalString("log-level"); level {
-	case "debug", "DEBUG":
-		log.SetLevel(log.DebugLevel)
-	case "info", "INFO":
-		log.SetLevel(log.InfoLevel)
-	case "warning", "WARNING":
-		log.SetLevel(log.WarnLevel)
-	case "error", "ERROR":
-		log.SetLevel(log.ErrorLevel)
-	case "fatal", "FATAL":
-		log.SetLevel(log.FatalLevel)
-	case "panic", "PANIC":
-		log.SetLevel(log.PanicLevel)
-	default:
-		log.SetLevel(log.WarnLevel)
-	}
-	// set log formatter to JSON
-	if c.GlobalBool("json") {
-		log.SetFormatter(&log.JSONFormatter{})
-	}
-	// set Slack log channel
-	if c.GlobalString("slackhook") != "" {
-		log.AddHook(&slackrus.SlackrusHook{
-			HookURL:        c.GlobalString("slackhook"),
-			AcceptedLevels: slackrus.LevelThreshold(log.GetLevel()),
-			Channel:        c.GlobalString("slackchannel"),
-			IconEmoji:      ":boar:",
-			Username:       "pumba_bot",
-		})
-	}
-	// Set-up container client
-	var err error
-	switch runtime := c.GlobalString("runtime"); runtime {
-	case "docker":
-		tlsCfg, err := tlsConfig(c)
-		if err != nil {
-			return err
-		}
-		// create new Docker client
-		chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
-		if err != nil {
-			return fmt.Errorf("could not create Docker client: %w", err)
-		}
-	case "containerd":
-		socket := c.GlobalString("containerd-socket")
-		namespace := c.GlobalString("containerd-namespace")
-		chaos.DockerClient, err = containerd.NewClient(socket, namespace)
-		if err != nil {
-			return fmt.Errorf("could not create containerd client: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported runtime: %s", runtime)
-	}
-
-	return nil
-}
-
-func handleSignals() context.Context {
-	// Graceful shut-down on SIGINT/SIGTERM
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-
-	// create cancelable context
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		defer cancel()
-		sid := <-sig
-		log.Debugf("Received signal: %d\n", sid)
-		log.Debug("Canceling running chaos commands ...")
-		log.Debug("Gracefully exiting after some cleanup ...")
-	}()
-
-	return ctx
-}
-
-// tlsConfig translates the command-line options into a tls.Config struct
-func tlsConfig(c *cli.Context) (*tls.Config, error) {
-	var tlsCfg *tls.Config
-	var err error
-	caCertFlag := c.GlobalString("tlscacert")
-	certFlag := c.GlobalString("tlscert")
-	keyFlag := c.GlobalString("tlskey")
-
-	if c.GlobalBool("tls") || c.GlobalBool("tlsverify") {
-		tlsCfg = &tls.Config{
-			InsecureSkipVerify: !c.GlobalBool("tlsverify"), //nolint:gosec
-		}
-
-		// Load CA cert
-		if caCertFlag != "" {
-			var caCert []byte
-			if strings.HasPrefix(caCertFlag, "/") {
-				caCert, err = os.ReadFile(caCertFlag)
-				if err != nil {
-					return nil, fmt.Errorf("unable to read CA certificate: %w", err)
-				}
-			} else {
-				caCert = []byte(caCertFlag)
-			}
-			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(caCert)
-			tlsCfg.RootCAs = caCertPool
-		}
-
-		// Load client certificate
-		if certFlag != "" && keyFlag != "" {
-			var cert tls.Certificate
-			if strings.HasPrefix(certFlag, "/") && strings.HasPrefix(keyFlag, "/") {
-				cert, err = tls.LoadX509KeyPair(certFlag, keyFlag)
-				if err != nil {
-					return nil, fmt.Errorf("unable to load client certificate: %w", err)
-				}
-			} else {
-				cert, err = tls.X509KeyPair([]byte(certFlag), []byte(keyFlag))
-				if err != nil {
-					return nil, fmt.Errorf("unable to load client certificate: %w", err)
-				}
-			}
-			tlsCfg.Certificates = []tls.Certificate{cert}
-		}
-	}
-	return tlsCfg, nil
 }
 
 //nolint:funlen

@@ -34,19 +34,22 @@ pumba --runtime containerd --containerd-namespace moby kill <container-id>
 
 **Global flags for containerd:**
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--runtime` | `docker` | Container runtime (`docker` or `containerd`) |
-| `--containerd-socket` | `/run/containerd/containerd.sock` | containerd socket path |
-| `--containerd-namespace` | `k8s.io` | containerd namespace |
+| Flag                     | Default                           | Description                                  |
+| ------------------------ | --------------------------------- | -------------------------------------------- |
+| `--runtime`              | `docker`                          | Container runtime (`docker` or `containerd`) |
+| `--containerd-socket`    | `/run/containerd/containerd.sock` | containerd socket path                       |
+| `--containerd-namespace` | `k8s.io`                          | containerd namespace                         |
 
 **Container name resolution:**
 
 Pumba resolves container names from well-known labels (checked in priority order):
+
 1. **Kubernetes**: `io.kubernetes.container.name` → `namespace/pod/container`
 2. **nerdctl**: `nerdctl/name`
 3. **Docker Compose**: `com.docker.compose.service`
 4. **Fallback**: container ID
+
+When using `re2:` regex patterns with the containerd runtime, Kubernetes container names use the `namespace/pod/container` format. Example: `re2:^default/` matches all containers in the `default` namespace.
 
 **Sidecar container for network chaos:**
 
@@ -59,7 +62,8 @@ pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nett
 ```
 
 **Known limitations of the containerd runtime:**
-- **Stress testing**: executes `stress-ng` directly inside the target container — the container image must include `stress-ng`
+
+- **Stress testing**: executes `stress-ng` directly inside the target container — the container image must include `stress-ng`. The `--stress-image` and `--inject-cgroup` flags are ignored with the containerd runtime
 - **Remove** (`rm`): For Docker-managed containers in the `moby` namespace, kills the task but Docker retains its own metadata
 
 ## Container Targeting

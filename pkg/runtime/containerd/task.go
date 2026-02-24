@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -33,6 +34,12 @@ var signalMap = map[string]syscall.Signal{
 }
 
 func parseSignal(signal string) (syscall.Signal, error) {
+	if num, err := strconv.Atoi(signal); err == nil {
+		if num < 1 {
+			return 0, fmt.Errorf("invalid signal number: %d", num)
+		}
+		return syscall.Signal(num), nil
+	}
 	signal = strings.ToUpper(signal)
 	if !strings.HasPrefix(signal, "SIG") {
 		signal = "SIG" + signal
@@ -106,7 +113,10 @@ func (c *containerdClient) killTask(ctx context.Context, containerID, signal str
 	if err != nil {
 		return fmt.Errorf("invalid signal for %s: %w", containerID, err)
 	}
-	return task.Kill(ctx, sig)
+	if err := task.Kill(ctx, sig); err != nil {
+		return fmt.Errorf("failed to kill task %s: %w", containerID, err)
+	}
+	return nil
 }
 
 func (c *containerdClient) startTask(ctx context.Context, containerID string) error {

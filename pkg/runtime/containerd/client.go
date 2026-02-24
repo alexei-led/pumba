@@ -185,11 +185,14 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 	} else {
 		deleteErr = cntr.Delete(ctx)
 	}
-	if deleteErr != nil && errdefs.IsNotFound(deleteErr) {
-		// Container was removed between Info and Delete (race with Docker daemon)
-		return nil
+	if deleteErr != nil {
+		if errdefs.IsNotFound(deleteErr) {
+			// Container was removed between Info and Delete (race with Docker daemon)
+			return nil
+		}
+		return fmt.Errorf("failed to delete container %s: %w", container.ID(), deleteErr)
 	}
-	return deleteErr
+	return nil
 }
 
 // PauseContainer pauses a container's task.
@@ -258,8 +261,11 @@ func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Co
 
 // StopNetemContainer removes network emulation from a container.
 func (c *containerdClient) StopNetemContainer(ctx context.Context, container *ctr.Container, netInterface string,
-	_ []*net.IPNet, _, _ []string, tcimg string, pull, dryrun bool) error {
+	ips []*net.IPNet, sports, dports []string, tcimg string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface, "tc-image": tcimg}).Debug("stop netem on containerd container")
+	if len(ips) > 0 || len(sports) > 0 || len(dports) > 0 {
+		log.WithField("id", container.ID()).Warn("containerd runtime: IP/port filters ignored during netem cleanup")
+	}
 	if dryrun {
 		return nil
 	}
@@ -322,10 +328,7 @@ func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.C
 	go func() {
 		defer close(errCh)
 		defer close(outCh)
-		secs := int(math.Ceil(duration.Seconds()))
-		if secs < 1 {
-			secs = 1
-		}
+		secs := max(1, int(math.Ceil(duration.Seconds())))
 		args := append([]string{"--timeout", fmt.Sprintf("%ds", secs)}, stressors...)
 		if err := c.execInContainer(c.nsCtx(ctx), container.ID(), "stress-ng", args); err != nil {
 			errCh <- err
