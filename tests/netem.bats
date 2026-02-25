@@ -4,11 +4,12 @@
 load test_helper
 
 setup() {
+    skip_if_dind
     # Clean any leftover containers from previous test runs
     cleanup_containers "pingtest"
     cleanup_containers "netem_target"
     cleanup_containers "rate_limit_target"
-    
+
     # Also cleanup any nettools containers that might be left running
     docker ps -q --filter "ancestor=ghcr.io/alexei-led/pumba-alpine-nettools" | xargs -r docker rm -f
 }

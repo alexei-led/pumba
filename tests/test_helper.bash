@@ -230,6 +230,16 @@ $(docker ps --filter "ancestor=ghcr.io/alexei-led/$pattern" --format '{{.Names}}
   fi
 }
 
+# ── Docker-in-Docker detection ────────────────────────────────────────────
+
+# Skip test if running inside Docker-in-Docker (sidecar container creation
+# with --net=container:X fails in DinD due to PID namespace limitations)
+skip_if_dind() {
+  if [ -f /.dockerenv ]; then
+    skip "sidecar tests not supported in Docker-in-Docker"
+  fi
+}
+
 # ── Containerd helpers ────────────────────────────────────────────────────
 
 # Check if containerd socket is available and skip test if not

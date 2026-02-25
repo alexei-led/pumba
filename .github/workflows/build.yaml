@@ -77,7 +77,5 @@ jobs:
       - name: Run Integration Tests
         run: |
           docker run -i --rm --name integration-tests \
-            --privileged \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v /run/containerd/containerd.sock:/run/containerd/containerd.sock \
             pumba:test
