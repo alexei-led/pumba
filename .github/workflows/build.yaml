@@ -66,7 +66,7 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
       - name: Build Pumba Binary
-        run: make build
+        run: make build TARGETARCH="$(dpkg --print-architecture)"
       - name: Install Pumba
         run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
       - name: Install Bats and Libraries
@@ -80,8 +80,16 @@ jobs:
         run: |
           docker pull alpine:latest
           docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
-      - name: Run Integration Tests
-        run: sudo env "PATH=$PATH" bats --print-output-on-failure tests/*.bats
+      - name: Warm Up Docker Runtime
+        run: |
+          docker run --rm alpine:latest true
+          cid=$(docker create --rm alpine:latest sleep 10)
+          docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
+          docker rm -f "${cid}" 2>/dev/null || true
+      - name: Run Docker Integration Tests
+        run: |
+          shopt -s extglob
+          sudo env "PATH=$PATH" bats --print-output-on-failure tests/!(containerd_*).bats
       - name: Run Containerd Integration Tests
         run: |
           if [ -S /run/containerd/containerd.sock ]; then
