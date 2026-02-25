@@ -75,6 +75,22 @@ teardown() {
     [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_victim_2)" = "running" ]
 }
 
+@test "Should only affect containers matching ALL labels via containerd runtime" {
+    docker run -d --name ctr_flag_victim_1 --label app=web --label env=test alpine top
+    docker run -d --name ctr_flag_victim_2 --label app=web alpine top
+    sleep 1
+
+    # Kill with both labels — only container with BOTH should be affected
+    run pumba --log-level debug --label "app=web" --label "env=test" kill "re2:ctr_flag_victim_.*"
+    assert_success
+
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_victim_1 | grep -q exited" "both-label container to exit"
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_victim_1)" = "exited" ]
+
+    # Container missing a label should still be running
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_victim_2)" = "running" ]
+}
+
 @test "Should run containerd kill on interval with --interval flag" {
     docker run -d --name ctr_flag_interval alpine top
     full_id=$(docker inspect --format="{{.Id}}" ctr_flag_interval)

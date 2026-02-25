@@ -168,6 +168,70 @@ teardown() {
     wait_for 5 "docker inspect ctr_victim 2>&1 | grep -qE 'No such|exited'" "container to be removed"
 }
 
+# ── LIMIT ──────────────────────────────────────────────────────────────────
+
+@test "Should respect --limit when stopping containers via containerd runtime" {
+    docker run -d --name ctr_victim_1 alpine top
+    docker run -d --name ctr_victim_2 alpine top
+    sleep 1
+
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_1)" = "running" ]
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_2)" = "running" ]
+
+    run pumba --log-level debug stop --limit 1 "re2:ctr_victim_.*"
+    assert_success
+
+    sleep 2
+    local running=0
+    docker inspect -f '{{.State.Status}}' ctr_victim_1 2>/dev/null | grep -q running && running=$((running+1))
+    docker inspect -f '{{.State.Status}}' ctr_victim_2 2>/dev/null | grep -q running && running=$((running+1))
+    echo "Running containers after limit=1 stop: $running"
+    [ "$running" -eq 1 ]
+}
+
+@test "Should respect --limit when pausing containers via containerd runtime" {
+    docker run -d --name ctr_victim_1 alpine tail -f /dev/null
+    docker run -d --name ctr_victim_2 alpine tail -f /dev/null
+    sleep 1
+
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_1)" = "running" ]
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_2)" = "running" ]
+
+    pumba --log-level debug pause --limit 1 --duration 5s "re2:ctr_victim_.*" &
+    PUMBA_PID=$!
+
+    sleep 2
+    local paused=0
+    docker inspect -f '{{.State.Status}}' ctr_victim_1 2>/dev/null | grep -q paused && paused=$((paused+1))
+    docker inspect -f '{{.State.Status}}' ctr_victim_2 2>/dev/null | grep -q paused && paused=$((paused+1))
+    echo "Paused containers after limit=1: $paused"
+    [ "$paused" -eq 1 ]
+
+    kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+}
+
+@test "Should respect --limit when removing containers via containerd runtime" {
+    docker run -d --name ctr_victim_1 alpine top
+    docker run -d --name ctr_victim_2 alpine top
+    sleep 1
+
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_1)" = "running" ]
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_2)" = "running" ]
+
+    run pumba --log-level debug rm --limit 1 "re2:ctr_victim_.*"
+    assert_success
+
+    sleep 2
+    local remaining=0
+    docker inspect ctr_victim_1 &>/dev/null && remaining=$((remaining+1))
+    docker inspect ctr_victim_2 &>/dev/null && remaining=$((remaining+1))
+    echo "Remaining containers after limit=1 rm: $remaining"
+    [ "$remaining" -eq 1 ]
+}
+
+# ── REMOVE (stopped, regex) ───────────────────────────────────────────────
+
 @test "Should remove containers matched by regex via containerd runtime" {
     docker run -d --name ctr_victim_1 alpine top
     docker run -d --name ctr_victim_2 alpine top
