@@ -12,7 +12,8 @@ setup() {
 }
 
 teardown() {
-    # Kill backgrounded pumba
+    # Kill any backgrounded pumba (may be running as sudo)
+    sudo pkill -f "pumba.*iptables.*test-ipt-ctr" 2>/dev/null || true
     kill %1 2>/dev/null || true
     sudo ctr -n moby t kill -s SIGKILL test-ipt-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-ipt-ctr >/dev/null 2>&1 || true
@@ -20,7 +21,7 @@ teardown() {
 
 @test "Should apply iptables packet loss via containerd runtime" {
     # Run pumba in background with long duration
-    pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 test-ipt-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -29,9 +30,37 @@ teardown() {
     echo "iptables output: $output"
 
     # Kill pumba
-    kill $PUMBA_PID 2>/dev/null || true
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
     # There should be some DROP rule
     [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "drop" ]] || [[ "$output" =~ "statistic" ]]
+}
+
+@test "Should apply iptables loss with nth mode via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --mode nth --every 3 test-ipt-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-ipt-nth test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables nth output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "statistic" ]]
+}
+
+@test "Should apply iptables loss with source IP filter via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --source 10.0.0.0/8 --duration 30s loss --probability 1.0 test-ipt-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-ipt-src test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables source filter output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "10.0.0.0" ]]
 }

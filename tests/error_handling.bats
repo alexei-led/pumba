@@ -169,6 +169,28 @@ teardown() {
     [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
 }
 
+@test "Should fail when pause command has no duration" {
+    create_test_container "error_target"
+
+    run pumba pause error_target
+    [ $status -ne 0 ]
+    [[ $output =~ "duration" ]] || [[ $output =~ "required" ]]
+}
+
+@test "Should fail when netem delay has no duration" {
+    create_test_container "error_target"
+
+    run pumba netem delay --time 100 error_target
+    [ $status -ne 0 ]
+    [[ $output =~ "duration" ]] || [[ $output =~ "required" ]]
+}
+
+@test "Should fail when exec has no containers to target" {
+    run pumba exec nonexistent_container_xyz
+    [ $status -eq 0 ]
+    [[ $output =~ "no containers to exec" ]]
+}
+
 @test "Should handle CIDR notation formats" {
     # This test skips actual execution since we're just testing CLI parsing
     run pumba iptables --help

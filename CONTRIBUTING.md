@@ -6,6 +6,7 @@ Thank you for your interest in contributing to Pumba! This guide covers how to s
 
 - **Go 1.26+** — see [go.dev/dl](https://go.dev/dl/) for installation
 - **Docker** — required for integration tests, building Docker images, and running Pumba itself
+- **Colima** (macOS) — recommended for running containerd integration tests (`brew install colima`)
 - **golangci-lint** — installed automatically via `make setup-tools`
 - **mockery** — for generating test mocks (`make setup-mockery`)
 
@@ -60,15 +61,23 @@ make test-coverage
 
 ### Integration tests
 
-Integration tests use [bats](https://github.com/bats-core/bats-core) and require Docker:
+Integration tests use [bats](https://github.com/bats-core/bats-core) and test both Docker and containerd runtimes:
 
 ```sh
-# Run core integration tests
+# Run core integration tests (Docker, via Docker image)
 make integration-tests
 
 # Run all integration tests including stress tests
 make integration-tests-all
+
+# Run ALL tests locally via Colima VM (Docker + containerd, recommended on macOS)
+colima ssh -- sudo bats tests/*.bats tests/containerd_*.bats
+
+# Run only containerd tests
+colima ssh -- sudo bats tests/containerd_*.bats
 ```
+
+> **Note:** Containerd netem/iptables/sidecar tests require `sudo` because pumba needs root to mount overlayfs for sidecar containers. See `tests/README.md` for details.
 
 ### Linting
 
@@ -102,11 +111,14 @@ pkg/
     iptables/cmd/      — CLI command builders for iptables
     stress/            — stress-ng resource stress testing
     stress/cmd/        — CLI command builder for stress
-  container/           — Docker client abstraction, container types, filtering
+  container/           — Container model, interfaces (Client, Lister, Lifecycle, Executor, Netem, etc.), filtering
+  runtime/
+    docker/            — Docker runtime implementation of container.Client
+    containerd/        — Containerd runtime implementation of container.Client
   util/                — Shared utilities (IP/port parsing)
 mocks/                 — Generated mock files (mockery)
-tests/                 — Bats integration tests
-docker/                — Dockerfiles (main, alpine-nettools, debian-nettools)
+tests/                 — Bats integration tests (Docker tests + containerd_*.bats)
+docker/                — Dockerfiles (main, alpine-nettools, debian-nettools, stress)
 deploy/                — Kubernetes and OpenShift deployment manifests
 docs/                  — Detailed documentation
 examples/              — Demo scripts

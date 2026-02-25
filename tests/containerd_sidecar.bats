@@ -18,6 +18,7 @@ setup() {
 }
 
 teardown() {
+    sudo pkill -f "pumba.*netem.*test-sidecar-target" 2>/dev/null || true
     kill %1 2>/dev/null || true
     sudo ctr -n moby t kill -s SIGKILL test-sidecar-target >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-sidecar-target >/dev/null 2>&1 || true
@@ -31,7 +32,7 @@ teardown() {
 @test "Should apply netem delay via sidecar container (tc-image)" {
     # Run pumba with --tc-image to use sidecar approach
     # The target container (alpine) does NOT have tc installed
-    pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --tc-image docker.io/nicolaka/netshoot:latest --duration 30s delay --time 100 test-sidecar-target &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --tc-image docker.io/nicolaka/netshoot:latest --duration 30s delay --time 100 test-sidecar-target &
     PUMBA_PID=$!
     sleep 3
 
@@ -46,7 +47,7 @@ teardown() {
     run sudo nsenter -t $target_pid -n tc qdisc show dev dummy0
     echo "TC output: $output"
 
-    kill $PUMBA_PID 2>/dev/null || true
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
     [[ "$output" =~ "netem" ]]

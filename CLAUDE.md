@@ -18,12 +18,16 @@
 
 ## Integration Testing
 
-Integration tests use [bats](https://github.com/bats-core/bats-core) and run inside Docker:
+Integration tests use [bats](https://github.com/bats-core/bats-core):
 
 - Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`
-- Require Docker socket access (`/var/run/docker.sock`)
+- **Run all tests locally (recommended):** `colima ssh -- sudo bats tests/*.bats tests/containerd_*.bats`
+  - Colima VM has native Docker + containerd sockets; `sudo` is required for containerd sidecar tests
+- **Docker tests only (via Docker image):** `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --entrypoint bats pumba:test tests/*.bats`
+- **Containerd tests only:** `colima ssh -- sudo bats tests/containerd_*.bats`
 - CI builds a Docker image (`pumba:test` target `integration-tests`) and runs bats inside it
-- Run locally: `bats tests/*.bats` (needs pumba binary in PATH and Docker running)
+- Rebuild test image after code changes: `docker build --target integration-tests -t pumba:test -f docker/Dockerfile .`
+- Copy updated binary to Colima: `colima ssh -- sudo cp /Users/alexei/workspace/pumba/.bin/linux/pumba /usr/local/bin/pumba`
 
 ## Technical Stack
 
@@ -90,3 +94,11 @@ examples/              — Demo scripts
 - **funlen violations (limit: 105):** Extract initialization blocks (flags, config setup) into named helper functions
 - **Default branch:** `master`
 - **NEVER add AI co-author to git commits**
+
+## Gotchas
+
+- **PID 1 signal handling:** `sleep`/`tail -f /dev/null` as container PID 1 ignores SIGTERM — use `top` in bats tests that kill with SIGTERM
+- **iptables flag ordering:** `--source`, `--destination`, `--src-port`, `--dst-port` are on the `iptables` parent command, NOT on the `loss` subcommand
+- **exec command parsing:** `--command "touch /tmp/foo"` is wrong (treated as binary name with spaces); use `--command "touch" --args "/tmp/foo"`
+- **Containerd sidecar requires root:** netem/iptables tests on containerd need `sudo pumba` — overlayfs mounts for sidecar creation require root in Colima VM
+- **Containerd namespaces:** Docker-managed containers live in `moby` namespace; pure containerd in `default`; Kubernetes in `k8s.io`

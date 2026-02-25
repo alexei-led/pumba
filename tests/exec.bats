@@ -116,13 +116,27 @@ teardown() {
     [[ $output =~ "limit" ]] && [[ $output =~ "1" ]]
 }
 
+@test "Should actually execute command in running container" {
+    # Given a running container
+    create_test_container "exec_target"
+    assert_container_state "exec_target" "running"
+
+    # When executing a real command (not dry-run)
+    run pumba exec --command "touch" --args "/tmp/pumba_was_here" exec_target
+    [ $status -eq 0 ]
+
+    # Then the file should exist inside the container
+    run docker exec exec_target ls /tmp/pumba_was_here
+    [ $status -eq 0 ]
+}
+
 @test "Should handle gracefully when targeting non-existent container" {
     # When targeting a non-existent container
     run pumba exec --command "echo" nonexistent_container
-    
+
     # Then command should succeed (exit code 0)
     [ $status -eq 0 ]
-    
+
     # And output should indicate no containers were found
     echo "Command output: $output"
     [[ $output =~ "no containers to exec" ]]
