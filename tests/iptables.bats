@@ -64,7 +64,7 @@ teardown() {
 
 @test "Should apply packet loss with iptables using external image" {
     # Given a running container
-    create_test_container "iptables_loss_target" "alpine" "ping 8.8.8.8"
+    create_test_container "iptables_loss_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} iptables_loss_target
@@ -94,7 +94,7 @@ teardown() {
 
 @test "Should apply packet loss with source IP filter" {
     # Given a running container
-    create_test_container "iptables_target" "alpine" "ping 8.8.8.8"
+    create_test_container "iptables_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} iptables_target
@@ -125,7 +125,7 @@ teardown() {
 
 @test "Should apply packet loss with destination IP filter" {
     # Given a running container
-    create_test_container "iptables_target" "alpine" "ping 8.8.8.8"
+    create_test_container "iptables_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} iptables_target
@@ -156,7 +156,7 @@ teardown() {
 
 @test "Should apply packet loss with port filters" {
     # Given a running container
-    create_test_container "iptables_target" "alpine" "ping 8.8.8.8"
+    create_test_container "iptables_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} iptables_target
@@ -187,7 +187,7 @@ teardown() {
 
 @test "Should apply packet loss using nth mode" {
     # Given a running container
-    create_test_container "iptables_target" "alpine" "ping 8.8.8.8"
+    create_test_container "iptables_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} iptables_target
@@ -217,7 +217,7 @@ teardown() {
 }
 
 @test "Should clean up sidecar containers after iptables completes" {
-    create_test_container "iptables_target" "alpine" "ping 8.8.8.8"
+    create_test_container "iptables_target" "alpine" "sleep infinity"
     assert_container_running "iptables_target"
     ensure_nettools_image
 

@@ -24,7 +24,7 @@ teardown() {
 
 @test "Should use same nettools image for both netem and iptables" {
     # Given a running container
-    create_test_container "combined_target" "alpine" "ping 8.8.8.8"
+    create_test_container "combined_target" "alpine" "sleep infinity"
 
     # Verify container is running
     run docker inspect -f {{.State.Status}} combined_target
@@ -73,7 +73,7 @@ teardown() {
 
 @test "Should apply complex network degradation with combined commands" {
     # Given a running container
-    create_test_container "combined_target" "alpine" "ping 8.8.8.8"
+    create_test_container "combined_target" "alpine" "sleep infinity"
 
     # Verify container is running
     run docker inspect -f {{.State.Status}} combined_target
@@ -122,7 +122,7 @@ teardown() {
 
 @test "Should apply source/destination IP filters with port filters" {
     # Given a running container
-    create_test_container "combined_target" "alpine" "ping 8.8.8.8"
+    create_test_container "combined_target" "alpine" "sleep infinity"
 
     # Verify container is running
     run docker inspect -f {{.State.Status}} combined_target
@@ -155,7 +155,7 @@ teardown() {
 
 @test "Should run with nth packet matching mode" {
     # Given a running container
-    create_test_container "combined_target" "alpine" "ping 8.8.8.8"
+    create_test_container "combined_target" "alpine" "sleep infinity"
 
     # Verify container is running
     run docker inspect -f {{.State.Status}} combined_target
@@ -187,8 +187,8 @@ teardown() {
 
 @test "Should handle multiple containers with regex pattern" {
     # Given multiple running containers with similar names
-    create_test_container "combined_target_1" "alpine" "ping 8.8.8.8"
-    create_test_container "combined_target_2" "alpine" "ping 8.8.8.8"
+    create_test_container "combined_target_1" "alpine" "sleep infinity"
+    create_test_container "combined_target_2" "alpine" "sleep infinity"
 
     # Verify containers are running
     run docker inspect -f {{.State.Status}} combined_target_1

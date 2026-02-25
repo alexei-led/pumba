@@ -69,7 +69,7 @@ teardown() {
 
 @test "Should delay egress traffic from container with external tc image" {
     # Given a running container
-    create_test_container "pingtest" "alpine" "ping 8.8.8.8"
+    create_test_container "pingtest" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} pingtest
@@ -100,7 +100,7 @@ teardown() {
 
 @test "Should validate packet loss command syntax" {
     # Given a running container to target
-    create_test_container "netem_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_target
@@ -123,7 +123,7 @@ teardown() {
 
 @test "Should validate rate limiting command syntax" {
     # Given a running container to target
-    create_test_container "rate_limit_target" "alpine" "ping 8.8.8.8"
+    create_test_container "rate_limit_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} rate_limit_target
@@ -145,7 +145,7 @@ teardown() {
 }
 
 @test "Should apply netem delay with egress port filter" {
-    create_test_container "pingtest" "alpine" "ping 8.8.8.8"
+    create_test_container "pingtest" "alpine" "sleep infinity"
     assert_container_running "pingtest"
     ensure_nettools_image
 
@@ -169,7 +169,7 @@ teardown() {
 }
 
 @test "Should apply netem delay with ingress port filter" {
-    create_test_container "pingtest" "alpine" "ping 8.8.8.8"
+    create_test_container "pingtest" "alpine" "sleep infinity"
     assert_container_running "pingtest"
     ensure_nettools_image
 
@@ -192,7 +192,7 @@ teardown() {
 }
 
 @test "Should apply netem delay with combined port filters" {
-    create_test_container "pingtest" "alpine" "ping 8.8.8.8"
+    create_test_container "pingtest" "alpine" "sleep infinity"
     assert_container_running "pingtest"
     ensure_nettools_image
 
@@ -215,7 +215,7 @@ teardown() {
 }
 
 @test "Should clean up sidecar containers after netem completes" {
-    create_test_container "pingtest" "alpine" "ping 8.8.8.8"
+    create_test_container "pingtest" "alpine" "sleep infinity"
     assert_container_running "pingtest"
     ensure_nettools_image
 

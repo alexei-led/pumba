@@ -3,12 +3,13 @@
 load test_helper
 
 setup() {
+    require_containerd
     # Clean up any leftovers
     sudo ctr -n moby t kill -s SIGKILL test-netem-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-netem-ctr >/dev/null 2>&1 || true
     # Pull images: netshoot for the target container, nettools for pumba's sidecar
-    sudo ctr -n moby i pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1
-    sudo ctr -n moby i pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1
+    ctr_pull_image moby docker.io/nicolaka/netshoot:latest
+    ctr_pull_image moby ghcr.io/alexei-led/pumba-alpine-nettools:latest
     # Create container with a dummy interface for testing
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-netem-ctr \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1

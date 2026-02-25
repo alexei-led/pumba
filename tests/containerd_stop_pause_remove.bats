@@ -122,8 +122,9 @@ teardown() {
 }
 
 @test "Should fully remove pure containerd container" {
+    require_containerd
     # Create container directly in containerd (not Docker-managed)
-    sudo ctr -n moby i pull docker.io/library/alpine:latest >/dev/null 2>&1
+    ctr_pull_image moby docker.io/library/alpine:latest
     sudo ctr -n moby run -d docker.io/library/alpine:latest ctr-pure-victim top
 
     # Verify it exists

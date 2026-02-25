@@ -8,10 +8,11 @@ load test_helper
 NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba-alpine-nettools:latest"
 
 setup() {
+    require_containerd
     sudo ctr -n moby t kill -s SIGKILL test-combined-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-combined-ctr >/dev/null 2>&1 || true
-    sudo ctr -n moby i pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1
-    sudo ctr -n moby i pull "$NETTOOLS_IMAGE" >/dev/null 2>&1
+    ctr_pull_image moby docker.io/nicolaka/netshoot:latest
+    ctr_pull_image moby "$NETTOOLS_IMAGE"
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-combined-ctr \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
     sleep 1

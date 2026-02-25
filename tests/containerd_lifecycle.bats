@@ -27,9 +27,10 @@ teardown() {
 }
 
 @test "Should restart running container via containerd runtime using ID" {
+    require_containerd
     # Start container via ctr (pure containerd)
     # This avoids Docker bundle issues
-    sudo ctr i pull docker.io/library/alpine:latest >/dev/null 2>&1
+    ctr_pull_image default docker.io/library/alpine:latest
     sudo ctr run -d docker.io/library/alpine:latest test-restart-ctr top >/dev/null 2>&1
     
     # Verify running
@@ -159,7 +160,8 @@ teardown() {
 }
 
 @test "Should restart container with timeout via containerd runtime" {
-    sudo ctr i pull docker.io/library/alpine:latest >/dev/null 2>&1
+    require_containerd
+    ctr_pull_image default docker.io/library/alpine:latest
     sudo ctr run -d docker.io/library/alpine:latest test-restart-ctr top >/dev/null 2>&1
 
     [ "$(sudo ctr t ls | grep test-restart-ctr | awk '{print $3}')" = "RUNNING" ]

@@ -3,10 +3,11 @@
 load test_helper
 
 setup() {
+    require_containerd
     sudo ctr -n moby t kill -s SIGKILL test-ipt-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-ipt-ctr >/dev/null 2>&1 || true
     # Need iptables in the container image for direct exec mode
-    sudo ctr -n moby i pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1
+    ctr_pull_image moby docker.io/nicolaka/netshoot:latest
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-ipt-ctr sleep infinity >/dev/null 2>&1
     sleep 1
 }

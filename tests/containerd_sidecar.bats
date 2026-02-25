@@ -7,10 +7,11 @@
 load test_helper
 
 setup() {
+    require_containerd
     sudo ctr -n moby t kill -s SIGKILL test-sidecar-target >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-sidecar-target >/dev/null 2>&1 || true
     # Use plain alpine — no tc tools installed
-    sudo ctr -n moby i pull docker.io/library/alpine:latest >/dev/null 2>&1
+    ctr_pull_image moby docker.io/library/alpine:latest
     # Create with a dummy network interface for testing
     sudo ctr -n moby run -d --privileged docker.io/library/alpine:latest test-sidecar-target \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1

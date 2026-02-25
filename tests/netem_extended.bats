@@ -60,7 +60,7 @@ teardown() {
 
 @test "Should apply packet duplicate with netem" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -91,7 +91,7 @@ teardown() {
 
 @test "Should apply packet corruption with netem" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -122,7 +122,7 @@ teardown() {
 
 @test "Should apply packet loss with correlation" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -153,7 +153,7 @@ teardown() {
 
 @test "Should apply advanced loss models (loss-state)" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -184,7 +184,7 @@ teardown() {
 
 @test "Should apply loss-gemodel model" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -215,7 +215,7 @@ teardown() {
 
 @test "Should apply delay with distribution options" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -252,7 +252,7 @@ teardown() {
 
 @test "Should apply rate limit with cell options" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target
@@ -283,7 +283,7 @@ teardown() {
 
 @test "Should support custom interface parameter" {
     # Given a running container
-    create_test_container "netem_ext_target" "alpine" "ping 8.8.8.8"
+    create_test_container "netem_ext_target" "alpine" "sleep infinity"
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} netem_ext_target

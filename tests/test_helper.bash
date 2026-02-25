@@ -230,6 +230,39 @@ $(docker ps --filter "ancestor=ghcr.io/alexei-led/$pattern" --format '{{.Names}}
   fi
 }
 
+# ── Containerd helpers ────────────────────────────────────────────────────
+
+# Check if containerd socket is available and skip test if not
+require_containerd() {
+  if [ ! -S /run/containerd/containerd.sock ]; then
+    skip "containerd socket not available"
+  fi
+}
+
+# Pull an image into containerd with retry logic
+# Usage: ctr_pull_image <namespace> <image>
+ctr_pull_image() {
+  local ns=$1
+  local image=$2
+  local retries=3
+  local i
+
+  for i in $(seq 1 "$retries"); do
+    if sudo ctr -n "$ns" i ls -q | grep -q "^${image}$"; then
+      echo "Image $image already present in $ns namespace"
+      return 0
+    fi
+    echo "Pulling $image into $ns namespace (attempt $i/$retries)..."
+    if sudo ctr -n "$ns" i pull "$image" >/dev/null 2>&1; then
+      return 0
+    fi
+    [ "$i" -lt "$retries" ] && sleep 2
+  done
+
+  echo "Failed to pull $image after $retries attempts"
+  return 1
+}
+
 # ── Nettools image helper ──────────────────────────────────────────────────
 
 ensure_nettools_image() {
