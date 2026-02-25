@@ -87,9 +87,15 @@ jobs:
           docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
           docker rm -f "${cid}" 2>/dev/null || true
       - name: Run Docker Integration Tests
-        run: |
-          shopt -s extglob
-          sudo env "PATH=$PATH" bats --print-output-on-failure tests/!(containerd_*).bats
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          command: |
+            shopt -s extglob
+            sudo env "PATH=$PATH" bats --print-output-on-failure tests/!(containerd_*).bats
+      - name: Setup Containerd
+        uses: crazy-max/ghaction-setup-containerd@v3
       - name: Run Containerd Integration Tests
         run: |
           if [ -S /run/containerd/containerd.sock ]; then
