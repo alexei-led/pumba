@@ -81,11 +81,11 @@ jobs:
           docker pull alpine:latest
           docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
       - name: Run Integration Tests
-        run: sudo bats --print-output-on-failure tests/*.bats
+        run: sudo env "PATH=$PATH" bats --print-output-on-failure tests/*.bats
       - name: Run Containerd Integration Tests
         run: |
           if [ -S /run/containerd/containerd.sock ]; then
-            sudo bats --print-output-on-failure tests/containerd_*.bats
+            sudo env "PATH=$PATH" bats --print-output-on-failure tests/containerd_*.bats
           else
             echo "Containerd socket not available, skipping containerd tests"
           fi
