@@ -50,6 +50,6 @@ teardown() {
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "netem" ]]
-    [[ "$output" =~ "delay" ]]
+    assert_output --partial "netem"
+    assert_output --partial "delay"
 }

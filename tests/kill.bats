@@ -19,20 +19,20 @@ teardown() {
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} kill_victim
-    [ "$output" = "running" ]
+    assert_output "running"
     
     # When killing the container with pumba
     run pumba kill kill_victim
     
     # Then pumba should exit successfully
-    [ $status -eq 0 ]
+    assert_success
     
     # And container should be killed (status changed to exited)
     wait_for 5 "docker inspect -f '{{.State.Status}}' kill_victim | grep -q exited" "container to be killed"
     
     run docker inspect -f {{.State.Status}} kill_victim
     echo "Container status after kill: $output"
-    [ "$output" = "exited" ]
+    assert_output "exited"
 }
 
 @test "Should accept additional kill parameters" {
@@ -42,13 +42,13 @@ teardown() {
     # Verify container is running
     run docker inspect -f {{.State.Status}} kill_victim
     echo "Container status before kill: $output"
-    [ "$output" = "running" ]
+    assert_output "running"
     
     # When killing the container with specific signal (syntax verification only)
     run pumba kill --signal SIGKILL kill_victim
 
     # Then pumba should exit successfully
-    [ $status -eq 0 ]
+    assert_success
 
     # Verify container was affected in some way
     # Note: Due to timing issues with external commands we're not testing exact state
@@ -64,11 +64,11 @@ teardown() {
     assert_container_state "kill_victim" "running"
 
     run pumba kill --signal SIGTERM kill_victim
-    [ $status -eq 0 ]
+    assert_success
 
     wait_for 10 "docker inspect -f '{{.State.Status}}' kill_victim | grep -q exited" "container to exit"
     run docker inspect -f {{.State.Status}} kill_victim
-    [ "$output" = "exited" ]
+    assert_output "exited"
 }
 
 @test "Should respect --limit when killing containers" {
@@ -82,7 +82,7 @@ teardown() {
 
     # Kill with limit=1 — only one should be killed
     run pumba kill --limit 1 "re2:kill_victim_.*"
-    [ $status -eq 0 ]
+    assert_success
 
     sleep 2
     # Count how many are still running

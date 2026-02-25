@@ -32,7 +32,7 @@ teardown() {
     # Apply netem delay
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 2s delay --time 100 test-combined-ctr
     echo "Netem status: $status, output: $output"
-    [ $status -eq 0 ]
+    assert_success
 
     # Apply iptables loss on the same container
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 test-combined-ctr &
@@ -45,14 +45,15 @@ teardown() {
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "statistic" ]]
+    assert_output --partial "DROP"
+    assert_output --partial "statistic"
 }
 
 @test "Should apply rate limit with iptables protocol filter via containerd runtime" {
     # Apply rate limit
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 2s rate --rate 1mbit test-combined-ctr
     echo "Rate limit status: $status"
-    [ $status -eq 0 ]
+    assert_success
 
     # Apply iptables with protocol filter
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --protocol icmp --duration 30s loss --probability 0.5 test-combined-ctr &
@@ -65,7 +66,8 @@ teardown() {
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "icmp" ]]
+    assert_output --partial "DROP"
+    assert_output --partial "icmp"
 }
 
 @test "Should apply netem with target IP filter via containerd runtime" {
@@ -80,13 +82,13 @@ teardown() {
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "prio" ]] || [[ "$output" =~ "netem" ]]
+    assert_output --partial "netem"
 }
 
 @test "Should apply iptables nth mode in combined scenario via containerd runtime" {
     # Apply netem delay first
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 2s delay --time 50 test-combined-ctr
-    [ $status -eq 0 ]
+    assert_success
 
     # Then iptables nth mode
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --mode nth --every 5 --packet 0 test-combined-ctr &
@@ -99,5 +101,6 @@ teardown() {
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "statistic" ]]
+    assert_output --partial "DROP"
+    assert_output --partial "statistic"
 }

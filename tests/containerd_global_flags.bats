@@ -19,7 +19,7 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" $cid)
 
     run pumba --dry-run --log-level debug kill $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # Container should still be running (dry-run)
     [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_victim)" = "running" ]
@@ -35,7 +35,7 @@ teardown() {
 
     # Kill both via regex
     run pumba --log-level debug kill "re2:ctr_flag_victim_.*"
-    [ $status -eq 0 ]
+    assert_success
 
     # Both should be killed
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_victim_1 | grep -q exited" "victim_1 to exit"
@@ -49,7 +49,7 @@ teardown() {
 
     # Kill one random container matching the regex
     run pumba --random --log-level debug kill "re2:ctr_flag_victim_.*"
-    [ $status -eq 0 ]
+    assert_success
 
     sleep 2
     # Exactly one should be killed (exited), one still running
@@ -67,7 +67,7 @@ teardown() {
 
     # Kill only containers with matching label
     run pumba --log-level debug --label "chaos=true" kill "re2:ctr_flag_victim_.*"
-    [ $status -eq 0 ]
+    assert_success
 
     sleep 2
     # Only victim_1 (chaos=true) should be killed
@@ -105,7 +105,7 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" $cid)
 
     run pumba --json --log-level debug kill $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # Output should contain JSON-formatted log lines
     [[ "$output" =~ "{" ]] || [[ "$output" =~ "\"level\"" ]]
@@ -116,16 +116,16 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" $cid)
 
     run pumba --log-level info kill $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # With info level, debug messages should NOT appear
-    ! [[ "$output" =~ "level=debug" ]]
+    refute_output --partial "level=debug"
 }
 
 @test "Should support --skip-error parameter via containerd runtime" {
     # Kill a non-existent container with --skip-error — should succeed
     run pumba --skip-error --log-level debug kill nonexistent_skip_err_12345
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should handle already-exited container via containerd runtime" {

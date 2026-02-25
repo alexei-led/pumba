@@ -22,7 +22,7 @@ teardown() {
     
     # Verify container is stopped
     run docker inspect -f {{.State.Status}} restart_test
-    [ "$output" = "exited" ]
+    assert_output "exited"
     
     # Use docker to start it (pumba restart doesn't work with stopped containers)
     docker start restart_test
@@ -33,7 +33,7 @@ teardown() {
     # Verify container was started
     run docker inspect -f {{.State.Status}} restart_test
     echo "Container status: $output"
-    [ "$output" = "running" ]
+    assert_output "running"
 }
 
 @test "Pumba restart should skip stopped containers" {
@@ -45,18 +45,18 @@ teardown() {
     
     # Verify container is stopped
     run docker inspect -f {{.State.Status}} restart_test
-    [ "$output" = "exited" ]
+    assert_output "exited"
     
     # Use pumba to attempt to restart it
     run pumba restart restart_test
     
     # Pumba should not find any containers to restart and exit without error
-    [ $status -eq 0 ]
+    assert_success
     
     # Container should still be stopped
     run docker inspect -f {{.State.Status}} restart_test
     echo "Container status: $output"
-    [ "$output" = "exited" ]
+    assert_output "exited"
 }
 
 @test "Should restart a running container" {
@@ -69,7 +69,7 @@ teardown() {
     
     # Use pumba to restart it
     run pumba restart restart_test
-    [ $status -eq 0 ]
+    assert_success
     
     # Wait for the container to restart
     wait_for 5 "docker inspect -f '{{.State.StartedAt}}' restart_test | grep -v '$start_time'" "container to have new start time"
@@ -77,7 +77,7 @@ teardown() {
     # Verify container was restarted
     run docker inspect -f {{.State.Status}} restart_test
     echo "Container status: $output"
-    [ "$output" = "running" ]
+    assert_output "running"
     
     # Get new start time
     local new_start_time
@@ -99,7 +99,7 @@ teardown() {
     
     # Use pumba to restart with timeout
     run pumba restart --timeout 3s restart_test
-    [ $status -eq 0 ]
+    assert_success
     
     # Wait for restart to complete
     sleep 5
@@ -107,7 +107,7 @@ teardown() {
     # Verify container was restarted
     run docker inspect -f {{.State.Status}} restart_test
     echo "Container status: $output"
-    [ "$output" = "running" ]
+    assert_output "running"
     
     # Get new start time
     local new_start_time
@@ -117,4 +117,28 @@ teardown() {
     echo "Original start time: $start_time"
     echo "New start time: $new_start_time"
     [ "$start_time" != "$new_start_time" ]
+}
+@test "Should respect --limit when restarting containers" {
+    docker run -d --name restart_test_1 alpine tail -f /dev/null
+    docker run -d --name restart_test_2 alpine tail -f /dev/null
+    sleep 1
+
+    local start_time_1 start_time_2
+    start_time_1=$(docker inspect -f '{{.State.StartedAt}}' restart_test_1)
+    start_time_2=$(docker inspect -f '{{.State.StartedAt}}' restart_test_2)
+
+    run pumba restart --limit 1 "re2:restart_test_.*"
+    assert_success
+
+    sleep 3
+    local restarted=0
+    local new_time_1 new_time_2
+    new_time_1=$(docker inspect -f '{{.State.StartedAt}}' restart_test_1)
+    new_time_2=$(docker inspect -f '{{.State.StartedAt}}' restart_test_2)
+    [ "$start_time_1" \!= "$new_time_1" ] && restarted=$((restarted+1))
+    [ "$start_time_2" \!= "$new_time_2" ] && restarted=$((restarted+1))
+    echo "Restarted containers after limit=1: $restarted"
+    [ "$restarted" -eq 1 ]
+
+    docker rm -f restart_test_1 restart_test_2 2>/dev/null || true
 }

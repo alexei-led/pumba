@@ -20,14 +20,14 @@ teardown() {
 @test "Should handle stress on non-existent container via containerd runtime" {
     run pumba --log-level debug stress --duration 5s --stressors="--cpu 1 --timeout 2s" nonexistent_container_12345
     # Pumba should handle gracefully — exit 0 (no matching containers found)
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should run stress in dry-run mode via containerd runtime" {
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
     run pumba --dry-run --log-level debug stress --duration 5s --stressors="--cpu 1 --timeout 2s" $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # Container should still be running (dry-run)
     [ "$(docker inspect -f '{{.State.Status}}' stress_victim)" = "running" ]
@@ -45,9 +45,9 @@ teardown() {
     echo "Pumba stress output: $output"
 
     # Pumba should exit successfully
-    [ $status -eq 0 ]
+    assert_success
 
     # In containerd mode, stress-ng stdout is not forwarded to pumba output
     # But debug log should confirm completion
-    [[ "$output" =~ "stress-ng completed" ]]
+    assert_output --partial "stress-ng completed"
 }

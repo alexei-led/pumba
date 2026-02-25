@@ -21,7 +21,7 @@ teardown() {
     [ "$(docker inspect -f '{{.State.Status}}' $full_id)" = "running" ]
     
     run pumba --log-level debug kill $full_id
-    [ $status -eq 0 ]
+    assert_success
     
     wait_for 5 "! docker inspect $full_id >/dev/null 2>&1" "container to be removed"
 }
@@ -42,7 +42,7 @@ teardown() {
     if [ $status -ne 0 ]; then
         echo "Pumba restart output: $output"
     fi
-    [ $status -eq 0 ]
+    assert_success
     
     # It should still be running
     sleep 2
@@ -68,11 +68,11 @@ teardown() {
     if [ $status -ne 0 ]; then
         echo "Pumba exec output: $output"
     fi
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify file created
     run docker exec $full_id ls /tmp/pumba_exec
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should kill container with SIGTERM via containerd runtime" {
@@ -82,7 +82,7 @@ teardown() {
     [ "$(docker inspect -f '{{.State.Status}}' $full_id)" = "running" ]
 
     run pumba --log-level debug kill --signal SIGTERM $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     wait_for 5 "docker inspect -f '{{.State.Status}}' $full_id | grep -q exited" "container to exit"
     [ "$(docker inspect -f '{{.State.Status}}' $full_id)" = "exited" ]
@@ -101,7 +101,7 @@ teardown() {
 
     # Kill with limit=1 — only one should be killed
     run pumba --log-level debug kill --limit 1 "re2:containerd_victim"
-    [ $status -eq 0 ]
+    assert_success
 
     sleep 2
     local running=0
@@ -125,12 +125,12 @@ teardown() {
     if [ $status -ne 0 ]; then
         echo "Pumba exec output: $output"
     fi
-    [ $status -eq 0 ]
+    assert_success
 
     # Verify file was created with expected content
     run docker exec $full_id cat /tmp/multi_args
-    [ $status -eq 0 ]
-    [[ "$output" =~ "hello" ]]
+    assert_success
+    assert_output --partial "hello"
 }
 
 @test "Should respect exec --limit parameter via containerd runtime" {
@@ -140,7 +140,7 @@ teardown() {
 
     # Exec with limit=1 targeting both via regex
     run pumba --log-level debug exec --limit 1 --command "touch" --args "/tmp/exec_limit_test" "re2:containerd_victim"
-    [ $status -eq 0 ]
+    assert_success
 
     # Count which containers have the file
     local found=0
@@ -155,7 +155,7 @@ teardown() {
 @test "Should handle exec on non-existent container via containerd runtime" {
     run pumba --log-level debug exec --command "echo" --args "test" nonexistent_container_12345
     # Pumba should handle gracefully — exit 0 (no matching containers found)
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should restart container with timeout via containerd runtime" {
@@ -169,7 +169,7 @@ teardown() {
     if [ $status -ne 0 ]; then
         echo "Pumba restart output: $output"
     fi
-    [ $status -eq 0 ]
+    assert_success
 
     sleep 2
     status_out=$(sudo ctr t ls | grep test-restart-ctr | awk '{print $3}')

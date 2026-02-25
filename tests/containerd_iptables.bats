@@ -29,12 +29,19 @@ teardown() {
     run sudo ctr -n moby t exec --exec-id check-ipt test-ipt-ctr iptables -L INPUT -n -v
     echo "iptables output: $output"
 
+    # Verify both DROP rule and statistic module are present
+    assert_output --partial "DROP"
+    assert_output --partial "statistic"
+
     # Kill pumba
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    # There should be some DROP rule
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "drop" ]] || [[ "$output" =~ "statistic" ]]
+    # Verify cleanup removed iptables rules
+    sleep 1
+    run sudo ctr -n moby t exec --exec-id check-ipt-clean test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables after cleanup: $output"
+    refute_output --partial "DROP"
 }
 
 @test "Should apply iptables loss with nth mode via containerd runtime" {
@@ -45,16 +52,24 @@ teardown() {
     run sudo ctr -n moby t exec --exec-id check-ipt-nth test-ipt-ctr iptables -L INPUT -n -v
     echo "iptables nth output: $output"
 
+    # Verify both DROP rule and statistic module are present
+    assert_output --partial "DROP"
+    assert_output --partial "statistic"
+
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "statistic" ]]
+    # Verify cleanup removed iptables rules
+    sleep 1
+    run sudo ctr -n moby t exec --exec-id check-ipt-clean-nth test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables after cleanup: $output"
+    refute_output --partial "DROP"
 }
 
 @test "Should handle iptables on non-existent container via containerd runtime" {
     # Pumba should handle gracefully — exit 0 (no matching containers found)
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 2s loss --probability 1.0 nonexistent_container_12345
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should apply iptables loss with destination IP filter via containerd runtime" {
@@ -65,10 +80,18 @@ teardown() {
     run sudo ctr -n moby t exec --exec-id check-ipt-dst test-ipt-ctr iptables -L INPUT -n -v
     echo "iptables destination filter output: $output"
 
+    # Verify both DROP rule and destination IP filter are present
+    assert_output --partial "DROP"
+    assert_output --partial "10.0.0.0"
+
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "10.0.0.0" ]]
+    # Verify cleanup removed iptables rules
+    sleep 1
+    run sudo ctr -n moby t exec --exec-id check-ipt-clean-dst test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables after cleanup: $output"
+    refute_output --partial "DROP"
 }
 
 @test "Should apply iptables loss with port filters via containerd runtime" {
@@ -79,10 +102,19 @@ teardown() {
     run sudo ctr -n moby t exec --exec-id check-ipt-port test-ipt-ctr iptables -L INPUT -n -v
     echo "iptables port filter output: $output"
 
+    # Verify DROP rule, protocol, and port filter are all present
+    assert_output --partial "DROP"
+    assert_output --partial "tcp"
+    assert_output --partial "dpt:80"
+
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "tcp" ]] || [[ "$output" =~ "dpt:80" ]]
+    # Verify cleanup removed iptables rules
+    sleep 1
+    run sudo ctr -n moby t exec --exec-id check-ipt-clean-port test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables after cleanup: $output"
+    refute_output --partial "DROP"
 }
 
 @test "Should apply iptables loss with source IP filter via containerd runtime" {
@@ -93,8 +125,16 @@ teardown() {
     run sudo ctr -n moby t exec --exec-id check-ipt-src test-ipt-ctr iptables -L INPUT -n -v
     echo "iptables source filter output: $output"
 
+    # Verify both DROP rule and source IP filter are present
+    assert_output --partial "DROP"
+    assert_output --partial "10.0.0.0"
+
     sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
     wait $PUMBA_PID 2>/dev/null || true
 
-    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "10.0.0.0" ]]
+    # Verify cleanup removed iptables rules
+    sleep 1
+    run sudo ctr -n moby t exec --exec-id check-ipt-clean-src test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables after cleanup: $output"
+    refute_output --partial "DROP"
 }

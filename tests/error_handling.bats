@@ -29,7 +29,7 @@ teardown() {
     
     # Then command should fail with appropriate error message
     echo "Invalid duration status: $status"
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "duration" ]] || [[ $output =~ "invalid" ]]
 }
 
@@ -43,7 +43,7 @@ teardown() {
     
     # Then command should fail with appropriate error message
     echo "Invalid delay time status: $status"
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "time" ]] || [[ $output =~ "invalid" ]]
 }
 
@@ -57,7 +57,7 @@ teardown() {
     
     # Then command should fail with appropriate error message
     echo "Invalid rate limit status: $status"
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "rate" ]] || [[ $output =~ "invalid" ]]
 }
 
@@ -71,7 +71,7 @@ teardown() {
     
     # Then command should fail with appropriate error message
     echo "Invalid probability status: $status"
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "probability" ]] || [[ $output =~ "invalid" ]] || [[ $output =~ "range" ]]
 }
 
@@ -98,7 +98,7 @@ teardown() {
     
     # Then command should fail with helpful error message
     echo "Subcommand typo status: $status"
-    [ $status -ne 0 ]
+    assert_failure
     # Output should contain either the typo or a suggestion
     [[ $output =~ "dealy" ]] || [[ $output =~ "delay" ]] || [[ $output =~ "unknown" ]]
 }
@@ -113,7 +113,7 @@ teardown() {
     
     # Then command should fail with appropriate error message
     echo "Inconsistent parameters status: $status"
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "every" ]] || [[ $output =~ "nth" ]] || [[ $output =~ "required" ]]
     
     # When running random mode with nth-specific parameters
@@ -133,7 +133,7 @@ teardown() {
     sleep 1
     run docker inspect -f {{.State.Status}} error_target
     echo "Container status: $output"
-    [ "$output" = "exited" ]
+    assert_output "exited"
     
     # When running pumba on the exited container with verbose logging
     echo "Running pumba on exited container..."
@@ -145,35 +145,35 @@ teardown() {
     
     # Test was too specific, we just need to verify pumba ran without errors
     # Pumba might silently skip exited containers, which is valid behavior
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should fail when kill command has no container arguments" {
     run pumba kill
 
-    [ $status -ne 0 ]
-    [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
+    assert_failure
+    assert_output --partial "container name, list of names, or RE2 regex is required"
 }
 
 @test "Should fail when stop command has no container arguments" {
     run pumba stop
 
-    [ $status -ne 0 ]
-    [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
+    assert_failure
+    assert_output --partial "container name, list of names, or RE2 regex is required"
 }
 
 @test "Should fail when rm command has no container arguments" {
     run pumba rm
 
-    [ $status -ne 0 ]
-    [[ $output =~ "container name, list of names, or RE2 regex is required" ]]
+    assert_failure
+    assert_output --partial "container name, list of names, or RE2 regex is required"
 }
 
 @test "Should fail when pause command has no duration" {
     create_test_container "error_target"
 
     run pumba pause error_target
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "duration" ]] || [[ $output =~ "required" ]]
 }
 
@@ -181,14 +181,14 @@ teardown() {
     create_test_container "error_target"
 
     run pumba netem delay --time 100 error_target
-    [ $status -ne 0 ]
+    assert_failure
     [[ $output =~ "duration" ]] || [[ $output =~ "required" ]]
 }
 
 @test "Should fail when exec has no containers to target" {
     run pumba exec nonexistent_container_xyz
-    [ $status -eq 0 ]
-    [[ $output =~ "no containers to exec" ]]
+    assert_success
+    assert_output --partial "no containers to exec"
 }
 
 @test "Should handle CIDR notation formats" {
@@ -196,8 +196,8 @@ teardown() {
     run pumba iptables --help
     
     # Verify iptables command has source parameter that would accept CIDR
-    [ $status -eq 0 ]
-    [[ $output =~ "source" ]] 
+    assert_success
+    assert_output --partial "source"
     
     # Skip the actual CIDR test which has network connectivity issues
     echo "Skipping actual CIDR test execution due to network issues"

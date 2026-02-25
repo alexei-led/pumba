@@ -29,7 +29,7 @@ teardown() {
     
     # Then command should succeed
     echo "Label filter status: $status"
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should support --random parameter" {
@@ -43,7 +43,7 @@ teardown() {
     
     # Then command should succeed
     echo "Random selection status: $status"
-    [ $status -eq 0 ]
+    assert_success
     
     # Clean up additional container
     docker rm -f param_target_1 param_target_2 || true
@@ -55,7 +55,7 @@ teardown() {
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} param_target
-    [ "$output" = "running" ]
+    assert_output "running"
     
     # When running pumba with dry-run
     echo "Running pumba with dry-run flag..."
@@ -63,12 +63,12 @@ teardown() {
     
     # Then command should succeed
     echo "Dry-run status: $status" 
-    [ $status -eq 0 ]
+    assert_success
     
     # And container should still be running (not actually killed)
     run docker inspect -f {{.State.Status}} param_target
     echo "Container status after dry-run: $output"
-    [ "$output" = "running" ]
+    assert_output "running"
 }
 
 @test "Should support --interval parameter" {
@@ -77,15 +77,15 @@ teardown() {
     
     # Verify container is running
     run docker inspect -f {{.State.Status}} param_target
-    [ "$output" = "running" ]
+    assert_output "running"
     
     # In CI, we'll test differently (without timeout which is causing issues)
     if [ "${CI:-}" = "true" ]; then
         echo "In CI environment, using simplified interval test"
         # Just verify the --interval flag is accepted by the CLI
         run pumba --help
-        [ $status -eq 0 ]
-        [[ $output =~ "interval" ]]
+        assert_success
+        assert_output --partial "interval"
     else
         # When running pumba with an interval (and dry-run to avoid actually destroying the container)
         echo "Running pumba with interval parameter..."
@@ -102,7 +102,7 @@ teardown() {
     run docker inspect -f {{.State.Status}} param_target
     echo "Container status after interval run: $output"
     # Container should still be running
-    [ "$output" = "running" ]
+    assert_output "running"
 }
 
 @test "Should support --json logging parameter" {
@@ -114,7 +114,7 @@ teardown() {
     run pumba --json --log-level debug --dry-run kill param_target
     
     # Then command should succeed
-    [ $status -eq 0 ]
+    assert_success
     
     # Print output for debugging
     echo "Command output: $output"
@@ -133,7 +133,7 @@ teardown() {
     run pumba --log-level debug --dry-run kill param_target
     
     # Then command should succeed
-    [ $status -eq 0 ]
+    assert_success
     
     # And debug output should be more verbose
     [[ $output =~ "debug" ]] || [[ $output =~ "level=debug" ]]
@@ -143,7 +143,7 @@ teardown() {
     run pumba --log-level error --dry-run kill param_target
     
     # Then command should still succeed
-    [ $status -eq 0 ]
+    assert_success
     
     # But output should be minimal
     # Since this is a negative test (checking for absence), just ensure it didn't fail
@@ -162,7 +162,7 @@ teardown() {
     
     # Then command should succeed despite the non-existent container
     echo "Skip-error status: $status"
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should reject invalid parameters" {
@@ -170,7 +170,7 @@ teardown() {
     run pumba --invalid-param kill
     
     # Then command should fail
-    [ $status -ne 0 ]
+    assert_failure
     
     # And error message should indicate unknown flag
     [[ $output =~ "unknown" ]] || [[ $output =~ "flag" ]]

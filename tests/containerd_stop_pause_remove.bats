@@ -11,6 +11,7 @@ setup() {
 }
 
 teardown() {
+    sudo pkill -f "pumba.*ctr_victim" 2>/dev/null || true
     docker rm -f ctr_victim ctr_victim_1 ctr_victim_2 >/dev/null 2>&1 || true
     sudo ctr -n moby t kill -s SIGKILL ctr-pure-victim >/dev/null 2>&1 || true
     sudo ctr -n moby c rm ctr-pure-victim >/dev/null 2>&1 || true
@@ -27,7 +28,7 @@ teardown() {
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim)" = "running" ]
 
     run pumba --log-level debug stop $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to be stopped"
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim)" = "exited" ]
@@ -38,10 +39,52 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" ctr_victim)
 
     run pumba --log-level debug stop --time 2 $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to be stopped"
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim)" = "exited" ]
+}
+
+@test "Should stop and restart container via containerd runtime" {
+    docker run -d --name ctr_victim alpine top
+    full_id=$(docker inspect --format="{{.Id}}" ctr_victim)
+
+    local start_time
+    start_time=$(docker inspect -f '{{.State.StartedAt}}' ctr_victim)
+
+    pumba --log-level debug stop --restart --duration 5s $full_id &
+    PUMBA_PID=$!
+
+    wait_for 10 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to be stopped"
+
+    wait_for 15 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q running" "container to be restarted"
+
+    local new_start_time
+    new_start_time=$(docker inspect -f '{{.State.StartedAt}}' ctr_victim)
+    [ "$start_time" != "$new_start_time" ]
+
+    wait $PUMBA_PID 2>/dev/null || true
+}
+
+@test "Should stop and restart with custom grace period via containerd runtime" {
+    docker run -d --name ctr_victim alpine top
+    full_id=$(docker inspect --format="{{.Id}}" ctr_victim)
+
+    local start_time
+    start_time=$(docker inspect -f '{{.State.StartedAt}}' ctr_victim)
+
+    pumba --log-level debug stop --restart --duration 3s --time 2 $full_id &
+    PUMBA_PID=$!
+
+    wait_for 10 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to be stopped"
+
+    wait_for 15 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q running" "container to be restarted"
+
+    local new_start_time
+    new_start_time=$(docker inspect -f '{{.State.StartedAt}}' ctr_victim)
+    [ "$start_time" != "$new_start_time" ]
+
+    wait $PUMBA_PID 2>/dev/null || true
 }
 
 # ── PAUSE / UNPAUSE ─────────────────────────────────────────────────────────
@@ -54,7 +97,7 @@ teardown() {
 
     # Pause for 3 seconds (pumba applies pause then unpauses after duration)
     run pumba --log-level debug pause --duration 3s $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # After pumba exits the container should be running again (unpaused)
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q running" "container to be running after unpause"
@@ -72,7 +115,7 @@ teardown() {
     # For Docker-managed containers: pumba kills the task and removes containerd metadata.
     # Docker daemon still retains its own metadata (container shows as "exited").
     run pumba --log-level debug rm $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # Container process should be killed (exited)
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim 2>&1 | grep -qE 'exited|No such'" "container to be killed"
@@ -85,15 +128,15 @@ teardown() {
 
     # Verify it exists
     run sudo ctr -n moby c info ctr-pure-victim
-    [ $status -eq 0 ]
+    assert_success
 
     # Remove via pumba
     run pumba --runtime containerd --containerd-namespace moby --log-level debug rm ctr-pure-victim
-    [ $status -eq 0 ]
+    assert_success
 
     # Should be fully gone from containerd
     run sudo ctr -n moby c info ctr-pure-victim
-    [ $status -ne 0 ]
+    assert_failure
 }
 
 # ── RESTART (skip stopped) ─────────────────────────────────────────────────
@@ -107,7 +150,7 @@ teardown() {
 
     # Pumba restart on a stopped container should succeed (skip it)
     run pumba --log-level debug restart $full_id
-    [ $status -eq 0 ]
+    assert_success
 }
 
 # ── REMOVE (stopped, regex) ───────────────────────────────────────────────
@@ -119,7 +162,7 @@ teardown() {
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to stop"
 
     run pumba --log-level debug rm $full_id
-    [ $status -eq 0 ]
+    assert_success
 
     # Container should be gone or at least task killed
     wait_for 5 "docker inspect ctr_victim 2>&1 | grep -qE 'No such|exited'" "container to be removed"
@@ -131,7 +174,7 @@ teardown() {
     sleep 1
 
     run pumba --log-level debug rm "re2:ctr_victim_.*"
-    [ $status -eq 0 ]
+    assert_success
 
     sleep 2
     # Both should be killed/removed
