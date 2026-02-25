@@ -1,19 +1,36 @@
-.bin
-.cover
-.git
-.idea
-.vscode
-.github
-.test
+# Build artifacts
+.bin/
+vendor/
 
+# Test and coverage
+.test/
+.cover/
+coverage*.out
+
+# Version control
+.git/
 .gitignore
+
+# IDE and editor
+.idea/
+.vscode/
+
+# Environment and config
 .env
-LICENSE
+.envrc
 
+# CI/CD and deployment (not needed in image)
+.github/
+deploy/
+
+# Documentation and examples (not needed in image)
 *.md
+docs/
+examples/
 
-deploy
-docs
-examples
+# AI tools
+.aider*
+.claude/
 
+# Dockerfile itself
 docker/Dockerfile

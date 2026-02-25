@@ -1,24 +1,31 @@
-.cover
-.git
-.gtm
-.idea
-.vscode
-.bin
+# Build artifacts
+.bin/
+vendor/
+
+# Test and coverage
+.test/
+.cover/
+coverage*.out
+
+# IDE and editor
+.idea/
+.vscode/
+**/.DS_Store
+
+# Environment and local config
 .env
 .envrc
 .in
-.test
+
+# AI tools
 .aider*
-
-**/.DS_Store
-**/debug
-**/debug.test
-coverage.out
-
-vendor
-
-# ralphex progress logs
+.ralphex/
+.claude/settings.local.json
 progress*.txt
 
-# Claude Code local settings (machine-specific)
-.claude/settings.local.json
+# Git time tracking
+.gtm/
+
+# Debug binaries
+**/debug
+**/debug.test
