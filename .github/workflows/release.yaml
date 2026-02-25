@@ -171,19 +171,21 @@ jobs:
         working-directory: /tmp/digests/ghcr
         run: |
           printf 'ghcr.io/${{ github.repository }}@sha256:%s\n' * > /tmp/ghcr-sources.txt
+          readarray -t sources < /tmp/ghcr-sources.txt
           docker buildx imagetools create \
             -t "ghcr.io/${{ github.repository }}:${{ github.ref_name }}" \
             -t "ghcr.io/${{ github.repository }}:latest" \
-            $(cat /tmp/ghcr-sources.txt)
+            "${sources[@]}"
 
       - name: Create and push manifest (Docker Hub)
         working-directory: /tmp/digests/hub
         run: |
           printf '${{ secrets.DOCKER_ORG }}/pumba@sha256:%s\n' * > /tmp/hub-sources.txt
+          readarray -t sources < /tmp/hub-sources.txt
           docker buildx imagetools create \
             -t "${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}" \
             -t "${{ secrets.DOCKER_ORG }}/pumba:latest" \
-            $(cat /tmp/hub-sources.txt)
+            "${sources[@]}"
 
       - name: Inspect GHCR image
         run: docker buildx imagetools inspect "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"

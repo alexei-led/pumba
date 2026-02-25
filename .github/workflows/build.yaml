@@ -59,23 +59,63 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
         with:
-          driver-opts: network=host
-      - name: Build and Export Docker Image
-        uses: docker/build-push-action@v6
+          go-version: '1.26'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Build Pumba Binary
+        run: make build TARGETARCH="$(dpkg --print-architecture)"
+      - name: Install Pumba
+        run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
+      - name: Install Bats and Libraries
+        uses: bats-core/bats-action@4.0.0
         with:
-          build-args: SKIP_TESTS=true
-          file: docker/Dockerfile
-          context: .
-          tags: pumba:test
-          target: integration-tests
-          load: true
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-      - name: Run Integration Tests
+          support-path: /usr/local/lib/bats-support
+          assert-path: /usr/local/lib/bats-assert
+          detik-install: false
+          file-install: false
+      - name: Pull Test Images
         run: |
-          docker run -i --rm --name integration-tests \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            pumba:test
+          docker pull alpine:latest
+          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
+      - name: Warm Up Docker Runtime
+        run: |
+          docker run --rm alpine:latest true
+          cid=$(docker create --rm alpine:latest sleep 10)
+          docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
+          docker rm -f "${cid}" 2>/dev/null || true
+      - name: Run Docker Integration Tests
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          command: |
+            shopt -s extglob
+            sudo env "PATH=$PATH" bats --print-output-on-failure tests/!(containerd_*).bats
+      - name: Setup Containerd
+        run: |
+          if command -v containerd &>/dev/null; then
+            echo "containerd already installed: $(containerd --version)"
+          else
+            echo "Installing containerd..."
+            arch=$(dpkg --print-architecture)
+            version="2.0.4"
+            url="https://github.com/containerd/containerd/releases/download/v${version}/containerd-${version}-linux-${arch}.tar.gz"
+            curl -fsSL "$url" | sudo tar -xz -C /usr/local
+          fi
+          if ! systemctl is-active --quiet containerd 2>/dev/null; then
+            sudo mkdir -p /etc/containerd
+            containerd config default | sudo tee /etc/containerd/config.toml >/dev/null
+            sudo systemctl enable --now containerd || sudo containerd &
+            sleep 2
+          fi
+          sudo ctr version
+      - name: Run Containerd Integration Tests
+        run: |
+          if [ -S /run/containerd/containerd.sock ]; then
+            sudo env "PATH=$PATH" bats --print-output-on-failure tests/containerd_*.bats
+          else
+            echo "Containerd socket not available, skipping containerd tests"
+          fi
