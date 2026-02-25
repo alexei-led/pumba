@@ -207,7 +207,9 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 		return err
 	}
 
-	cmdArgs := append([]string{command}, args...)
+	cmdArgs := make([]string, 0, 1+len(args))
+	cmdArgs = append(cmdArgs, command)
+	cmdArgs = append(cmdArgs, args...)
 	execID := fmt.Sprintf("pumba-exec-%d", execCounter.Add(1))
 	pspec := &specs.Process{
 		Args: cmdArgs,

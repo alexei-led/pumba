@@ -81,7 +81,10 @@ func main() {
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
 	app.Before = before
 	app.After = func(_ *cli.Context) error {
-		return chaos.DockerClient.Close()
+		if chaos.DockerClient != nil {
+			return chaos.DockerClient.Close()
+		}
+		return nil
 	}
 	app.Commands = initializeCLICommands()
 	app.Flags = globalFlags(rootCertPath)

@@ -52,7 +52,7 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 				Type: specs.NetworkNamespace,
 				Path: fmt.Sprintf("/proc/%d/ns/net", targetPID),
 			}),
-			oci.WithCapabilities([]string{"CAP_NET_ADMIN", "CAP_NET_RAW"}),
+			oci.WithCapabilities(networkCapabilities),
 		),
 	)
 	if err != nil {
@@ -88,7 +88,9 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 
 // runSidecarCmd executes a single command inside a running sidecar task.
 func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) error {
-	cmdArgs := append([]string{command}, args...)
+	cmdArgs := make([]string, 0, 1+len(args))
+	cmdArgs = append(cmdArgs, command)
+	cmdArgs = append(cmdArgs, args...)
 	execID := fmt.Sprintf("pumba-sc-exec-%d", execCounter.Add(1))
 	pspec := &specs.Process{
 		Args: cmdArgs,
@@ -96,10 +98,10 @@ func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Ta
 		Env:  []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
 		User: specs.User{UID: 0, GID: 0},
 		Capabilities: &specs.LinuxCapabilities{
-			Effective:   []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-			Bounding:    []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-			Permitted:   []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
-			Inheritable: []string{"CAP_NET_ADMIN", "CAP_NET_RAW"},
+			Effective:   networkCapabilities,
+			Bounding:    networkCapabilities,
+			Permitted:   networkCapabilities,
+			Inheritable: networkCapabilities,
 		},
 	}
 
@@ -125,6 +127,9 @@ const (
 	sidecarKillTimeout    = 5 * time.Second
 )
 
+// networkCapabilities are the Linux capabilities required for network manipulation.
+var networkCapabilities = []string{"CAP_NET_ADMIN", "CAP_NET_RAW"}
+
 // cleanupSidecar kills the task and removes the sidecar container and its snapshot.
 func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container) error {
 	task, err := cntr.Task(ctx, nil)
@@ -132,9 +137,11 @@ func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.C
 		waitCh, waitErr := task.Wait(ctx)
 		_ = task.Kill(ctx, syscall.SIGKILL)
 		if waitErr == nil {
+			killTimer := time.NewTimer(sidecarKillTimeout)
+			defer killTimer.Stop()
 			select {
 			case <-waitCh:
-			case <-time.After(sidecarKillTimeout):
+			case <-killTimer.C:
 			}
 		}
 		_, _ = task.Delete(ctx)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/mock"
 )
 
 func Test_runNetem(t *testing.T) {
@@ -119,7 +120,7 @@ func Test_runNetem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &container.MockClient{}
+			mockClient := container.NewMockClient(t)
 			ctx, cancel := context.WithCancel(context.TODO())
 
 			startErr := error(nil)
@@ -133,7 +134,7 @@ func Test_runNetem(t *testing.T) {
 				if tt.errs.stopErr {
 					stopErr = errors.New("test error")
 				}
-				mockClient.EXPECT().StopNetemContainer(context.Background(), tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun).Return(stopErr)
+				mockClient.EXPECT().StopNetemContainer(mock.Anything, tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun).Return(stopErr)
 			}
 
 			if err := runNetem(ctx, mockClient, tt.args.container, tt.args.netInterface, tt.args.cmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.tcimage, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
@@ -147,7 +148,6 @@ func Test_runNetem(t *testing.T) {
 				t.Log("timeout netem")
 				defer cancel()
 			}
-			mockClient.AssertExpectations(t)
 		})
 	}
 }

@@ -117,15 +117,16 @@ func runIPTables(ctx context.Context, client iptablesClient, c *container.Contai
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping iptables command on abort")
-		// use different context to stop iptables since parent context is canceled
-		err = client.StopIPTablesContainer(context.Background(), c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
+		// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), duration)
+		defer cleanupCancel()
+		err = client.StopIPTablesContainer(cleanupCtx, c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
 		if err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
-		logger.Debug("stopping iptables command on timout")
-		// use parent context to stop iptables in container
-		err = client.StopIPTablesContainer(context.Background(), c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
+		logger.Debug("stopping iptables command on timeout")
+		err = client.StopIPTablesContainer(ctx, c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
 		if err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}

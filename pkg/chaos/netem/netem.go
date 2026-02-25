@@ -100,18 +100,17 @@ func runNetem(ctx context.Context, client netemClient, c *container.Container, n
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping netem command on abort")
-		// use different context to stop netem since parent context is canceled
-		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
+		// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), duration)
+		defer cleanupCancel()
+		err = client.StopNetemContainer(cleanupCtx, c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
 		if err != nil {
-			// if container was killed/removed while netem was running, log warning and continue
 			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
-		logger.Debug("stopping netem command on timout")
-		// use parent context to stop netem in container
-		err = client.StopNetemContainer(context.Background(), c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
+		logger.Debug("stopping netem command on timeout")
+		err = client.StopNetemContainer(ctx, c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
 		if err != nil {
-			// if container was killed/removed while netem was running, log warning and continue
 			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	}

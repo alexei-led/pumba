@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/mock"
 )
 
 func Test_runIPTables(t *testing.T) {
@@ -16,17 +17,18 @@ func Test_runIPTables(t *testing.T) {
 		stopErr  bool
 	}
 	type args struct {
-		container     *container.Container
-		cmdPrefix     []string
-		cmdSuffix     []string
-		dstIPs        []*net.IPNet
-		srcIPs        []*net.IPNet
-		sports        []string
-		dports        []string
-		duration      time.Duration
-		iptablesImage string
-		pull          bool
-		dryRun        bool
+		container    *container.Container
+		addCmdPrefix []string
+		delCmdPrefix []string
+		cmdSuffix    []string
+		dstIPs       []*net.IPNet
+		srcIPs       []*net.IPNet
+		sports       []string
+		dports       []string
+		duration     time.Duration
+		image        string
+		pull         bool
+		dryRun       bool
 	}
 	tests := []struct {
 		name    string
@@ -43,14 +45,15 @@ func Test_runIPTables(t *testing.T) {
 					Labels:        map[string]string{},
 					Networks:      map[string]container.NetworkLink{},
 				},
-				cmdPrefix:     []string{"test", "--test"},
-				cmdSuffix:     []string{"test", "--test"},
-				dstIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				srcIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 1}}},
-				sports:        []string{"44"},
-				dports:        []string{"662"},
-				duration:      time.Microsecond * 10,
-				iptablesImage: "test/image",
+				addCmdPrefix: []string{"-A", "INPUT"},
+				delCmdPrefix: []string{"-D", "INPUT"},
+				cmdSuffix:    []string{"-m", "statistic"},
+				dstIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
+				srcIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 1}}},
+				sports:       []string{"44"},
+				dports:       []string{"662"},
+				duration:     time.Microsecond * 10,
+				image:        "test/image",
 			},
 		},
 		{
@@ -61,12 +64,13 @@ func Test_runIPTables(t *testing.T) {
 					Labels:        map[string]string{},
 					Networks:      map[string]container.NetworkLink{},
 				},
-				cmdPrefix:     []string{"test", "--test"},
-				cmdSuffix:     []string{"test", "--test"},
-				dstIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 0, 255, 255}}},
-				srcIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 1}, Mask: net.IPMask{0, 0, 255, 255}}},
-				duration:      time.Microsecond * 10,
-				iptablesImage: "test/image",
+				addCmdPrefix: []string{"-A", "INPUT"},
+				delCmdPrefix: []string{"-D", "INPUT"},
+				cmdSuffix:    []string{"-m", "statistic"},
+				dstIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 10}, Mask: net.IPMask{0, 0, 255, 255}}},
+				srcIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 1}, Mask: net.IPMask{0, 0, 255, 255}}},
+				duration:     time.Microsecond * 10,
+				image:        "test/image",
 			},
 		},
 		{
@@ -77,11 +81,12 @@ func Test_runIPTables(t *testing.T) {
 					Labels:        map[string]string{},
 					Networks:      map[string]container.NetworkLink{},
 				},
-				cmdPrefix:     []string{"test", "--test"},
-				cmdSuffix:     []string{"test", "--test"},
-				dstIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:      time.Microsecond * 10,
-				iptablesImage: "test/image",
+				addCmdPrefix: []string{"-A", "INPUT"},
+				delCmdPrefix: []string{"-D", "INPUT"},
+				cmdSuffix:    []string{"-m", "statistic"},
+				dstIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
+				duration:     time.Microsecond * 10,
+				image:        "test/image",
 			},
 			abort: true,
 		},
@@ -93,11 +98,12 @@ func Test_runIPTables(t *testing.T) {
 					Labels:        map[string]string{},
 					Networks:      map[string]container.NetworkLink{},
 				},
-				cmdPrefix:     []string{"test", "--test"},
-				cmdSuffix:     []string{"test", "--test"},
-				dstIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:      time.Microsecond * 10,
-				iptablesImage: "test/image",
+				addCmdPrefix: []string{"-A", "INPUT"},
+				delCmdPrefix: []string{"-D", "INPUT"},
+				cmdSuffix:    []string{"-m", "statistic"},
+				dstIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
+				duration:     time.Microsecond * 10,
+				image:        "test/image",
 			},
 			errs:    errs{startErr: true},
 			wantErr: true,
@@ -110,11 +116,12 @@ func Test_runIPTables(t *testing.T) {
 					Labels:        map[string]string{},
 					Networks:      map[string]container.NetworkLink{},
 				},
-				cmdPrefix:     []string{"test", "--test"},
-				cmdSuffix:     []string{"test", "--test"},
-				dstIPs:        []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:      time.Microsecond * 10,
-				iptablesImage: "test/image",
+				addCmdPrefix: []string{"-A", "INPUT"},
+				delCmdPrefix: []string{"-D", "INPUT"},
+				cmdSuffix:    []string{"-m", "statistic"},
+				dstIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
+				duration:     time.Microsecond * 10,
+				image:        "test/image",
 			},
 			errs:    errs{stopErr: true},
 			wantErr: false,
@@ -122,24 +129,24 @@ func Test_runIPTables(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &container.MockClient{}
+			mockClient := container.NewMockClient(t)
 			ctx, cancel := context.WithCancel(context.TODO())
 
 			startErr := error(nil)
 			if tt.errs.startErr {
 				startErr = errors.New("test error")
 			}
-			mockClient.EXPECT().IPTablesContainer(ctx, tt.args.container, tt.args.cmdPrefix, tt.args.cmdPrefix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun).Return(startErr)
+			mockClient.EXPECT().IPTablesContainer(ctx, tt.args.container, tt.args.addCmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.image, tt.args.pull, tt.args.dryRun).Return(startErr)
 
 			if !tt.errs.startErr {
 				stopErr := error(nil)
 				if tt.errs.stopErr {
 					stopErr = errors.New("test error")
 				}
-				mockClient.EXPECT().StopIPTablesContainer(context.Background(), tt.args.container, tt.args.cmdPrefix, tt.args.cmdPrefix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun).Return(stopErr)
+				mockClient.EXPECT().StopIPTablesContainer(mock.Anything, tt.args.container, tt.args.delCmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.image, tt.args.pull, tt.args.dryRun).Return(stopErr)
 			}
 
-			if err := runIPTables(ctx, mockClient, tt.args.container, tt.args.cmdPrefix, tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.iptablesImage, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
+			if err := runIPTables(ctx, mockClient, tt.args.container, tt.args.addCmdPrefix, tt.args.delCmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.image, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -150,7 +157,6 @@ func Test_runIPTables(t *testing.T) {
 				t.Log("timeout iptables")
 				defer cancel()
 			}
-			mockClient.AssertExpectations(t)
 		})
 	}
 }

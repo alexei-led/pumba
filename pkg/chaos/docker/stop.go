@@ -99,13 +99,17 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 
 	// if there are stopped containers and want to (re)start ...
 	if len(stoppedContainers) > 0 && s.restart {
-		// wait for specified duration and then unpause containers or unpause on ctx.Done()
+		// wait for specified duration and then start containers or start on ctx.Done()
+		durationTimer := time.NewTimer(s.duration)
+		defer durationTimer.Stop()
 		select {
 		case <-ctx.Done():
 			log.Debug("start stopped containers by stop event")
-			// NOTE: use different context to stop netem since parent context is canceled
-			err = s.startStoppedContainers(context.Background(), stoppedContainers)
-		case <-time.After(s.duration):
+			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.duration)
+			defer cancel()
+			err = s.startStoppedContainers(cleanupCtx, stoppedContainers)
+		case <-durationTimer.C:
 			log.WithField("duration", s.duration).Debug("start stopped containers after duration")
 			err = s.startStoppedContainers(ctx, stoppedContainers)
 		}

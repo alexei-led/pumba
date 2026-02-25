@@ -333,7 +333,10 @@ func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.C
 		defer close(errCh)
 		defer close(outCh)
 		secs := max(1, int(math.Ceil(duration.Seconds())))
-		args := append([]string{"--timeout", fmt.Sprintf("%ds", secs)}, stressors...)
+		timeoutArgs := []string{"--timeout", fmt.Sprintf("%ds", secs)}
+		args := make([]string, 0, len(timeoutArgs)+len(stressors))
+		args = append(args, timeoutArgs...)
+		args = append(args, stressors...)
 		if err := c.execInContainer(c.nsCtx(ctx), container.ID(), "stress-ng", args); err != nil {
 			errCh <- err
 			return
