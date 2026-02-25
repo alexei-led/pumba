@@ -51,6 +51,40 @@ teardown() {
     [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "statistic" ]]
 }
 
+@test "Should handle iptables on non-existent container via containerd runtime" {
+    # Pumba should handle gracefully — exit 0 (no matching containers found)
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 2s loss --probability 1.0 nonexistent_container_12345
+    [ $status -eq 0 ]
+}
+
+@test "Should apply iptables loss with destination IP filter via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --destination 10.0.0.0/8 --duration 30s loss --probability 1.0 test-ipt-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-ipt-dst test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables destination filter output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "10.0.0.0" ]]
+}
+
+@test "Should apply iptables loss with port filters via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --protocol tcp --dst-port 80 --duration 30s loss --probability 1.0 test-ipt-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-ipt-port test-ipt-ctr iptables -L INPUT -n -v
+    echo "iptables port filter output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "DROP" ]] || [[ "$output" =~ "tcp" ]] || [[ "$output" =~ "dpt:80" ]]
+}
+
 @test "Should apply iptables loss with source IP filter via containerd runtime" {
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --source 10.0.0.0/8 --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!

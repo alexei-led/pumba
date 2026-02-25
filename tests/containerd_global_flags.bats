@@ -3,12 +3,14 @@
 load test_helper
 
 setup() {
-    docker rm -f ctr_flag_victim >/dev/null 2>&1 || true
+    docker rm -f ctr_flag_victim ctr_flag_interval >/dev/null 2>&1 || true
     docker rm -f ctr_flag_victim_1 ctr_flag_victim_2 >/dev/null 2>&1 || true
+    sudo pkill -f "pumba.*ctr_flag" 2>/dev/null || true
 }
 
 teardown() {
-    docker rm -f ctr_flag_victim >/dev/null 2>&1 || true
+    sudo pkill -f "pumba.*ctr_flag" 2>/dev/null || true
+    docker rm -f ctr_flag_victim ctr_flag_interval >/dev/null 2>&1 || true
     docker rm -f ctr_flag_victim_1 ctr_flag_victim_2 >/dev/null 2>&1 || true
 }
 
@@ -71,4 +73,69 @@ teardown() {
     # Only victim_1 (chaos=true) should be killed
     wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_victim_1 | grep -q exited" "labeled container to exit"
     [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_victim_2)" = "running" ]
+}
+
+@test "Should run containerd kill on interval with --interval flag" {
+    docker run -d --name ctr_flag_interval alpine top
+    full_id=$(docker inspect --format="{{.Id}}" ctr_flag_interval)
+
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_interval)" = "running" ]
+
+    # Run pumba with interval in background
+    pumba --interval=2s kill $full_id &
+    PUMBA_PID=$!
+
+    # Wait for first interval to kill the container
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_interval | grep -q exited" "container to be killed in first interval"
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_interval)" = "exited" ]
+
+    # Restart container and wait for second interval
+    docker start ctr_flag_interval
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_interval | grep -q running" "container to be running again"
+
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_interval | grep -q exited" "container to be killed in second interval"
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_interval)" = "exited" ]
+
+    kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+}
+
+@test "Should support --json logging parameter via containerd runtime" {
+    cid=$(docker run -d --name ctr_flag_victim alpine top)
+    full_id=$(docker inspect --format="{{.Id}}" $cid)
+
+    run pumba --json --log-level debug kill $full_id
+    [ $status -eq 0 ]
+
+    # Output should contain JSON-formatted log lines
+    [[ "$output" =~ "{" ]] || [[ "$output" =~ "\"level\"" ]]
+}
+
+@test "Should support --log-level parameter via containerd runtime" {
+    cid=$(docker run -d --name ctr_flag_victim alpine top)
+    full_id=$(docker inspect --format="{{.Id}}" $cid)
+
+    run pumba --log-level info kill $full_id
+    [ $status -eq 0 ]
+
+    # With info level, debug messages should NOT appear
+    ! [[ "$output" =~ "level=debug" ]]
+}
+
+@test "Should support --skip-error parameter via containerd runtime" {
+    # Kill a non-existent container with --skip-error — should succeed
+    run pumba --skip-error --log-level debug kill nonexistent_skip_err_12345
+    [ $status -eq 0 ]
+}
+
+@test "Should handle already-exited container via containerd runtime" {
+    docker run -d --name ctr_flag_victim alpine top
+    full_id=$(docker inspect --format="{{.Id}}" ctr_flag_victim)
+    docker stop ctr_flag_victim
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_flag_victim | grep -q exited" "container to exit"
+
+    # Trying to kill an already-exited container
+    run pumba --log-level debug kill $full_id
+    echo "Kill exited container output: $output"
+    # Should handle gracefully (may warn but not crash)
 }

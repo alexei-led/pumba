@@ -17,6 +17,22 @@ teardown() {
     docker rm -f stress_victim >/dev/null 2>&1 || true
 }
 
+@test "Should handle stress on non-existent container via containerd runtime" {
+    run pumba --log-level debug stress --duration 5s --stressors="--cpu 1 --timeout 2s" nonexistent_container_12345
+    # Pumba should handle gracefully — exit 0 (no matching containers found)
+    [ $status -eq 0 ]
+}
+
+@test "Should run stress in dry-run mode via containerd runtime" {
+    full_id=$(docker inspect --format="{{.Id}}" stress_victim)
+
+    run pumba --dry-run --log-level debug stress --duration 5s --stressors="--cpu 1 --timeout 2s" $full_id
+    [ $status -eq 0 ]
+
+    # Container should still be running (dry-run)
+    [ "$(docker inspect -f '{{.State.Status}}' stress_victim)" = "running" ]
+}
+
 @test "Should apply stress (CPU) via containerd runtime" {
     # Get full container ID (Docker-created containers live in moby namespace)
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)

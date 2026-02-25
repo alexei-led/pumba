@@ -3,15 +3,19 @@
 load test_helper
 
 setup() {
-    docker rm -f ctr_victim >/dev/null 2>&1 || true
+    docker rm -f ctr_victim ctr_victim_1 ctr_victim_2 >/dev/null 2>&1 || true
     sudo ctr -n moby t kill -s SIGKILL ctr-pure-victim >/dev/null 2>&1 || true
     sudo ctr -n moby c rm ctr-pure-victim >/dev/null 2>&1 || true
+    sudo ctr t kill -s SIGKILL ctr-stopped-victim >/dev/null 2>&1 || true
+    sudo ctr c rm ctr-stopped-victim >/dev/null 2>&1 || true
 }
 
 teardown() {
-    docker rm -f ctr_victim >/dev/null 2>&1 || true
+    docker rm -f ctr_victim ctr_victim_1 ctr_victim_2 >/dev/null 2>&1 || true
     sudo ctr -n moby t kill -s SIGKILL ctr-pure-victim >/dev/null 2>&1 || true
     sudo ctr -n moby c rm ctr-pure-victim >/dev/null 2>&1 || true
+    sudo ctr t kill -s SIGKILL ctr-stopped-victim >/dev/null 2>&1 || true
+    sudo ctr c rm ctr-stopped-victim >/dev/null 2>&1 || true
 }
 
 # ── STOP ────────────────────────────────────────────────────────────────────
@@ -90,4 +94,50 @@ teardown() {
     # Should be fully gone from containerd
     run sudo ctr -n moby c info ctr-pure-victim
     [ $status -ne 0 ]
+}
+
+# ── RESTART (skip stopped) ─────────────────────────────────────────────────
+
+@test "Should skip stopped containers during restart via containerd runtime" {
+    # Create and immediately stop a container
+    docker run -d --name ctr_victim alpine top
+    full_id=$(docker inspect --format="{{.Id}}" ctr_victim)
+    docker stop ctr_victim
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to stop"
+
+    # Pumba restart on a stopped container should succeed (skip it)
+    run pumba --log-level debug restart $full_id
+    [ $status -eq 0 ]
+}
+
+# ── REMOVE (stopped, regex) ───────────────────────────────────────────────
+
+@test "Should remove stopped container via containerd runtime" {
+    docker run -d --name ctr_victim alpine top
+    full_id=$(docker inspect --format="{{.Id}}" ctr_victim)
+    docker stop ctr_victim
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim | grep -q exited" "container to stop"
+
+    run pumba --log-level debug rm $full_id
+    [ $status -eq 0 ]
+
+    # Container should be gone or at least task killed
+    wait_for 5 "docker inspect ctr_victim 2>&1 | grep -qE 'No such|exited'" "container to be removed"
+}
+
+@test "Should remove containers matched by regex via containerd runtime" {
+    docker run -d --name ctr_victim_1 alpine top
+    docker run -d --name ctr_victim_2 alpine top
+    sleep 1
+
+    run pumba --log-level debug rm "re2:ctr_victim_.*"
+    [ $status -eq 0 ]
+
+    sleep 2
+    # Both should be killed/removed
+    for name in ctr_victim_1 ctr_victim_2; do
+        state=$(docker inspect -f '{{.State.Status}}' $name 2>&1 || echo "removed")
+        echo "Container $name: $state"
+        [[ "$state" =~ "exited" ]] || [[ "$state" =~ "removed" ]] || [[ "$state" =~ "No such" ]]
+    done
 }

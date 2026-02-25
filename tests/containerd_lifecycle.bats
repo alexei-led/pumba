@@ -3,13 +3,13 @@
 load test_helper
 
 setup() {
-    docker rm -f containerd_victim >/dev/null 2>&1 || true
+    docker rm -f containerd_victim containerd_victim_2 >/dev/null 2>&1 || true
     sudo ctr t kill -s SIGKILL test-restart-ctr >/dev/null 2>&1 || true
     sudo ctr c rm test-restart-ctr >/dev/null 2>&1 || true
 }
 
 teardown() {
-    docker rm -f containerd_victim >/dev/null 2>&1 || true
+    docker rm -f containerd_victim containerd_victim_2 >/dev/null 2>&1 || true
     sudo ctr t kill -s SIGKILL test-restart-ctr >/dev/null 2>&1 || true
     sudo ctr c rm test-restart-ctr >/dev/null 2>&1 || true
 }
@@ -86,6 +86,76 @@ teardown() {
 
     wait_for 5 "docker inspect -f '{{.State.Status}}' $full_id | grep -q exited" "container to exit"
     [ "$(docker inspect -f '{{.State.Status}}' $full_id)" = "exited" ]
+}
+
+@test "Should respect --limit when killing containers via containerd runtime" {
+    docker run -d --name containerd_victim alpine top
+    docker run -d --name containerd_victim_2 alpine top
+    sleep 1
+
+    id1=$(docker inspect --format="{{.Id}}" containerd_victim)
+    id2=$(docker inspect --format="{{.Id}}" containerd_victim_2)
+
+    [ "$(docker inspect -f '{{.State.Status}}' containerd_victim)" = "running" ]
+    [ "$(docker inspect -f '{{.State.Status}}' containerd_victim_2)" = "running" ]
+
+    # Kill with limit=1 — only one should be killed
+    run pumba --log-level debug kill --limit 1 "re2:containerd_victim"
+    [ $status -eq 0 ]
+
+    sleep 2
+    local running=0
+    docker inspect -f '{{.State.Status}}' containerd_victim 2>/dev/null | grep -q running && running=$((running+1))
+    docker inspect -f '{{.State.Status}}' containerd_victim_2 2>/dev/null | grep -q running && running=$((running+1))
+    echo "Running containers after limit=1 kill: $running"
+    [ "$running" -eq 1 ]
+
+    docker rm -f containerd_victim_2 2>/dev/null || true
+}
+
+@test "Should execute command with multiple arguments via containerd runtime" {
+    cid=$(docker run -d --name containerd_victim alpine top)
+    full_id=$(docker inspect --format="{{.Id}}" $cid)
+
+    [ "$(docker inspect -f '{{.State.Status}}' $full_id)" = "running" ]
+
+    # Use repeated --args flags for multiple arguments
+    run pumba --log-level debug exec --command "sh" --args "-c" --args "echo hello > /tmp/multi_args" $full_id
+
+    if [ $status -ne 0 ]; then
+        echo "Pumba exec output: $output"
+    fi
+    [ $status -eq 0 ]
+
+    # Verify file was created with expected content
+    run docker exec $full_id cat /tmp/multi_args
+    [ $status -eq 0 ]
+    [[ "$output" =~ "hello" ]]
+}
+
+@test "Should respect exec --limit parameter via containerd runtime" {
+    docker run -d --name containerd_victim alpine top
+    docker run -d --name containerd_victim_2 alpine top
+    sleep 1
+
+    # Exec with limit=1 targeting both via regex
+    run pumba --log-level debug exec --limit 1 --command "touch" --args "/tmp/exec_limit_test" "re2:containerd_victim"
+    [ $status -eq 0 ]
+
+    # Count which containers have the file
+    local found=0
+    docker exec containerd_victim ls /tmp/exec_limit_test 2>/dev/null && found=$((found+1))
+    docker exec containerd_victim_2 ls /tmp/exec_limit_test 2>/dev/null && found=$((found+1))
+    echo "Containers with exec file: $found"
+    [ "$found" -eq 1 ]
+
+    docker rm -f containerd_victim_2 2>/dev/null || true
+}
+
+@test "Should handle exec on non-existent container via containerd runtime" {
+    run pumba --log-level debug exec --command "echo" --args "test" nonexistent_container_12345
+    # Pumba should handle gracefully — exit 0 (no matching containers found)
+    [ $status -eq 0 ]
 }
 
 @test "Should restart container with timeout via containerd runtime" {

@@ -102,6 +102,70 @@ teardown() {
     [[ "$output" =~ "corrupt" ]]
 }
 
+@test "Should handle netem on non-existent container via containerd runtime" {
+    # Pumba should handle gracefully — exit 0 (no matching containers found)
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 2s delay --time 100 nonexistent_container_12345
+    [ $status -eq 0 ]
+}
+
+@test "Should apply loss-state model via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s loss-state --p13 5 --p31 15 --p32 10 --p23 20 --p14 5 test-netem-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-tc-ls test-netem-ctr tc qdisc show dev dummy0
+    echo "TC output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "netem" ]]
+}
+
+@test "Should apply loss-gemodel model via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s loss-gemodel --pg 5 --pb 20 --one-h 80 --one-k 10 test-netem-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-tc-ge test-netem-ctr tc qdisc show dev dummy0
+    echo "TC output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "netem" ]]
+}
+
+@test "Should apply delay with normal distribution via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s delay --time 100 --jitter 30 --distribution normal test-netem-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-tc-dist test-netem-ctr tc qdisc show dev dummy0
+    echo "TC output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "netem" ]]
+    [[ "$output" =~ "delay" ]]
+}
+
+@test "Should apply rate limit with cell options via containerd runtime" {
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s rate --rate 1mbit --packetoverhead 10 --cellsize 1500 --celloverhead 20 test-netem-ctr &
+    PUMBA_PID=$!
+    sleep 2
+
+    run sudo ctr -n moby t exec --exec-id check-tc-cell test-netem-ctr tc qdisc show dev dummy0
+    echo "TC output: $output"
+
+    sudo kill $PUMBA_PID 2>/dev/null || kill $PUMBA_PID 2>/dev/null || true
+    wait $PUMBA_PID 2>/dev/null || true
+
+    [[ "$output" =~ "netem" ]]
+    [[ "$output" =~ "rate" ]]
+}
+
 @test "Should apply rate limiting via containerd runtime" {
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s rate --rate 100kbit test-netem-ctr &
     PUMBA_PID=$!

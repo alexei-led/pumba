@@ -1014,67 +1014,96 @@ func TestStressContainer_ExecError(t *testing.T) {
 	}
 }
 
-func TestBuildNetemArgs(t *testing.T) {
+func TestBuildNetemCommands(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		iface         string
-		cmds          []string
-		srcIPs        []*net.IPNet
-		srcPorts      []string
-		wantArgs      []string
-		wantErr       bool
-		wantErrSubstr string
+		name     string
+		iface    string
+		cmds     []string
+		ips      []*net.IPNet
+		sports   []string
+		dports   []string
+		wantCmds [][]string
 	}{
 		{
 			name:     "basic_delay",
 			iface:    "eth0",
 			cmds:     []string{"delay", "100ms"},
-			wantArgs: []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"},
+			wantCmds: [][]string{{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms"}},
 		},
 		{
 			name:     "multiple_commands",
 			iface:    "eth0",
 			cmds:     []string{"delay", "100ms", "loss", "10%"},
-			wantArgs: []string{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms", "loss", "10%"},
+			wantCmds: [][]string{{"qdisc", "add", "dev", "eth0", "root", "netem", "delay", "100ms", "loss", "10%"}},
 		},
 		{
-			name:          "rejects_ip_filtering",
-			iface:         "eth0",
-			cmds:          []string{"delay", "100ms"},
-			srcIPs:        func() []*net.IPNet { _, n, _ := net.ParseCIDR("10.0.0.0/8"); return []*net.IPNet{n} }(),
-			wantErr:       true,
-			wantErrSubstr: "IP/port filtering for netem is not yet implemented",
+			name:  "ip_filtering_creates_prio_qdisc",
+			iface: "eth0",
+			cmds:  []string{"delay", "100ms"},
+			ips:   func() []*net.IPNet { _, n, _ := net.ParseCIDR("10.0.0.0/8"); return []*net.IPNet{n} }(),
+			wantCmds: [][]string{
+				{"qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
+				{"filter", "add", "dev", "eth0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", "10.0.0.0/8", "flowid", "1:3"},
+			},
 		},
 		{
-			name:          "rejects_port_filtering",
-			iface:         "eth0",
-			cmds:          []string{"delay", "100ms"},
-			srcPorts:      []string{"80"},
-			wantErr:       true,
-			wantErrSubstr: "IP/port filtering for netem is not yet implemented",
+			name:   "sport_filtering",
+			iface:  "eth0",
+			cmds:   []string{"delay", "100ms"},
+			sports: []string{"80"},
+			wantCmds: [][]string{
+				{"qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
+				{"filter", "add", "dev", "eth0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "sport", "80", "0xffff", "flowid", "1:3"},
+			},
+		},
+		{
+			name:   "dport_filtering",
+			iface:  "eth0",
+			cmds:   []string{"delay", "100ms"},
+			dports: []string{"443"},
+			wantCmds: [][]string{
+				{"qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"},
+				{"qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
+				{"filter", "add", "dev", "eth0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "dport", "443", "0xffff", "flowid", "1:3"},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			args, err := buildNetemArgs(tt.iface, tt.cmds, tt.srcIPs, tt.srcPorts, nil)
-			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErrSubstr)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantArgs, args)
+			cmds := buildNetemCommands(tt.iface, tt.cmds, tt.ips, tt.sports, tt.dports)
+			assert.Equal(t, tt.wantCmds, cmds)
 		})
 	}
 }
 
-func TestBuildStopNetemArgs(t *testing.T) {
-	args := buildStopNetemArgs("eth0")
-	assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "root"}, args)
+func TestBuildStopNetemCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("without_filters", func(t *testing.T) {
+		t.Parallel()
+		cmds := buildStopNetemCommands("eth0", false)
+		assert.Equal(t, [][]string{{"qdisc", "del", "dev", "eth0", "root"}}, cmds)
+	})
+
+	t.Run("with_filters", func(t *testing.T) {
+		t.Parallel()
+		cmds := buildStopNetemCommands("eth0", true)
+		assert.Len(t, cmds, 4)
+		assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "parent", "1:1", "handle", "10:"}, cmds[0])
+		assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "root", "handle", "1:", "prio"}, cmds[3])
+	})
 }
 
 func TestBuildIPTablesCommands(t *testing.T) {

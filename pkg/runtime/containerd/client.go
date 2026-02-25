@@ -250,31 +250,26 @@ func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Co
 	if dryrun {
 		return nil
 	}
-	tcArgs, err := buildNetemArgs(netInterface, netemCmd, ips, sports, dports)
-	if err != nil {
-		return err
-	}
+	tcCommands := buildNetemCommands(netInterface, netemCmd, ips, sports, dports)
 	if tcimg != "" {
-		return c.sidecarExec(ctx, container, tcimg, pull, "tc", [][]string{tcArgs})
+		return c.sidecarExec(ctx, container, tcimg, pull, "tc", tcCommands)
 	}
-	return c.execInContainer(c.nsCtx(ctx), container.ID(), "tc", tcArgs)
+	return c.runTCCommands(c.nsCtx(ctx), container.ID(), tcCommands)
 }
 
 // StopNetemContainer removes network emulation from a container.
 func (c *containerdClient) StopNetemContainer(ctx context.Context, container *ctr.Container, netInterface string,
 	ips []*net.IPNet, sports, dports []string, tcimg string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface, "tc-image": tcimg}).Debug("stop netem on containerd container")
-	if len(ips) > 0 || len(sports) > 0 || len(dports) > 0 {
-		log.WithField("id", container.ID()).Warn("containerd runtime: IP/port filters ignored during netem cleanup")
-	}
 	if dryrun {
 		return nil
 	}
-	tcArgs := buildStopNetemArgs(netInterface)
+	hasFilters := len(ips) > 0 || len(sports) > 0 || len(dports) > 0
+	tcCommands := buildStopNetemCommands(netInterface, hasFilters)
 	if tcimg != "" {
-		return c.sidecarExec(ctx, container, tcimg, pull, "tc", [][]string{tcArgs})
+		return c.sidecarExec(ctx, container, tcimg, pull, "tc", tcCommands)
 	}
-	return c.execInContainer(c.nsCtx(ctx), container.ID(), "tc", tcArgs)
+	return c.runTCCommands(c.nsCtx(ctx), container.ID(), tcCommands)
 }
 
 // IPTablesContainer applies iptables rules to a container.
@@ -305,6 +300,15 @@ func (c *containerdClient) StopIPTablesContainer(ctx context.Context, container 
 		return c.sidecarExec(ctx, container, tcimg, pull, "iptables", commands)
 	}
 	return c.runIPTablesCommands(ctx, container.ID(), commands)
+}
+
+func (c *containerdClient) runTCCommands(ctx context.Context, containerID string, commands [][]string) error {
+	for _, args := range commands {
+		if err := c.execInContainer(ctx, containerID, "tc", args); err != nil {
+			return fmt.Errorf("failed to run tc command: %w", err)
+		}
+	}
+	return nil
 }
 
 func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID string, commands [][]string) error {
