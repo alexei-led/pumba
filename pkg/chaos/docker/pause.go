@@ -13,7 +13,8 @@ import (
 // pauseClient is the narrow interface needed by the pause command.
 type pauseClient interface {
 	container.Lister
-	container.Lifecycle
+	PauseContainer(context.Context, *container.Container, bool) error
+	UnpauseContainer(context.Context, *container.Container, bool) error
 }
 
 // `docker pause` command
@@ -86,12 +87,16 @@ func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 	// if there are paused containers unpause them
 	if len(pausedContainers) > 0 {
 		// wait for specified duration and then unpause containers or unpause on ctx.Done()
+		durationTimer := time.NewTimer(p.duration)
+		defer durationTimer.Stop()
 		select {
 		case <-ctx.Done():
 			log.Debug("unpause containers by stop event")
-			// NOTE: use different context to stop netem since parent context is canceled
-			err = p.unpauseContainers(context.Background(), pausedContainers)
-		case <-time.After(p.duration):
+			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.duration)
+			defer cancel()
+			err = p.unpauseContainers(cleanupCtx, pausedContainers)
+		case <-durationTimer.C:
 			log.WithField("duration", p.duration).Debug("unpause containers after duration")
 			err = p.unpauseContainers(ctx, pausedContainers)
 		}

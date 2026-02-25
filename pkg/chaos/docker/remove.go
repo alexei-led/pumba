@@ -12,7 +12,7 @@ import (
 // removeClient is the narrow interface needed by the remove command.
 type removeClient interface {
 	container.Lister
-	container.Lifecycle
+	RemoveContainer(context.Context, *container.Container, bool, bool, bool, bool) error
 }
 
 // `docker rm` command

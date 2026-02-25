@@ -1,16 +1,19 @@
 package container
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
-// matchNames checks if containerName matches any of the provided names.
+// matchNames checks if containerName or containerID matches any of the provided names.
 // Container names may start with a forward slash when using inspect function.
-func matchNames(names []string, containerName string) bool {
+func matchNames(names []string, containerName, containerID string) bool {
 	for _, name := range names {
-		if name == containerName {
+		if name == containerName || name == containerID {
 			return true
 		}
-		// container name may start with forward slash
-		if containerName != "" && name == containerName[1:] {
+		// container name may start with forward slash (Docker inspect adds "/")
+		if strings.HasPrefix(containerName, "/") && name == containerName[1:] {
 			return true
 		}
 	}
@@ -24,7 +27,7 @@ func matchPattern(pattern, containerName string) bool {
 	if err != nil {
 		return false
 	}
-	if !matched && containerName != "" {
+	if !matched && strings.HasPrefix(containerName, "/") {
 		matched, err = regexp.MatchString(pattern, containerName[1:])
 		if err != nil {
 			return false
@@ -42,7 +45,7 @@ func applyContainerFilter(flt filter) FilterFunc {
 		}
 		// match names
 		if len(flt.Names) > 0 {
-			return matchNames(flt.Names, c.ContainerName)
+			return matchNames(flt.Names, c.ContainerName, c.ContainerID)
 		}
 		return matchPattern(flt.Pattern, c.ContainerName)
 	}

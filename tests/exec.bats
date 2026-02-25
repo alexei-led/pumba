@@ -17,12 +17,12 @@ teardown() {
 
 @test "Should display exec help" {
     run pumba exec --help
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify help contains expected options
-    [[ $output =~ "command" ]]
-    [[ $output =~ "args" ]]
-    [[ $output =~ "limit" ]]
+    assert_output --partial "command"
+    assert_output --partial "args"
+    assert_output --partial "limit"
 }
 
 @test "Should execute command in container" {
@@ -38,7 +38,7 @@ teardown() {
     
     # Then command should succeed
     echo "Exec status: $status"
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should execute custom command in container" {
@@ -54,7 +54,7 @@ teardown() {
     
     # Then command should succeed
     echo "Custom command status: $status"
-    [ $status -eq 0 ]
+    assert_success
 }
 
 @test "Should execute command with single argument" {
@@ -70,10 +70,11 @@ teardown() {
     
     # Then command should succeed
     echo "Command with args status: $status"
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify debug output contains the argument
-    [[ $output =~ "args" && $output =~ "hello" ]]
+    assert_output --partial "args"
+    assert_output --partial "hello"
 }
 
 @test "Should execute command with multiple arguments using repeated flags" {
@@ -89,10 +90,10 @@ teardown() {
     
     # Then command should succeed
     echo "Multiple args status: $status"
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify debug output shows arguments were passed
-    [[ $output =~ "args" ]]
+    assert_output --partial "args"
 }
 
 @test "Should respect limit parameter" {
@@ -110,20 +111,35 @@ teardown() {
     
     # Then command should succeed
     echo "Limit parameter status: $status"
-    [ $status -eq 0 ]
+    assert_success
     
     # And output should mention limiting to 1 container
-    [[ $output =~ "limit" ]] && [[ $output =~ "1" ]]
+    assert_output --partial "limit"
+    assert_output --partial "1"
+}
+
+@test "Should actually execute command in running container" {
+    # Given a running container
+    create_test_container "exec_target"
+    assert_container_state "exec_target" "running"
+
+    # When executing a real command (not dry-run)
+    run pumba exec --command "touch" --args "/tmp/pumba_was_here" exec_target
+    assert_success
+
+    # Then the file should exist inside the container
+    run docker exec exec_target ls /tmp/pumba_was_here
+    assert_success
 }
 
 @test "Should handle gracefully when targeting non-existent container" {
     # When targeting a non-existent container
     run pumba exec --command "echo" nonexistent_container
-    
+
     # Then command should succeed (exit code 0)
-    [ $status -eq 0 ]
-    
+    assert_success
+
     # And output should indicate no containers were found
     echo "Command output: $output"
-    [[ $output =~ "no containers to exec" ]]
+    assert_output --partial "no containers to exec"
 }

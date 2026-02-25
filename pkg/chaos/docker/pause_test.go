@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPauseCommand_Run(t *testing.T) {
@@ -38,9 +40,7 @@ func TestPauseCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -49,9 +49,7 @@ func TestPauseCommand_Run(t *testing.T) {
 				pattern: "^c?",
 				limit:   2,
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -59,10 +57,7 @@ func TestPauseCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx:    context.TODO(),
-				random: true,
-			},
+			args:     args{ctx: context.TODO(), random: true},
 			expected: container.CreateTestContainers(3),
 		},
 		{
@@ -70,18 +65,14 @@ func TestPauseCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args: args{ctx: context.TODO()},
 		},
 		{
 			name: "error listing containers",
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:    args{ctx: context.TODO()},
 			wantErr: true,
 			errs:    wantErrors{listError: true},
 		},
@@ -90,9 +81,7 @@ func TestPauseCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{pauseError: true},
@@ -102,9 +91,7 @@ func TestPauseCommand_Run(t *testing.T) {
 			fields: fields{
 				names: []string{"c1", "c2", "c3"},
 			},
-			args: args{
-				ctx: context.TODO(),
-			},
+			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 			wantErr:  true,
 			errs:     wantErrors{unpauseError: true},
@@ -112,7 +99,7 @@ func TestPauseCommand_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(container.MockClient)
+			mockClient := container.NewMockClient(t)
 			s := &pauseCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
@@ -120,44 +107,38 @@ func TestPauseCommand_Run(t *testing.T) {
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
-			call := mockClient.On("ListContainers", tt.args.ctx, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts"))
 			if tt.errs.listError {
-				call.Return(tt.expected, errors.New("ERROR"))
-				goto Invoke
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts")).Return(nil, errors.New("ERROR"))
 			} else {
-				call.Return(tt.expected, nil)
-				if tt.expected == nil {
-					goto Invoke
-				}
-			}
-			if tt.args.random {
-				mockClient.On("PauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil)
-				mockClient.On("UnpauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil)
-			} else {
-				for i := range tt.expected {
-					if tt.fields.limit == 0 || i < tt.fields.limit {
-						call = mockClient.On("PauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun)
-						if tt.errs.pauseError {
-							call.Return(errors.New("ERROR"))
-							goto Invoke
-						} else {
-							call.Return(nil)
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts")).Return(tt.expected, nil)
+				if tt.expected != nil {
+					if tt.args.random {
+						mockClient.EXPECT().PauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil).Once()
+						mockClient.EXPECT().UnpauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil).Once()
+					} else {
+						count := len(tt.expected)
+						if tt.fields.limit > 0 && tt.fields.limit < count {
+							count = tt.fields.limit
 						}
-						call = mockClient.On("UnpauseContainer", tt.args.ctx, mock.AnythingOfType("*container.Container"), tt.fields.dryRun)
-						if tt.errs.unpauseError {
-							call.Return(errors.New("ERROR"))
-							goto Invoke
+						if tt.errs.pauseError {
+							mockClient.EXPECT().PauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(errors.New("ERROR")).Once()
 						} else {
-							call.Return(nil)
+							mockClient.EXPECT().PauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil).Times(count)
+							if tt.errs.unpauseError {
+								mockClient.EXPECT().UnpauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(errors.New("ERROR")).Times(count)
+							} else {
+								mockClient.EXPECT().UnpauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.dryRun).Return(nil).Times(count)
+							}
 						}
 					}
 				}
 			}
-		Invoke:
-			if err := s.Run(tt.args.ctx, tt.args.random); (err != nil) != tt.wantErr {
-				t.Errorf("PauseCommand.Run() error = %v, wantErr %v", err, tt.wantErr)
+			err := s.Run(tt.args.ctx, tt.args.random)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			mockClient.AssertExpectations(t)
 		})
 	}
 }

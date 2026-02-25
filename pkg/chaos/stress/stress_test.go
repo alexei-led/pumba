@@ -47,7 +47,7 @@ func TestStressCommand_Run(t *testing.T) {
 			name:   "no matching containers returns nil",
 			params: &chaos.GlobalParams{Names: []string{targetName}},
 			setupMock: func(m *container.MockClient) {
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{}, nil)
 			},
 		},
@@ -55,7 +55,7 @@ func TestStressCommand_Run(t *testing.T) {
 			name:   "list containers error propagates",
 			params: &chaos.GlobalParams{Names: []string{targetName}},
 			setupMock: func(m *container.MockClient) {
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return(nil, errors.New("docker daemon unavailable"))
 			},
 			wantErr: "docker daemon unavailable",
@@ -64,9 +64,9 @@ func TestStressCommand_Run(t *testing.T) {
 			name:   "dry run calls StressContainer with dryRun=true",
 			params: &chaos.GlobalParams{Names: []string{targetName}, DryRun: true},
 			setupMock: func(m *container.MockClient) {
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{target}, nil)
-				m.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, true).
+				m.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, true).
 					Return("", nil, nil, nil)
 			},
 		},
@@ -74,9 +74,9 @@ func TestStressCommand_Run(t *testing.T) {
 			name:   "StressContainer error propagates",
 			params: &chaos.GlobalParams{Names: []string{targetName}},
 			setupMock: func(m *container.MockClient) {
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{target}, nil)
-				m.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, false).
+				m.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, false).
 					Return("", nil, nil, errors.New("image pull failed"))
 			},
 			wantErr: "image pull failed",
@@ -88,9 +88,9 @@ func TestStressCommand_Run(t *testing.T) {
 				output := make(chan string, 1)
 				outerr := make(chan error, 1)
 				output <- "stress-ng: info: completed"
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{target}, nil)
-				m.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, false).
+				m.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, false).
 					Return(stressID, (<-chan string)(output), (<-chan error)(outerr), nil)
 			},
 		},
@@ -101,9 +101,9 @@ func TestStressCommand_Run(t *testing.T) {
 				output := make(chan string, 1)
 				outerr := make(chan error, 1)
 				outerr <- errors.New("stress-ng: error: OOM killed")
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{target}, nil)
-				m.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, false).
+				m.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, false).
 					Return(stressID, (<-chan string)(output), (<-chan error)(outerr), nil)
 			},
 			wantErr: "OOM killed",
@@ -114,11 +114,11 @@ func TestStressCommand_Run(t *testing.T) {
 			setupMock: func(m *container.MockClient) {
 				output := make(chan string)
 				outerr := make(chan error)
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{target}, nil)
-				m.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, false).
+				m.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, false).
 					Return(stressID, (<-chan string)(output), (<-chan error)(outerr), nil)
-				m.On("StopContainerWithID", mock.Anything, stressID, defaultStopTimeout, false).
+				m.EXPECT().StopContainerWithID(mock.Anything, stressID, defaultStopTimeout, false).
 					Return(nil)
 			},
 		},
@@ -129,10 +129,9 @@ func TestStressCommand_Run(t *testing.T) {
 			setupMock: func(m *container.MockClient) {
 				c1 := testContainer("id1", "c1")
 				c2 := testContainer("id2", "c2")
-				m.On("ListContainers", mock.Anything, anyFilter, listOpts).
+				m.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 					Return([]*container.Container{c1, c2}, nil)
-				// random picks one — accept any container
-				m.On("StressContainer", mock.Anything, mock.AnythingOfType("*container.Container"),
+				m.EXPECT().StressContainer(mock.Anything, mock.AnythingOfType("*container.Container"),
 					stressors, image, false, duration, false, true).
 					Return("", nil, nil, nil)
 			},
@@ -182,10 +181,9 @@ func TestStressCommand_Run_InjectCgroup(t *testing.T) {
 	outerr := make(chan error, 1)
 	output <- "done"
 
-	mockClient.On("ListContainers", mock.Anything, anyFilter, listOpts).
+	mockClient.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 		Return([]*container.Container{target}, nil)
-	// pull=true, injectCgroup=true
-	mockClient.On("StressContainer", mock.Anything, target, stressors, image, true, duration, true, false).
+	mockClient.EXPECT().StressContainer(mock.Anything, target, stressors, image, true, duration, true, false).
 		Return("stress-id", (<-chan string)(output), (<-chan error)(outerr), nil)
 
 	params := &chaos.GlobalParams{Names: []string{"target"}}
@@ -205,15 +203,14 @@ func TestStressCommand_Run_DurationTimeout(t *testing.T) {
 	listOpts := container.ListOpts{All: false, Labels: nil}
 
 	mockClient := new(container.MockClient)
-	// channels never send — timer fires first
 	output := make(chan string)
 	outerr := make(chan error)
 
-	mockClient.On("ListContainers", mock.Anything, anyFilter, listOpts).
+	mockClient.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 		Return([]*container.Container{target}, nil)
-	mockClient.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, false).
+	mockClient.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, false).
 		Return("stress-id", (<-chan string)(output), (<-chan error)(outerr), nil)
-	mockClient.On("StopContainerWithID", mock.Anything, "stress-id", defaultStopTimeout, false).
+	mockClient.EXPECT().StopContainerWithID(mock.Anything, "stress-id", defaultStopTimeout, false).
 		Return(nil)
 
 	params := &chaos.GlobalParams{Names: []string{"target"}}
@@ -236,11 +233,11 @@ func TestStressCommand_Run_StopContainerError(t *testing.T) {
 	output := make(chan string)
 	outerr := make(chan error)
 
-	mockClient.On("ListContainers", mock.Anything, anyFilter, listOpts).
+	mockClient.EXPECT().ListContainers(mock.Anything, anyFilter, listOpts).
 		Return([]*container.Container{target}, nil)
-	mockClient.On("StressContainer", mock.Anything, target, stressors, image, false, duration, false, false).
+	mockClient.EXPECT().StressContainer(mock.Anything, target, stressors, image, false, duration, false, false).
 		Return("stress-id", (<-chan string)(output), (<-chan error)(outerr), nil)
-	mockClient.On("StopContainerWithID", mock.Anything, "stress-id", defaultStopTimeout, false).
+	mockClient.EXPECT().StopContainerWithID(mock.Anything, "stress-id", defaultStopTimeout, false).
 		Return(errors.New("container already removed"))
 
 	params := &chaos.GlobalParams{Names: []string{"target"}}

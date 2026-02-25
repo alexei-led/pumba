@@ -97,7 +97,7 @@ endif
 $(TEST_TARGETS): NAME=$(MAKECMDGOALS:test-%=%)
 $(TEST_TARGETS): test
 check test tests: ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
-	$Q env CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
+	$Q env CGO_ENABLED=1 GOOS= GOARCH= $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
 COVERAGE_MODE    = atomic
 COVERAGE_DIR 	 = $(CURDIR)/.cover
@@ -138,14 +138,10 @@ lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
 
-# generate test mock for interfaces
+# generate test mocks for interfaces (reads .mockery.yaml)
 .PHONY: mocks
 mocks: setup-mockery; $(info $(M) generating mocks...) @ ## Run mockery
-	$Q $(GOMOCK) --dir pkg/chaos/docker --all
-	$Q $(GOMOCK) --dir pkg/container --inpackage --all
-	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name ContainerAPIClient
-	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name ImageAPIClient
-	$Q $(GOMOCK) --dir $(call source_of,github.com/docker/docker)/client --name APIClient
+	$Q $(GOMOCK)
 
 # Misc
 
@@ -214,8 +210,3 @@ push-nettools-images: ; $(info $(M) building and pushing multi-arch nettools ima
 		-f $(CURDIR)/docker/debian-nettools.Dockerfile \
 		$(CURDIR)
 	$Q $(DOCKER) buildx rm nettools-builder
-
-# helper function: find module path
-define source_of
-	$(shell go mod download -json | jq -r 'select(.Path == "$(1)").Dir' | tr '\\' '/'  2> /dev/null)
-endef

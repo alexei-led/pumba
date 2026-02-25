@@ -4,8 +4,67 @@ Pumba is a chaos testing command line tool for Docker containers. This guide cov
 
 ## Prerequisites
 
-- Docker `v18.06.0` or later
+- **Docker runtime** (default): Docker `v18.06.0` or later
+- **containerd runtime**: containerd `v2.0` or later
 - Download the Pumba binary for your OS from the [releases page](https://github.com/alexei-led/pumba/releases), or run it as a [Docker container](deployment.md)
+
+## Runtime Selection
+
+Pumba supports two container runtimes: **Docker** (default) and **containerd**.
+
+### Docker Runtime (default)
+
+No extra flags needed — Pumba uses the Docker API by default:
+
+```bash
+pumba kill mycontainer
+```
+
+### containerd Runtime
+
+Use `--runtime containerd` to target containerd directly. This is useful for Kubernetes environments where containers are managed by containerd without Docker:
+
+```bash
+# Target containers in the Kubernetes namespace
+pumba --runtime containerd --containerd-namespace k8s.io kill <container-id>
+
+# Target Docker-managed containers via containerd
+pumba --runtime containerd --containerd-namespace moby kill <container-id>
+```
+
+**Global flags for containerd:**
+
+| Flag                     | Default                           | Description                                  |
+| ------------------------ | --------------------------------- | -------------------------------------------- |
+| `--runtime`              | `docker`                          | Container runtime (`docker` or `containerd`) |
+| `--containerd-socket`    | `/run/containerd/containerd.sock` | containerd socket path                       |
+| `--containerd-namespace` | `k8s.io`                          | containerd namespace                         |
+
+**Container name resolution:**
+
+Pumba resolves container names from well-known labels (checked in priority order):
+
+1. **Kubernetes**: `io.kubernetes.container.name` → `namespace/pod/container`
+2. **nerdctl**: `nerdctl/name`
+3. **Docker Compose**: `com.docker.compose.service`
+4. **Fallback**: container ID
+
+When using `re2:` regex patterns with the containerd runtime, Kubernetes container names use the `namespace/pod/container` format. Example: `re2:^default/` matches all containers in the `default` namespace.
+
+**Sidecar container for network chaos:**
+
+By default, Pumba executes `tc`/`iptables` commands directly inside the target container. If the target doesn't have these tools, use `--tc-image` to spawn a sidecar container that shares the target's network namespace:
+
+```bash
+# Sidecar mode — works even if the target has no tc tools
+pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
+  --duration 5m delay --time 3000 <container-id>
+```
+
+**Known limitations of the containerd runtime:**
+
+- **Stress testing**: executes `stress-ng` directly inside the target container — the container image must include `stress-ng`. The `--stress-image` and `--inject-cgroup` flags are ignored with the containerd runtime
+- **Remove** (`rm`): For Docker-managed containers in the `moby` namespace, kills the task but Docker retains its own metadata
 
 ## Container Targeting
 

@@ -52,7 +52,6 @@ type Stressor interface {
 }
 
 // Client is the full container runtime interface, combining all focused interfaces.
-// Existing code that uses Client continues to work unchanged.
 type Client interface {
 	Lister
 	Lifecycle
@@ -60,4 +59,5 @@ type Client interface {
 	Netem
 	IPTables
 	Stressor
+	Close() error
 }

@@ -108,7 +108,7 @@ func TestDelayCommand_Run_NoContainers(t *testing.T) {
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
-	mockClient.On("ListContainers", mock.Anything,
+	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{}, nil)
@@ -122,74 +122,68 @@ func TestDelayCommand_Run_NoContainers(t *testing.T) {
 }
 
 func TestDelayCommand_Run_DryRun(t *testing.T) {
-	mockClient := new(container.MockClient)
-	target := &container.Container{
-		ContainerID:   "abc123",
-		ContainerName: "target",
-		Labels:        map[string]string{},
-		Networks:      map[string]container.NetworkLink{},
+	tests := []struct {
+		name        string
+		delay       int
+		jitter      int
+		correlation float64
+		dist        string
+		image       string
+		netemCmd    []string
+	}{
+		{
+			name:        "delay with jitter and correlation",
+			delay:       200,
+			jitter:      50,
+			correlation: 25.5,
+			dist:        "",
+			image:       "tc-image",
+			netemCmd:    []string{"delay", "200ms", "50ms", "25.50"},
+		},
+		{
+			name:     "delay with distribution",
+			delay:    100,
+			jitter:   20,
+			dist:     "normal",
+			image:    "tc",
+			netemCmd: []string{"delay", "100ms", "20ms", "distribution", "normal"},
+		},
 	}
-	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
-	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
 
-	mockClient.On("ListContainers", mock.Anything,
-		mock.AnythingOfType("container.FilterFunc"),
-		container.ListOpts{All: false, Labels: nil}).
-		Return([]*container.Container{target}, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := new(container.MockClient)
+			target := &container.Container{
+				ContainerID:   "abc123",
+				ContainerName: "target",
+				Labels:        map[string]string{},
+				Networks:      map[string]container.NetworkLink{},
+			}
+			gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
+			nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: tt.image}
 
-	// delay 200ms, jitter 50ms, correlation 25.50% → netem cmd: ["delay", "200ms", "50ms", "25.50"]
-	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
-		[]string{"delay", "200ms", "50ms", "25.50"},
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "tc-image", false, true).
-		Return(nil)
+			mockClient.EXPECT().ListContainers(mock.Anything,
+				mock.AnythingOfType("container.FilterFunc"),
+				container.ListOpts{All: false, Labels: nil}).
+				Return([]*container.Container{target}, nil)
 
-	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"tc-image", false, true).
-		Return(nil)
+			mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
+				tt.netemCmd,
+				([]*net.IPNet)(nil), []string(nil), []string(nil),
+				100*time.Millisecond, tt.image, false, true).
+				Return(nil)
 
-	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 200, 50, 25.5, "")
-	require.NoError(t, err)
+			mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
+				([]*net.IPNet)(nil), []string(nil), []string(nil),
+				tt.image, false, true).
+				Return(nil)
 
-	err = cmd.Run(context.Background(), false)
-	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
-}
+			cmd, err := NewDelayCommand(mockClient, gparams, nparams, tt.delay, tt.jitter, tt.correlation, tt.dist)
+			require.NoError(t, err)
 
-func TestDelayCommand_Run_WithDistribution(t *testing.T) {
-	mockClient := new(container.MockClient)
-	target := &container.Container{
-		ContainerID:   "abc123",
-		ContainerName: "target",
-		Labels:        map[string]string{},
-		Networks:      map[string]container.NetworkLink{},
+			err = cmd.Run(context.Background(), false)
+			assert.NoError(t, err)
+			mockClient.AssertExpectations(t)
+		})
 	}
-	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
-	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc"}
-
-	mockClient.On("ListContainers", mock.Anything,
-		mock.AnythingOfType("container.FilterFunc"),
-		container.ListOpts{All: false, Labels: nil}).
-		Return([]*container.Container{target}, nil)
-
-	// delay 100ms, jitter 20ms, no correlation, distribution normal
-	// → ["delay", "100ms", "20ms", "distribution", "normal"]
-	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
-		[]string{"delay", "100ms", "20ms", "distribution", "normal"},
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "tc", false, true).
-		Return(nil)
-
-	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"tc", false, true).
-		Return(nil)
-
-	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 100, 20, 0, "normal")
-	require.NoError(t, err)
-
-	err = cmd.Run(context.Background(), false)
-	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 }

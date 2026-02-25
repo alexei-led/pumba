@@ -10,12 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// shared fixtures for all validation tests
-var (
-	testClient  = new(container.MockClient)
-	testGParams = &chaos.GlobalParams{Names: []string{"test"}}
-	testNParams = &Params{Iface: "eth0", Duration: time.Second}
-)
+func validationFixtures(t *testing.T) (*container.MockClient, *chaos.GlobalParams, *Params) {
+	return container.NewMockClient(t),
+		&chaos.GlobalParams{Names: []string{"test"}},
+		&Params{Iface: "eth0", Duration: time.Second}
+}
 
 func TestNewCorruptCommand_Validation(t *testing.T) {
 	tests := []struct {
@@ -32,7 +31,8 @@ func TestNewCorruptCommand_Validation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewCorruptCommand(testClient, testGParams, testNParams, tt.percent, tt.correlation)
+			client, gParams, nParams := validationFixtures(t)
+			cmd, err := NewCorruptCommand(client, gParams, nParams, tt.percent, tt.correlation)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -59,7 +59,8 @@ func TestNewLossCommand_Validation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewLossCommand(testClient, testGParams, testNParams, tt.percent, tt.correlation)
+			client, gParams, nParams := validationFixtures(t)
+			cmd, err := NewLossCommand(client, gParams, nParams, tt.percent, tt.correlation)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -85,7 +86,8 @@ func TestNewDuplicateCommand_Validation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewDuplicateCommand(testClient, testGParams, testNParams, tt.percent, tt.correlation)
+			client, gParams, nParams := validationFixtures(t)
+			cmd, err := NewDuplicateCommand(client, gParams, nParams, tt.percent, tt.correlation)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -99,19 +101,22 @@ func TestNewDuplicateCommand_Validation(t *testing.T) {
 
 func TestNewRateCommand_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
-		rate    string
-		wantErr string
+		name     string
+		rate     string
+		cellSize int
+		wantErr  string
 	}{
-		{"valid kbit", "100kbit", ""},
-		{"valid mbit", "10mbit", ""},
-		{"valid gbit", "1gbit", ""},
-		{"empty rate", "", "undefined rate limit"},
-		{"invalid rate", "notarate", "invalid rate"},
+		{"valid kbit", "100kbit", 0, ""},
+		{"valid mbit", "10mbit", 0, ""},
+		{"valid gbit", "1gbit", 0, ""},
+		{"empty rate", "", 0, "undefined rate limit"},
+		{"invalid rate", "notarate", 0, "invalid rate"},
+		{"invalid cell size", "100mbit", -1, "invalid cell size"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewRateCommand(testClient, testGParams, testNParams, tt.rate, 0, 0, 0)
+			client, gParams, nParams := validationFixtures(t)
+			cmd, err := NewRateCommand(client, gParams, nParams, tt.rate, 0, tt.cellSize, 0)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -137,7 +142,8 @@ func TestNewLossGECommand_Validation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewLossGECommand(testClient, testGParams, testNParams, tt.pg, tt.pb, tt.oneH, tt.oneK)
+			client, gParams, nParams := validationFixtures(t)
+			cmd, err := NewLossGECommand(client, gParams, nParams, tt.pg, tt.pb, tt.oneH, tt.oneK)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -164,7 +170,8 @@ func TestNewLossStateCommand_Validation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewLossStateCommand(testClient, testGParams, testNParams, tt.p13, tt.p31, tt.p32, tt.p23, tt.p14)
+			client, gParams, nParams := validationFixtures(t)
+			cmd, err := NewLossStateCommand(client, gParams, nParams, tt.p13, tt.p31, tt.p32, tt.p23, tt.p14)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)

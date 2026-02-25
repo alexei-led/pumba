@@ -8,11 +8,11 @@ load test_helper
     run pumba --help
     
     # Verify command succeeds
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify output contains expected sections
-    [[ $output =~ "USAGE:" ]]
-    [[ $output =~ "COMMANDS:" ]]
+    assert_output --partial "USAGE:"
+    assert_output --partial "COMMANDS:"
 }
 
 @test "Pumba help with help command" {
@@ -20,11 +20,11 @@ load test_helper
     run pumba help
     
     # Verify command succeeds
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify output contains expected sections
-    [[ $output =~ "USAGE:" ]]
-    [[ $output =~ "COMMANDS:" ]]
+    assert_output --partial "USAGE:"
+    assert_output --partial "COMMANDS:"
 }
 
 @test "Pumba version flag" {
@@ -32,7 +32,7 @@ load test_helper
     run pumba --version
     
     # Verify command succeeds
-    [ $status -eq 0 ]
+    assert_success
     
     # Verify output contains version information
     [[ $output =~ "Version:" ]] || [[ $output =~ "version" ]]

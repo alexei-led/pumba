@@ -13,13 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func TestLossCommand_Run_NoContainers(t *testing.T) {
 	mockClient := new(container.MockClient)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
-	mockClient.On("ListContainers", mock.Anything,
+	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{}, nil)
@@ -43,19 +42,18 @@ func TestLossCommand_Run_DryRun(t *testing.T) {
 	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
 	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
 
-	mockClient.On("ListContainers", mock.Anything,
+	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{target}, nil)
 
-	// loss 10.00%, correlation 5.00% → netem cmd: ["loss", "10.00", "5.00"]
-	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
+	mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
 		[]string{"loss", "10.00", "5.00"},
 		([]*net.IPNet)(nil), []string(nil), []string(nil),
 		100*time.Millisecond, "tc-image", false, true).
 		Return(nil)
 
-	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
 		([]*net.IPNet)(nil), []string(nil), []string(nil),
 		"tc-image", false, true).
 		Return(nil)
@@ -72,32 +70,22 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 	mockClient := new(container.MockClient)
 	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1"}
 	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2"}
-	
+
 	gparams := &chaos.GlobalParams{Names: []string{"c1", "c2"}, DryRun: true}
 	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc"}
 
-	// Must match both containers initially
-	mockClient.On("ListContainers", mock.Anything,
+	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil)
 
-	// Since we use random=true, only one container will be selected.
-	// We can't predict which one easily in the test without mocking RandomContainer,
-	// but RandomContainer is a top-level function in container package.
-	// For this unit test, we'll accept either c1 OR c2 being called, but not both.
-	// However, stretchr/testify mocking is strict.
-	// A better approach is to rely on ListNContainers logic if we could control it,
-	// but here we just want to verify that runNetem is called for one container.
-	
-	// We will use a loose match for the container argument
-	mockClient.On("NetemContainer", mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
+	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
 		[]string{"loss", "10.00"},
 		([]*net.IPNet)(nil), []string(nil), []string(nil),
 		100*time.Millisecond, "tc", false, true).
 		Return(nil).Once()
 
-	mockClient.On("StopNetemContainer", mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
 		([]*net.IPNet)(nil), []string(nil), []string(nil),
 		"tc", false, true).
 		Return(nil).Once()

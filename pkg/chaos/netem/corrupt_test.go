@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func TestCorruptCommand_Run_DryRun(t *testing.T) {
 	mockClient := new(container.MockClient)
 	target := &container.Container{
@@ -25,19 +24,18 @@ func TestCorruptCommand_Run_DryRun(t *testing.T) {
 	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
 	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
 
-	mockClient.On("ListContainers", mock.Anything,
+	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{target}, nil)
 
-	// corrupt 10.00%, correlation 5.00% → netem cmd: ["corrupt", "10.00", "5.00"]
-	mockClient.On("NetemContainer", mock.Anything, target, "eth0",
+	mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
 		[]string{"corrupt", "10.00", "5.00"},
 		([]*net.IPNet)(nil), []string(nil), []string(nil),
 		100*time.Millisecond, "tc-image", false, true).
 		Return(nil)
 
-	mockClient.On("StopNetemContainer", mock.Anything, target, "eth0",
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
 		([]*net.IPNet)(nil), []string(nil), []string(nil),
 		"tc-image", false, true).
 		Return(nil)

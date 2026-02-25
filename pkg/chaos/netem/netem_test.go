@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/mock"
 )
 
 func Test_runNetem(t *testing.T) {
@@ -119,31 +120,27 @@ func Test_runNetem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// create client mock
-			mockClient := &container.MockClient{}
-			// create timeout context
+			mockClient := container.NewMockClient(t)
 			ctx, cancel := context.WithCancel(context.TODO())
-			// set NetemContainer mock call
-			call := mockClient.On("NetemContainer", ctx, tt.args.container, tt.args.netInterface, tt.args.cmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.tcimage, tt.args.pull, tt.args.dryRun)
+
+			startErr := error(nil)
 			if tt.errs.startErr {
-				call.Return(errors.New("test error"))
-				goto Invoke
-			} else {
-				call.Return(nil)
+				startErr = errors.New("test error")
 			}
-			// set StopNetemContainer mock call
-			call = mockClient.On("StopNetemContainer", context.Background(), tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun)
-			if tt.errs.stopErr {
-				call.Return(errors.New("test error"))
-			} else {
-				call.Return(nil)
+			mockClient.EXPECT().NetemContainer(ctx, tt.args.container, tt.args.netInterface, tt.args.cmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.tcimage, tt.args.pull, tt.args.dryRun).Return(startErr)
+
+			if !tt.errs.startErr {
+				stopErr := error(nil)
+				if tt.errs.stopErr {
+					stopErr = errors.New("test error")
+				}
+				mockClient.EXPECT().StopNetemContainer(mock.Anything, tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun).Return(stopErr)
 			}
-			// invoke
-		Invoke:
+
 			if err := runNetem(ctx, mockClient, tt.args.container, tt.args.netInterface, tt.args.cmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.tcimage, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("runNetem() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			// abort
+
 			if tt.abort {
 				t.Log("cancel netem")
 				cancel()
@@ -151,8 +148,6 @@ func Test_runNetem(t *testing.T) {
 				t.Log("timeout netem")
 				defer cancel()
 			}
-			// asset mock
-			mockClient.AssertExpectations(t)
 		})
 	}
 }

@@ -16,7 +16,7 @@ import (
 type stressClient interface {
 	container.Lister
 	container.Stressor
-	container.Lifecycle
+	StopContainerWithID(context.Context, string, time.Duration, bool) error
 }
 
 // `stress-ng` command
@@ -87,9 +87,8 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	// stress containers
 	var eg errgroup.Group
 	for _, c := range containers {
-		cntr := c
 		eg.Go(func() error {
-			return s.stressContainer(ctx, cntr)
+			return s.stressContainer(ctx, c)
 		})
 	}
 	// wait till all stress tests complete
