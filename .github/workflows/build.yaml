@@ -59,23 +59,33 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
         with:
-          driver-opts: network=host
-      - name: Build and Export Docker Image
-        uses: docker/build-push-action@v6
+          go-version: '1.26'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Build Pumba Binary
+        run: make build
+      - name: Install Pumba
+        run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
+      - name: Install Bats and Libraries
+        uses: bats-core/bats-action@4.0.0
         with:
-          build-args: SKIP_TESTS=true
-          file: docker/Dockerfile
-          context: .
-          tags: pumba:test
-          target: integration-tests
-          load: true
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-      - name: Run Integration Tests
+          support-path: /usr/local/lib/bats-support
+          assert-path: /usr/local/lib/bats-assert
+          detik-install: false
+          file-install: false
+      - name: Pull Test Images
         run: |
-          docker run -i --rm --name integration-tests \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            pumba:test
+          docker pull alpine:latest
+          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
+      - name: Run Integration Tests
+        run: sudo bats --print-output-on-failure tests/*.bats
+      - name: Run Containerd Integration Tests
+        run: |
+          if [ -S /run/containerd/containerd.sock ]; then
+            sudo bats --print-output-on-failure tests/containerd_*.bats
+          else
+            echo "Containerd socket not available, skipping containerd tests"
+          fi
