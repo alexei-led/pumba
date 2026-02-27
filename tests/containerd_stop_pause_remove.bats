@@ -117,8 +117,8 @@ teardown() {
     run pumba --log-level debug rm $full_id
     assert_success
 
-    # Container process should be killed (exited)
-    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim 2>&1 | grep -qE 'exited|No such'" "container to be killed"
+    # Container process should be killed (exited) or fully removed
+    wait_for 5 "docker inspect -f '{{.State.Status}}' ctr_victim 2>&1 | grep -qiE 'exited|no such'" "container to be killed"
 }
 
 @test "Should fully remove pure containerd container" {
@@ -166,7 +166,7 @@ teardown() {
     assert_success
 
     # Container should be gone or at least task killed
-    wait_for 5 "docker inspect ctr_victim 2>&1 | grep -qE 'No such|exited'" "container to be removed"
+    wait_for 5 "docker inspect ctr_victim 2>&1 | grep -qiE 'no such|exited'" "container to be removed"
 }
 
 # ── LIMIT ──────────────────────────────────────────────────────────────────
