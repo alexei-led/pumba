@@ -130,6 +130,11 @@ integration-tests-all: build ; $(info $(M) running all integration tests with ba
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
 	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(SHELL) tests/run_tests.sh --all
 
+# run advanced Go integration tests (requires Docker, sudo for nsenter/containerd)
+.PHONY: integration-tests-advanced
+integration-tests-advanced: build ; $(info $(M) running advanced Go integration tests...) @ ## Run Go integration tests
+	$Q CGO_ENABLED=0 $(GO) test -v -tags integration -timeout 300s -count=1 ./tests/integration/...
+
 .PHONY: lint
 lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 	$Q $(LINT) run -v -c $(LINT_CONFIG) ./...
