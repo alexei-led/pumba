@@ -104,9 +104,9 @@ pumba stress --duration 30s \
 
 ## stress-ng Image Requirements
 
-Pumba uses [`ghcr.io/alexei-led/stress-ng:latest`](https://github.com/alexei-led/stress-ng/pkgs/container/stress-ng) by default. This is a minimal `scratch` image containing only the statically linked `stress-ng` binary.
+Pumba uses [`ghcr.io/alexei-led/stress-ng:latest`](https://github.com/alexei-led/stress-ng/pkgs/container/stress-ng) by default. This is a minimal `scratch` image containing both the statically linked `stress-ng` binary and the `cg-inject` binary (required for `--inject-cgroup` mode). The image is built and maintained in [alexei-led/stress-ng](https://github.com/alexei-led/stress-ng).
 
-If you provide a custom image with `--stress-image`, it must have the `stress-ng` binary at `/stress-ng` (absolute path). No shell, Docker CLI, or cgroup tools are required.
+If you provide a custom image with `--stress-image`, it must have the `stress-ng` binary at `/stress-ng` (absolute path). For `--inject-cgroup` mode, it must also include `/cg-inject`. No shell, Docker CLI, or cgroup tools are required.
 
 ## Same-Cgroup Injection Mode
 
@@ -143,12 +143,7 @@ The `--inject-cgroup` mode requires a stress image containing both:
 - `/cg-inject` — a minimal binary that writes its PID into the target's cgroup
 - `/stress-ng` — the stress-ng binary
 
-The repo includes `docker/stress.Dockerfile` which builds this combined image:
-
-```bash
-docker build -f docker/stress.Dockerfile -t myregistry/pumba-stress:latest .
-docker push myregistry/pumba-stress:latest
-```
+The default image `ghcr.io/alexei-led/stress-ng:latest` includes both binaries. The image is built and maintained in [alexei-led/stress-ng](https://github.com/alexei-led/stress-ng).
 
 ### Security
 
@@ -183,7 +178,7 @@ No manual configuration is needed — Pumba detects Kubernetes cgroup paths and 
 
 ### cg-inject Path Construction
 
-For `--inject-cgroup` mode, the `cg-inject` binary detects the cgroup version by checking for `/sys/fs/cgroup/cgroup.controllers` (present on v2, absent on v1) and constructs the appropriate cgroup path:
+For `--inject-cgroup` mode, the [`cg-inject`](https://github.com/alexei-led/stress-ng) binary detects the cgroup version by checking for `/sys/fs/cgroup/cgroup.controllers` (present on v2, absent on v1) and constructs the appropriate cgroup path:
 
 | Cgroup version | Driver   | Path format                                                      |
 | -------------- | -------- | ---------------------------------------------------------------- |
