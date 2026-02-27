@@ -51,12 +51,6 @@ build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Bui
 		-ldflags "$(LDFLAGS_VERSION)" \
 		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
 
-.PHONY: build-cg-inject
-build-cg-inject: dependency | ; $(info $(M) building cg-inject $(GOOS)/$(GOARCH) binary...) @ ## Build cg-inject static binary
-	$Q CGO_ENABLED=0 $(GO) build \
-		-ldflags '-s -w' \
-		-o $(BIN)/cg-inject ./cmd/cg-inject/
-
 .PHONY: release
 release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for paltforms and os
 	$(foreach GOOS, $(PLATFORMS),\
