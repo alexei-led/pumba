@@ -203,7 +203,7 @@ func TestNetworkVerify_IPTablesPortFilter(t *testing.T) {
 	srvID := startContainerWithOpts(t, ContainerOpts{
 		Name:  srvName,
 		Image: netshootImage,
-		Cmd:   []string{"sh", "-c", "nc -lk -p 80 -e echo 'HTTP OK' & nc -lk -p 8080 -e echo 'ALT OK' & sleep infinity"},
+		Cmd:   []string{"sh", "-c", "socat TCP-LISTEN:80,fork,reuseaddr SYSTEM:'echo HTTP_OK' & socat TCP-LISTEN:8080,fork,reuseaddr SYSTEM:'echo ALT_OK' & sleep infinity"},
 	})
 	clientID := startContainerWithOpts(t, ContainerOpts{
 		Name:  clientName,

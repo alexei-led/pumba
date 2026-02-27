@@ -428,3 +428,56 @@ func requireContainerd(t *testing.T) {
 		t.Skip("containerd socket not available")
 	}
 }
+
+// requireCgroupV2 skips the test if cgroups v2 is not available.
+func requireCgroupV2(t *testing.T) {
+	t.Helper()
+	if _, err := os.Stat("/sys/fs/cgroup/cgroup.controllers"); err != nil {
+		t.Skip("cgroups v2 required for OOM group test")
+	}
+}
+
+// containerCgroupDir returns the cgroup directory for a container.
+func containerCgroupDir(t *testing.T, containerID string) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	info, err := dockerCli.ContainerInspect(ctx, containerID)
+	require.NoError(t, err, "inspect container for cgroup dir")
+	fullID := info.ID
+
+	// cgroupfs driver: /sys/fs/cgroup/docker/<id>
+	if _, err := os.Stat("/sys/fs/cgroup/docker"); err == nil {
+		return fmt.Sprintf("/sys/fs/cgroup/docker/%s", fullID)
+	}
+	// systemd driver: /sys/fs/cgroup/system.slice/docker-<id>.scope
+	if _, err := os.Stat("/sys/fs/cgroup/system.slice"); err == nil {
+		return fmt.Sprintf("/sys/fs/cgroup/system.slice/docker-%s.scope", fullID)
+	}
+	t.Skip("could not determine cgroup driver (neither cgroupfs nor systemd)")
+	return ""
+}
+
+// enableOOMGroup writes "1" to memory.oom.group for the container's cgroup.
+func enableOOMGroup(t *testing.T, cgroupDir string) {
+	t.Helper()
+	path := cgroupDir + "/memory.oom.group"
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("memory.oom.group not available at %s", path)
+	}
+	require.NoError(t, os.WriteFile(path, []byte("1"), 0o644), "write memory.oom.group") //nolint:gosec
+}
+
+// triggerOOM starts a detached dd process that fills /dev/shm to trigger OOM.
+func triggerOOM(t *testing.T, containerID string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	execResp, err := dockerCli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:    []string{"dd", "if=/dev/zero", "of=/dev/shm/fill", "bs=1M"},
+		Detach: true,
+	})
+	require.NoError(t, err, "create dd exec for OOM trigger")
+	require.NoError(t, dockerCli.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{Detach: true}),
+		"start dd exec for OOM trigger")
+}
