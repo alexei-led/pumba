@@ -4,6 +4,7 @@ package integration
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,9 +178,7 @@ func TestNetworkVerify_DelayRemovedRTTReturns(t *testing.T) {
 		"delay", "--time", "200",
 		srvName,
 	)
-	if err != nil {
-		t.Logf("pumba stderr: %s", stderr)
-	}
+	require.NoError(t, err, "pumba netem failed: %s", stderr)
 
 	// After pumba exits, verify RTT returned to baseline
 	pid := containerPID(t, srvID)
@@ -213,7 +212,11 @@ func TestNetworkVerify_IPTablesPortFilter(t *testing.T) {
 	})
 
 	srvIP := containerIP(t, srvID)
-	time.Sleep(1 * time.Second) // let nc listeners start
+	require.Eventually(t, func() bool {
+		out := execInContainer(t, clientID, []string{"sh", "-c",
+			fmt.Sprintf("nc -z -w1 %s 80 2>/dev/null && echo ok", srvIP)})
+		return strings.Contains(out, "ok")
+	}, 5*time.Second, 200*time.Millisecond, "nc listeners not ready")
 
 	// Apply iptables loss only on port 80
 	pp := runPumbaBackground(t,
@@ -237,7 +240,8 @@ func TestNetworkVerify_IPTablesPortFilter(t *testing.T) {
 	out8080 := execInContainer(t, clientID, []string{"sh", "-c",
 		fmt.Sprintf("echo test | nc -w 2 %s 8080", srvIP)})
 	t.Logf("Port 8080 response: %s", out8080)
-	// Port 8080 should not be blocked (connection should succeed or at least not fail with CONN_FAILED pattern)
+	assert.NotContains(t, out8080, "CONN_FAILED",
+		"port 8080 should not be blocked by iptables targeting port 80 only")
 
 	pp.Stop()
 }
@@ -297,8 +301,7 @@ func TestNetworkVerify_NetemTargetIP(t *testing.T) {
 
 	// After cleanup, ping should be fast again
 	clean := pingBetween(t, srcID, tgtIP, 3)
-	if clean.Received > 0 {
-		assert.Less(t, clean.AvgRTT, 50*time.Millisecond,
-			"after netem cleanup, RTT should return to normal")
-	}
+	require.Greater(t, clean.Received, 0, "ping should succeed after netem cleanup")
+	assert.Less(t, clean.AvgRTT, 50*time.Millisecond,
+		"after netem cleanup, RTT should return to normal")
 }

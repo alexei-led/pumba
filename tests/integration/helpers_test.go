@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -169,6 +171,9 @@ type PumbaProcess struct {
 	Stdout *bytes.Buffer
 	Stderr *bytes.Buffer
 	cancel context.CancelFunc
+
+	waitOnce sync.Once
+	waitErr  error
 }
 
 // runPumbaBackground starts pumba in the background with context cancellation.
@@ -196,13 +201,24 @@ func runPumbaBackground(t *testing.T, args ...string) *PumbaProcess {
 	return pp
 }
 
-// Stop cancels the context (sending SIGKILL) and waits for exit.
+// Stop sends SIGTERM first for graceful shutdown, then cancels the context.
 func (p *PumbaProcess) Stop() {
 	if p.Cmd.Process == nil {
 		return
 	}
-	p.cancel()
-	_ = p.Cmd.Wait()
+	// Try SIGTERM first for graceful cleanup
+	_ = p.Cmd.Process.Signal(os.Interrupt)
+	done := make(chan struct{})
+	go func() {
+		_ = p.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second): //nolint:mnd
+		p.cancel()
+		_ = p.Wait()
+	}
 }
 
 // Signal sends a specific signal to the pumba process.
@@ -215,8 +231,26 @@ func (p *PumbaProcess) Signal(sig string) error {
 }
 
 // Wait waits for the pumba process to exit and returns the error.
+// Safe to call from multiple goroutines.
 func (p *PumbaProcess) Wait() error {
-	return p.Cmd.Wait()
+	p.waitOnce.Do(func() {
+		p.waitErr = p.Cmd.Wait()
+	})
+	return p.waitErr
+}
+
+// requirePumbaExits waits for pumba to exit within the given timeout.
+func requirePumbaExits(t *testing.T, pp *PumbaProcess, timeout time.Duration) {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() {
+		done <- pp.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		t.Fatalf("pumba did not exit within %s", timeout)
+	}
 }
 
 // nsenterTC runs `tc qdisc show dev <iface>` inside the container's network namespace.
@@ -378,14 +412,10 @@ func execInContainer(t *testing.T, containerID string, cmd []string) string {
 	return buf.String()
 }
 
-// requireDinD skips the test if running inside Docker-in-Docker.
+// requireNoDinD skips the test if running inside Docker-in-Docker.
 func requireNoDinD(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath("/.dockerenv"); err == nil {
-		t.Skip("sidecar tests not supported in Docker-in-Docker")
-	}
-	// Also check for .dockerenv file
-	if _, err := exec.Command("test", "-f", "/.dockerenv").Output(); err == nil {
+	if _, err := os.Stat("/.dockerenv"); err == nil {
 		t.Skip("sidecar tests not supported in Docker-in-Docker")
 	}
 }
@@ -393,7 +423,8 @@ func requireNoDinD(t *testing.T) {
 // requireContainerd skips the test if containerd socket is not available.
 func requireContainerd(t *testing.T) {
 	t.Helper()
-	if _, err := exec.Command("test", "-S", "/run/containerd/containerd.sock").Output(); err != nil {
+	info, err := os.Stat("/run/containerd/containerd.sock")
+	if err != nil || info.Mode()&os.ModeSocket == 0 {
 		t.Skip("containerd socket not available")
 	}
 }

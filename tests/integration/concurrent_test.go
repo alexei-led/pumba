@@ -124,12 +124,27 @@ func TestConcurrent_TwoKillLimitOnSamePool(t *testing.T) {
 	_, _, err1 := runPumba(t, "kill", "--limit", "1", pattern)
 	require.NoError(t, err1, "first kill should succeed")
 
-	time.Sleep(1 * time.Second)
+	require.Eventually(t, func() bool {
+		for _, name := range names {
+			if containerStatus(t, name) == "exited" {
+				return true
+			}
+		}
+		return false
+	}, 10*time.Second, 500*time.Millisecond, "first container should be killed")
 
 	_, _, err2 := runPumba(t, "kill", "--limit", "1", pattern)
 	require.NoError(t, err2, "second kill should succeed")
 
-	time.Sleep(2 * time.Second)
+	require.Eventually(t, func() bool {
+		exited := 0
+		for _, name := range names {
+			if containerStatus(t, name) == "exited" {
+				exited++
+			}
+		}
+		return exited >= 2
+	}, 10*time.Second, 500*time.Millisecond, "two containers should be killed")
 
 	// Count running vs exited
 	running := 0

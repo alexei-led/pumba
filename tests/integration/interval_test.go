@@ -121,7 +121,7 @@ func TestInterval_SkipErrorSurvivesFailure(t *testing.T) {
 	select {
 	case <-done:
 		// Process exited — verify it didn't panic
-	default:
+	case <-time.After(2 * time.Second):
 		// Process still running — expected with --skip-error
 		pp.Stop()
 	}

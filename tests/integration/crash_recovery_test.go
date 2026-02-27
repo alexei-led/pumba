@@ -188,17 +188,7 @@ func TestCrashRecovery_TargetDiesDuringNetem(t *testing.T) {
 	require.NoError(t, err, "kill target container")
 
 	// Pumba should exit cleanly (or with a logged error, not hang)
-	done := make(chan error, 1)
-	go func() {
-		done <- pp.Wait()
-	}()
-
-	select {
-	case <-done:
-		// pumba exited — success regardless of exit code
-	case <-time.After(30 * time.Second):
-		t.Fatal("pumba did not exit within 30s after target was killed")
-	}
+	requirePumbaExits(t, pp, 30*time.Second)
 }
 
 func TestCrashRecovery_TargetOOMDuringNetem(t *testing.T) {
@@ -228,7 +218,7 @@ func TestCrashRecovery_TargetOOMDuringNetem(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	execCfg := container.ExecOptions{
-		Cmd: []string{"sh", "-c", "dd if=/dev/zero of=/dev/null bs=128M"},
+		Cmd: []string{"sh", "-c", "tail /dev/zero"},
 	}
 	execResp, err := dockerCli.ContainerExecCreate(ctx, id, execCfg)
 	if err == nil {
@@ -242,17 +232,7 @@ func TestCrashRecovery_TargetOOMDuringNetem(t *testing.T) {
 	}, 30*time.Second, 500*time.Millisecond, "container not OOM-killed")
 
 	// Pumba should exit
-	done := make(chan error, 1)
-	go func() {
-		done <- pp.Wait()
-	}()
-
-	select {
-	case <-done:
-		// pumba exited
-	case <-time.After(30 * time.Second):
-		t.Fatal("pumba did not exit within 30s after target OOM")
-	}
+	requirePumbaExits(t, pp, 30*time.Second)
 
 	// Verify sidecar cleaned up
 	require.Eventually(t, func() bool {

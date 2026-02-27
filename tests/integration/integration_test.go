@@ -5,10 +5,10 @@ package integration
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,23 +21,24 @@ import (
 var (
 	pumba       string
 	dockerCli   *client.Client
-	setupOnce   sync.Once
-	setupErr    error
 	nettoolsImg string
 )
 
 const (
 	defaultImage  = "alpine:latest"
 	netshootImage = "nicolaka/netshoot:latest"
-	testTimeout   = 300 * time.Second
 )
 
 func TestMain(m *testing.M) {
+	os.Exit(runTests(m))
+}
+
+func runTests(m *testing.M) int {
 	// 1. Find or build pumba binary
 	pumba = findPumba()
 	if pumba == "" {
 		fmt.Fprintln(os.Stderr, "FATAL: pumba binary not found; run 'make build' first")
-		os.Exit(1)
+		return 1
 	}
 	fmt.Fprintf(os.Stderr, "Using pumba binary: %s\n", pumba)
 
@@ -46,7 +47,7 @@ func TestMain(m *testing.M) {
 	dockerCli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: cannot create Docker client: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer dockerCli.Close()
 
@@ -59,13 +60,11 @@ func TestMain(m *testing.M) {
 	nettoolsImg = detectNettoolsImage(ctx)
 	fmt.Fprintf(os.Stderr, "Using nettools image: %s\n", nettoolsImg)
 
-	// 5. Run tests
-	code := m.Run()
+	// 5. Cleanup leaked test containers/sidecars
+	defer cleanupLeaked()
 
-	// 6. Cleanup leaked test containers/sidecars
-	cleanupLeaked()
-
-	os.Exit(code)
+	// 6. Run tests
+	return m.Run()
 }
 
 func findPumba() string {
@@ -101,14 +100,7 @@ func pullImages(ctx context.Context) {
 			fmt.Fprintf(os.Stderr, "WARNING: failed to pull %s: %v\n", img, err)
 			continue
 		}
-		// Drain pull output
-		buf := make([]byte, 4096)
-		for {
-			_, rerr := rc.Read(buf)
-			if rerr != nil {
-				break
-			}
-		}
+		_, _ = io.Copy(io.Discard, rc)
 		rc.Close()
 	}
 }
@@ -125,13 +117,7 @@ func detectNettoolsImage(ctx context.Context) string {
 	// Try pulling
 	rc, err := dockerCli.ImagePull(ctx, img, image.PullOptions{})
 	if err == nil {
-		buf := make([]byte, 4096)
-		for {
-			_, rerr := rc.Read(buf)
-			if rerr != nil {
-				break
-			}
-		}
+		_, _ = io.Copy(io.Discard, rc)
 		rc.Close()
 		return img
 	}

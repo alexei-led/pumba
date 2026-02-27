@@ -26,7 +26,7 @@ func TestLifecycle_KillWithRestartPolicy(t *testing.T) {
 	pidBefore := containerPID(t, id)
 
 	_, stderr, err := runPumba(t, "--log-level", "debug", "kill", "--signal", "SIGTERM", name)
-	assert.NoError(t, err, "pumba kill should exit cleanly, stderr: %s", stderr)
+	require.NoError(t, err, "pumba kill should exit cleanly, stderr: %s", stderr)
 
 	// Container should auto-restart thanks to restart=always policy
 	require.Eventually(t, func() bool {
@@ -63,18 +63,9 @@ func TestLifecycle_ShortLivedContainerDuringNetem(t *testing.T) {
 	}, 10*time.Second, 500*time.Millisecond, "short-lived container should exit")
 
 	// Pumba should handle gracefully and exit (not hang or crash)
-	done := make(chan error, 1)
-	go func() {
-		done <- pp.Wait()
-	}()
-
-	select {
-	case <-done:
-		assert.NotContains(t, pp.Stderr.String(), "panic",
-			"pumba should not panic when container exits during netem")
-	case <-time.After(30 * time.Second):
-		t.Fatal("pumba did not exit within 30s after short-lived container died")
-	}
+	requirePumbaExits(t, pp, 30*time.Second)
+	assert.NotContains(t, pp.Stderr.String(), "panic",
+		"pumba should not panic when container exits during netem")
 }
 
 func TestLifecycle_PauseAlreadyPaused(t *testing.T) {
@@ -90,7 +81,9 @@ func TestLifecycle_PauseAlreadyPaused(t *testing.T) {
 
 	// Ensure we unpause on cleanup so removeContainer works
 	t.Cleanup(func() {
-		_ = dockerCli.ContainerUnpause(context.Background(), id)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = dockerCli.ContainerUnpause(ctx, id)
 	})
 
 	require.Equal(t, "paused", containerStatus(t, id))
@@ -105,10 +98,10 @@ func TestLifecycle_PauseAlreadyPaused(t *testing.T) {
 	}
 
 	// After pumba returns, container might be paused or running (if pumba unpaused it)
-	time.Sleep(4 * time.Second)
-	status := containerStatus(t, id)
-	assert.Contains(t, []string{"paused", "running"}, status,
-		"container should be paused or running, got: %s", status)
+	require.Eventually(t, func() bool {
+		s := containerStatus(t, id)
+		return s == "paused" || s == "running"
+	}, 10*time.Second, 500*time.Millisecond, "container should be paused or running")
 }
 
 func TestLifecycle_RmWithVolumes(t *testing.T) {
@@ -132,7 +125,9 @@ func TestLifecycle_RmWithVolumes(t *testing.T) {
 	err = dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_ = dockerCli.ContainerRemove(context.Background(), resp.ID,
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = dockerCli.ContainerRemove(ctx, resp.ID,
 			container.RemoveOptions{Force: true, RemoveVolumes: true})
 	})
 
@@ -156,7 +151,7 @@ func TestLifecycle_RmWithVolumes(t *testing.T) {
 
 	// pumba rm (--volumes defaults to true via BoolTFlag)
 	_, stderr, err := runPumba(t, "--log-level", "debug", "rm", name)
-	assert.NoError(t, err, "pumba rm should succeed, stderr: %s", stderr)
+	require.NoError(t, err, "pumba rm should succeed, stderr: %s", stderr)
 
 	// Container should be removed
 	require.Eventually(t, func() bool {
@@ -210,7 +205,7 @@ func TestLifecycle_StopWithHealthCheck(t *testing.T) {
 	// pumba stop --restart --duration 5s: stops the container, then restarts it after 5s
 	_, stderr, err := runPumba(t, "--log-level", "debug",
 		"stop", "--restart", "--duration", "5s", name)
-	assert.NoError(t, err, "pumba stop --restart should succeed, stderr: %s", stderr)
+	require.NoError(t, err, "pumba stop --restart should succeed, stderr: %s", stderr)
 
 	// Container should be running again after pumba restarts it
 	require.Eventually(t, func() bool {

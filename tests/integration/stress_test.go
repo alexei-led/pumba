@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +43,7 @@ func TestStress_CPUUsage(t *testing.T) {
 		name,
 	)
 	t.Logf("stderr: %s", stderr)
-	assert.NoError(t, err, "pumba stress should succeed")
+	require.NoError(t, err, "pumba stress should succeed")
 
 	require.Equal(t, "running", containerStatus(t, id))
 }
@@ -61,7 +60,7 @@ func TestStress_MemoryStressor(t *testing.T) {
 		name,
 	)
 	t.Logf("stderr: %s", stderr)
-	assert.NoError(t, err, "pumba stress with memory should succeed")
+	require.NoError(t, err, "pumba stress with memory should succeed")
 
 	require.Equal(t, "running", containerStatus(t, id))
 }
@@ -77,7 +76,7 @@ func TestStress_CleanupNoLeakedProcesses(t *testing.T) {
 		"--stressors", "--cpu 1 --timeout 5s",
 		name,
 	)
-	assert.NoError(t, err, "pumba stress failed: %s", stderr)
+	require.NoError(t, err, "pumba stress failed: %s", stderr)
 
 	// After pumba exits, verify no stress-ng processes remain
 	require.Eventually(t, func() bool {
@@ -100,7 +99,7 @@ func TestStress_WithMemoryLimit(t *testing.T) {
 		name,
 	)
 	t.Logf("stderr: %s", stderr)
-	assert.NoError(t, err, "stress within memory limits should succeed")
+	require.NoError(t, err, "stress within memory limits should succeed")
 
 	require.Equal(t, "running", containerStatus(t, id))
 }

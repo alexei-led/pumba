@@ -30,10 +30,9 @@ func TestSidecar_RemovedAfterNetem(t *testing.T) {
 	)
 	require.NoError(t, err, "pumba netem failed: %s", stderr)
 
-	time.Sleep(2 * time.Second)
-
-	after := countSidecars(t)
-	assert.Equal(t, before, after, "sidecar containers should be fully removed (not just stopped) after netem completes")
+	require.Eventually(t, func() bool {
+		return countSidecars(t) <= before
+	}, 10*time.Second, 500*time.Millisecond, "sidecar containers should be fully removed after netem completes")
 }
 
 func TestSidecar_RemovedAfterIPTables(t *testing.T) {
@@ -53,10 +52,9 @@ func TestSidecar_RemovedAfterIPTables(t *testing.T) {
 	)
 	require.NoError(t, err, "pumba iptables failed: %s", stderr)
 
-	time.Sleep(2 * time.Second)
-
-	after := countSidecars(t)
-	assert.Equal(t, before, after, "sidecar containers should be fully removed after iptables completes")
+	require.Eventually(t, func() bool {
+		return countSidecars(t) <= before
+	}, 10*time.Second, 500*time.Millisecond, "sidecar containers should be fully removed after iptables completes")
 }
 
 func TestSidecar_NoAccumulationMultipleRuns(t *testing.T) {
@@ -77,10 +75,9 @@ func TestSidecar_NoAccumulationMultipleRuns(t *testing.T) {
 		require.NoError(t, err, "pumba netem run %d failed: %s", i+1, stderr)
 	}
 
-	time.Sleep(2 * time.Second)
-
-	after := countSidecars(t)
-	assert.Equal(t, before, after, "no sidecars should accumulate after %d sequential runs", 5)
+	require.Eventually(t, func() bool {
+		return countSidecars(t) <= before
+	}, 10*time.Second, 500*time.Millisecond, "no sidecars should accumulate after %d sequential runs", 5)
 }
 
 func TestSidecar_HasSkipLabel(t *testing.T) {

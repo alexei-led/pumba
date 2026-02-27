@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	containerdNamespace = "moby"
-	alpineImage         = "docker.io/library/alpine:latest"
-	netshootImg         = "docker.io/nicolaka/netshoot:latest"
+	containerdNamespace     = "moby"
+	containerdAlpineImage   = "docker.io/library/alpine:latest"
+	containerdNetshootImage = "docker.io/nicolaka/netshoot:latest"
 )
 
 // ctrRun creates and starts a containerd container in the given namespace.
@@ -85,8 +85,17 @@ func ctrTaskStatus(t *testing.T, namespace, name string) string {
 func ctrRemove(t *testing.T, namespace, name string) {
 	t.Helper()
 	_ = exec.Command("sudo", "ctr", "-n", namespace, "t", "kill", "-s", "SIGKILL", name).Run()
-	// Wait briefly for task to stop before removing container
-	time.Sleep(500 * time.Millisecond) //nolint:mnd
+	// Poll until task stops instead of sleeping
+	for i := range 10 {
+		s := ctrTaskStatus(t, namespace, name)
+		if s == "STOPPED" || s == "NOT_FOUND" {
+			break
+		}
+		if i == 9 {
+			t.Logf("warning: task %s did not stop after 5s", name)
+		}
+		time.Sleep(500 * time.Millisecond) //nolint:mnd
+	}
 	_ = exec.Command("sudo", "ctr", "-n", namespace, "c", "rm", name).Run()
 }
 
@@ -130,8 +139,8 @@ func TestContainerd_PureContainerKill(t *testing.T) {
 	t.Parallel()
 
 	name := uniqueName(t, "ctrd")
-	ctrPullImage(t, containerdNamespace, alpineImage)
-	ctrRun(t, containerdNamespace, name, alpineImage)
+	ctrPullImage(t, containerdNamespace, containerdAlpineImage)
+	ctrRun(t, containerdNamespace, name, containerdAlpineImage)
 
 	require.Equal(t, "RUNNING", ctrTaskStatus(t, containerdNamespace, name))
 
@@ -156,8 +165,8 @@ func TestContainerd_PureContainerPause(t *testing.T) {
 	t.Parallel()
 
 	name := uniqueName(t, "ctrd")
-	ctrPullImage(t, containerdNamespace, alpineImage)
-	ctrRun(t, containerdNamespace, name, alpineImage)
+	ctrPullImage(t, containerdNamespace, containerdAlpineImage)
+	ctrRun(t, containerdNamespace, name, containerdAlpineImage)
 
 	require.Equal(t, "RUNNING", ctrTaskStatus(t, containerdNamespace, name))
 
@@ -182,16 +191,21 @@ func TestContainerd_NetemWithSidecarCleanup(t *testing.T) {
 	t.Parallel()
 
 	name := uniqueName(t, "ctrd")
-	ctrPullImage(t, containerdNamespace, netshootImg)
+	ctrPullImage(t, containerdNamespace, containerdNetshootImage)
 
 	// Create container with a dummy network interface for netem testing
-	ctrRunSh(t, containerdNamespace, name, netshootImg,
+	ctrRunSh(t, containerdNamespace, name, containerdNetshootImage,
 		"ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity",
 		"--privileged",
 	)
 
-	// Give the container time to create the interface
-	time.Sleep(1 * time.Second)
+	// Poll until the dummy0 interface is ready
+	require.Eventually(t, func() bool {
+		out, err := exec.Command("sudo", "ctr", "-n", containerdNamespace,
+			"t", "exec", "--exec-id", fmt.Sprintf("wait-iface-%d", time.Now().UnixNano()),
+			name, "ip", "link", "show", "dummy0").CombinedOutput()
+		return err == nil && strings.Contains(string(out), "dummy0")
+	}, 10*time.Second, 200*time.Millisecond, "dummy0 interface not ready")
 
 	// Run pumba netem in background with short duration
 	pp := runPumbaBackground(t,
@@ -224,7 +238,9 @@ func TestContainerd_NetemWithSidecarCleanup(t *testing.T) {
 	assert.Contains(t, string(out), "delay 100", "should show 100ms delay")
 
 	// Wait for pumba to finish (duration 5s) — netem should be cleaned up
-	_ = pp.Wait()
+	if err := pp.Wait(); err != nil {
+		t.Logf("pumba exited with error: %v", err)
+	}
 
 	// Verify netem rules are removed after pumba exits
 	require.Eventually(t, func() bool {
