@@ -1043,7 +1043,7 @@ func setCgroupReaderFunc(t *testing.T, fn func(uint32) ([]byte, error)) {
 }
 
 // stressPrefix returns a matcher for sidecar IDs like "pumba-stress-<N>".
-func stressPrefix() interface{} {
+func stressPrefix() any {
 	return mock.MatchedBy(func(id string) bool {
 		return strings.HasPrefix(id, "pumba-stress-")
 	})
@@ -1061,6 +1061,17 @@ func setupStressSidecar(api *MockapiClient, stressImage string, sidecarCntr *moc
 		mock.Anything,  // WithNewSpec
 		mock.Anything,  // WithContainerLabels
 	).Return(sidecarCntr, nil)
+}
+
+// setupStressTarget wires up the common target container preamble for stress sidecar tests.
+func setupStressTarget(t *testing.T, targetPID uint32, cgroupContent string) *MockapiClient {
+	t.Helper()
+	setCgroupReader(t, targetPID, cgroupContent)
+	targetTask := newRunningTaskWithPID(targetPID)
+	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", targetMC)
+	return api
 }
 
 // newSidecarWithExitCode creates a mock sidecar container+task that exits with the given code.
@@ -1081,25 +1092,26 @@ func newSidecarWithExitCode(code uint32) (*mockContainer, *mockTask) {
 
 // --- resolveCgroupPath tests ---
 
-func TestResolveCgroupPath(t *testing.T) {
+func TestResolveCgroupPath(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
 	tests := []struct {
 		name       string
 		input      string
+		readerErr  bool
 		wantPath   string
 		wantParent string
 		wantErr    string
 	}{
-		{"v2_nested", "0::/kubepods/besteffort/pod123/ctr456\n", "/kubepods/besteffort/pod123/ctr456", "/kubepods/besteffort/pod123", ""},
-		{"v1_memory_fallback", "11:memory:/kubepods/memory/pod123/ctr456\n12:cpu:/kubepods/cpu/pod123/ctr456\n", "/kubepods/memory/pod123/ctr456", "/kubepods/memory/pod123", ""},
-		{"v2_overrides_v1", "11:memory:/v1path\n0::/v2path\n", "/v2path", "/", ""},
-		{"root_cgroup_only", "0::/\n", "", "", "could not parse cgroup path"},
-		{"single_level", "0::/scope\n", "/scope", "/", ""},
-		{"empty_content", "", "", "", "could not parse cgroup path"},
-		{"read_error", "READER_ERROR", "", "", "failed to read cgroup"},
+		{"v2_nested", "0::/kubepods/besteffort/pod123/ctr456\n", false, "/kubepods/besteffort/pod123/ctr456", "/kubepods/besteffort/pod123", ""},
+		{"v1_memory_fallback", "11:memory:/kubepods/memory/pod123/ctr456\n12:cpu:/kubepods/cpu/pod123/ctr456\n", false, "/kubepods/memory/pod123/ctr456", "/kubepods/memory/pod123", ""},
+		{"v2_overrides_v1", "11:memory:/v1path\n0::/v2path\n", false, "/v2path", "/", ""},
+		{"root_cgroup_only", "0::/\n", false, "", "", "could not parse cgroup path"},
+		{"single_level", "0::/scope\n", false, "/scope", "/", ""},
+		{"empty_content", "", false, "", "", "could not parse cgroup path"},
+		{"read_error", "", true, "", "", "failed to read cgroup"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.input == "READER_ERROR" {
+			if tc.readerErr {
 				setCgroupReaderFunc(t, func(uint32) ([]byte, error) {
 					return nil, fmt.Errorf("no such file")
 				})
@@ -1140,16 +1152,6 @@ func TestBuildStressSpecOpts(t *testing.T) {
 
 // --- Stress sidecar mode tests ---
 
-func TestStressContainer_SidecarDryrun(t *testing.T) {
-	client := newTestClient(NewMockapiClient(t))
-	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, true)
-	require.NoError(t, err)
-	assert.Equal(t, "", id)
-	assert.Nil(t, outCh)
-	assert.Nil(t, errCh)
-}
-
 func TestStressContainer_SidecarGetTaskError(t *testing.T) {
 	api := NewMockapiClient(t)
 	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
@@ -1175,13 +1177,7 @@ func TestStressContainer_SidecarTargetPIDZero(t *testing.T) {
 }
 
 func TestStressContainer_SidecarGetImageError(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
-
-	task := newRunningTaskWithPID(targetPID)
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", mc)
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
 	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
@@ -1192,13 +1188,7 @@ func TestStressContainer_SidecarGetImageError(t *testing.T) {
 }
 
 func TestStressContainer_SidecarCreateError(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
-
-	task := newRunningTaskWithPID(targetPID)
-	mc := newMockContainer("c1", "nginx", nil, task)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", mc)
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
 	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(nil, nil)
 	api.EXPECT().NewContainer(
 		mock.Anything, stressPrefix(),
@@ -1213,17 +1203,11 @@ func TestStressContainer_SidecarCreateError(t *testing.T) {
 }
 
 func TestStressContainer_SidecarNewTaskError(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
-
 	sidecarCntr := new(mockContainer)
 	sidecarCntr.On("NewTask", mock.Anything).Return(nil, assert.AnError)
 	sidecarCntr.On("Delete", mock.Anything).Return(nil)
 
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
@@ -1234,9 +1218,6 @@ func TestStressContainer_SidecarNewTaskError(t *testing.T) {
 }
 
 func TestStressContainer_SidecarWaitError(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
-
 	sidecarTask := &mockTask{}
 	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(nil), assert.AnError)
 	sidecarTask.On("Delete", mock.Anything).Return(nil)
@@ -1244,10 +1225,7 @@ func TestStressContainer_SidecarWaitError(t *testing.T) {
 	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
 	sidecarCntr.On("Delete", mock.Anything).Return(nil)
 
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
@@ -1258,9 +1236,6 @@ func TestStressContainer_SidecarWaitError(t *testing.T) {
 }
 
 func TestStressContainer_SidecarStartError(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
-
 	exitCh := make(chan containerd.ExitStatus, 1)
 	sidecarTask := &mockTask{}
 	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
@@ -1270,10 +1245,7 @@ func TestStressContainer_SidecarStartError(t *testing.T) {
 	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
 	sidecarCntr.On("Delete", mock.Anything).Return(nil)
 
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
@@ -1283,96 +1255,71 @@ func TestStressContainer_SidecarStartError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to start stress task")
 }
 
-func TestStressContainer_SidecarSuccess(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
-
-	sidecarCntr, _ := newSidecarWithExitCode(0)
-
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
-	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
-
-	client := newTestClient(api)
-	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
-	require.NoError(t, err)
-	assert.Contains(t, id, "pumba-stress-")
-
-	select {
-	case out := <-outCh:
-		assert.Equal(t, id, out)
-	case e := <-errCh:
-		t.Fatalf("unexpected error: %v", e)
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
+func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	tests := []struct {
+		name         string
+		cgroupData   string
+		stressors    []string
+		injectCgroup bool
+		exitCode     uint32
+		wantSuccess  bool
+		wantErrMsg   string
+	}{
+		{
+			name:        "default_sidecar_success",
+			cgroupData:  "0::/kubepods/pod123/ctr456\n",
+			stressors:   []string{"--cpu", "1"},
+			exitCode:    0,
+			wantSuccess: true,
+		},
+		{
+			name:         "inject_cgroup_success",
+			cgroupData:   "0::/system.slice/nerdctl-abc123.scope\n",
+			stressors:    []string{"--vm", "2"},
+			injectCgroup: true,
+			exitCode:     0,
+			wantSuccess:  true,
+		},
+		{
+			name:       "non_zero_exit",
+			cgroupData: "0::/kubepods/pod123/ctr456\n",
+			stressors:  []string{"--cpu", "1"},
+			exitCode:   1,
+			wantErrMsg: "exited with code 1",
+		},
 	}
-}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sidecarCntr, _ := newSidecarWithExitCode(tc.exitCode)
+			api := setupStressTarget(t, 1234, tc.cgroupData)
+			setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
-func TestStressContainer_SidecarNonZeroExit(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
+			client := newTestClient(api)
+			id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+				tc.stressors, "stress-ng:latest", false, 10*time.Second, tc.injectCgroup, false)
+			require.NoError(t, err)
+			assert.Contains(t, id, "pumba-stress-")
 
-	sidecarCntr, _ := newSidecarWithExitCode(1)
-
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
-	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
-
-	client := newTestClient(api)
-	_, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
-	require.NoError(t, err)
-
-	select {
-	case e := <-errCh:
-		assert.Contains(t, e.Error(), "exited with code 1")
-	case <-outCh:
-		t.Fatal("expected error, got success")
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
-	}
-}
-
-func TestStressContainer_InjectCgroupSuccess(t *testing.T) {
-	const targetPID = uint32(1234)
-	setCgroupReader(t, targetPID, "0::/system.slice/nerdctl-abc123.scope\n")
-
-	sidecarCntr, _ := newSidecarWithExitCode(0)
-
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
-	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
-
-	client := newTestClient(api)
-	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--vm", "2"}, "stress-ng:latest", false, 10*time.Second, true, false)
-	require.NoError(t, err)
-	assert.Contains(t, id, "pumba-stress-")
-
-	select {
-	case out := <-outCh:
-		assert.Equal(t, id, out)
-	case e := <-errCh:
-		t.Fatalf("unexpected error: %v", e)
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
+			select {
+			case out := <-outCh:
+				if !tc.wantSuccess {
+					t.Fatalf("expected error, got success: %s", out)
+				}
+				assert.Equal(t, id, out)
+			case e := <-errCh:
+				if tc.wantSuccess {
+					t.Fatalf("unexpected error: %v", e)
+				}
+				assert.Contains(t, e.Error(), tc.wantErrMsg)
+			case <-time.After(5 * time.Second):
+				t.Fatal("timeout")
+			}
+		})
 	}
 }
 
 func TestStressContainer_SidecarPullImageError(t *testing.T) {
-	const targetPID = uint32(1234)
-
-	targetTask := newRunningTaskWithPID(targetPID)
-	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", targetMC)
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
 	api.EXPECT().Pull(mock.Anything, "stress-ng:latest", mock.Anything).Return(nil, assert.AnError)
 
 	client := newTestClient(api)

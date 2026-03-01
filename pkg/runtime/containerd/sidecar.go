@@ -165,7 +165,7 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 		cgroupPath = v1MemoryPath
 	}
 	if cgroupPath == "" {
-		return "", "", fmt.Errorf("could not parse cgroup path for PID %d from: %s", pid, string(data))
+		return "", "", fmt.Errorf("could not parse cgroup path for PID %d (content length: %d bytes)", pid, len(data))
 	}
 	cgroupParent = "/"
 	if lastSlash := strings.LastIndex(cgroupPath, "/"); lastSlash > 0 {
@@ -254,15 +254,15 @@ func (c *containerdClient) createStressSidecar(
 		return "", nil, nil, nil, fmt.Errorf("target task for %s has PID 0 (not running)", target.ID())
 	}
 
+	cgroupPath, cgroupParent, err := resolveCgroupPath(targetPID)
+	if err != nil {
+		return "", nil, nil, nil, fmt.Errorf("failed to resolve cgroup for stress sidecar: %w", err)
+	}
+
 	if pull {
 		if err := c.pullImage(ctx, sidecarImage); err != nil {
 			return "", nil, nil, nil, err
 		}
-	}
-
-	cgroupPath, cgroupParent, err := resolveCgroupPath(targetPID)
-	if err != nil {
-		return "", nil, nil, nil, fmt.Errorf("failed to resolve cgroup for stress sidecar: %w", err)
 	}
 	log.WithFields(log.Fields{
 		"target":        target.ID(),
@@ -333,7 +333,15 @@ func (c *containerdClient) waitStressSidecar(
 	defer close(outCh)
 	defer close(errCh)
 
-	status, ok := <-waitCh
+	var status containerd.ExitStatus
+	var ok bool
+	select {
+	case status, ok = <-waitCh:
+	case <-ctx.Done():
+		// Context canceled — force-kill the task so waitCh unblocks
+		_ = task.Kill(context.WithoutCancel(ctx), syscall.SIGKILL)
+		status, ok = <-waitCh
+	}
 
 	// Cleanup with a fresh context unaffected by parent cancellation
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
