@@ -3,6 +3,7 @@ package containerd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -15,6 +16,11 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
 )
+
+// cgroupReader reads the cgroup file for a process. Overrideable in tests.
+var cgroupReader = func(pid uint32) ([]byte, error) {
+	return os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
+}
 
 // sidecarExec creates a short-lived sidecar container that shares the target
 // container's network namespace and runs the given command+args inside it.
@@ -129,6 +135,238 @@ const (
 
 // networkCapabilities are the Linux capabilities required for network manipulation.
 var networkCapabilities = []string{"CAP_NET_ADMIN", "CAP_NET_RAW"}
+
+// resolveCgroupPath parses /proc/<pid>/cgroup and returns the target's cgroup path
+// and its parent directory. On cgroups v2, expects "0::<path>". On cgroups v1,
+// falls back to the "memory" subsystem path.
+func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) {
+	data, err := cgroupReader(pid)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read cgroup for PID %d: %w", pid, err)
+	}
+	var v1MemoryPath string
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		const cgroupFields = 3
+		parts := strings.SplitN(line, ":", cgroupFields)
+		if len(parts) != 3 || parts[2] == "/" {
+			continue
+		}
+		// cgroups v2: hierarchy 0, empty subsystem list
+		if parts[0] == "0" && parts[1] == "" {
+			cgroupPath = parts[2]
+			break
+		}
+		// cgroups v1: look for memory subsystem as representative
+		if v1MemoryPath == "" && strings.Contains(parts[1], "memory") {
+			v1MemoryPath = parts[2]
+		}
+	}
+	if cgroupPath == "" {
+		cgroupPath = v1MemoryPath
+	}
+	if cgroupPath == "" {
+		return "", "", fmt.Errorf("could not parse cgroup path for PID %d from: %s", pid, string(data))
+	}
+	lastSlash := strings.LastIndex(cgroupPath, "/")
+	if lastSlash <= 0 {
+		cgroupParent = "/"
+	} else {
+		cgroupParent = cgroupPath[:lastSlash]
+	}
+	return cgroupPath, cgroupParent, nil
+}
+
+// buildStressSpecOpts builds OCI spec options for the stress sidecar container.
+// For inject-cgroup mode: runs /cg-inject with host cgroupns and /sys/fs/cgroup bind mount.
+// For default sidecar mode: runs /stress-ng directly, placed under target's cgroup parent.
+func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath, cgroupParent string, injectCgroup bool) []oci.SpecOpts {
+	if injectCgroup {
+		args := make([]string, 0, len(stressors)+4) //nolint:mnd
+		args = append(args, "/cg-inject", "--cgroup-path", cgroupPath, "--", "/stress-ng")
+		args = append(args, stressors...)
+		return []oci.SpecOpts{
+			oci.WithImageConfig(image),
+			oci.WithProcessArgs(args...),
+			oci.WithLinuxNamespace(specs.LinuxNamespace{
+				Type: specs.CgroupNamespace,
+				Path: "/proc/1/ns/cgroup",
+			}),
+			oci.WithMounts([]specs.Mount{
+				{
+					Type:        "bind",
+					Source:      "/sys/fs/cgroup",
+					Destination: "/sys/fs/cgroup",
+					Options:     []string{"rbind", "rw"},
+				},
+			}),
+		}
+	}
+	args := make([]string, 0, len(stressors)+1)
+	args = append(args, "/stress-ng")
+	args = append(args, stressors...)
+	return []oci.SpecOpts{
+		oci.WithImageConfig(image),
+		oci.WithProcessArgs(args...),
+		oci.WithCgroup(cgroupParent),
+	}
+}
+
+// stressSidecar creates a long-lived sidecar container running stress-ng (or cg-inject)
+// as its main process. Returns the sidecar ID and output/error channels. A goroutine waits
+// for the task to exit and performs full cleanup (task delete + container/snapshot removal).
+func (c *containerdClient) stressSidecar(
+	ctx context.Context,
+	target *ctr.Container,
+	sidecarImage string,
+	stressors []string,
+	injectCgroup bool,
+	pull bool,
+) (string, <-chan string, <-chan error, error) {
+	ctx = c.nsCtx(ctx)
+
+	sidecarID, sidecarContainer, task, waitCh, err := c.createStressSidecar(ctx, target, sidecarImage, stressors, injectCgroup, pull)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	outCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+
+	go c.waitStressSidecar(ctx, sidecarID, sidecarContainer, task, waitCh, outCh, errCh)
+
+	return sidecarID, outCh, errCh, nil
+}
+
+// createStressSidecar handles the setup: resolve target cgroup, pull image, create and start the sidecar.
+func (c *containerdClient) createStressSidecar(
+	ctx context.Context,
+	target *ctr.Container,
+	sidecarImage string,
+	stressors []string,
+	injectCgroup bool,
+	pull bool,
+) (string, containerd.Container, containerd.Task, <-chan containerd.ExitStatus, error) {
+	targetTask, err := c.getTask(ctx, target.ID())
+	if err != nil {
+		return "", nil, nil, nil, fmt.Errorf("failed to get target task for stress sidecar: %w", err)
+	}
+	targetPID := targetTask.Pid()
+	if targetPID == 0 {
+		return "", nil, nil, nil, fmt.Errorf("target task for %s has PID 0 (not running)", target.ID())
+	}
+
+	if pull {
+		if err := c.pullImage(ctx, sidecarImage); err != nil {
+			return "", nil, nil, nil, fmt.Errorf("failed to pull stress image: %w", err)
+		}
+	}
+
+	cgroupPath, cgroupParent, err := resolveCgroupPath(targetPID)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+	log.WithFields(log.Fields{
+		"target":        target.ID(),
+		"pid":           targetPID,
+		"cgroup-path":   cgroupPath,
+		"cgroup-parent": cgroupParent,
+		"inject-cgroup": injectCgroup,
+	}).Debug("resolved target cgroup for stress sidecar")
+
+	image, err := c.client.GetImage(ctx, sidecarImage)
+	if err != nil {
+		return "", nil, nil, nil, fmt.Errorf("failed to get stress image %s: %w", sidecarImage, err)
+	}
+
+	specOpts := buildStressSpecOpts(image, stressors, cgroupPath, cgroupParent, injectCgroup)
+	sidecarID := fmt.Sprintf("pumba-stress-%d", execCounter.Add(1))
+
+	sidecarContainer, err := c.client.NewContainer(ctx, sidecarID,
+		containerd.WithImage(image),
+		containerd.WithNewSnapshot(sidecarID+"-snapshot", image),
+		containerd.WithNewSpec(specOpts...),
+	)
+	if err != nil {
+		return "", nil, nil, nil, fmt.Errorf("failed to create stress sidecar: %w", err)
+	}
+
+	task, waitCh, err := c.startSidecarTask(ctx, sidecarContainer)
+	if err != nil {
+		c.cleanupContainer(ctx, sidecarContainer)
+		return "", nil, nil, nil, err
+	}
+
+	return sidecarID, sidecarContainer, task, waitCh, nil
+}
+
+// startSidecarTask creates, registers wait, and starts a task on the given container.
+func (c *containerdClient) startSidecarTask(ctx context.Context, cntr containerd.Container) (containerd.Task, <-chan containerd.ExitStatus, error) {
+	task, err := cntr.NewTask(ctx, cio.NullIO)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create stress task: %w", err)
+	}
+
+	waitCh, err := task.Wait(ctx)
+	if err != nil {
+		_, _ = task.Delete(ctx)
+		return nil, nil, fmt.Errorf("failed to set up stress task wait: %w", err)
+	}
+
+	if err := task.Start(ctx); err != nil {
+		_, _ = task.Delete(ctx)
+		return nil, nil, fmt.Errorf("failed to start stress task: %w", err)
+	}
+
+	return task, waitCh, nil
+}
+
+// waitStressSidecar waits for the stress task to exit, performs cleanup, and reports the result.
+func (c *containerdClient) waitStressSidecar(
+	ctx context.Context,
+	sidecarID string,
+	sidecarContainer containerd.Container,
+	task containerd.Task,
+	waitCh <-chan containerd.ExitStatus,
+	outCh chan<- string,
+	errCh chan<- error,
+) {
+	defer close(outCh)
+	defer close(errCh)
+
+	status := <-waitCh
+
+	// Cleanup with a fresh context unaffected by parent cancellation
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
+	defer cancel()
+	cleanupCtx = c.nsCtx(cleanupCtx)
+	if _, delErr := task.Delete(cleanupCtx); delErr != nil && !errdefs.IsNotFound(delErr) {
+		log.WithError(delErr).WithField("id", sidecarID).Warn("failed to delete stress task")
+	}
+	if delErr := sidecarContainer.Delete(cleanupCtx, containerd.WithSnapshotCleanup); delErr != nil && !errdefs.IsNotFound(delErr) {
+		log.WithError(delErr).WithField("id", sidecarID).Warn("failed to delete stress sidecar")
+	}
+
+	code, _, exitErr := status.Result()
+	if exitErr != nil {
+		errCh <- fmt.Errorf("stress sidecar error: %w", exitErr)
+		return
+	}
+	if code != 0 {
+		errCh <- fmt.Errorf("stress sidecar exited with code %d", code)
+		return
+	}
+	outCh <- sidecarID
+}
+
+// cleanupContainer removes a sidecar container and its snapshot, using an uncancellable context.
+func (c *containerdClient) cleanupContainer(ctx context.Context, cntr containerd.Container) {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
+	defer cancel()
+	cleanupCtx = c.nsCtx(cleanupCtx)
+	if err := cntr.Delete(cleanupCtx, containerd.WithSnapshotCleanup); err != nil && !errdefs.IsNotFound(err) {
+		log.WithError(err).Warn("failed to clean up sidecar container")
+	}
+}
 
 // cleanupSidecar kills the task and removes the sidecar container and its snapshot.
 func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container) error {

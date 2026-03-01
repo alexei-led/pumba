@@ -321,16 +321,30 @@ func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID 
 	return nil
 }
 
-// StressContainer runs stress-ng inside a container.
+// StressContainer runs stress-ng to stress a container.
+// Mode selection:
+//   - image == "": direct exec inside the target container
+//   - image != "" && !injectCgroup: sidecar with /stress-ng in target's cgroup parent
+//   - image != "" && injectCgroup: sidecar with /cg-inject injecting into target's cgroup
 func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.Container,
 	stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error) {
-	log.WithField("id", container.ID()).Debug("stress on containerd container")
-	if image != "" || pull || injectCgroup {
-		log.WithField("id", container.ID()).Warn("containerd runtime: sidecar/inject-cgroup stress modes not supported, using direct exec")
-	}
+	log.WithFields(log.Fields{
+		"id":            container.ID(),
+		"image":         image,
+		"inject-cgroup": injectCgroup,
+	}).Debug("stress on containerd container")
 	if dryrun {
 		return "", nil, nil, nil
 	}
+	if image != "" {
+		return c.stressSidecar(ctx, container, image, stressors, injectCgroup, pull)
+	}
+	return c.stressDirectExec(ctx, container, stressors, duration)
+}
+
+// stressDirectExec runs stress-ng directly inside the target container via exec.
+func (c *containerdClient) stressDirectExec(ctx context.Context, container *ctr.Container,
+	stressors []string, duration time.Duration) (string, <-chan string, <-chan error, error) {
 	errCh := make(chan error, 1)
 	outCh := make(chan string, 1)
 	go func() {
