@@ -236,7 +236,7 @@ func (c *containerdClient) stressSidecar(
 	return sidecarID, outCh, errCh, nil
 }
 
-// createStressSidecar handles the setup: resolve target cgroup, pull image, create and start the sidecar.
+// createStressSidecar resolves the target cgroup path, optionally pulls the image, and creates and starts the stress sidecar container.
 func (c *containerdClient) createStressSidecar(
 	ctx context.Context,
 	target *ctr.Container,
@@ -293,8 +293,8 @@ func (c *containerdClient) createStressSidecar(
 	task, waitCh, err := c.startSidecarTask(ctx, sidecarContainer)
 	if err != nil {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
-		defer cancel()
 		c.deleteContainer(c.nsCtx(cleanupCtx), sidecarContainer)
+		cancel()
 		return "", nil, nil, nil, err
 	}
 
@@ -336,11 +336,10 @@ func (c *containerdClient) waitStressSidecar(
 	defer close(errCh)
 
 	var status containerd.ExitStatus
-	var ok bool
+	var ok, killTimedOut bool
 	select {
 	case status, ok = <-waitCh:
 	case <-ctx.Done():
-		// Context canceled — force-kill the task so waitCh unblocks
 		if killErr := task.Kill(context.WithoutCancel(ctx), syscall.SIGKILL); killErr != nil && !errdefs.IsNotFound(killErr) {
 			log.WithError(killErr).WithField("id", sidecarID).Warn("failed to kill stress task")
 		}
@@ -350,17 +349,22 @@ func (c *containerdClient) waitStressSidecar(
 		case status, ok = <-waitCh:
 		case <-killTimer.C:
 			log.WithField("id", sidecarID).Warn("timed out waiting for stress task after kill")
+			killTimedOut = true
 		}
 	}
 
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
-	defer cancel()
 	cleanupCtx = c.nsCtx(cleanupCtx)
 	if _, delErr := task.Delete(cleanupCtx); delErr != nil && !errdefs.IsNotFound(delErr) {
 		log.WithError(delErr).WithField("id", sidecarID).Warn("failed to delete stress task")
 	}
 	c.deleteContainer(cleanupCtx, sidecarContainer)
+	cancel()
 
+	if killTimedOut {
+		errCh <- fmt.Errorf("stress sidecar %s: timed out waiting for task to exit after SIGKILL", sidecarID)
+		return
+	}
 	if !ok {
 		errCh <- fmt.Errorf("stress sidecar %s: wait channel closed unexpectedly", sidecarID)
 		return
@@ -388,7 +392,9 @@ func (c *containerdClient) deleteContainer(ctx context.Context, cntr containerd.
 // cleanupSidecar kills the task and removes the sidecar container and its snapshot.
 func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container) error {
 	task, err := cntr.Task(ctx, nil)
-	if err == nil {
+	if err != nil && !errdefs.IsNotFound(err) {
+		log.WithError(err).Warn("failed to get sidecar task for cleanup")
+	} else if err == nil {
 		waitCh, waitErr := task.Wait(ctx)
 		_ = task.Kill(ctx, syscall.SIGKILL)
 		if waitErr == nil {
@@ -400,14 +406,9 @@ func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.C
 			}
 		}
 		_, _ = task.Delete(ctx)
-	} else if !errdefs.IsNotFound(err) {
-		log.WithError(err).Warn("failed to get sidecar task for cleanup")
 	}
-
-	if err := cntr.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
-		if !errdefs.IsNotFound(err) {
-			return fmt.Errorf("failed to delete sidecar container: %w", err)
-		}
+	if err := cntr.Delete(ctx, containerd.WithSnapshotCleanup); err != nil && !errdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to delete sidecar container: %w", err)
 	}
 	return nil
 }

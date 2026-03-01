@@ -39,7 +39,6 @@ teardown() {
     run pumba --dry-run --log-level debug stress --duration 5s --stressors="--cpu 1 --timeout 2s" $full_id
     assert_success
 
-    # Container should still be running (dry-run)
     [ "$(docker inspect -f '{{.State.Status}}' stress_victim)" = "running" ]
 }
 
@@ -47,14 +46,10 @@ teardown() {
     # Get full container ID (Docker-created containers live in moby namespace)
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
-    # Run stress via pumba containerd runtime
-    # The containerd StressContainer runs stress-ng directly inside the container via exec
-    # Duration is the pumba-side timeout; stressors --timeout is stress-ng side
     run pumba --log-level debug stress --duration 10s --stressors="--cpu 1 --timeout 3s" $full_id
 
     echo "Pumba stress output: $output"
 
-    # Pumba should exit successfully
     assert_success
 
     # In containerd mode, stress-ng stdout is not forwarded to pumba output
@@ -92,15 +87,11 @@ teardown() {
     echo "Pumba output: $output"
 
     assert_success
-
-    # Debug output should show the resolved cgroup path
     assert_output --partial "resolved target cgroup for stress sidecar"
 
-    # Verify sidecar was cleaned up
     run sudo ctr -n moby c ls -q
     refute_output --partial "pumba-stress-"
 
-    # Target should still be running
     assert_container_running stress_victim
 }
 
@@ -120,14 +111,10 @@ teardown() {
     echo "Pumba output: $output"
 
     assert_success
-
-    # Debug output should show the resolved cgroup path
     assert_output --partial "resolved target cgroup for stress sidecar"
 
-    # Verify sidecar was cleaned up
     run sudo ctr -n moby c ls -q
     refute_output --partial "pumba-stress-"
 
-    # Target should still be running
     assert_container_running stress_victim
 }
