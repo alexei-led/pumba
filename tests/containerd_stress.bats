@@ -10,9 +10,7 @@ setup() {
     docker rm -f stress_victim >/dev/null 2>&1 || true
     docker run -d --name stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity"
     # Wait for stress-ng to be installed
-    sleep 5
-    # Verify stress-ng is available
-    docker exec stress_victim which stress-ng
+    wait_for 30 "docker exec stress_victim which stress-ng >/dev/null 2>&1" "stress-ng to be installed"
 }
 
 teardown() {
@@ -23,6 +21,7 @@ teardown() {
     for sc in $(sudo ctr -n moby c ls -q 2>/dev/null | grep pumba-stress); do
         sudo ctr -n moby t kill -s SIGKILL "$sc" >/dev/null 2>&1 || true
         sudo ctr -n moby c rm "$sc" >/dev/null 2>&1 || true
+        sudo ctr -n moby snapshots rm "${sc}-snapshot" >/dev/null 2>&1 || true
     done
 }
 

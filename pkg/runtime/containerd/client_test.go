@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -1038,7 +1039,7 @@ func setCgroupReader(t *testing.T, pid uint32, content string) {
 
 // stressPrefix matches sidecar IDs like "pumba-stress-<N>".
 var stressPrefix = mock.MatchedBy(func(id string) bool {
-	return len(id) > 13 && id[:13] == "pumba-stress-"
+	return strings.HasPrefix(id, "pumba-stress-")
 })
 
 // setupStressSidecar wires up GetImage + NewContainer expectations, returning the
@@ -1054,11 +1055,11 @@ func setupStressSidecar(api *MockapiClient, stressImage string, sidecarCntr *moc
 	).Return(sidecarCntr, nil)
 }
 
-// newSuccessfulSidecar creates a mock sidecar container+task that exits with code 0.
-func newSuccessfulSidecar() (*mockContainer, *mockTask) {
+// newSidecarWithExitCode creates a mock sidecar container+task that exits with the given code.
+func newSidecarWithExitCode(code uint32) (*mockContainer, *mockTask) {
 	sidecarTask := &mockTask{}
 	exitCh := make(chan containerd.ExitStatus, 1)
-	exitCh <- *containerd.NewExitStatus(0, time.Now(), nil)
+	exitCh <- *containerd.NewExitStatus(code, time.Now(), nil)
 	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	sidecarTask.On("Start", mock.Anything).Return(nil)
 	sidecarTask.On("Delete", mock.Anything).Return(nil)
@@ -1072,27 +1073,35 @@ func newSuccessfulSidecar() (*mockContainer, *mockTask) {
 
 // --- resolveCgroupPath tests ---
 
-func TestResolveCgroupPath_V2(t *testing.T) {
-	setCgroupReader(t, 999, "0::/kubepods/besteffort/pod123/ctr456\n")
-	path, parent, err := resolveCgroupPath(999)
-	require.NoError(t, err)
-	assert.Equal(t, "/kubepods/besteffort/pod123/ctr456", path)
-	assert.Equal(t, "/kubepods/besteffort/pod123", parent)
-}
-
-func TestResolveCgroupPath_V1Fallback(t *testing.T) {
-	setCgroupReader(t, 999, "11:memory:/kubepods/memory/pod123/ctr456\n12:cpu:/kubepods/cpu/pod123/ctr456\n")
-	path, parent, err := resolveCgroupPath(999)
-	require.NoError(t, err)
-	assert.Equal(t, "/kubepods/memory/pod123/ctr456", path)
-	assert.Equal(t, "/kubepods/memory/pod123", parent)
-}
-
-func TestResolveCgroupPath_V2OverridesV1(t *testing.T) {
-	setCgroupReader(t, 999, "11:memory:/v1path\n0::/v2path\n")
-	path, _, err := resolveCgroupPath(999)
-	require.NoError(t, err)
-	assert.Equal(t, "/v2path", path)
+func TestResolveCgroupPath(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantPath   string
+		wantParent string
+		wantErr    string
+	}{
+		{"v2_nested", "0::/kubepods/besteffort/pod123/ctr456\n", "/kubepods/besteffort/pod123/ctr456", "/kubepods/besteffort/pod123", ""},
+		{"v1_memory_fallback", "11:memory:/kubepods/memory/pod123/ctr456\n12:cpu:/kubepods/cpu/pod123/ctr456\n", "/kubepods/memory/pod123/ctr456", "/kubepods/memory/pod123", ""},
+		{"v2_overrides_v1", "11:memory:/v1path\n0::/v2path\n", "/v2path", "/", ""},
+		{"root_cgroup_only", "0::/\n", "", "", "could not parse cgroup path"},
+		{"single_level", "0::/scope\n", "/scope", "/", ""},
+		{"empty_content", "", "", "", "could not parse cgroup path"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setCgroupReader(t, 999, tc.input)
+			path, parent, err := resolveCgroupPath(999)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantPath, path)
+			assert.Equal(t, tc.wantParent, parent)
+		})
+	}
 }
 
 func TestResolveCgroupPath_ReadError(t *testing.T) {
@@ -1106,31 +1115,23 @@ func TestResolveCgroupPath_ReadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to read cgroup")
 }
 
-func TestResolveCgroupPath_RootCgroupOnly(t *testing.T) {
-	setCgroupReader(t, 999, "0::/\n")
-	_, _, err := resolveCgroupPath(999)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "could not parse cgroup path")
-}
-
-func TestResolveCgroupPath_SingleLevel(t *testing.T) {
-	setCgroupReader(t, 999, "0::/scope\n")
-	path, parent, err := resolveCgroupPath(999)
-	require.NoError(t, err)
-	assert.Equal(t, "/scope", path)
-	assert.Equal(t, "/", parent)
-}
-
 // --- buildStressSpecOpts tests ---
 
-func TestBuildStressSpecOpts_DefaultMode(t *testing.T) {
-	opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", false)
-	assert.Len(t, opts, 3)
-}
-
-func TestBuildStressSpecOpts_InjectCgroupMode(t *testing.T) {
-	opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", true)
-	assert.Len(t, opts, 4)
+func TestBuildStressSpecOpts(t *testing.T) {
+	tests := []struct {
+		name         string
+		injectCgroup bool
+		wantLen      int
+	}{
+		{"default_sidecar_mode", false, 3},
+		{"inject_cgroup_mode", true, 4},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", tc.injectCgroup)
+			assert.Len(t, opts, tc.wantLen)
+		})
+	}
 }
 
 // --- Stress sidecar mode tests ---
@@ -1139,7 +1140,7 @@ func TestStressContainer_SidecarDryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
 	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
 		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "", id)
 	assert.Nil(t, outCh)
 	assert.Nil(t, errCh)
@@ -1211,7 +1212,7 @@ func TestStressContainer_SidecarSuccess(t *testing.T) {
 	const targetPID = uint32(1234)
 	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
 
-	sidecarCntr, _ := newSuccessfulSidecar()
+	sidecarCntr, _ := newSidecarWithExitCode(0)
 
 	targetTask := newRunningTaskWithPID(targetPID)
 	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
@@ -1239,16 +1240,7 @@ func TestStressContainer_SidecarNonZeroExit(t *testing.T) {
 	const targetPID = uint32(1234)
 	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
 
-	sidecarTask := &mockTask{}
-	exitCh := make(chan containerd.ExitStatus, 1)
-	exitCh <- *containerd.NewExitStatus(1, time.Now(), nil)
-	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	sidecarTask.On("Start", mock.Anything).Return(nil)
-	sidecarTask.On("Delete", mock.Anything).Return(nil)
-
-	sidecarCntr := new(mockContainer)
-	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
-	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+	sidecarCntr, _ := newSidecarWithExitCode(1)
 
 	targetTask := newRunningTaskWithPID(targetPID)
 	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
@@ -1275,7 +1267,7 @@ func TestStressContainer_InjectCgroupSuccess(t *testing.T) {
 	const targetPID = uint32(1234)
 	setCgroupReader(t, targetPID, "0::/system.slice/nerdctl-abc123.scope\n")
 
-	sidecarCntr, _ := newSuccessfulSidecar()
+	sidecarCntr, _ := newSidecarWithExitCode(0)
 
 	targetTask := newRunningTaskWithPID(targetPID)
 	targetMC := newMockContainer("c1", "nginx", nil, targetTask)

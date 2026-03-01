@@ -145,7 +145,7 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 		return "", "", fmt.Errorf("failed to read cgroup for PID %d: %w", pid, err)
 	}
 	var v1MemoryPath string
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		const cgroupFields = 3
 		parts := strings.SplitN(line, ":", cgroupFields)
 		if len(parts) != 3 || parts[2] == "/" {
@@ -167,10 +167,8 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 	if cgroupPath == "" {
 		return "", "", fmt.Errorf("could not parse cgroup path for PID %d from: %s", pid, string(data))
 	}
-	lastSlash := strings.LastIndex(cgroupPath, "/")
-	if lastSlash <= 0 {
-		cgroupParent = "/"
-	} else {
+	cgroupParent = "/"
+	if lastSlash := strings.LastIndex(cgroupPath, "/"); lastSlash > 0 {
 		cgroupParent = cgroupPath[:lastSlash]
 	}
 	return cgroupPath, cgroupParent, nil
@@ -263,7 +261,7 @@ func (c *containerdClient) createStressSidecar(
 
 	cgroupPath, cgroupParent, err := resolveCgroupPath(targetPID)
 	if err != nil {
-		return "", nil, nil, nil, err
+		return "", nil, nil, nil, fmt.Errorf("failed to resolve cgroup for stress sidecar: %w", err)
 	}
 	log.WithFields(log.Fields{
 		"target":        target.ID(),
