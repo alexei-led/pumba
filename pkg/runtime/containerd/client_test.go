@@ -24,6 +24,10 @@ import (
 	metrictypes "github.com/containerd/containerd/api/types"
 )
 
+// stubImage is a non-nil placeholder for containerd.Image in tests.
+// Methods panic if called — tests only need a non-nil value for GetImage return.
+type stubImage struct{ containerd.Image }
+
 type mockProcess struct {
 	mock.Mock
 }
@@ -1052,7 +1056,7 @@ func stressPrefix() any {
 // setupStressSidecar wires up GetImage + NewContainer expectations, returning the
 // sidecar mockContainer so the caller can set up its task/delete behaviour.
 func setupStressSidecar(api *MockapiClient, stressImage string, sidecarCntr *mockContainer) {
-	api.EXPECT().GetImage(mock.Anything, stressImage).Return(nil, nil)
+	api.EXPECT().GetImage(mock.Anything, stressImage).Return(&stubImage{}, nil)
 	api.EXPECT().NewContainer(
 		mock.Anything,  // ctx
 		stressPrefix(), // sidecar ID
@@ -1134,20 +1138,43 @@ func TestResolveCgroupPath(t *testing.T) { //nolint:paralleltest // mutates pack
 // --- buildStressSpecOpts tests ---
 
 func TestBuildStressSpecOpts(t *testing.T) {
-	tests := []struct {
-		name         string
-		injectCgroup bool
-		wantLen      int
-	}{
-		{"default_sidecar_mode", false, 3},
-		{"inject_cgroup_mode", true, 4},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", tc.injectCgroup)
-			assert.Len(t, opts, tc.wantLen)
-		})
-	}
+	t.Parallel()
+	t.Run("default_sidecar_mode", func(t *testing.T) {
+		t.Parallel()
+		opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", false)
+		require.Len(t, opts, 3)
+		// Verify: WithImageConfig, WithProcessArgs, WithCgroup — apply to a minimal spec
+		spec := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
+		for _, opt := range opts {
+			// WithImageConfig(nil) panics, so we only verify count for that opt;
+			// the remaining opts (WithProcessArgs, WithCgroup) are validated below
+			_ = opt
+		}
+		// Verify args and cgroup parent via a spec built without the image config opt
+		specNoImg := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
+		_ = opts[1](context.Background(), nil, nil, specNoImg)
+		assert.Equal(t, []string{"/stress-ng", "--cpu", "2"}, specNoImg.Process.Args)
+		_ = opts[2](context.Background(), nil, nil, specNoImg)
+		assert.Equal(t, "/cgroup", specNoImg.Linux.CgroupsPath)
+		_ = spec
+	})
+	t.Run("inject_cgroup_mode", func(t *testing.T) {
+		t.Parallel()
+		opts := buildStressSpecOpts(nil, []string{"--vm", "2"}, "/cgroup/path", "/cgroup", true)
+		require.Len(t, opts, 4)
+		// Verify args, namespace, and mounts via a spec built without the image config opt
+		spec := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
+		_ = opts[1](context.Background(), nil, nil, spec)
+		assert.Equal(t, []string{"/cg-inject", "--cgroup-path", "/cgroup/path", "--", "/stress-ng", "--vm", "2"}, spec.Process.Args)
+		_ = opts[2](context.Background(), nil, nil, spec)
+		require.Len(t, spec.Linux.Namespaces, 1)
+		assert.Equal(t, specs.CgroupNamespace, spec.Linux.Namespaces[0].Type)
+		assert.Equal(t, "/proc/1/ns/cgroup", spec.Linux.Namespaces[0].Path)
+		_ = opts[3](context.Background(), nil, nil, spec)
+		require.Len(t, spec.Mounts, 1)
+		assert.Equal(t, "/sys/fs/cgroup", spec.Mounts[0].Source)
+		assert.Equal(t, "/sys/fs/cgroup", spec.Mounts[0].Destination)
+	})
 }
 
 // --- Stress sidecar mode tests ---
@@ -1189,7 +1216,7 @@ func TestStressContainer_SidecarGetImageError(t *testing.T) {
 
 func TestStressContainer_SidecarCreateError(t *testing.T) {
 	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
-	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(nil, nil)
+	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(&stubImage{}, nil)
 	api.EXPECT().NewContainer(
 		mock.Anything, stressPrefix(),
 		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
@@ -1204,6 +1231,7 @@ func TestStressContainer_SidecarCreateError(t *testing.T) {
 
 func TestStressContainer_SidecarNewTaskError(t *testing.T) {
 	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
 	sidecarCntr.On("NewTask", mock.Anything).Return(nil, assert.AnError)
 	sidecarCntr.On("Delete", mock.Anything).Return(nil)
 
@@ -1219,9 +1247,11 @@ func TestStressContainer_SidecarNewTaskError(t *testing.T) {
 
 func TestStressContainer_SidecarWaitError(t *testing.T) {
 	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
 	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(nil), assert.AnError)
 	sidecarTask.On("Delete", mock.Anything).Return(nil)
 	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
 	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
 	sidecarCntr.On("Delete", mock.Anything).Return(nil)
 
@@ -1238,10 +1268,12 @@ func TestStressContainer_SidecarWaitError(t *testing.T) {
 func TestStressContainer_SidecarStartError(t *testing.T) {
 	exitCh := make(chan containerd.ExitStatus, 1)
 	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
 	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	sidecarTask.On("Start", mock.Anything).Return(assert.AnError)
 	sidecarTask.On("Delete", mock.Anything).Return(nil)
 	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
 	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
 	sidecarCntr.On("Delete", mock.Anything).Return(nil)
 
@@ -1262,15 +1294,13 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 		stressors    []string
 		injectCgroup bool
 		exitCode     uint32
-		wantSuccess  bool
 		wantErrMsg   string
 	}{
 		{
-			name:        "default_sidecar_success",
-			cgroupData:  "0::/kubepods/pod123/ctr456\n",
-			stressors:   []string{"--cpu", "1"},
-			exitCode:    0,
-			wantSuccess: true,
+			name:       "default_sidecar_success",
+			cgroupData: "0::/kubepods/pod123/ctr456\n",
+			stressors:  []string{"--cpu", "1"},
+			exitCode:   0,
 		},
 		{
 			name:         "inject_cgroup_success",
@@ -1278,7 +1308,6 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 			stressors:    []string{"--vm", "2"},
 			injectCgroup: true,
 			exitCode:     0,
-			wantSuccess:  true,
 		},
 		{
 			name:       "non_zero_exit",
@@ -1302,12 +1331,12 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 
 			select {
 			case out := <-outCh:
-				if !tc.wantSuccess {
+				if tc.wantErrMsg != "" {
 					t.Fatalf("expected error, got success: %s", out)
 				}
 				assert.Equal(t, id, out)
 			case e := <-errCh:
-				if tc.wantSuccess {
+				if tc.wantErrMsg == "" {
 					t.Fatalf("unexpected error: %v", e)
 				}
 				assert.Contains(t, e.Error(), tc.wantErrMsg)
@@ -1315,6 +1344,77 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 				t.Fatal("timeout")
 			}
 		})
+	}
+}
+
+func TestStressContainer_SidecarContextCanceled(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	// Wait returns a channel that never receives until Kill unblocks it
+	blockCh := make(chan containerd.ExitStatus, 1)
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(blockCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(nil)
+	sidecarTask.On("Kill", mock.Anything, syscall.SIGKILL).Run(func(_ mock.Arguments) {
+		// Unblock waitCh when killed
+		blockCh <- *containerd.NewExitStatus(137, time.Now(), nil) //nolint:mnd
+	}).Return(nil)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	client := newTestClient(api)
+	_, _, errCh, err := client.StressContainer(ctx, testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.NoError(t, err)
+
+	// Cancel the context to trigger the ctx.Done() path in waitStressSidecar
+	cancel()
+
+	select {
+	case e := <-errCh:
+		// non-zero exit code 137 from SIGKILL
+		require.Error(t, e)
+		assert.Contains(t, e.Error(), "exited with code 137")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for stress sidecar to handle context cancellation")
+	}
+}
+
+func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	closedCh := make(chan containerd.ExitStatus)
+	close(closedCh)
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(closedCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(nil)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.NoError(t, err)
+
+	select {
+	case e := <-errCh:
+		require.Error(t, e)
+		assert.Contains(t, e.Error(), "wait channel closed unexpectedly")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for closed-channel error")
 	}
 }
 

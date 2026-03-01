@@ -175,8 +175,8 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 }
 
 // buildStressSpecOpts builds OCI spec options for the stress sidecar container.
-// For inject-cgroup mode: runs /cg-inject with host cgroupns and /sys/fs/cgroup bind mount.
-// For default sidecar mode: runs /stress-ng directly, placed under target's cgroup parent.
+// For inject-cgroup mode (uses cgroupPath): runs /cg-inject with host cgroupns and /sys/fs/cgroup bind mount.
+// For default sidecar mode (uses cgroupParent): runs /stress-ng directly, placed under target's cgroup parent.
 func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath, cgroupParent string, injectCgroup bool) []oci.SpecOpts {
 	if injectCgroup {
 		const injectFixedArgs = 5
@@ -276,6 +276,9 @@ func (c *containerdClient) createStressSidecar(
 	if err != nil {
 		return "", nil, nil, nil, fmt.Errorf("failed to get stress image %s: %w", sidecarImage, err)
 	}
+	if image == nil {
+		return "", nil, nil, nil, fmt.Errorf("stress image %s not found", sidecarImage)
+	}
 
 	specOpts := buildStressSpecOpts(image, stressors, cgroupPath, cgroupParent, injectCgroup)
 	sidecarID := fmt.Sprintf("pumba-stress-%d", execCounter.Add(1))
@@ -340,19 +343,23 @@ func (c *containerdClient) waitStressSidecar(
 	case <-ctx.Done():
 		// Context canceled — force-kill the task so waitCh unblocks
 		_ = task.Kill(context.WithoutCancel(ctx), syscall.SIGKILL)
-		status, ok = <-waitCh
+		killTimer := time.NewTimer(sidecarKillTimeout)
+		defer killTimer.Stop()
+		select {
+		case status, ok = <-waitCh:
+		case <-killTimer.C:
+			log.WithField("id", sidecarID).Warn("timed out waiting for stress task after kill")
+		}
 	}
 
-	// Cleanup with a fresh context unaffected by parent cancellation
+	// Cleanup: delete task, then reuse deleteContainer for container+snapshot removal
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 	defer cancel()
 	cleanupCtx = c.nsCtx(cleanupCtx)
 	if _, delErr := task.Delete(cleanupCtx); delErr != nil && !errdefs.IsNotFound(delErr) {
 		log.WithError(delErr).WithField("id", sidecarID).Warn("failed to delete stress task")
 	}
-	if delErr := sidecarContainer.Delete(cleanupCtx, containerd.WithSnapshotCleanup); delErr != nil && !errdefs.IsNotFound(delErr) {
-		log.WithError(delErr).WithField("id", sidecarID).Warn("failed to delete stress sidecar")
-	}
+	c.deleteContainer(cleanupCtx, sidecarContainer)
 
 	if !ok {
 		errCh <- fmt.Errorf("stress sidecar %s: wait channel closed unexpectedly", sidecarID)
