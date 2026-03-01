@@ -1027,31 +1027,39 @@ func newRunningTaskWithPID(pid uint32) *mockTask {
 
 func setCgroupReader(t *testing.T, pid uint32, content string) {
 	t.Helper()
-	orig := cgroupReader
-	cgroupReader = func(p uint32) ([]byte, error) {
+	setCgroupReaderFunc(t, func(p uint32) ([]byte, error) {
 		if p == pid {
 			return []byte(content), nil
 		}
 		return nil, fmt.Errorf("unexpected PID %d in test", p)
-	}
+	})
+}
+
+func setCgroupReaderFunc(t *testing.T, fn func(uint32) ([]byte, error)) {
+	t.Helper()
+	orig := cgroupReader
+	cgroupReader = fn
 	t.Cleanup(func() { cgroupReader = orig })
 }
 
-// stressPrefix matches sidecar IDs like "pumba-stress-<N>".
-var stressPrefix = mock.MatchedBy(func(id string) bool {
-	return strings.HasPrefix(id, "pumba-stress-")
-})
+// stressPrefix returns a matcher for sidecar IDs like "pumba-stress-<N>".
+func stressPrefix() interface{} {
+	return mock.MatchedBy(func(id string) bool {
+		return strings.HasPrefix(id, "pumba-stress-")
+	})
+}
 
 // setupStressSidecar wires up GetImage + NewContainer expectations, returning the
 // sidecar mockContainer so the caller can set up its task/delete behaviour.
 func setupStressSidecar(api *MockapiClient, stressImage string, sidecarCntr *mockContainer) {
 	api.EXPECT().GetImage(mock.Anything, stressImage).Return(nil, nil)
 	api.EXPECT().NewContainer(
-		mock.Anything, // ctx
-		stressPrefix,  // sidecar ID
-		mock.Anything, // WithImage
-		mock.Anything, // WithNewSnapshot
-		mock.Anything, // WithNewSpec
+		mock.Anything,  // ctx
+		stressPrefix(), // sidecar ID
+		mock.Anything,  // WithImage
+		mock.Anything,  // WithNewSnapshot
+		mock.Anything,  // WithNewSpec
+		mock.Anything,  // WithContainerLabels
 	).Return(sidecarCntr, nil)
 }
 
@@ -1087,10 +1095,17 @@ func TestResolveCgroupPath(t *testing.T) {
 		{"root_cgroup_only", "0::/\n", "", "", "could not parse cgroup path"},
 		{"single_level", "0::/scope\n", "/scope", "/", ""},
 		{"empty_content", "", "", "", "could not parse cgroup path"},
+		{"read_error", "READER_ERROR", "", "", "failed to read cgroup"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			setCgroupReader(t, 999, tc.input)
+			if tc.input == "READER_ERROR" {
+				setCgroupReaderFunc(t, func(uint32) ([]byte, error) {
+					return nil, fmt.Errorf("no such file")
+				})
+			} else {
+				setCgroupReader(t, 999, tc.input)
+			}
 			path, parent, err := resolveCgroupPath(999)
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -1102,17 +1117,6 @@ func TestResolveCgroupPath(t *testing.T) {
 			assert.Equal(t, tc.wantParent, parent)
 		})
 	}
-}
-
-func TestResolveCgroupPath_ReadError(t *testing.T) {
-	orig := cgroupReader
-	cgroupReader = func(uint32) ([]byte, error) {
-		return nil, fmt.Errorf("no such file")
-	}
-	t.Cleanup(func() { cgroupReader = orig })
-	_, _, err := resolveCgroupPath(888)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read cgroup")
 }
 
 // --- buildStressSpecOpts tests ---
@@ -1197,8 +1201,8 @@ func TestStressContainer_SidecarCreateError(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(nil, nil)
 	api.EXPECT().NewContainer(
-		mock.Anything, stressPrefix,
-		mock.Anything, mock.Anything, mock.Anything,
+		mock.Anything, stressPrefix(),
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 	).Return(nil, assert.AnError)
 
 	client := newTestClient(api)
@@ -1206,6 +1210,77 @@ func TestStressContainer_SidecarCreateError(t *testing.T) {
 		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create stress sidecar")
+}
+
+func TestStressContainer_SidecarNewTaskError(t *testing.T) {
+	const targetPID = uint32(1234)
+	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
+
+	sidecarCntr := new(mockContainer)
+	sidecarCntr.On("NewTask", mock.Anything).Return(nil, assert.AnError)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	targetTask := newRunningTaskWithPID(targetPID)
+	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", targetMC)
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create stress task")
+}
+
+func TestStressContainer_SidecarWaitError(t *testing.T) {
+	const targetPID = uint32(1234)
+	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
+
+	sidecarTask := &mockTask{}
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(nil), assert.AnError)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+	sidecarCntr := new(mockContainer)
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	targetTask := newRunningTaskWithPID(targetPID)
+	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", targetMC)
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to set up stress task wait")
+}
+
+func TestStressContainer_SidecarStartError(t *testing.T) {
+	const targetPID = uint32(1234)
+	setCgroupReader(t, targetPID, "0::/kubepods/pod123/ctr456\n")
+
+	exitCh := make(chan containerd.ExitStatus, 1)
+	sidecarTask := &mockTask{}
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(assert.AnError)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+	sidecarCntr := new(mockContainer)
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	targetTask := newRunningTaskWithPID(targetPID)
+	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", targetMC)
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to start stress task")
 }
 
 func TestStressContainer_SidecarSuccess(t *testing.T) {
@@ -1304,7 +1379,7 @@ func TestStressContainer_SidecarPullImageError(t *testing.T) {
 	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
 		[]string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to pull stress image")
+	assert.Contains(t, err.Error(), "failed to pull image")
 }
 
 func TestBuildNetemCommands(t *testing.T) {

@@ -179,7 +179,8 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 // For default sidecar mode: runs /stress-ng directly, placed under target's cgroup parent.
 func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath, cgroupParent string, injectCgroup bool) []oci.SpecOpts {
 	if injectCgroup {
-		args := make([]string, 0, len(stressors)+4) //nolint:mnd
+		const injectFixedArgs = 5
+		args := make([]string, 0, len(stressors)+injectFixedArgs)
 		args = append(args, "/cg-inject", "--cgroup-path", cgroupPath, "--", "/stress-ng")
 		args = append(args, stressors...)
 		return []oci.SpecOpts{
@@ -255,7 +256,7 @@ func (c *containerdClient) createStressSidecar(
 
 	if pull {
 		if err := c.pullImage(ctx, sidecarImage); err != nil {
-			return "", nil, nil, nil, fmt.Errorf("failed to pull stress image: %w", err)
+			return "", nil, nil, nil, err
 		}
 	}
 
@@ -283,6 +284,7 @@ func (c *containerdClient) createStressSidecar(
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(sidecarID+"-snapshot", image),
 		containerd.WithNewSpec(specOpts...),
+		containerd.WithContainerLabels(map[string]string{"com.gaiaadm.pumba.skip": "true"}),
 	)
 	if err != nil {
 		return "", nil, nil, nil, fmt.Errorf("failed to create stress sidecar: %w", err)
@@ -290,7 +292,7 @@ func (c *containerdClient) createStressSidecar(
 
 	task, waitCh, err := c.startSidecarTask(ctx, sidecarContainer)
 	if err != nil {
-		c.cleanupContainer(ctx, sidecarContainer)
+		c.deleteContainer(ctx, sidecarContainer)
 		return "", nil, nil, nil, err
 	}
 
@@ -331,7 +333,7 @@ func (c *containerdClient) waitStressSidecar(
 	defer close(outCh)
 	defer close(errCh)
 
-	status := <-waitCh
+	status, ok := <-waitCh
 
 	// Cleanup with a fresh context unaffected by parent cancellation
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
@@ -344,6 +346,10 @@ func (c *containerdClient) waitStressSidecar(
 		log.WithError(delErr).WithField("id", sidecarID).Warn("failed to delete stress sidecar")
 	}
 
+	if !ok {
+		errCh <- fmt.Errorf("stress sidecar %s: wait channel closed unexpectedly", sidecarID)
+		return
+	}
 	code, _, exitErr := status.Result()
 	if exitErr != nil {
 		errCh <- fmt.Errorf("stress sidecar error: %w", exitErr)
@@ -356,8 +362,8 @@ func (c *containerdClient) waitStressSidecar(
 	outCh <- sidecarID
 }
 
-// cleanupContainer removes a sidecar container and its snapshot, using an uncancellable context.
-func (c *containerdClient) cleanupContainer(ctx context.Context, cntr containerd.Container) {
+// deleteContainer removes a sidecar container and its snapshot, using an uncancellable context.
+func (c *containerdClient) deleteContainer(ctx context.Context, cntr containerd.Container) {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 	defer cancel()
 	cleanupCtx = c.nsCtx(cleanupCtx)

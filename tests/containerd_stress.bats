@@ -93,6 +93,9 @@ teardown() {
 
     assert_success
 
+    # Debug output should show the resolved cgroup path
+    assert_output --partial "resolved target cgroup for stress sidecar"
+
     # Verify sidecar was cleaned up
     run sudo ctr -n moby c ls -q
     refute_output --partial "pumba-stress-"
