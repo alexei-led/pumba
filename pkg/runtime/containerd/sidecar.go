@@ -195,7 +195,7 @@ func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath,
 					Type:        "bind",
 					Source:      "/sys/fs/cgroup",
 					Destination: "/sys/fs/cgroup",
-					Options:     []string{"bind", "rw"},
+					Options:     []string{"bind", "rw", "nosuid", "nodev", "noexec"},
 				},
 			}),
 		}
@@ -310,12 +310,12 @@ func (c *containerdClient) startSidecarTask(ctx context.Context, cntr containerd
 
 	waitCh, err := task.Wait(ctx)
 	if err != nil {
-		_, _ = task.Delete(ctx)
+		_, _ = task.Delete(context.WithoutCancel(ctx))
 		return nil, nil, fmt.Errorf("failed to set up stress task wait: %w", err)
 	}
 
 	if err := task.Start(ctx); err != nil {
-		_, _ = task.Delete(ctx)
+		_, _ = task.Delete(context.WithoutCancel(ctx))
 		return nil, nil, fmt.Errorf("failed to start stress task: %w", err)
 	}
 
@@ -381,8 +381,8 @@ func (c *containerdClient) waitStressSidecar(
 	outCh <- sidecarID
 }
 
-// deleteContainer removes a sidecar container and its snapshot.
-// The caller is responsible for providing a properly scoped context (e.g. with timeout and namespace).
+// deleteContainer deletes cntr and its snapshot.
+// The caller must provide a context with a timeout and the containerd namespace already set.
 func (c *containerdClient) deleteContainer(ctx context.Context, cntr containerd.Container) {
 	if err := cntr.Delete(ctx, containerd.WithSnapshotCleanup); err != nil && !errdefs.IsNotFound(err) {
 		log.WithError(err).Warn("failed to clean up sidecar container")
@@ -394,7 +394,8 @@ func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.C
 	task, err := cntr.Task(ctx, nil)
 	if err != nil && !errdefs.IsNotFound(err) {
 		log.WithError(err).Warn("failed to get sidecar task for cleanup")
-	} else if err == nil {
+	}
+	if err == nil {
 		waitCh, waitErr := task.Wait(ctx)
 		_ = task.Kill(ctx, syscall.SIGKILL)
 		if waitErr == nil {

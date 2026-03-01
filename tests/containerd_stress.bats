@@ -67,7 +67,6 @@ teardown() {
         stress --duration 5s --stress-image ${STRESS_IMAGE} --stressors="--cpu 1" $full_id
     assert_success
 
-    # No sidecar containers should be created in dry-run mode
     run sudo ctr -n moby c ls -q
     refute_output --partial "pumba-stress-"
 }
