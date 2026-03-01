@@ -179,9 +179,9 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 // For default sidecar mode (uses cgroupParent): runs /stress-ng directly, placed under target's cgroup parent.
 func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath, cgroupParent string, injectCgroup bool) []oci.SpecOpts {
 	if injectCgroup {
-		const injectFixedArgs = 5
-		args := make([]string, 0, len(stressors)+injectFixedArgs)
-		args = append(args, "/cg-inject", "--cgroup-path", cgroupPath, "--", "/stress-ng")
+		prefix := []string{"/cg-inject", "--cgroup-path", cgroupPath, "--", "/stress-ng"}
+		args := make([]string, 0, len(prefix)+len(stressors))
+		args = append(args, prefix...)
 		args = append(args, stressors...)
 		return []oci.SpecOpts{
 			oci.WithImageConfig(image),
@@ -195,7 +195,7 @@ func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath,
 					Type:        "bind",
 					Source:      "/sys/fs/cgroup",
 					Destination: "/sys/fs/cgroup",
-					Options:     []string{"rbind", "rw"},
+					Options:     []string{"bind", "rw"},
 				},
 			}),
 		}
@@ -261,7 +261,7 @@ func (c *containerdClient) createStressSidecar(
 
 	if pull {
 		if err := c.pullImage(ctx, sidecarImage); err != nil {
-			return "", nil, nil, nil, err
+			return "", nil, nil, nil, fmt.Errorf("failed to pull stress image: %w", err)
 		}
 	}
 	log.WithFields(log.Fields{
@@ -275,9 +275,6 @@ func (c *containerdClient) createStressSidecar(
 	image, err := c.client.GetImage(ctx, sidecarImage)
 	if err != nil {
 		return "", nil, nil, nil, fmt.Errorf("failed to get stress image %s: %w", sidecarImage, err)
-	}
-	if image == nil {
-		return "", nil, nil, nil, fmt.Errorf("stress image %s not found", sidecarImage)
 	}
 
 	specOpts := buildStressSpecOpts(image, stressors, cgroupPath, cgroupParent, injectCgroup)
@@ -295,7 +292,9 @@ func (c *containerdClient) createStressSidecar(
 
 	task, waitCh, err := c.startSidecarTask(ctx, sidecarContainer)
 	if err != nil {
-		c.deleteContainer(ctx, sidecarContainer)
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
+		defer cancel()
+		c.deleteContainer(c.nsCtx(cleanupCtx), sidecarContainer)
 		return "", nil, nil, nil, err
 	}
 
@@ -342,7 +341,9 @@ func (c *containerdClient) waitStressSidecar(
 	case status, ok = <-waitCh:
 	case <-ctx.Done():
 		// Context canceled — force-kill the task so waitCh unblocks
-		_ = task.Kill(context.WithoutCancel(ctx), syscall.SIGKILL)
+		if killErr := task.Kill(context.WithoutCancel(ctx), syscall.SIGKILL); killErr != nil && !errdefs.IsNotFound(killErr) {
+			log.WithError(killErr).WithField("id", sidecarID).Warn("failed to kill stress task")
+		}
 		killTimer := time.NewTimer(sidecarKillTimeout)
 		defer killTimer.Stop()
 		select {
@@ -352,7 +353,6 @@ func (c *containerdClient) waitStressSidecar(
 		}
 	}
 
-	// Cleanup: delete task, then reuse deleteContainer for container+snapshot removal
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 	defer cancel()
 	cleanupCtx = c.nsCtx(cleanupCtx)
@@ -377,12 +377,10 @@ func (c *containerdClient) waitStressSidecar(
 	outCh <- sidecarID
 }
 
-// deleteContainer removes a sidecar container and its snapshot, using an uncancellable context.
+// deleteContainer removes a sidecar container and its snapshot.
+// The caller is responsible for providing a properly scoped context (e.g. with timeout and namespace).
 func (c *containerdClient) deleteContainer(ctx context.Context, cntr containerd.Container) {
-	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
-	defer cancel()
-	cleanupCtx = c.nsCtx(cleanupCtx)
-	if err := cntr.Delete(cleanupCtx, containerd.WithSnapshotCleanup); err != nil && !errdefs.IsNotFound(err) {
+	if err := cntr.Delete(ctx, containerd.WithSnapshotCleanup); err != nil && !errdefs.IsNotFound(err) {
 		log.WithError(err).Warn("failed to clean up sidecar container")
 	}
 }
