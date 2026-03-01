@@ -1131,17 +1131,17 @@ func TestBuildStressSpecOpts(t *testing.T) {
 	t.Parallel()
 	t.Run("default_sidecar_mode", func(t *testing.T) {
 		t.Parallel()
-		opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", false)
+		opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", "pumba-stress-1", false)
 		require.Len(t, opts, 3)
 		spec := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
 		_ = opts[1](context.Background(), nil, nil, spec)
 		assert.Equal(t, []string{"/stress-ng", "--cpu", "2"}, spec.Process.Args)
 		_ = opts[2](context.Background(), nil, nil, spec)
-		assert.Equal(t, "/cgroup", spec.Linux.CgroupsPath)
+		assert.Equal(t, "/cgroup/pumba-stress-1", spec.Linux.CgroupsPath)
 	})
 	t.Run("inject_cgroup_mode", func(t *testing.T) {
 		t.Parallel()
-		opts := buildStressSpecOpts(nil, []string{"--vm", "2"}, "/cgroup/path", "/cgroup", true)
+		opts := buildStressSpecOpts(nil, []string{"--vm", "2"}, "/cgroup/path", "/cgroup", "pumba-stress-1", true)
 		require.Len(t, opts, 4)
 		spec := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
 		_ = opts[1](context.Background(), nil, nil, spec)
@@ -1155,6 +1155,51 @@ func TestBuildStressSpecOpts(t *testing.T) {
 		assert.Equal(t, "/sys/fs/cgroup", spec.Mounts[0].Source)
 		assert.Equal(t, "/sys/fs/cgroup", spec.Mounts[0].Destination)
 	})
+}
+
+func TestIsSystemdCgroup(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		parent string
+		want   bool
+	}{
+		{"systemd_absolute", "/system.slice", true},
+		{"systemd_relative", "system.slice", true},
+		{"systemd_nested", "/kubepods.slice/kubepods-burstable.slice", true},
+		{"cgroupfs_docker", "/docker", false},
+		{"cgroupfs_kubepods", "/kubepods/burstable", false},
+		{"root", "/", false},
+		{"empty", "", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, isSystemdCgroup(tc.parent))
+		})
+	}
+}
+
+func TestCgroupChildPath(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		parent    string
+		sidecarID string
+		want      string
+	}{
+		{"systemd_system_slice", "/system.slice", "pumba-stress-1", "system.slice:pumba:pumba-stress-1"},
+		{"systemd_nested_slice", "/kubepods.slice/kubepods-burstable.slice", "pumba-stress-2", "kubepods-burstable.slice:pumba:pumba-stress-2"},
+		{"cgroupfs_docker", "/docker", "pumba-stress-1", "/docker/pumba-stress-1"},
+		{"cgroupfs_kubepods", "/kubepods/burstable", "pumba-stress-1", "/kubepods/burstable/pumba-stress-1"},
+		{"cgroupfs_root", "/", "pumba-stress-1", "/pumba-stress-1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, cgroupChildPath(tc.parent, tc.sidecarID))
+		})
+	}
 }
 
 func TestStressContainer_SidecarGetTaskError(t *testing.T) {

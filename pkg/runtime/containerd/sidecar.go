@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -16,6 +18,25 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
 )
+
+// isSystemdCgroup returns true if the cgroup parent path uses the systemd driver.
+// Mirrors containerd CRI's heuristic: systemd cgroup paths end with ".slice".
+func isSystemdCgroup(cgroupParent string) bool {
+	return strings.HasSuffix(path.Base(cgroupParent), ".slice")
+}
+
+// cgroupChildPath constructs a child cgroup path under the given parent.
+// For systemd drivers (parent ends with ".slice"), it uses the systemd slice format:
+//
+//	"<slice>:pumba:<sidecarID>" → runc creates /<slice>/pumba-<sidecarID>.scope
+//
+// For cgroupfs drivers, it uses a simple path join: "<parent>/<sidecarID>".
+func cgroupChildPath(cgroupParent, sidecarID string) string {
+	if isSystemdCgroup(cgroupParent) {
+		return strings.Join([]string{path.Base(cgroupParent), "pumba", sidecarID}, ":")
+	}
+	return filepath.Join(cgroupParent, sidecarID)
+}
 
 // cgroupReader reads the cgroup file for a process. Overrideable in tests.
 var cgroupReader = func(pid uint32) ([]byte, error) {
@@ -176,8 +197,9 @@ func resolveCgroupPath(pid uint32) (cgroupPath, cgroupParent string, err error) 
 
 // buildStressSpecOpts builds OCI spec options for the stress sidecar container.
 // For inject-cgroup mode (uses cgroupPath): runs /cg-inject with host cgroupns and /sys/fs/cgroup bind mount.
-// For default sidecar mode (uses cgroupParent): runs /stress-ng directly, placed under target's cgroup parent.
-func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath, cgroupParent string, injectCgroup bool) []oci.SpecOpts {
+// For default sidecar mode (uses cgroupParent + sidecarID): runs /stress-ng directly, placed in a child cgroup
+// under the target's cgroup parent. The child path format depends on the cgroup driver (systemd vs cgroupfs).
+func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath, cgroupParent, sidecarID string, injectCgroup bool) []oci.SpecOpts {
 	if injectCgroup {
 		prefix := []string{"/cg-inject", "--cgroup-path", cgroupPath, "--", "/stress-ng"}
 		args := make([]string, 0, len(prefix)+len(stressors))
@@ -206,7 +228,7 @@ func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath,
 	return []oci.SpecOpts{
 		oci.WithImageConfig(image),
 		oci.WithProcessArgs(args...),
-		oci.WithCgroup(cgroupParent),
+		oci.WithCgroup(cgroupChildPath(cgroupParent, sidecarID)),
 	}
 }
 
@@ -277,8 +299,8 @@ func (c *containerdClient) createStressSidecar(
 		return "", nil, nil, nil, fmt.Errorf("failed to get stress image %s: %w", sidecarImage, err)
 	}
 
-	specOpts := buildStressSpecOpts(image, stressors, cgroupPath, cgroupParent, injectCgroup)
 	sidecarID := fmt.Sprintf("pumba-stress-%d", execCounter.Add(1))
+	specOpts := buildStressSpecOpts(image, stressors, cgroupPath, cgroupParent, sidecarID, injectCgroup)
 
 	sidecarContainer, err := c.client.NewContainer(ctx, sidecarID,
 		containerd.WithImage(image),
