@@ -36,7 +36,7 @@ teardown() {
     assert_success
 
     # Run pumba in BACKGROUND with long duration so we can inspect tc rules while active
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s delay --time 100 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s delay --time 100 test-netem-ctr &
     PUMBA_PID=$!
     # Give pumba time to apply tc rules
     sleep 2
@@ -62,7 +62,7 @@ teardown() {
 
 @test "Should apply packet loss via containerd runtime" {
     # Run pumba in BACKGROUND with long duration
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s loss --percent 50 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s loss --percent 50 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -86,7 +86,7 @@ teardown() {
 }
 
 @test "Should apply packet duplicate via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s duplicate --percent 50 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s duplicate --percent 50 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -108,7 +108,7 @@ teardown() {
 }
 
 @test "Should apply packet corruption via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s corrupt --percent 50 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s corrupt --percent 50 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -131,12 +131,12 @@ teardown() {
 
 @test "Should handle netem on non-existent container via containerd runtime" {
     # Pumba should handle gracefully — exit 0 (no matching containers found)
-    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 2s delay --time 100 nonexistent_container_12345
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 2s delay --time 100 nonexistent_container_12345
     assert_success
 }
 
 @test "Should apply loss-state model via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s loss-state --p13 5 --p31 15 --p32 10 --p23 20 --p14 5 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s loss-state --p13 5 --p31 15 --p32 10 --p23 20 --p14 5 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -157,7 +157,7 @@ teardown() {
 }
 
 @test "Should apply loss-gemodel model via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s loss-gemodel --pg 5 --pb 20 --one-h 80 --one-k 10 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s loss-gemodel --pg 5 --pb 20 --one-h 80 --one-k 10 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -178,7 +178,7 @@ teardown() {
 }
 
 @test "Should apply delay with normal distribution via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s delay --time 100 --jitter 30 --distribution normal test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s delay --time 100 --jitter 30 --distribution normal test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -200,7 +200,7 @@ teardown() {
 }
 
 @test "Should apply rate limit with cell options via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s rate --rate 1mbit --packetoverhead 10 --cellsize 1500 --celloverhead 20 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s rate --rate 1mbit --packetoverhead 10 --cellsize 1500 --celloverhead 20 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -222,7 +222,7 @@ teardown() {
 }
 
 @test "Should apply rate limiting via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --duration 30s rate --rate 100kbit test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s rate --rate 100kbit test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -244,7 +244,7 @@ teardown() {
 }
 
 @test "Should apply netem delay with egress port filter via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --egress-port 80 --duration 30s delay --time 100 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --egress-port 80 --duration 30s delay --time 100 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -262,7 +262,7 @@ teardown() {
 }
 
 @test "Should apply netem delay with ingress port filter via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --ingress-port 443 --duration 30s delay --time 100 test-netem-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --ingress-port 443 --duration 30s delay --time 100 test-netem-ctr &
     PUMBA_PID=$!
     sleep 2
 

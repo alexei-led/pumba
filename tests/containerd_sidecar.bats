@@ -10,8 +10,9 @@ setup() {
     require_containerd
     sudo ctr -n moby t kill -s SIGKILL test-sidecar-target >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-sidecar-target >/dev/null 2>&1 || true
-    # Use plain alpine — no tc tools installed
+    # Use plain alpine — no tc tools installed; pre-pull sidecar image too
     ctr_pull_image moby docker.io/library/alpine:latest
+    ctr_pull_image moby docker.io/nicolaka/netshoot:latest
     # Create with a dummy network interface for testing
     sudo ctr -n moby run -d --privileged docker.io/library/alpine:latest test-sidecar-target \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
@@ -33,7 +34,7 @@ teardown() {
 @test "Should apply netem delay via sidecar container (tc-image)" {
     # Run pumba with --tc-image to use sidecar approach
     # The target container (alpine) does NOT have tc installed
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --tc-image docker.io/nicolaka/netshoot:latest --duration 30s delay --time 100 test-sidecar-target &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --tc-image docker.io/nicolaka/netshoot:latest --pull-image=false --duration 30s delay --time 100 test-sidecar-target &
     PUMBA_PID=$!
     sleep 3
 

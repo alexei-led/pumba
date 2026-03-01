@@ -2,7 +2,9 @@ package containerd
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -21,6 +23,8 @@ import (
 
 	metrictypes "github.com/containerd/containerd/api/types"
 )
+
+type stubImage struct{ containerd.Image }
 
 type mockProcess struct {
 	mock.Mock
@@ -104,6 +108,7 @@ func (m *mockContainer) Restore(context.Context, cio.Creator, string) (int, erro
 
 type mockTask struct {
 	mock.Mock
+	pid uint32
 }
 
 func (m *mockTask) Status(ctx context.Context) (containerd.Status, error) {
@@ -112,7 +117,7 @@ func (m *mockTask) Status(ctx context.Context) (containerd.Status, error) {
 }
 
 func (m *mockTask) ID() string  { return "" }
-func (m *mockTask) Pid() uint32 { return 0 }
+func (m *mockTask) Pid() uint32 { return m.pid }
 func (m *mockTask) Start(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
@@ -1012,6 +1017,451 @@ func TestStressContainer_ExecError(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for stress error")
 	}
+}
+
+func newRunningTaskWithPID(pid uint32) *mockTask {
+	t := newRunningTask()
+	t.pid = pid
+	return t
+}
+
+func setCgroupReader(t *testing.T, pid uint32, content string) {
+	t.Helper()
+	setCgroupReaderFunc(t, func(p uint32) ([]byte, error) {
+		if p == pid {
+			return []byte(content), nil
+		}
+		return nil, fmt.Errorf("unexpected PID %d in test", p)
+	})
+}
+
+func setCgroupReaderFunc(t *testing.T, fn func(uint32) ([]byte, error)) {
+	t.Helper()
+	orig := cgroupReader
+	cgroupReader = fn
+	t.Cleanup(func() { cgroupReader = orig })
+}
+
+func stressPrefix() any {
+	return mock.MatchedBy(func(id string) bool {
+		return strings.HasPrefix(id, "pumba-stress-")
+	})
+}
+
+func setupStressSidecar(api *MockapiClient, stressImage string, sidecarCntr *mockContainer) {
+	api.EXPECT().GetImage(mock.Anything, stressImage).Return(&stubImage{}, nil)
+	api.EXPECT().NewContainer(
+		mock.Anything,  // ctx
+		stressPrefix(), // sidecar ID
+		mock.Anything,  // WithImage
+		mock.Anything,  // WithNewSnapshot
+		mock.Anything,  // WithNewSpec
+		mock.Anything,  // WithContainerLabels
+	).Return(sidecarCntr, nil)
+}
+
+func setupStressTarget(t *testing.T, targetPID uint32, cgroupContent string) *MockapiClient {
+	t.Helper()
+	setCgroupReader(t, targetPID, cgroupContent)
+	targetTask := newRunningTaskWithPID(targetPID)
+	targetMC := newMockContainer("c1", "nginx", nil, targetTask)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", targetMC)
+	return api
+}
+
+func newSidecarWithExitCode(t *testing.T, code uint32) (*mockContainer, *mockTask) {
+	t.Helper()
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	exitCh := make(chan containerd.ExitStatus, 1)
+	exitCh <- *containerd.NewExitStatus(code, time.Now(), nil)
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(nil)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	return sidecarCntr, sidecarTask
+}
+
+func TestResolveCgroupPath(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	tests := []struct {
+		name       string
+		input      string
+		readerErr  bool
+		wantPath   string
+		wantParent string
+		wantErr    string
+	}{
+		{"v2_nested", "0::/kubepods/besteffort/pod123/ctr456\n", false, "/kubepods/besteffort/pod123/ctr456", "/kubepods/besteffort/pod123", ""},
+		{"v1_memory_fallback", "11:memory:/kubepods/memory/pod123/ctr456\n12:cpu:/kubepods/cpu/pod123/ctr456\n", false, "/kubepods/memory/pod123/ctr456", "/kubepods/memory/pod123", ""},
+		{"v2_overrides_v1", "11:memory:/v1path\n0::/v2path\n", false, "/v2path", "/", ""},
+		{"root_cgroup_only", "0::/\n", false, "", "", "could not parse cgroup path"},
+		{"single_level", "0::/scope\n", false, "/scope", "/", ""},
+		{"empty_content", "", false, "", "", "could not parse cgroup path"},
+		{"read_error", "", true, "", "", "failed to read cgroup"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.readerErr {
+				setCgroupReaderFunc(t, func(uint32) ([]byte, error) {
+					return nil, fmt.Errorf("no such file")
+				})
+			} else {
+				setCgroupReader(t, 999, tc.input)
+			}
+			path, parent, err := resolveCgroupPath(999)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantPath, path)
+			assert.Equal(t, tc.wantParent, parent)
+		})
+	}
+}
+
+func TestBuildStressSpecOpts(t *testing.T) {
+	t.Parallel()
+	t.Run("default_sidecar_mode", func(t *testing.T) {
+		t.Parallel()
+		opts := buildStressSpecOpts(nil, []string{"--cpu", "2"}, "/cgroup/path", "/cgroup", "pumba-stress-1", false)
+		require.Len(t, opts, 3)
+		spec := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
+		_ = opts[1](context.Background(), nil, nil, spec)
+		assert.Equal(t, []string{"/stress-ng", "--cpu", "2"}, spec.Process.Args)
+		_ = opts[2](context.Background(), nil, nil, spec)
+		assert.Equal(t, "/cgroup/pumba-stress-1", spec.Linux.CgroupsPath)
+	})
+	t.Run("inject_cgroup_mode", func(t *testing.T) {
+		t.Parallel()
+		opts := buildStressSpecOpts(nil, []string{"--vm", "2"}, "/cgroup/path", "/cgroup", "pumba-stress-1", true)
+		require.Len(t, opts, 4)
+		spec := &specs.Spec{Process: &specs.Process{}, Linux: &specs.Linux{}}
+		_ = opts[1](context.Background(), nil, nil, spec)
+		assert.Equal(t, []string{"/cg-inject", "--cgroup-path", "/cgroup/path", "--", "/stress-ng", "--vm", "2"}, spec.Process.Args)
+		_ = opts[2](context.Background(), nil, nil, spec)
+		require.Len(t, spec.Linux.Namespaces, 1)
+		assert.Equal(t, specs.CgroupNamespace, spec.Linux.Namespaces[0].Type)
+		assert.Equal(t, "/proc/1/ns/cgroup", spec.Linux.Namespaces[0].Path)
+		_ = opts[3](context.Background(), nil, nil, spec)
+		require.Len(t, spec.Mounts, 1)
+		assert.Equal(t, "/sys/fs/cgroup", spec.Mounts[0].Source)
+		assert.Equal(t, "/sys/fs/cgroup", spec.Mounts[0].Destination)
+	})
+}
+
+func TestIsSystemdCgroup(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		parent string
+		want   bool
+	}{
+		{"systemd_absolute", "/system.slice", true},
+		{"systemd_relative", "system.slice", true},
+		{"systemd_nested", "/kubepods.slice/kubepods-burstable.slice", true},
+		{"cgroupfs_docker", "/docker", false},
+		{"cgroupfs_kubepods", "/kubepods/burstable", false},
+		{"root", "/", false},
+		{"empty", "", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, isSystemdCgroup(tc.parent))
+		})
+	}
+}
+
+func TestCgroupChildPath(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		parent    string
+		sidecarID string
+		want      string
+	}{
+		{"systemd_system_slice", "/system.slice", "pumba-stress-1", "system.slice:pumba:pumba-stress-1"},
+		{"systemd_nested_slice", "/kubepods.slice/kubepods-burstable.slice", "pumba-stress-2", "kubepods-burstable.slice:pumba:pumba-stress-2"},
+		{"cgroupfs_docker", "/docker", "pumba-stress-1", "/docker/pumba-stress-1"},
+		{"cgroupfs_kubepods", "/kubepods/burstable", "pumba-stress-1", "/kubepods/burstable/pumba-stress-1"},
+		{"cgroupfs_root", "/", "pumba-stress-1", "/pumba-stress-1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, cgroupChildPath(tc.parent, tc.sidecarID))
+		})
+	}
+}
+
+func TestStressContainer_SidecarGetTaskError(t *testing.T) {
+	api := NewMockapiClient(t)
+	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get target task")
+}
+
+func TestStressContainer_SidecarTargetPIDZero(t *testing.T) {
+	task := newRunningTask() // pid=0 by default
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "PID 0")
+}
+
+func TestStressContainer_SidecarCgroupResolveError(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	setCgroupReaderFunc(t, func(uint32) ([]byte, error) {
+		return nil, fmt.Errorf("permission denied")
+	})
+	task := newRunningTaskWithPID(1234)
+	mc := newMockContainer("c1", "nginx", nil, task)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", mc)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to resolve cgroup")
+}
+
+func TestStressContainer_SidecarGetImageError(t *testing.T) {
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(nil, assert.AnError)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get stress image")
+}
+
+func TestStressContainer_SidecarCreateError(t *testing.T) {
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(&stubImage{}, nil)
+	api.EXPECT().NewContainer(
+		mock.Anything, stressPrefix(),
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+	).Return(nil, assert.AnError)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create stress sidecar")
+}
+
+func TestStressContainer_SidecarNewTaskError(t *testing.T) {
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(nil, assert.AnError)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create stress task")
+}
+
+func TestStressContainer_SidecarWaitError(t *testing.T) {
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(nil), assert.AnError)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to set up stress task wait")
+}
+
+func TestStressContainer_SidecarStartError(t *testing.T) {
+	exitCh := make(chan containerd.ExitStatus, 1)
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(assert.AnError)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to start stress task")
+}
+
+func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	tests := []struct {
+		name         string
+		cgroupData   string
+		stressors    []string
+		injectCgroup bool
+		exitCode     uint32
+		wantErrMsg   string
+	}{
+		{
+			name:       "default_sidecar_success",
+			cgroupData: "0::/kubepods/pod123/ctr456\n",
+			stressors:  []string{"--cpu", "1"},
+			exitCode:   0,
+		},
+		{
+			name:         "inject_cgroup_success",
+			cgroupData:   "0::/system.slice/nerdctl-abc123.scope\n",
+			stressors:    []string{"--vm", "2"},
+			injectCgroup: true,
+			exitCode:     0,
+		},
+		{
+			name:       "non_zero_exit",
+			cgroupData: "0::/kubepods/pod123/ctr456\n",
+			stressors:  []string{"--cpu", "1"},
+			exitCode:   1,
+			wantErrMsg: "exited with code 1",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sidecarCntr, _ := newSidecarWithExitCode(t, tc.exitCode)
+			api := setupStressTarget(t, 1234, tc.cgroupData)
+			setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+			client := newTestClient(api)
+			id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+				tc.stressors, "stress-ng:latest", false, 10*time.Second, tc.injectCgroup, false)
+			require.NoError(t, err)
+			assert.Contains(t, id, "pumba-stress-")
+
+			select {
+			case out := <-outCh:
+				if tc.wantErrMsg != "" {
+					t.Fatalf("expected error, got success: %s", out)
+				}
+				assert.Equal(t, id, out)
+			case e := <-errCh:
+				if tc.wantErrMsg == "" {
+					t.Fatalf("unexpected error: %v", e)
+				}
+				assert.Contains(t, e.Error(), tc.wantErrMsg)
+			case <-time.After(5 * time.Second):
+				t.Fatal("timeout")
+			}
+		})
+	}
+}
+
+func TestStressContainer_SidecarContextCanceled(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	blockCh := make(chan containerd.ExitStatus, 1)
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(blockCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(nil)
+	sidecarTask.On("Kill", mock.Anything, syscall.SIGKILL).Run(func(_ mock.Arguments) {
+		blockCh <- *containerd.NewExitStatus(137, time.Now(), nil) //nolint:mnd
+	}).Return(nil)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	client := newTestClient(api)
+	_, _, errCh, err := client.StressContainer(ctx, testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.NoError(t, err)
+
+	cancel()
+
+	select {
+	case e := <-errCh:
+		require.Error(t, e)
+		assert.Contains(t, e.Error(), "exited with code 137")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for stress sidecar to handle context cancellation")
+	}
+}
+
+func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
+	sidecarTask := &mockTask{}
+	t.Cleanup(func() { sidecarTask.AssertExpectations(t) })
+	closedCh := make(chan containerd.ExitStatus)
+	close(closedCh)
+	sidecarTask.On("Wait", mock.Anything).Return((<-chan containerd.ExitStatus)(closedCh), nil)
+	sidecarTask.On("Start", mock.Anything).Return(nil)
+	sidecarTask.On("Delete", mock.Anything).Return(nil)
+
+	sidecarCntr := new(mockContainer)
+	t.Cleanup(func() { sidecarCntr.AssertExpectations(t) })
+	sidecarCntr.On("NewTask", mock.Anything).Return(sidecarTask, nil)
+	sidecarCntr.On("Delete", mock.Anything).Return(nil)
+
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
+
+	client := newTestClient(api)
+	_, _, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	require.NoError(t, err)
+
+	select {
+	case e := <-errCh:
+		require.Error(t, e)
+		assert.Contains(t, e.Error(), "wait channel closed unexpectedly")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for closed-channel error")
+	}
+}
+
+func TestStressContainer_SidecarPullImageError(t *testing.T) {
+	api := setupStressTarget(t, 1234, "0::/kubepods/pod123/ctr456\n")
+	api.EXPECT().Pull(mock.Anything, "stress-ng:latest", mock.Anything).Return(nil, assert.AnError)
+
+	client := newTestClient(api)
+	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
+		[]string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to pull image")
 }
 
 func TestBuildNetemCommands(t *testing.T) {
