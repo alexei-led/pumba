@@ -1,4 +1,4 @@
-package util //nolint:revive // existing package name, renaming is out of scope
+package util
 
 import (
 	"fmt"
