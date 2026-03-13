@@ -115,18 +115,16 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	// run iptables loss command for selected containers
 	var wg sync.WaitGroup
 	errs := make([]error, len(containers))
-	cancels := make([]context.CancelFunc, len(containers))
 	for i, c := range containers {
 		log.WithFields(log.Fields{
 			"container": *c,
 		}).Debug("adding network random packet loss for container")
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, n.duration)
-		cancels[i] = cancel
+		iptCtx, cancel := context.WithTimeout(ctx, n.duration)
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
-			errs[i] = runIPTables(ctx, n.client, c, addCmdPrefix, delCmdPrefix, cmdSuffix, n.srcIPs, n.dstIPs, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
+			defer cancel()
+			errs[i] = runIPTables(iptCtx, n.client, c, addCmdPrefix, delCmdPrefix, cmdSuffix, n.srcIPs, n.dstIPs, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}
@@ -135,13 +133,6 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 
 	// Wait for all iptables delay commands to complete
 	wg.Wait()
-
-	// cancel context to avoid leaks
-	defer func() {
-		for _, cancel := range cancels {
-			cancel()
-		}
-	}()
 
 	// scan through all errors in goroutines
 	for _, err = range errs {

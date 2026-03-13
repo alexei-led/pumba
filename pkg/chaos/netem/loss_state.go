@@ -100,7 +100,6 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 	// run netem loss command for selected containers
 	var wg sync.WaitGroup
 	errs := make([]error, len(containers))
-	cancels := make([]context.CancelFunc, len(containers))
 
 	//nolint:dupl
 	for i, c := range containers {
@@ -108,10 +107,10 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 			"container": c,
 		}).Debug("adding network 4-state packet loss for container")
 		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
-		cancels[i] = cancel
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
+			defer cancel()
 			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
@@ -121,13 +120,6 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 
 	// Wait for all netem delay commands to complete
 	wg.Wait()
-
-	// cancel context to avoid leaks
-	defer func() {
-		for _, cancel := range cancels {
-			cancel()
-		}
-	}()
 
 	// scan through all errors in goroutines
 	for _, err = range errs {
