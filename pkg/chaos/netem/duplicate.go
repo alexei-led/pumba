@@ -86,10 +86,10 @@ func (n *duplicateCommand) Run(ctx context.Context, random bool) error {
 		log.WithFields(log.Fields{
 			"container": c,
 		}).Debug("adding network random packet duplicates for container")
-		netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
+			netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 			defer cancel()
 			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {

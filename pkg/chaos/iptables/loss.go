@@ -119,10 +119,10 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 		log.WithFields(log.Fields{
 			"container": *c,
 		}).Debug("adding network random packet loss for container")
-		iptCtx, cancel := context.WithTimeout(ctx, n.duration)
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
+			iptCtx, cancel := context.WithTimeout(ctx, n.duration)
 			defer cancel()
 			errs[i] = runIPTables(iptCtx, n.client, c, addCmdPrefix, delCmdPrefix, cmdSuffix, n.srcIPs, n.dstIPs, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
 			if errs[i] != nil {
