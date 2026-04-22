@@ -199,10 +199,11 @@ func TestProbeCandidate_TCPUnreachable(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestProbeCandidate_SSHSkipped(t *testing.T) {
-	uri, err := probeCandidate("ssh://user@host/run/podman/podman.sock")
-	require.NoError(t, err)
-	require.Equal(t, "ssh://user@host/run/podman/podman.sock", uri)
+func TestProbeCandidate_SSHRejected(t *testing.T) {
+	_, err := probeCandidate("ssh://user@host/run/podman/podman.sock")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ssh://")
+	require.Contains(t, err.Error(), "not supported")
 }
 
 func TestProbeCandidate_UnsupportedScheme(t *testing.T) {

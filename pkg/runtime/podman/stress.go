@@ -59,7 +59,7 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 		"leaf":      leaf,
 	}).Debug("resolved podman target cgroup")
 
-	config, hconfig := buildStressConfig(image, stressors, fullPath, parent, injectCgroup)
+	config, hconfig := buildStressConfig(image, stressors, driver, fullPath, parent, injectCgroup)
 
 	if pull {
 		if err := p.pullStressImage(ctx, image); err != nil {
@@ -115,15 +115,23 @@ func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (driv
 
 // buildStressConfig returns the Config/HostConfig for the stress-ng sidecar.
 //
-// Default mode: place the sidecar as a sibling leaf under the target's
-// parent cgroup via HostConfig.Resources.CgroupParent. Podman honors this
-// on the Docker-compat socket the same way Docker does.
+// Default mode: place the sidecar under the target's cgroup via
+// HostConfig.Resources.CgroupParent. Driver-dependent to match the Docker
+// runtime's behavior:
+//   - systemd: CgroupParent = parent slice (sidecar is a sibling of the target;
+//     systemd rejects placing a sibling scope under another scope).
+//   - cgroupfs: CgroupParent = target's full path (sidecar is a child cgroup of
+//     the target, sharing limits and OOM scope — the documented contract).
+//
+// Explicit Entrypoint = /stress-ng mirrors the Docker runtime so custom images
+// that satisfy the --stress-image contract ("/stress-ng exists") work without
+// relying on image-metadata ENTRYPOINT.
 //
 // inject-cgroup mode: start the sidecar wherever (cgroupns=host + bind-mount
 // /sys/fs/cgroup) and let /cg-inject move its PID into the target's exact
 // cgroup. Required when the target's parent slice is unwritable by a sibling
 // (e.g. kubelet-owned kubepods slices).
-func buildStressConfig(image string, stressors []string, fullPath, parent string, injectCgroup bool) (ctypes.Config, ctypes.HostConfig) {
+func buildStressConfig(image string, stressors []string, driver, fullPath, parent string, injectCgroup bool) (ctypes.Config, ctypes.HostConfig) {
 	labels := map[string]string{skipLabelKey: "true"}
 	if injectCgroup {
 		cmd := append([]string{"--cgroup-path", fullPath, "--", "/stress-ng"}, stressors...)
@@ -138,14 +146,19 @@ func buildStressConfig(image string, stressors []string, fullPath, parent string
 				Binds:        []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
 			}
 	}
+	cgroupParent := parent
+	if driver == driverCgroupfs {
+		cgroupParent = fullPath
+	}
 	return ctypes.Config{
-			Image:  image,
-			Labels: labels,
-			Cmd:    stressors,
+			Image:      image,
+			Labels:     labels,
+			Entrypoint: []string{"/stress-ng"},
+			Cmd:        stressors,
 		}, ctypes.HostConfig{
 			AutoRemove: true,
 			Resources: ctypes.Resources{
-				CgroupParent: parent,
+				CgroupParent: cgroupParent,
 			},
 		}
 }

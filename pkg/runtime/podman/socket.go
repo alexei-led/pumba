@@ -24,6 +24,13 @@ const (
 	machineInspectTimeout = 3 * time.Second
 )
 
+// sshUnsupportedHint explains why ssh:// podman endpoints are rejected. The
+// shared Docker HTTP client has no SSH connhelper wired in, so accepting an
+// ssh:// URI here would only defer the failure to /info bootstrap with a less
+// useful diagnostic. Run pumba on the same host as the podman socket instead,
+// or expose a tcp:// listener.
+const sshUnsupportedHint = "ssh:// podman endpoints are not supported; run pumba on the podman host or expose tcp:// instead"
+
 // candidateFuncs is the ordered list of podman socket candidates tried when no
 // explicit socket is set. Each function returns a (rawURI, sourceLabel) pair
 // or ("", "") to skip. Tests swap this variable to inject custom candidates.
@@ -140,7 +147,7 @@ func probeCandidate(raw string) (string, error) {
 		}
 		_ = conn.Close()
 	case sshScheme:
-		// Skip probing; validated when the Docker SDK dials the target.
+		return "", errors.New(sshUnsupportedHint)
 	default:
 		return "", fmt.Errorf("unsupported socket scheme %q", scheme)
 	}
