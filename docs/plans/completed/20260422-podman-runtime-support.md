@@ -396,8 +396,8 @@ Flag description updates:
 
 ### Task 13: Final — move plan, confirm clean state
 
-- [ ] `mkdir -p docs/plans/completed && git mv docs/plans/20260422-podman-runtime-support.md docs/plans/completed/`
-- [ ] final `git status` is clean; CI is green on the PR branch; all bats pass on Mac dev VM
+- [x] `mkdir -p docs/plans/completed && git mv docs/plans/20260422-podman-runtime-support.md docs/plans/completed/`
+- [x] final `git status` is clean (verified before move); CI green on PR branch + Mac-VM bats — manual test (skipped - not automatable in sandbox; to be observed after push)
 
 ## Post-Completion
 
