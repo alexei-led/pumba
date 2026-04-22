@@ -174,8 +174,3 @@ func splitScheme(uri string) (string, string) {
 	}
 	return u.Scheme, uri
 }
-
-// Keep resolveSocket reachable from the package at build time so the unused
-// linter can trace its dependency graph before client.go (a later task) wires
-// it into NewClient. Removed once NewClient calls resolveSocket directly.
-var _ = resolveSocket

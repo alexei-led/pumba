@@ -280,12 +280,12 @@ Flag description updates:
 - Create: `pkg/runtime/podman/client.go`
 - Create: `pkg/runtime/podman/client_test.go`
 
-- [ ] define `type podmanClient struct { ctr.Client; api *dockerapi.Client; rootless bool; socketURI string }` — single API field; `*dockerapi.Client` satisfies `ContainerAPIClient`, `ImageAPIClient`, and `SystemAPIClient` transitively, so we access them as `p.api.ImagePull(...)`, `p.api.Info(...)`, `p.api.ContainerCreate(...)` directly.
-- [ ] implement `NewClient(explicitSocket string) (ctr.Client, error)` — resolve socket, construct SDK via `docker.NewAPIClient`, wrap as delegate via `docker.NewFromAPI`, query `/info` to detect rootless, return `&podmanClient{Client: delegate, api: api, rootless: rootless, socketURI: uri}`
-- [ ] implement `Close()` (delegates to `p.api.Close()`)
-- [ ] implement rootless-guarded overrides: `NetemContainer`, `StopNetemContainer`, `IPTablesContainer`, `StopIPTablesContainer` — if `rootless` return `rootlessError(...)`; otherwise delegate to the embedded `p.Client`
-- [ ] write unit tests: NewClient with mocked socket resolver + mocked Info — returns error when socket unreachable; sets `rootless` from Info; rootless guards trigger `rootlessError`; rootful delegates correctly
-- [ ] run `make lint && make test` — must pass before Task 6
+- [x] define `type podmanClient struct { ctr.Client; api *dockerapi.Client; rootless bool; socketURI string }` — single API field; `*dockerapi.Client` satisfies `ContainerAPIClient`, `ImageAPIClient`, and `SystemAPIClient` transitively, so we access them as `p.api.ImagePull(...)`, `p.api.Info(...)`, `p.api.ContainerCreate(...)` directly.
+- [x] implement `NewClient(explicitSocket string) (ctr.Client, error)` — resolve socket, construct SDK via `docker.NewAPIClient`, wrap as delegate via `docker.NewFromAPI`, query `/info` to detect rootless, return `&podmanClient{Client: delegate, api: api, rootless: rootless, socketURI: uri}`
+- [x] implement `Close()` (delegates to `p.api.Close()`)
+- [x] implement rootless-guarded overrides: `NetemContainer`, `StopNetemContainer`, `IPTablesContainer`, `StopIPTablesContainer` — if `rootless` return `rootlessError(...)`; otherwise delegate to the embedded `p.Client`
+- [x] write unit tests: NewClient with mocked socket resolver + mocked Info — returns error when socket unreachable; sets `rootless` from Info; rootless guards trigger `rootlessError`; rootful delegates correctly
+- [x] run `make lint && make test` — must pass before Task 6
 
 ### Task 6: Podman stress override
 

@@ -37,13 +37,3 @@ func rootlessError(cmd, socketURI string) error {
 		cmd, socketURI,
 	)
 }
-
-// Keep these reachable from the package at build time so the unused linter
-// can trace the dependency graph before client.go (a later task) wires them
-// into NewClient. Removed once NewClient calls detectRootless/rootlessError
-// directly.
-var (
-	_ = detectRootless
-	_ = rootlessError
-	_ = rootlessMarker
-)
