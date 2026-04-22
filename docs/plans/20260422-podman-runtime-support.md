@@ -217,13 +217,13 @@ Flag description updates:
 - Modify: `pkg/runtime/docker/docker.go`
 - Modify: `pkg/runtime/docker/docker_test.go`
 
-- [ ] add exported `NewAPIClient(host string, tlsConfig *tls.Config) (*dockerapi.Client, error)` that does the current HTTP/TLS setup and returns the bare SDK client
-- [ ] add exported `NewFromAPI(api *dockerapi.Client) (ctr.Client, error)` that wraps an existing SDK client; returns `fmt.Errorf("docker: api client must not be nil")` if api is nil (matches existing error-return style — no panics)
-- [ ] refactor existing `NewClient(host, tlsConfig)` to internally call `NewAPIClient` then `NewFromAPI` (no behavior change; fewer lines in `NewClient`)
-- [ ] write unit test: `NewFromAPI(nil)` returns the specified error (exact message match)
-- [ ] write unit test: `NewFromAPI(validClient)` returns a non-nil `ctr.Client`
-- [ ] write unit test: `NewAPIClient` with invalid host returns error, with valid host returns non-nil client
-- [ ] run `make lint && make test` — must pass before Task 2
+- [x] add exported `NewAPIClient(host string, tlsConfig *tls.Config) (*dockerapi.Client, error)` that does the current HTTP/TLS setup and returns the bare SDK client
+- [x] add exported `NewFromAPI(api *dockerapi.Client) (ctr.Client, error)` that wraps an existing SDK client; returns `errors.New("docker: api client must not be nil")` if api is nil (matches existing error-return style — no panics)
+- [x] refactor existing `NewClient(host, tlsConfig)` to internally call `NewAPIClient` then `NewFromAPI` (no behavior change; fewer lines in `NewClient`)
+- [x] write unit test: `NewFromAPI(nil)` returns the specified error (exact message match)
+- [x] write unit test: `NewFromAPI(validClient)` returns a non-nil `ctr.Client`
+- [x] write unit test: `NewAPIClient` with invalid host returns error, with valid host returns non-nil client
+- [x] run `make lint && make test` — must pass before Task 2
 
 ### Task 2: Podman socket discovery
 

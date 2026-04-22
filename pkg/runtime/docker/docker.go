@@ -23,6 +23,16 @@ import (
 
 // NewClient returns a new Client instance which can be used to interact with the Docker API.
 func NewClient(dockerHost string, tlsConfig *tls.Config) (ctr.Client, error) {
+	apiClient, err := NewAPIClient(dockerHost, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return NewFromAPI(apiClient)
+}
+
+// NewAPIClient returns a bare Docker SDK client. Exposed so alternate runtimes
+// (e.g. Podman via the Docker-compat socket) can reuse the HTTP/TLS setup.
+func NewAPIClient(dockerHost string, tlsConfig *tls.Config) (*dockerapi.Client, error) {
 	httpClient, err := HTTPClient(dockerHost, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -32,8 +42,16 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (ctr.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
+	return apiClient, nil
+}
 
-	return dockerClient{containerAPI: apiClient, imageAPI: apiClient, systemAPI: apiClient}, nil
+// NewFromAPI wraps an existing Docker SDK client as a ctr.Client. Exposed so
+// alternate runtimes can reuse the Docker implementation via embedding.
+func NewFromAPI(api *dockerapi.Client) (ctr.Client, error) {
+	if api == nil {
+		return nil, errors.New("docker: api client must not be nil")
+	}
+	return dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}, nil
 }
 
 const (
