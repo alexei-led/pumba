@@ -161,6 +161,17 @@ func TestMachineInspectCandidate_EmptyOutput(t *testing.T) {
 	require.Empty(t, src)
 }
 
+func TestMachineInspectCandidate_MultiMachine(t *testing.T) {
+	defer stubLookPath(func(string) (string, error) { return "/usr/bin/podman", nil })()
+	defer stubExec(func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte("/run/user/501/podman/podman.sock\n/run/user/501/podman-other.sock\n"), nil
+	})()
+
+	uri, src := machineInspectCandidate()
+	require.Equal(t, "/run/user/501/podman/podman.sock", uri)
+	require.Equal(t, "podman machine inspect", src)
+}
+
 func TestMachineInspectCandidate_CommandError(t *testing.T) {
 	defer stubLookPath(func(string) (string, error) { return "/usr/bin/podman", nil })()
 	defer stubExec(func(_ context.Context, _ string, _ ...string) ([]byte, error) {

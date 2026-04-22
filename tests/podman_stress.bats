@@ -5,11 +5,16 @@
 #   * default (child-cgroup) mode — pumba resolves the target's cgroup from the
 #     host view of /proc/<pid>/cgroup (Podman's modern default is cgroupns=private
 #     which hides ancestry from in-container reads), then creates a sidecar
-#     under HostConfig.Resources.CgroupParent. Verified by inspecting the
-#     sidecar's PID cgroup on the host.
+#     under HostConfig.Resources.CgroupParent.
 #   * inject-cgroup (--inject-cgroup) mode — pumba starts the sidecar with
 #     cgroupns=host + bind-mounted /sys/fs/cgroup and runs /cg-inject to move
-#     the stress-ng PID into the target's exact cgroup. Verified the same way.
+#     the stress-ng PID into the target's exact cgroup.
+#
+# Verification is indirect: the "resolved podman target cgroup" log confirms
+# the host-side resolver ran, pumba exits zero (which requires the sidecar to
+# create/start — systemd rejects an invalid scope parent), AutoRemove reaps
+# the sidecar, and the target stays running. A bad parent or leaf name would
+# fail sidecar create and surface here as a non-zero pumba exit.
 #
 # Prerequisites:
 #   * rootful podman — cgroup writes and CAP_SYS_ADMIN for cg-inject require

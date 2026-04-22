@@ -109,6 +109,13 @@ func xdgRuntimeCandidate() (string, string) {
 // machineInspectCandidate asks `podman machine inspect` for the active
 // socket. Returns ("", "") when `podman` isn't on $PATH or the command fails
 // — callers fall through to the next candidate.
+//
+// `podman machine inspect` without an explicit machine name renders the
+// --format template once per configured machine, so the output can be
+// multi-line when several machines exist. Return the first non-empty path
+// rather than the trimmed blob (which would leave an embedded newline and
+// silently fall through to the next candidate). Users with multiple machines
+// who want a specific one should set --podman-socket explicitly.
 func machineInspectCandidate() (string, string) {
 	if _, err := execLookPath("podman"); err != nil {
 		return "", ""
@@ -119,11 +126,13 @@ func machineInspectCandidate() (string, string) {
 	if err != nil {
 		return "", ""
 	}
-	path := strings.TrimSpace(string(out))
-	if path == "" {
-		return "", ""
+	for line := range strings.SplitSeq(string(out), "\n") {
+		path := strings.TrimSpace(line)
+		if path != "" {
+			return path, "podman machine inspect"
+		}
 	}
-	return path, "podman machine inspect"
+	return "", ""
 }
 
 // probeCandidate normalises a raw socket value to a Docker-SDK-compatible URI
