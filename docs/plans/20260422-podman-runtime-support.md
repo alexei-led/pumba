@@ -248,11 +248,11 @@ Flag description updates:
 - Create: `pkg/runtime/podman/rootless.go`
 - Create: `pkg/runtime/podman/rootless_test.go`
 
-- [ ] implement `detectRootless(info system.Info) bool` that returns true if any `SecurityOptions` entry contains `name=rootless`
-- [ ] implement `rootlessError(cmd string, socketURI string) error` returning the user-facing error (message includes both `podman machine set --rootful` hint and Linux-root hint)
-- [ ] write unit tests: rootless info → true; empty info → false; various SecurityOptions strings → correct boolean
-- [ ] write unit test for rootlessError: message contains socket URI, command name, and both hints
-- [ ] run `make lint && make test` — must pass before Task 4
+- [x] implement `detectRootless(info system.Info) bool` that returns true if any `SecurityOptions` entry contains `name=rootless` (implemented with `*system.Info` receiver — `system.Info` is ~1KB so gocritic hugeParam flags value receivers)
+- [x] implement `rootlessError(cmd string, socketURI string) error` returning the user-facing error (message includes both `podman machine set --rootful` hint and Linux-root hint)
+- [x] write unit tests: rootless info → true; empty info → false; various SecurityOptions strings → correct boolean
+- [x] write unit test for rootlessError: message contains socket URI, command name, and both hints
+- [x] run `make lint && make test` — must pass before Task 4
 
 ### Task 4: Cgroup reader and parser
 
