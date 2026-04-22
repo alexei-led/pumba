@@ -60,7 +60,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build make build TARGETOS=${TARGET
 #
 # ------ Pumba Integration Tests ------
 #
-FROM --platform=$TARGETPLATFORM bats/bats:1.11.1 AS integration-tests
+FROM --platform=$TARGETPLATFORM bats/bats:1.13.0 AS integration-tests
 
 # install required packages (containerd-ctr for containerd tests, sudo for ctr commands)
 RUN apk add --no-cache docker iproute2 iptables containerd-ctr sudo git
