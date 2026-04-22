@@ -45,7 +45,7 @@ func TestNewClient_DelegateWrapError(t *testing.T) {
 
 func TestNewClient_InfoError(t *testing.T) {
 	path := makeSocketFile(t)
-	stubFetchInfo(t, func(context.Context, *dockerapi.Client) (system.Info, error) {
+	stubFetchInfo(t, func(context.Context, apiBackend) (system.Info, error) {
 		return system.Info{}, errors.New("info boom")
 	})
 	_, err := NewClient(path)
@@ -56,7 +56,7 @@ func TestNewClient_InfoError(t *testing.T) {
 
 func TestNewClient_RootlessDetected(t *testing.T) {
 	path := makeSocketFile(t)
-	stubFetchInfo(t, func(context.Context, *dockerapi.Client) (system.Info, error) {
+	stubFetchInfo(t, func(context.Context, apiBackend) (system.Info, error) {
 		return system.Info{SecurityOptions: []string{"name=seccomp,profile=default", "name=rootless"}}, nil
 	})
 	c, err := NewClient(path)
@@ -73,7 +73,7 @@ func TestNewClient_RootlessDetected(t *testing.T) {
 
 func TestNewClient_Rootful(t *testing.T) {
 	path := makeSocketFile(t)
-	stubFetchInfo(t, func(context.Context, *dockerapi.Client) (system.Info, error) {
+	stubFetchInfo(t, func(context.Context, apiBackend) (system.Info, error) {
 		return system.Info{SecurityOptions: []string{"name=seccomp,profile=default"}}, nil
 	})
 	c, err := NewClient(path)
@@ -194,7 +194,7 @@ func stubNewDelegate(t *testing.T, fn func(*dockerapi.Client) (ctr.Client, error
 	t.Cleanup(func() { newDelegate = orig })
 }
 
-func stubFetchInfo(t *testing.T, fn func(context.Context, *dockerapi.Client) (system.Info, error)) {
+func stubFetchInfo(t *testing.T, fn func(context.Context, apiBackend) (system.Info, error)) {
 	t.Helper()
 	orig := fetchInfo
 	fetchInfo = fn

@@ -294,22 +294,25 @@ Flag description updates:
 - Create: `pkg/runtime/podman/stress.go`
 - Create: `pkg/runtime/podman/stress_test.go`
 
-- [ ] implement `(p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error)`
-- [ ] rootless guard at start — `if p.rootless { return "", nil, nil, rootlessError("stress", p.socketURI) }`
-- [ ] if `dryrun` — log the plan and return `("", nil, nil, nil)` (match docker runtime's dryrun shape)
-- [ ] resolve cgroup (Algorithm Z, host-side):
+- [x] implement `(p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error)`
+- [x] rootless guard at start — `if p.rootless { return "", nil, nil, rootlessError("stress", p.socketURI) }`
+- [x] if `dryrun` — log the plan and return `("", nil, nil, nil)` (match docker runtime's dryrun shape)
+- [x] resolve cgroup (Algorithm Z, host-side):
   - `info, err := p.api.ContainerInspect(ctx, c.ID())` → read `info.State.Pid`
   - `bytes, err := cgroupReader(info.State.Pid)` → host-side `/proc/<pid>/cgroup`
   - `driver, fullPath, parent, _, err := ParseProc1Cgroup(string(bytes))` → parse
-- [ ] build sidecar config:
+- [x] build sidecar config:
   - default mode: `HostConfig.Resources.CgroupParent = parent` (NOT `fullPath`); `AutoRemove: true`; Entrypoint left to image default (`/stress-ng`); Cmd = stressors
   - inject-cgroup mode: Entrypoint = `/cg-inject`; Cmd = `["--cgroup-path", fullPath, "--", "/stress-ng", ...stressors]`; `CgroupnsMode: "host"`; `Binds: ["/sys/fs/cgroup:/sys/fs/cgroup:rw"]`
   - both modes: `Labels: {"com.gaiaadm.pumba.skip": "true"}`; image = `image`
-- [ ] pull image if `pull` via `p.api.ImagePull`
-- [ ] `p.api.ContainerCreate(...)` + `ContainerAttach(stdout)` + `ContainerStart`
-- [ ] goroutine drains stdout via `io.Copy` (mirror `docker.go` stress goroutine verbatim; note in comment: captured buffer is diagnostic-only, not machine-parseable because stream is muxed with frame headers). Inspects exit code after EOF, closes output/error channels.
-- [ ] write unit tests for all code paths using testify mocks + swap `cgroupReader` to a fake: dryrun; rootless guard; ContainerInspect error; cgroupReader error; cgroup parse failure (malformed bytes); default mode with systemd target; default mode with cgroupfs target; inject-cgroup mode; image pull error; create error; successful full flow
-- [ ] run `make lint && make test` — must pass before Task 7
+- [x] pull image if `pull` via `p.api.ImagePull`
+- [x] `p.api.ContainerCreate(...)` + `ContainerAttach(stdout)` + `ContainerStart`
+- [x] goroutine drains stdout via `io.Copy` (mirror `docker.go` stress goroutine verbatim; note in comment: captured buffer is diagnostic-only, not machine-parseable because stream is muxed with frame headers). Inspects exit code after EOF, closes output/error channels.
+- [x] write unit tests for all code paths using testify mocks + swap `cgroupReader` to a fake: dryrun; rootless guard; ContainerInspect error; cgroupReader error; cgroup parse failure (malformed bytes); default mode with systemd target; default mode with cgroupfs target; inject-cgroup mode; image pull error; create error; successful full flow. Also added attach error + start error (channels-returned) cases, and direct `buildStressConfig` assertions.
+
+  Task 6 design note: refactored Task 5's `podmanClient.api` field from concrete `*dockerapi.Client` to a narrow `apiBackend` interface so `stress.go` is unit-testable via `mocks.APIClient`. `*dockerapi.Client` and `*mocks.APIClient` both satisfy it; compile-time asserts in `stress_test.go` guard against drift. Also removed the `var _ = cgroupReader` reachability hack in `cgroup.go` now that stress.go references `cgroupReader` directly.
+
+- [x] run `make lint && make test` — must pass before Task 7
 
 ### Task 7: CLI integration
 

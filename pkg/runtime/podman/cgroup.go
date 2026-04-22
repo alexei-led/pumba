@@ -207,8 +207,3 @@ func splitParentLeaf(p string) (string, string) {
 	}
 	return p[:i], p[i+1:]
 }
-
-// Keep cgroupReader reachable from the package at build time so the unused
-// linter can trace its dependency graph before stress.go (Task 6) wires it
-// into StressContainer. Removed once stress.go calls cgroupReader directly.
-var _ = cgroupReader

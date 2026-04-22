@@ -3,15 +3,34 @@ package podman
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/runtime/docker"
+	"github.com/docker/docker/api/types"
+	ctypes "github.com/docker/docker/api/types/container"
+	imagetypes "github.com/docker/docker/api/types/image"
+	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/system"
-	dockerapi "github.com/docker/docker/client"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 )
+
+// apiBackend is the narrow Docker SDK surface the podmanClient exercises for
+// paths it owns (bootstrap /info; stress-ng sidecar). Interface-typed so
+// tests can inject a fake without standing up an HTTP transport. Both
+// *dockerapi.Client (production) and *mocks.APIClient (tests) satisfy it.
+type apiBackend interface {
+	Info(ctx context.Context) (system.Info, error)
+	ContainerInspect(ctx context.Context, containerID string) (ctypes.InspectResponse, error)
+	ImagePull(ctx context.Context, refStr string, options imagetypes.PullOptions) (io.ReadCloser, error)
+	ContainerCreate(ctx context.Context, config *ctypes.Config, hostConfig *ctypes.HostConfig, networkingConfig *networktypes.NetworkingConfig, platform *v1.Platform, containerName string) (ctypes.CreateResponse, error)
+	ContainerAttach(ctx context.Context, container string, options ctypes.AttachOptions) (types.HijackedResponse, error)
+	ContainerStart(ctx context.Context, container string, options ctypes.StartOptions) error
+	Close() error
+}
 
 // bootstrapTimeout bounds the initial /info probe. The resolveSocket step only
 // stat()s unix paths, so a file that exists but doesn't speak the API will hang
@@ -23,7 +42,7 @@ const bootstrapTimeout = 10 * time.Second
 var (
 	newAPIClient = docker.NewAPIClient
 	newDelegate  = docker.NewFromAPI
-	fetchInfo    = func(ctx context.Context, api *dockerapi.Client) (system.Info, error) {
+	fetchInfo    = func(ctx context.Context, api apiBackend) (system.Info, error) {
 		return api.Info(ctx)
 	}
 )
@@ -36,7 +55,7 @@ var (
 // divergence).
 type podmanClient struct {
 	ctr.Client
-	api       *dockerapi.Client
+	api       apiBackend
 	rootless  bool
 	socketURI string
 }
