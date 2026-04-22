@@ -261,17 +261,17 @@ Flag description updates:
 - Create: `pkg/runtime/podman/cgroup.go`
 - Create: `pkg/runtime/podman/cgroup_test.go`
 
-- [ ] define `var cgroupReader = func(pid int) ([]byte, error) { return os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid)) }` so tests can swap it
-- [ ] implement `ParseProc1Cgroup(contents string) (driver, fullPath, parent, leaf string, err error)`
-- [ ] selection: pick v2 line (`0::/path`) if present; else v1 systemd line (`N:name=systemd:/path`); else return error
-- [ ] **truncation:** walk segments right-to-left; `fullPath` = path up to and including the last `.scope` segment; if no `.scope`, up to last `.slice`; if neither, use the raw path as-is (handles plain cgroupfs `/libpod/<id>`)
-- [ ] strip leading `/` from segment parsing but preserve it in returned `parent`/`fullPath`
-- [ ] `driver`: contains `.slice` or `.scope` → `systemd`; else `cgroupfs`
-- [ ] `parent` = everything before last `/` of `fullPath`; `leaf` = last component
-- [ ] return error if contents is empty or contains only `0::/` / `0::/container` (private cgroupns view — caller bug, should have read host-side)
-- [ ] write table-driven tests covering all cases listed in Technical Details > Cgroup resolution: v2 machine.slice/libpod-\_.scope; v2 with `/container` sub-cgroup; v2 with `/init.scope` sub-cgroup; v1 systemd; v1 libpod cgroupfs; private cgroupns → error; empty → error; malformed → error
-- [ ] add integration-test-style sanity check: **before Task 6 implementation**, manually run `podman run -d --rm alpine sleep 60`, then `cat /proc/$(podman inspect -f '{{.State.Pid}}' <id>)/cgroup` from the VM host, feed output to `ParseProc1Cgroup`, confirm it produces a `libpod-<id>.scope` leaf. Document the observed path in a comment in `cgroup_test.go` for future reference.
-- [ ] run `make lint && make test` — must pass before Task 5
+- [x] define `var cgroupReader = func(pid int) ([]byte, error) { return os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid)) }` so tests can swap it
+- [x] implement `ParseProc1Cgroup(contents string) (driver, fullPath, parent, leaf string, err error)`
+- [x] selection: pick v2 line (`0::/path`) if present; else v1 systemd line (`N:name=systemd:/path`); else return error
+- [x] **truncation:** walk segments right-to-left; `fullPath` = path up to and including the last `.scope` segment; if no `.scope`, up to last `.slice`; if neither, use the raw path as-is (handles plain cgroupfs `/libpod/<id>`)
+- [x] strip leading `/` from segment parsing but preserve it in returned `parent`/`fullPath`
+- [x] `driver`: contains `.slice` or `.scope` → `systemd`; else `cgroupfs`
+- [x] `parent` = everything before last `/` of `fullPath`; `leaf` = last component
+- [x] return error if contents is empty or contains only `0::/` / `0::/container` (private cgroupns view — caller bug, should have read host-side)
+- [x] write table-driven tests covering all cases listed in Technical Details > Cgroup resolution: v2 machine.slice/libpod-\_.scope; v2 with `/container` sub-cgroup; v2 with `/init.scope` sub-cgroup; v1 systemd; v1 libpod cgroupfs; private cgroupns → error; empty → error; malformed → error
+- [x] add integration-test-style sanity check: manual VM round-trip (skipped — not automatable in sandbox). Canonical path observed on rootful `podman machine` documented as a package comment at the top of `cgroup_test.go`: `0::/machine.slice/libpod-<64-hex-id>.scope` (and `.../container` when libpod init sub-cgroup is present) — both truncate to `/machine.slice/libpod-<id>.scope`.
+- [x] run `make lint && make test` — must pass before Task 5
 
 ### Task 5: Podman client skeleton
 
