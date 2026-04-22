@@ -146,7 +146,11 @@ teardown() {
 
     run pumba --runtime podman --log-level debug kill $full_id
     echo "Kill exited container output: $output"
-    # Graceful handling — may warn but not crash
+    # Pumba must terminate — graceful (0) or a handled non-zero — without
+    # panicking. A panic shows up as a non-zero stack trace; assert no
+    # runtime panic leaked.
+    refute_output --partial "runtime error"
+    refute_output --partial "goroutine"
 }
 
 @test "Should accept --podman-socket override" {

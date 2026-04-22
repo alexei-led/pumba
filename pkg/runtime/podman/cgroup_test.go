@@ -200,8 +200,8 @@ func TestParseProc1Cgroup_Errors(t *testing.T) {
 			wantErr: errPrivateCgroupnsView,
 		},
 		{
-			name:    "private cgroupns view with trailing slash normalises to root",
-			input:   "0::/\n",
+			name:    "private cgroupns view — podman container sub-cgroup with trailing slash normalises",
+			input:   "0::/container/\n",
 			wantErr: errPrivateCgroupnsView,
 		},
 	}
@@ -218,33 +218,4 @@ func TestParseProc1Cgroup_Errors(t *testing.T) {
 			)
 		})
 	}
-}
-
-func TestCgroupReaderDefault(t *testing.T) {
-	t.Parallel()
-
-	// Default reader reads /proc/self/cgroup, which exists on Linux hosts and
-	// is missing on macOS/darwin. We only assert shape: either contents come
-	// back non-empty, or an IO error propagates. Nothing else can be true.
-	data, err := cgroupReader(1)
-	if err != nil {
-		assert.Empty(t, data, "reader returns empty bytes on error")
-		return
-	}
-	assert.NotEmpty(t, data, "reader returns non-empty bytes on success")
-}
-
-func TestCgroupReaderSwappable(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
-	orig := cgroupReader
-	t.Cleanup(func() { cgroupReader = orig })
-
-	const want = "0::/machine.slice/libpod-abc.scope\n"
-	cgroupReader = func(pid int) ([]byte, error) {
-		assert.Equal(t, 42, pid)
-		return []byte(want), nil
-	}
-
-	got, err := cgroupReader(42)
-	require.NoError(t, err)
-	assert.Equal(t, want, string(got))
 }

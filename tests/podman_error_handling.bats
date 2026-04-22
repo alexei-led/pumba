@@ -42,7 +42,14 @@ teardown() {
 
     run pumba --runtime podman --log-level debug kill $full_id
     echo "Kill exited container: status=$status, output=$output"
-    [[ $status -eq 0 ]] || [[ "$output" =~ "not found" ]] || [[ "$output" =~ "not running" ]] || [[ "$output" =~ "error" ]]
+    # Graceful outcome: either exit 0 (no-op) or a recognised diagnostic
+    # ("not found" / "not running"). A bare substring match on "error" is
+    # effectively true under --log-level debug, so it is rejected here.
+    if [[ $status -ne 0 ]]; then
+        [[ "$output" =~ "not found" ]] || [[ "$output" =~ "not running" ]]
+    fi
+    refute_output --partial "runtime error"
+    refute_output --partial "goroutine"
 }
 
 @test "Should handle invalid duration format gracefully via podman runtime" {

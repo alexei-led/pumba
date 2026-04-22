@@ -25,6 +25,8 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
   - Colima VM has native Docker + containerd sockets; `sudo` is required for containerd sidecar tests
 - **Docker tests only (via Docker image):** `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --entrypoint bats pumba:test tests/*.bats`
 - **Containerd tests only:** `colima ssh -- sudo bats tests/containerd_*.bats`
+- **Podman tests only (macOS, inside podman machine VM):** `podman machine ssh sudo bats tests/podman_*.bats`
+- **Podman tests only (Linux, rootful):** `sudo bats tests/podman_*.bats`
 - CI builds a Docker image (`pumba:test` target `integration-tests`) and runs bats inside it
 - Rebuild test image after code changes: `docker build --target integration-tests -t pumba:test -f docker/Dockerfile .`
 - Copy updated binary to Colima: `colima ssh -- sudo cp /Users/alexei/workspace/pumba/.bin/linux/pumba /usr/local/bin/pumba`
