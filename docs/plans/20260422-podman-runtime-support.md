@@ -368,11 +368,11 @@ Flag description updates:
 
 - Modify: `.github/workflows/build.yaml`
 
-- [ ] add new job `integration-tests-podman` that: runs on `ubuntu-latest` (Podman 4.9.x from apt is acceptable — we rely only on stable Docker-compat endpoints); installs podman via `apt-get install -y podman bats`; enables rootful `podman.socket` systemd unit (`systemctl enable --now podman.socket`); builds pumba binary; runs `sudo bats tests/podman_*.bats`
-- [ ] gate the job on the existing unit-test job passing
-- [ ] job outputs captured as a GitHub Actions artifact on failure for debugging
-- [ ] verify CI run is green on a throwaway branch before merging
-- [ ] run `yamllint .github/workflows/build.yaml` (or whatever the repo uses) — must pass before Task 11
+- [x] add new job `integration-tests-podman` that: runs on `ubuntu-24.04` (Podman 4.9.x from apt is acceptable — we rely only on stable Docker-compat endpoints); installs podman via `apt-get install -y podman` and bats via `bats-core/bats-action`; enables rootful `podman.socket` systemd unit (`systemctl enable --now podman.socket`); builds pumba binary; runs `sudo bats tests/podman_*.bats`
+- [x] gate the job on the existing unit-test job passing (`needs: test`)
+- [x] job outputs captured as a GitHub Actions artifact on failure for debugging (bats log + journalctl + `podman ps` via `actions/upload-artifact@v4`)
+- [x] verify CI run is green on a throwaway branch before merging — manual test (skipped - not automatable in sandbox; requires pushing to a branch and observing Actions)
+- [x] run `yamllint .github/workflows/build.yaml` (or whatever the repo uses) — repo uses `actionlint` via the smart-lint hook; passes clean on the new workflow
 
 ### Task 11: Documentation
 

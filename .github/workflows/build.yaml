@@ -140,3 +140,69 @@ jobs:
           else
             echo "Containerd socket not available, skipping containerd tests"
           fi
+  integration-tests-podman:
+    name: Integration Tests (Podman)
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Setup Go Environment
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          podman --version
+      - name: Install Bats and Libraries
+        uses: bats-core/bats-action@4.0.0
+        with:
+          support-path: /usr/local/lib/bats-support
+          assert-path: /usr/local/lib/bats-assert
+          detik-install: false
+          file-install: false
+      - name: Enable Rootful Podman Socket
+        run: |
+          sudo systemctl enable --now podman.socket
+          sudo ls -l /run/podman/podman.sock
+          sudo podman info
+      - name: Build Pumba Binary
+        run: make build TARGETARCH="$(dpkg --print-architecture)"
+      - name: Install Pumba
+        run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
+      - name: Pull Test Images
+        run: |
+          sudo podman pull docker.io/library/alpine:latest
+          sudo podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
+          sudo podman pull ghcr.io/alexei-led/stress-ng:latest
+          sudo podman pull docker.io/nicolaka/netshoot:latest || true
+      - name: Run Podman Integration Tests
+        run: |
+          set -o pipefail
+          sudo env "PATH=$PATH" bats --print-output-on-failure tests/podman_*.bats 2>&1 | tee podman-bats.log
+      - name: Collect Podman Journal on Failure
+        if: failure()
+        run: |
+          sudo journalctl -u podman.socket --no-pager 2>&1 | tee podman-socket-journal.log >/dev/null || true
+          sudo journalctl -u podman.service --no-pager 2>&1 | tee podman-service-journal.log >/dev/null || true
+          sudo podman ps -a 2>&1 | tee podman-ps.log >/dev/null || true
+      - name: Upload Podman Test Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: podman-integration-logs
+          path: |
+            podman-bats.log
+            podman-socket-journal.log
+            podman-service-journal.log
+            podman-ps.log
+          retention-days: 7
+          if-no-files-found: ignore
