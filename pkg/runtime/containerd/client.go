@@ -3,6 +3,7 @@ package containerd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -92,7 +93,7 @@ func (c *containerdClient) forceKillTask(ctx context.Context, cntr containerd.Co
 // ListContainers lists containers from containerd and applies the filter.
 func (c *containerdClient) ListContainers(ctx context.Context, fn ctr.FilterFunc, opts ctr.ListOpts) ([]*ctr.Container, error) {
 	if len(opts.Labels) > 0 {
-		return nil, fmt.Errorf("containerd runtime: label filtering is not yet implemented")
+		return nil, errors.New("containerd runtime: label filtering is not yet implemented")
 	}
 	ctx = c.nsCtx(ctx)
 	containers, err := c.client.Containers(ctx)

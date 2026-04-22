@@ -46,7 +46,7 @@ func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Para
 	// check for valid protocol
 	protocol := c.String("protocol")
 	if !slices.Contains([]string{iptables.ProtocolAny, iptables.ProtocolTCP, iptables.ProtocolUDP, iptables.ProtocolICMP}, protocol) {
-		return nil, fmt.Errorf("bad protocol name: must be one of any, tcp, udp or icmp")
+		return nil, errors.New("bad protocol name: must be one of any, tcp, udp or icmp")
 	}
 
 	// validate src ips

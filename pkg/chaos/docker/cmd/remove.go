@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -47,7 +48,7 @@ func NewRemoveCLICommand(ctx context.Context) *cli.Command {
 // REMOVE Command
 func (cmd *removeContext) remove(c *cli.Context) error {
 	if !c.Args().Present() {
-		return fmt.Errorf("container name, list of names, or RE2 regex is required")
+		return errors.New("container name, list of names, or RE2 regex is required")
 	}
 	// parse common chaos flags
 	params, err := chaos.ParseGlobalParams(c)

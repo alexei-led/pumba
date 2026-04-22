@@ -2,6 +2,7 @@ package iptables
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -39,19 +40,19 @@ func NewLossCommand(client iptablesClient,
 	case ModeRandom:
 		// get loss probability
 		if probability < 0.0 || probability > 1.0 {
-			return nil, fmt.Errorf("invalid loss probability: must be between 0.0 and 1.0")
+			return nil, errors.New("invalid loss probability: must be between 0.0 and 1.0")
 		}
 	case ModeNTH:
 		// get every
 		if every <= 0 {
-			return nil, fmt.Errorf("invalid loss every: must be > 0")
+			return nil, errors.New("invalid loss every: must be > 0")
 		}
 		// get packet
 		if packet < 0 || (packet > every-1) {
-			return nil, fmt.Errorf("invalid loss packet: must be 0 <= packet <= every-1")
+			return nil, errors.New("invalid loss packet: must be 0 <= packet <= every-1")
 		}
 	default:
-		return nil, fmt.Errorf("invalid loss mode: must be either random or nth")
+		return nil, errors.New("invalid loss mode: must be either random or nth")
 	}
 
 	return &lossCommand{

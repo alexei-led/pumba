@@ -122,15 +122,19 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
 		log.Debug("stop stress test on containers by stop event")
-		// NOTE: use different context to stop netem since parent context is canceled
-		err = s.client.StopContainerWithID(context.Background(), stress, defaultStopTimeout, s.dryRun)
+		// cleanup must run even when parent ctx is canceled; preserve values but strip cancellation
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
+		defer cleanupCancel()
+		err = s.client.StopContainerWithID(cleanupCtx, stress, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
 	case <-timer.C:
 		log.WithField("duration", s.duration).Debug("stop stress containers after duration")
-		// NOTE: use background context since parent context may be canceled when timer and context fire simultaneously
-		err = s.client.StopContainerWithID(context.Background(), stress, defaultStopTimeout, s.dryRun)
+		// parent ctx may cancel simultaneously with the timer; strip cancellation for cleanup
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
+		defer cleanupCancel()
+		err = s.client.StopContainerWithID(cleanupCtx, stress, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
