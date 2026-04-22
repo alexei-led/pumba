@@ -1,8 +1,9 @@
-name: "Code Scan"
-
+name: Code Scan
 on:
   pull_request:
-    branches: [ master, main ]
+    branches:
+      - master
+      - main
   schedule:
     #        ┌───────────── minute (0 - 59)
     #        │  ┌───────────── hour (0 - 23)
@@ -13,12 +14,10 @@ on:
     #        │  │ │ │ │
     #        │  │ │ │ │
     #        *  * * * *
-    - cron: '0 17 * * 5'
-
+    - cron: 0 17 * * 5
 jobs:
   CodeQL-Build:
     runs-on: ubuntu-latest
-
     permissions:
       # required for all workflows
       security-events: write
@@ -26,21 +25,18 @@ jobs:
       contents: read
       # required for PR scans
       pull-requests: read
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # We must fetch at least the immediate parents so that if this is
           # a pull request then we can checkout the head.
           fetch-depth: 2
-
       # Set up Go for better analysis
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
-
+          go-version: "1.26"
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -48,22 +44,19 @@ jobs:
           languages: go
           # Enable dependency scanning
           queries: +security-extended,security-and-quality
-
       # Autobuild attempts to build any compiled languages
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
-
-      # ℹ️ Command-line programs to run using the OS shell.
-      # 📚 If the Autobuild fails, uncomment the following three lines
-      #    and modify them to build your code if your project
-      #    uses a compiled language
-
       #- name: Manual Build
       #  run: |
       #   make bootstrap
       #   make release
-
       - name: Perform CodeQL Analysis
+        # ℹ️ Command-line programs to run using the OS shell.
+        # 📚 If the Autobuild fails, uncomment the following three lines
+        #    and modify them to build your code if your project
+        #    uses a compiled language
+
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:go"
+          category: /language:go
