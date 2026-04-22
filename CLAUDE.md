@@ -62,6 +62,7 @@ pkg/
   runtime/
     docker/            — Docker runtime implementation of container.Client
     containerd/        — Containerd runtime implementation of container.Client
+    podman/            — Podman runtime implementation (embeds Docker client, overrides stress cgroup resolution + rootless guards)
   util/                — Shared utilities (IP/port parsing)
 mocks/                 — Generated mock files (mockery)
 tests/                 — Bats integration tests
@@ -75,6 +76,7 @@ examples/              — Demo scripts
 - **Container interfaces** (`pkg/container/client.go`): Focused sub-interfaces (Lister, Lifecycle, Executor, Netem, IPTables, Stressor) composed into a unified Client interface
 - **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client
 - **Containerd runtime** (`pkg/runtime/containerd/`): Containerd implementation of container.Client (socket: `/run/containerd/containerd.sock`, namespace: `k8s.io`)
+- **Podman runtime** (`pkg/runtime/podman/`): Podman implementation of container.Client; reuses the Docker SDK against Podman's Docker-compat socket and overrides only what diverges (stress cgroup resolution + rootless guards). Socket auto-detected from `$CONTAINER_HOST`, `$PODMAN_SOCK`, `podman machine inspect`, `/run/podman/podman.sock`, and `$XDG_RUNTIME_DIR/podman/podman.sock`; override via `--podman-socket`. Cgroup parent/leaf derived host-side from `/proc/<pid>/cgroup` of the target container (see `pkg/runtime/podman/cgroup.go`) — pumba must run on the same kernel as the targets.
 - **Chaos commands**: Each action implements `ChaosCommand` interface with `Run(ctx, random)` method
 - **Network emulation**: Executes `tc` commands inside a sidecar container via Docker exec
 - **Stress testing**: Two modes — (1) default child-cgroup mode places stress-ng sidecar in target's cgroup via Docker's `--cgroup-parent`; (2) inject-cgroup mode (`--inject-cgroup`) uses the `cg-inject` binary (shipped in [`ghcr.io/alexei-led/stress-ng`](https://github.com/alexei-led/stress-ng)) to write sidecar PID into target's `cgroup.procs` for shared resource accounting
@@ -113,3 +115,6 @@ examples/              — Demo scripts
 - **exec command parsing:** `--command "touch /tmp/foo"` is wrong (treated as binary name with spaces); use `--command "touch" --args "/tmp/foo"`
 - **Containerd sidecar requires root:** netem/iptables tests on containerd need `sudo pumba` — overlayfs mounts for sidecar creation require root in Colima VM
 - **Containerd namespaces:** Docker-managed containers live in `moby` namespace; pure containerd in `default`; Kubernetes in `k8s.io`
+- **Podman requires rootful for netem/iptables/stress:** rootless Podman is detected at `NewClient` time from `Info.SecurityOptions` and every netem/iptables/stress call fails fast with a message pointing at `podman machine set --rootful` (macOS) or the rootful systemd unit (Linux). Rootless support is out of scope — would need slirp4netns/pasta netns handling and user-namespace cgroup math.
+- **Podman cgroup leaf naming:** Podman uses `libpod-<id>.scope` (or `libpod-<id>.scope/container` with init sub-cgroup) under systemd, vs Docker's `docker-<id>.scope`. Pointing `--runtime docker` at Podman's compat socket silently places stress-ng sidecars in the wrong cgroup; `--runtime podman` derives the correct path.
+- **Podman cgroup resolution reads host-side `/proc/<pid>/cgroup`:** containers launched under Podman's default `--cgroupns=private` see only `0::/` or `0::/container` from inside the container, so we read from pumba's own view of `/proc` (requires shared kernel with targets). On macOS this means running pumba **inside the `podman machine` VM** — the same pattern used for containerd testing in Colima. See `pkg/runtime/podman/cgroup.go` and the `cgroupReader` var for the test-injectable hook.

@@ -1,7 +1,7 @@
 <p align="center">
   <img src="docs/img/pumba_logo.png" alt="Pumba" width="300">
   <br>
-  <strong>Chaos testing tool for Docker and containerd</strong>
+  <strong>Chaos testing tool for Docker, containerd, and Podman</strong>
 </p>
 
 <p align="center">
@@ -23,13 +23,13 @@
 
 ---
 
-Pumba is a chaos testing and network emulation tool for Docker and containerd containers. Inspired by [Netflix Chaos Monkey](https://netflix.github.io/chaosmonkey/), Pumba brings chaos engineering to the container level — kill, stop, pause, and remove containers, inject network delays and packet loss, or stress-test container resources.
+Pumba is a chaos testing and network emulation tool for Docker, containerd, and Podman containers. Inspired by [Netflix Chaos Monkey](https://netflix.github.io/chaosmonkey/), Pumba brings chaos engineering to the container level — kill, stop, pause, and remove containers, inject network delays and packet loss, or stress-test container resources.
 
 ## How It Works
 
 ```mermaid
 graph LR
-    A[Pumba CLI] -->|Docker API / containerd API| B[Container Runtime]
+    A[Pumba CLI] -->|Docker API / containerd API / Podman compat API| B[Container Runtime]
     B -->|List & Filter| C[Target Containers]
 
     A -->|kill / stop / pause / rm| C
@@ -39,9 +39,13 @@ graph LR
     D -->|Runs tc / iptables| E[Network Chaos]
 ```
 
-Pumba supports two container runtimes:
-- **Docker** (default): Uses the Docker API. For network chaos, creates a helper container sharing the target's network namespace.
-- **containerd**: Uses the containerd API directly. For network chaos, executes `tc`/`iptables` commands directly inside the target container (requires tools to be installed in the container image).
+### Supported runtimes
+
+| Runtime    | Socket (default)                    | netem / iptables / stress                     | Notes                                                                                         |
+| ---------- | ----------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Docker     | `/var/run/docker.sock`              | Works as root or with socket access           | Default runtime.                                                                              |
+| containerd | `/run/containerd/containerd.sock`   | Requires root (overlayfs mounts for sidecar)  | Namespaces: `k8s.io` (Kubernetes), `moby` (Docker-managed), `default` (pure containerd).      |
+| Podman     | `/run/podman/podman.sock` (rootful) | Requires **rootful** Podman (fails fast else) | Uses Podman's Docker-compat API; on macOS pumba runs **inside `podman machine`** (see below). |
 
 ## Features
 
@@ -98,13 +102,53 @@ pumba --runtime containerd --containerd-namespace moby \
   netem --duration 5m delay --time 3000 <container-id>
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--runtime` | `docker` | Container runtime (`docker` or `containerd`) |
-| `--containerd-socket` | `/run/containerd/containerd.sock` | containerd socket path |
-| `--containerd-namespace` | `k8s.io` | containerd namespace (`k8s.io` for Kubernetes, `moby` for Docker) |
+### Podman Runtime
+
+Pumba talks to Podman via its Docker-compat socket. `--podman-socket` is optional — if empty, pumba probes `$CONTAINER_HOST`, `$PODMAN_SOCK`, `podman machine inspect`, `/run/podman/podman.sock`, and `$XDG_RUNTIME_DIR/podman/podman.sock` in order.
+
+```bash
+# Kill a container by name via Podman (rootful socket auto-detected)
+sudo pumba --runtime podman kill mycontainer
+
+# Add network delay via Podman (requires rootful socket)
+sudo pumba --runtime podman netem --duration 5m delay --time 3000 mycontainer
+
+# Stress CPU via Podman (default child-cgroup mode)
+sudo pumba --runtime podman stress --duration 60s --stressors="--cpu 4 --timeout 60s" mycontainer
+
+# Explicit socket override
+pumba --runtime podman --podman-socket unix:///run/podman/podman.sock kill mycontainer
+```
+
+`netem`, `iptables`, and `stress` require **rootful Podman** — rootless fails fast with a clear message pointing at `podman machine set --rootful` (macOS) or the rootful systemd unit (Linux).
+
+#### macOS development with Podman
+
+Podman on macOS runs inside a Linux VM. Pumba must run on the same kernel as the target containers (host-side `/proc/<pid>/cgroup` read), so run the pumba binary **inside** the `podman machine` VM:
+
+```bash
+# one-time setup
+brew install podman
+podman machine init --rootful --cpus 4 --memory 4096 --now
+podman machine ssh sudo dnf install -y bats      # optional, for bats tests
+
+# copy a linux/arm64 or linux/amd64 pumba binary into the VM
+podman machine ssh sudo cp /path/to/pumba /usr/local/bin/
+
+# run inside the VM
+podman machine ssh sudo pumba --runtime podman --log-level debug ps
+podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time 200 <container-id>
+```
+
+| Flag                     | Default                           | Description                                                                              |
+| ------------------------ | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| `--runtime`              | `docker`                          | Container runtime (`docker`, `containerd`, or `podman`)                                  |
+| `--containerd-socket`    | `/run/containerd/containerd.sock` | containerd socket path                                                                   |
+| `--containerd-namespace` | `k8s.io`                          | containerd namespace (`k8s.io` for Kubernetes, `moby` for Docker)                        |
+| `--podman-socket`        | _(auto-detected)_                 | Podman socket URI (e.g. `unix:///run/podman/podman.sock`); empty triggers auto-detection |
 
 > **Tip:** For network chaos on containers without `tc`/`iptables`, use `--tc-image` to spawn a sidecar:
+>
 > ```bash
 > pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
 >   --duration 5m delay --time 3000 <container-id>

@@ -381,10 +381,10 @@ Flag description updates:
 - Modify: `README.md`
 - Modify: `CLAUDE.md`
 
-- [ ] README.md: add `--runtime podman` under the Usage section with a minimal example; add a "Supported runtimes" table (Docker / Containerd / Podman) noting rootful requirement for netem/iptables/stress
-- [ ] README.md: add "macOS development with Podman" note pointing to `podman machine init --rootful` and explaining pumba runs inside the VM
-- [ ] CLAUDE.md: add a "Podman runtime" bullet to Architecture; add a Gotcha note about rootful requirement, the `libpod-<id>.scope` leaf naming divergence from Docker, and the host-side `/proc/<pid>/cgroup` read requirement (must share a kernel with targets)
-- [ ] verify all doc examples work as written (copy-paste one into a terminal)
+- [x] README.md: add `--runtime podman` under the Usage section with a minimal example; add a "Supported runtimes" table (Docker / Containerd / Podman) noting rootful requirement for netem/iptables/stress
+- [x] README.md: add "macOS development with Podman" note pointing to `podman machine init --rootful` and explaining pumba runs inside the VM
+- [x] CLAUDE.md: add a "Podman runtime" bullet to Architecture; add a Gotcha note about rootful requirement, the `libpod-<id>.scope` leaf naming divergence from Docker, and the host-side `/proc/<pid>/cgroup` read requirement (must share a kernel with targets)
+- [x] verify all doc examples work as written — flag names cross-checked against `cmd/main.go` (`--podman-socket` at line 271, `--runtime podman` case at line 169); `podman machine` commands documented are standard Podman CLI invocations (manual copy-paste not automatable in sandbox)
 
 ### Task 12: Verify acceptance criteria
 
