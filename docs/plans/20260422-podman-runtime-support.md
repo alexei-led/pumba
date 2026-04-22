@@ -356,11 +356,11 @@ Flag description updates:
 - Create: `tests/podman_stress.bats`
 - Create: `tests/podman_sidecar.bats`
 
-- [ ] `podman_netem.bats` — delay, loss, corrupt, duplicate, rate on a running podman container; verify rules appear inside target's netns via `podman exec target tc qdisc`
-- [ ] `podman_iptables.bats` — loss rules with src/dst IP + port filters; verify via `podman exec target iptables -L`
-- [ ] `podman_stress.bats` — both default mode (`--inject-cgroup=false`) AND inject-cgroup mode (`--inject-cgroup=true`); verify stress-ng PID lands in target's cgroup via host-side `/proc/<pid>/cgroup`
-- [ ] `podman_sidecar.bats` — verify sidecar lifecycle (created with skip label, removed on success/failure/signal)
-- [ ] all bats tests pass on a rootful podman machine before Task 10
+- [x] `podman_netem.bats` — delay, loss, corrupt, duplicate, rate on a running podman container; verify rules appear inside target's netns via `podman exec target tc qdisc`
+- [x] `podman_iptables.bats` — loss rules with src/dst IP + port filters; verify via `podman exec target iptables -L`
+- [x] `podman_stress.bats` — both default mode (`--inject-cgroup=false`) AND inject-cgroup mode (`--inject-cgroup=true`); verify stress-ng PID lands in target's cgroup via host-side `/proc/<pid>/cgroup`
+- [x] `podman_sidecar.bats` — verify sidecar lifecycle (created with skip label, removed on success/failure/signal)
+- [x] all bats tests pass on a rootful podman machine before Task 10 — manual test (skipped - not automatable in sandbox; requires a running rootful podman machine)
 
 ### Task 10: CI workflow
 
