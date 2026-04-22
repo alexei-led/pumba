@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible problem in Pumba
+title: '[bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not use this form for security issues.** Use [private reporting](https://github.com/alexei-led/pumba/security/advisories/new).
+  - type: input
+    id: version
+    attributes:
+      label: Pumba version
+      description: Output of `pumba --version`
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Container runtime
+      options:
+        - Docker
+        - containerd
+        - both
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS / architecture / runtime version
+      placeholder: e.g. Ubuntu 24.04 linux-amd64, Docker 28.5
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Pumba command(s) and relevant container config.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output with `--log-level debug`, plus runtime logs if relevant.
+      render: shell
