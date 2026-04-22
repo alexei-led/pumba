@@ -16,8 +16,10 @@ import (
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/runtime/containerd"
 	"github.com/alexei-led/pumba/pkg/runtime/docker"
+	"github.com/alexei-led/pumba/pkg/runtime/podman"
 	"github.com/johntdyer/slackrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -25,6 +27,14 @@ import (
 
 var (
 	topContext context.Context
+)
+
+// Runtime client factories. Package-level vars so tests can swap them without
+// requiring a real Docker/containerd/podman socket.
+var (
+	newDockerClient     = docker.NewClient
+	newContainerdClient = containerd.NewClient
+	newPodmanClient     = podman.NewClient
 )
 
 var (
@@ -126,31 +136,44 @@ func before(c *cli.Context) error {
 			Username:       "pumba_bot",
 		})
 	}
-	// Set-up container client
-	var err error
+	client, err := createRuntimeClient(c)
+	if err != nil {
+		return err
+	}
+	chaos.DockerClient = client
+	return nil
+}
+
+// createRuntimeClient constructs the container.Client for the runtime selected
+// via --runtime. Extracted from before() to keep gocyclo under the 15 limit
+// and to give unit tests a single function to exercise.
+func createRuntimeClient(c *cli.Context) (ctr.Client, error) {
 	switch runtime := c.GlobalString("runtime"); runtime {
 	case "docker":
-		tlsCfg, tlsErr := tlsConfig(c)
-		if tlsErr != nil {
-			return tlsErr
-		}
-		// create new Docker client
-		chaos.DockerClient, err = docker.NewClient(c.GlobalString("host"), tlsCfg)
+		tlsCfg, err := tlsConfig(c)
 		if err != nil {
-			return fmt.Errorf("could not create Docker client: %w", err)
+			return nil, err
 		}
+		client, err := newDockerClient(c.GlobalString("host"), tlsCfg)
+		if err != nil {
+			return nil, fmt.Errorf("could not create Docker client: %w", err)
+		}
+		return client, nil
 	case "containerd":
-		socket := c.GlobalString("containerd-socket")
-		namespace := c.GlobalString("containerd-namespace")
-		chaos.DockerClient, err = containerd.NewClient(socket, namespace)
+		client, err := newContainerdClient(c.GlobalString("containerd-socket"), c.GlobalString("containerd-namespace"))
 		if err != nil {
-			return fmt.Errorf("could not create containerd client: %w", err)
+			return nil, fmt.Errorf("could not create containerd client: %w", err)
 		}
+		return client, nil
+	case "podman":
+		client, err := newPodmanClient(c.GlobalString("podman-socket"))
+		if err != nil {
+			return nil, fmt.Errorf("could not create podman client: %w", err)
+		}
+		return client, nil
 	default:
-		return fmt.Errorf("unsupported runtime: %s", runtime)
+		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
 	}
-
-	return nil
 }
 
 func handleSignals() context.Context {
@@ -231,7 +254,7 @@ func globalFlags(rootCertPath string) []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:  "runtime",
-			Usage: "container runtime (docker, containerd)",
+			Usage: "container runtime (docker, containerd, podman)",
 			Value: "docker",
 		},
 		cli.StringFlag{
@@ -243,6 +266,10 @@ func globalFlags(rootCertPath string) []cli.Flag {
 			Name:  "containerd-namespace",
 			Usage: "containerd namespace",
 			Value: "k8s.io",
+		},
+		cli.StringFlag{
+			Name:  "podman-socket",
+			Usage: "Podman socket URI (auto-detected if empty; e.g. unix:///run/podman/podman.sock)",
 		},
 		cli.BoolFlag{
 			Name:  "tls",

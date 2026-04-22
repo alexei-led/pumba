@@ -321,12 +321,12 @@ Flag description updates:
 - Modify: `cmd/main.go`
 - Modify: existing cmd tests if any cover the runtime switch
 
-- [ ] add `"podman"` case to the runtime switch in the before-hook (around line 131): `chaos.DockerClient, err = podman.NewClient(c.GlobalString("podman-socket"))`
-- [ ] add new `cli.StringFlag{Name: "podman-socket", Usage: "..."}` to the global flags slice
-- [ ] update `--runtime` flag usage string to include `podman`
-- [ ] import `github.com/alexei-led/pumba/pkg/runtime/podman`
-- [ ] write unit tests for the before-hook runtime switch: "podman" constructs podman client; empty `--podman-socket` passed through; unknown runtime returns error
-- [ ] run `make lint && make test && make build` — must pass before Task 8
+- [x] add `"podman"` case to the runtime switch in the before-hook (around line 131): `chaos.DockerClient, err = podman.NewClient(c.GlobalString("podman-socket"))`
+- [x] add new `cli.StringFlag{Name: "podman-socket", Usage: "..."}` to the global flags slice
+- [x] update `--runtime` flag usage string to include `podman`
+- [x] import `github.com/alexei-led/pumba/pkg/runtime/podman`
+- [x] write unit tests for the before-hook runtime switch: "podman" constructs podman client; empty `--podman-socket` passed through; unknown runtime returns error
+- [x] run `make lint && make test && make build` — must pass before Task 8
 
 ### Task 8: Bats integration tests — lifecycle + exec
 
