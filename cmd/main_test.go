@@ -79,7 +79,7 @@ func TestCreateRuntimeClient_Podman(t *testing.T) {
 	restoreFactories(t)
 
 	var gotSocket string
-	sentinel := &ctr.MockClient{}
+	sentinel := ctr.NewMockClient(t)
 	newPodmanClient = func(socket string) (ctr.Client, error) {
 		gotSocket = socket
 		return sentinel, nil
@@ -104,7 +104,7 @@ func TestCreateRuntimeClient_PodmanEmptySocket(t *testing.T) {
 	newPodmanClient = func(socket string) (ctr.Client, error) {
 		called = true
 		gotSocket = socket
-		return &ctr.MockClient{}, nil
+		return ctr.NewMockClient(t), nil
 	}
 
 	ctx := newRuntimeTestContext(t, map[string]string{"runtime": "podman"})
@@ -135,7 +135,7 @@ func TestCreateRuntimeClient_Docker(t *testing.T) {
 	restoreFactories(t)
 
 	var gotHost string
-	sentinel := &ctr.MockClient{}
+	sentinel := ctr.NewMockClient(t)
 	newDockerClient = func(host string, _ *tls.Config) (ctr.Client, error) {
 		gotHost = host
 		return sentinel, nil
@@ -156,7 +156,7 @@ func TestCreateRuntimeClient_Containerd(t *testing.T) {
 	restoreFactories(t)
 
 	var gotSocket, gotNamespace string
-	sentinel := &ctr.MockClient{}
+	sentinel := ctr.NewMockClient(t)
 	newContainerdClient = func(socket, namespace string) (ctr.Client, error) {
 		gotSocket = socket
 		gotNamespace = namespace
