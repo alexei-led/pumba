@@ -16,6 +16,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// sidecarRemoveTimeout bounds the ContainerRemove call in error cleanup paths.
+// AutoRemove only fires on container exit, so attach/start failures must remove
+// the created-but-never-started sidecar explicitly.
+const sidecarRemoveTimeout = 10 * time.Second
+
+// removeOnError removes a created-but-not-started sidecar so it doesn't linger
+// as a dangling "created" container. AutoRemove only fires on container exit, so
+// error paths after ContainerCreate must clean up explicitly.
+func removeOnError(ctx context.Context, api apiBackend, id string, cause error) error {
+	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
+	defer cancel()
+	_ = api.ContainerRemove(rmCtx, id, ctypes.RemoveOptions{Force: true})
+	return cause
+}
+
 // skipLabelKey tags pumba-spawned sidecars so list filters can exclude them
 // from chaos target selection. Shared with the docker runtime.
 const skipLabelKey = "com.gaiaadm.pumba.skip"
@@ -41,11 +56,11 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 		"dryrun":        dryrun,
 	}).Info("stress testing podman container")
 
-	if p.rootless {
-		return "", nil, nil, rootlessError("stress", p.socketURI)
-	}
 	if dryrun {
 		return "", nil, nil, nil
+	}
+	if p.rootless {
+		return "", nil, nil, rootlessError("stress", p.socketURI)
 	}
 
 	driver, fullPath, parent, leaf, err := p.resolveCgroup(ctx, c.ID())
@@ -78,16 +93,19 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 		Stream: true,
 	})
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("podman runtime: attach stress-ng container: %w", err)
+		return "", nil, nil, removeOnError(ctx, p.api, created.ID,
+			fmt.Errorf("podman runtime: attach stress-ng container: %w", err))
+	}
+
+	if err := p.api.ContainerStart(ctx, created.ID, ctypes.StartOptions{}); err != nil {
+		attach.Close()
+		return "", nil, nil, removeOnError(ctx, p.api, created.ID,
+			fmt.Errorf("podman runtime: start stress-ng container: %w", err))
 	}
 
 	output := make(chan string, 1)
 	outerr := make(chan error, 1)
 	go drainStressOutput(ctx, p.api, created.ID, attach, output, outerr)
-
-	if err := p.api.ContainerStart(ctx, created.ID, ctypes.StartOptions{}); err != nil {
-		return created.ID, output, outerr, fmt.Errorf("podman runtime: start stress-ng container: %w", err)
-	}
 	return created.ID, output, outerr, nil
 }
 

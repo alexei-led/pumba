@@ -149,6 +149,9 @@ func probeCandidate(raw string) (string, error) {
 			return "", statErr
 		}
 	case tcpScheme:
+		if rest == "" {
+			return "", fmt.Errorf("malformed tcp URI %q: missing host:port", uri)
+		}
 		d := net.Dialer{Timeout: probeTimeout}
 		conn, dialErr := d.Dial(tcpScheme, rest)
 		if dialErr != nil {

@@ -258,11 +258,16 @@ func TestStressContainer_AttachError(t *testing.T) {
 		Return(ctypes.CreateResponse{ID: "sidecar1"}, nil).Once()
 	api.EXPECT().ContainerAttach(mock.Anything, "sidecar1", mock.Anything).
 		Return(types.HijackedResponse{}, errors.New("attach boom")).Once()
+	// removeOnError must clean up the created-but-not-started container.
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	id, outCh, errCh, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "attach stress-ng container")
+	require.Empty(t, id)
+	require.Nil(t, outCh)
+	require.Nil(t, errCh)
 }
 
 func TestStressContainer_Success_FullFlow(t *testing.T) {
@@ -308,7 +313,7 @@ func TestStressContainer_Success_FullFlow(t *testing.T) {
 	}
 }
 
-func TestStressContainer_StartError_StillReturnsChannels(t *testing.T) {
+func TestStressContainer_StartError(t *testing.T) {
 	api := mocks.NewAPIClient(t)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(runningInspect(42), nil).Once()
 	stubCgroupReader(t, func(int) ([]byte, error) { return []byte(v2SystemdCgroup), nil })
@@ -318,26 +323,16 @@ func TestStressContainer_StartError_StillReturnsChannels(t *testing.T) {
 		Return(newAttachWith(""), nil).Once()
 	api.EXPECT().ContainerStart(mock.Anything, "sidecar1", mock.Anything).
 		Return(errors.New("start boom")).Once()
-	// drain still runs post-EOF and will call ContainerInspect on sidecar1.
-	api.EXPECT().ContainerInspect(mock.Anything, "sidecar1").Return(ctypes.InspectResponse{
-		ContainerJSONBase: &ctypes.ContainerJSONBase{State: &ctypes.State{ExitCode: 0}},
-	}, nil).Once()
+	// removeOnError must clean up; no drain goroutine is launched after start failure.
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "start stress-ng container")
-	require.Equal(t, "sidecar1", id)
-	require.NotNil(t, outCh)
-	require.NotNil(t, errCh)
-
-	// Drain the returned channels to let mocks settle and the goroutine exit.
-	select {
-	case <-outCh:
-	case <-errCh:
-	case <-time.After(time.Second):
-		t.Fatal("drain goroutine stalled")
-	}
+	require.Empty(t, id)
+	require.Nil(t, outCh)
+	require.Nil(t, errCh)
 }
 
 func TestBuildStressConfig_DefaultSystemd(t *testing.T) {
