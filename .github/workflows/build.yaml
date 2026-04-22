@@ -2,9 +2,9 @@ name: Build and Test
 on:
   pull_request:
     paths-ignore:
-      - 'docs/**'
-      - 'deploy/**'
-      - 'examples/**'
+      - docs/**
+      - deploy/**
+      - examples/**
       - '*.md'
 jobs:
   test:
@@ -16,13 +16,13 @@ jobs:
       contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Setup Go Environment
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: "1.26"
           cache: true
           cache-dependency-path: go.sum
       - name: Run Lint and Test Coverage
@@ -30,16 +30,37 @@ jobs:
         run: |
           make lint
           make test-coverage
+      - name: Run govulncheck
+        run: |
+          set -euo pipefail
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          # Server-side Moby daemon vulns reachable only via init() chains.
+          # Pumba is a client-only consumer; exploitable symbols are never called.
+          # No upstream fix released — revisit when github.com/docker/docker ships a fix.
+          accepted=("GO-2026-4887" "GO-2026-4883")
+          govulncheck ./... 2>&1 | tee govulncheck.txt || true
+          ids=$(sed -nE 's/^Vulnerability #[0-9]+: (GO-[0-9]{4}-[0-9]+).*/\1/p' govulncheck.txt | sort -u)
+          unexpected=""
+          for id in $ids; do
+            skip=0
+            for a in "${accepted[@]}"; do [ "$id" = "$a" ] && skip=1 && break; done
+            [ "$skip" = 0 ] && unexpected="$unexpected $id"
+          done
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unaccepted vulnerabilities:$unexpected"
+            exit 1
+          fi
+          [ -n "$ids" ] && echo "::notice::Only pre-accepted vulnerabilities present:$ids"
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-          files: ".cover/tests.xml"
+          files: .cover/tests.xml
           commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
-          files: ".cover/coverage.xml"
+          files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
   integration:
     name: Integration Tests
@@ -56,13 +77,13 @@ jobs:
       contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Setup Go Environment
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: "1.26"
           cache: true
           cache-dependency-path: go.sum
       - name: Build Pumba Binary
@@ -87,7 +108,7 @@ jobs:
           docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
           docker rm -f "${cid}" 2>/dev/null || true
       - name: Run Docker Integration Tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 10
           max_attempts: 2

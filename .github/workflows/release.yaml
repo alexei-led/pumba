@@ -1,10 +1,8 @@
 name: Release
-
 on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
-
 jobs:
   # Build and test Go binaries
   build:
@@ -13,43 +11,37 @@ jobs:
       contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Set Up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: "1.26"
           cache: true
           cache-dependency-path: go.sum
-
       - name: Run Lint and Test Coverage
         run: |
           make lint
           make test-coverage
-
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
-          files: ".cover/coverage.xml"
+          files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Build Release Binaries
         env:
           GOPROXY: https://proxy.golang.org
           CGO_ENABLED: 0
         run: make release
-
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pumba-binaries
           path: .bin/*
           retention-days: 7
           compression-level: 6
           include-hidden-files: true
-
   # Build Docker images natively per architecture (no QEMU)
   docker-build:
     strategy:
@@ -65,33 +57,28 @@ jobs:
       packages: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Get Short SHA
         id: short_sha
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+        uses: docker/setup-buildx-action@v4
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
-
       - name: Build and push by digest (GHCR)
         id: build-ghcr
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           file: docker/Dockerfile
           context: .
@@ -103,11 +90,11 @@ jobs:
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-          provenance: false
-
+          provenance: true
+          sbom: true
       - name: Build and push by digest (Docker Hub)
         id: build-hub
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           file: docker/Dockerfile
           context: .
@@ -118,8 +105,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=${{ secrets.DOCKER_ORG }}/pumba,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.platform }}
-          provenance: false
-
+          provenance: true
+          sbom: true
       - name: Export digests
         run: |
           mkdir -p /tmp/digests/ghcr /tmp/digests/hub
@@ -127,15 +114,13 @@ jobs:
           hub_digest="${{ steps.build-hub.outputs.digest }}"
           touch "/tmp/digests/ghcr/${ghcr_digest#sha256:}"
           touch "/tmp/digests/hub/${hub_digest#sha256:}"
-
       - name: Upload digests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.runner }}
           path: /tmp/digests
           if-no-files-found: error
           retention-days: 1
-
   # Merge multi-arch manifests
   docker-merge:
     runs-on: ubuntu-latest
@@ -145,28 +130,24 @@ jobs:
       packages: write
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+        uses: docker/setup-buildx-action@v4
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
-
       - name: Create and push manifest (GHCR)
         working-directory: /tmp/digests/ghcr
         run: |
@@ -176,7 +157,6 @@ jobs:
             -t "ghcr.io/${{ github.repository }}:${{ github.ref_name }}" \
             -t "ghcr.io/${{ github.repository }}:latest" \
             "${sources[@]}"
-
       - name: Create and push manifest (Docker Hub)
         working-directory: /tmp/digests/hub
         run: |
@@ -186,29 +166,27 @@ jobs:
             -t "${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}" \
             -t "${{ secrets.DOCKER_ORG }}/pumba:latest" \
             "${sources[@]}"
-
       - name: Inspect GHCR image
         run: docker buildx imagetools inspect "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
-
   # Create GitHub Release
   create-release:
     name: Create GitHub Release
-    needs: [build, docker-merge]
+    needs:
+      - build
+      - docker-merge
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: pumba-binaries
           path: ${{ github.workspace }}/.bin/
-
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:

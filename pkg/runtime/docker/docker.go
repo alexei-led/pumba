@@ -546,7 +546,7 @@ func (client dockerClient) startNetemContainerIPFilter(ctx context.Context, c *c
 		//         /   |   \
 		//       1:1  1:2  1:3    classes
 		//        |    |    |
-		//       10:  20:  30:    qdiscs    qdiscs
+		//       10:  20:  30:    qdiscs
 		//      sfq  sfq  netem
 		// band  0    1     2
 

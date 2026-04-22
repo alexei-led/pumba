@@ -56,7 +56,7 @@ func init() {
 	log.SetLevel(log.WarnLevel)
 	log.SetFormatter(&log.TextFormatter{})
 	// handle termination signal
-	topContext = handleSignals()
+	topContext = handleSignals() //nolint:fatcontext // top-level process signal context, assigned once in init
 }
 
 func main() {
