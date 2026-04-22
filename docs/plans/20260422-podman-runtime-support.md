@@ -232,14 +232,14 @@ Flag description updates:
 - Create: `pkg/runtime/podman/socket.go`
 - Create: `pkg/runtime/podman/socket_test.go`
 
-- [ ] implement `resolveSocket(explicit string) (uri string, source string, err error)` returning the first reachable candidate with its origin label for diagnostic output
-- [ ] candidate order: explicit flag → `$CONTAINER_HOST` → `$PODMAN_SOCK` → `podman machine inspect ...` → `/run/podman/podman.sock` → `$XDG_RUNTIME_DIR/podman/podman.sock`
-- [ ] for each unix candidate: `os.Stat` reachability; for URI candidates: quick dial with 1s timeout
-- [ ] on failure: return wrapped error listing every candidate tried with its rejection reason
-- [ ] make the `podman machine inspect` step skippable (and skipped silently) if `podman` CLI is not on `PATH` — use `exec.LookPath`
-- [ ] factor candidate list into a `var candidateFuncs = []func() (string, string)` table so tests can swap it
-- [ ] write table-driven unit tests covering: explicit flag wins; env var wins over defaults; all paths missing → error lists all candidates; `podman` CLI missing → step skipped without error
-- [ ] run `make lint && make test` — must pass before Task 3
+- [x] implement `resolveSocket(explicit string) (uri string, source string, err error)` returning the first reachable candidate with its origin label for diagnostic output
+- [x] candidate order: explicit flag → `$CONTAINER_HOST` → `$PODMAN_SOCK` → `podman machine inspect ...` → `/run/podman/podman.sock` → `$XDG_RUNTIME_DIR/podman/podman.sock`
+- [x] for each unix candidate: `os.Stat` reachability; for URI candidates: quick dial with 1s timeout
+- [x] on failure: return wrapped error listing every candidate tried with its rejection reason
+- [x] make the `podman machine inspect` step skippable (and skipped silently) if `podman` CLI is not on `PATH` — use `exec.LookPath`
+- [x] factor candidate list into a `var candidateFuncs = []func() (string, string)` table so tests can swap it
+- [x] write table-driven unit tests covering: explicit flag wins; env var wins over defaults; all paths missing → error lists all candidates; `podman` CLI missing → step skipped without error
+- [x] run `make lint && make test` — must pass before Task 3
 
 ### Task 3: Rootless detection
 
