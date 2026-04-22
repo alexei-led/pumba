@@ -1,58 +1,79 @@
 version: "2"
-
 run:
   timeout: 5m
   issues-exit-code: 2
   tests: false
   allow-parallel-runners: true
-
 linters:
   default: none
   enable:
-    - asciicheck
+    # correctness / bug finders
+    - asasalint
     - bidichk
     - bodyclose
-    - decorder
-    - dogsled
-    - dupl
+    - canonicalheader
+    - contextcheck
     - durationcheck
     - errcheck
     - errchkjson
     - errname
     - errorlint
     - exhaustive
+    - fatcontext
+    - gocheckcompilerdirectives
+    - gosec
+    - govet
+    - ineffassign
+    - loggercheck
+    - makezero
+    - mirror
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - recvcheck
+    - reassign
+    - staticcheck
+    - unused
+    - usestdlibvars
+    - wastedassign
+    # code quality / duplication / complexity
+    - decorder
+    - dogsled
+    - dupl
     - funlen
     - gocognit
     - goconst
     - gocritic
     - gocyclo
     - goprintffuncname
-    - gosec
-    - govet
     - grouper
     - importas
-    - ineffassign
     - interfacebloat
-    - loggercheck
     - maintidx
-    - makezero
     - misspell
     - mnd
     - nakedret
-    - nilerr
-    - nilnil
     - nolintlint
     - predeclared
     - promlinter
-    - reassign
     - revive
-    - staticcheck
-    - testableexamples
     - unconvert
     - unparam
-    - unused
-    - usetesting
     - whitespace
+    # style / non-ASCII identifiers
+    - asciicheck
+    # modernization (Go 1.22+)
+    - copyloopvar
+    - intrange
+    - modernize
+    - perfsprint
+    # tests
+    - testableexamples
+    - testifylint
+    - thelper
+    - tparallel
+    - usetesting
   settings:
     gocyclo:
       min-complexity: 15
@@ -64,7 +85,7 @@ linters:
     misspell:
       locale: US
       ignore-words:
-        - "cancelled"
+        - cancelled
     gocritic:
       enabled-tags:
         - diagnostic
@@ -83,6 +104,10 @@ linters:
     funlen:
       lines: 105
       statements: 50
+    testifylint:
+      enable-all: true
+    perfsprint:
+      strconcat: false
   exclusions:
     generated: lax
     presets:
@@ -101,7 +126,12 @@ linters:
           - gocognit
           - goconst
           - gocyclo
-
+          - maintidx
+          - mnd
+          - unparam
+          - wrapcheck
+          - contextcheck
+          - noctx
 formatters:
   enable:
     - gci

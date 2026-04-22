@@ -6,7 +6,7 @@ LINT     := golangci-lint
 GOCOV    := gocov
 GOCOVXML := gocov-xml
 GOUNIT   := go-junit-report
-GOMOCK   := mockery
+GOMOCK   := $(shell $(GO) env GOPATH)/bin/mockery
 TIMEOUT  := 15
 
 MODULE   := $(shell $(GO) list -m)
@@ -75,7 +75,7 @@ setup-gocov-xml:
 setup-go-junit-report:
 	$(GO) install github.com/jstemmer/go-junit-report/v2@latest
 setup-mockery:
-	$(GO) install github.com/vektra/mockery/v2@latest
+	$(GO) install github.com/vektra/mockery/v2@v2.53.5
 
 # Tests
 
