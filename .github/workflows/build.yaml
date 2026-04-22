@@ -38,9 +38,8 @@ jobs:
           # Pumba is a client-only consumer; exploitable symbols are never called.
           # No upstream fix released — revisit when github.com/docker/docker ships a fix.
           accepted=("GO-2026-4887" "GO-2026-4883")
-          govulncheck -format=json ./... > govulncheck.json || true
-          govulncheck ./... || true
-          ids=$(jq -r 'select(.osv) | .osv.id' govulncheck.json | sort -u)
+          govulncheck ./... 2>&1 | tee govulncheck.txt || true
+          ids=$(sed -nE 's/^Vulnerability #[0-9]+: (GO-[0-9]{4}-[0-9]+).*/\1/p' govulncheck.txt | sort -u)
           unexpected=""
           for id in $ids; do
             skip=0
