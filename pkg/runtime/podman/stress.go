@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -143,13 +144,21 @@ func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (cgro
 	if err != nil {
 		return cgroupLocation{}, fmt.Errorf("podman runtime: parse target cgroup: %w", err)
 	}
-	// procsPath is the un-truncated leaf reported by /proc/<pid>/cgroup —
-	// the cgroup the init process is actually in, which is the only one
-	// cg-inject can write a PID into under cgroup v2. Filesystem probes
-	// race Podman's libpod init creating/destroying `container/`.
-	procsPath, err := RawCgroupPath(string(raw))
+	// procsPath is where cg-inject writes the sidecar's PID. Two shapes to
+	// handle: Podman 5.x+ creates a `<scope>/container` leaf for the libpod
+	// init, so /proc/<pid>/cgroup includes it and we must target it (the
+	// outer scope is non-leaf and write-rejected with EBUSY). Older Podman
+	// (e.g. 4.9.x on Ubuntu 24.04) creates the /container sub-cgroup
+	// transiently — /proc reports it briefly but it's GC'd by the time
+	// the sidecar runs cg-inject, yielding ENOENT. Resolve via /proc then
+	// fall back to the truncated scope when the filesystem disagrees.
+	rawPath, err := RawCgroupPath(string(raw))
 	if err != nil {
 		return cgroupLocation{}, fmt.Errorf("podman runtime: raw target cgroup: %w", err)
+	}
+	procsPath := rawPath
+	if _, err := os.Stat(cgroupFSRoot + rawPath); errors.Is(err, os.ErrNotExist) {
+		procsPath = fullPath
 	}
 	return cgroupLocation{
 		driver:    driver,

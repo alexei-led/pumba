@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +39,16 @@ func stubCgroupReader(t *testing.T, fn func(pid int) ([]byte, error)) {
 	orig := cgroupReader
 	cgroupReader = fn
 	t.Cleanup(func() { cgroupReader = orig })
+}
+
+// stubCgroupFSRoot points cgroupFSRoot at a t.TempDir-backed path so tests
+// can decide whether `<scope>/container/` exists at stat time — mirrors the
+// real host cgroup fs layout without touching /sys.
+func stubCgroupFSRoot(t *testing.T, root string) {
+	t.Helper()
+	orig := cgroupFSRoot
+	cgroupFSRoot = root
+	t.Cleanup(func() { cgroupFSRoot = orig })
 }
 
 func runningInspect(pid int) ctypes.InspectResponse {
@@ -370,8 +382,15 @@ func TestBuildStressConfig_Inject(t *testing.T) {
 
 // TestStressContainer_InjectCgroup_UsesNestedLeaf confirms cg-inject is
 // given the un-truncated `.scope/container` leaf when /proc/<pid>/cgroup
-// reports Podman's libpod init sub-cgroup shape.
+// reports Podman's libpod init sub-cgroup shape AND the path actually
+// exists on the host cgroup fs (Podman 5.x on Fedora CoreOS).
 func TestStressContainer_InjectCgroup_UsesNestedLeaf(t *testing.T) {
+	// Simulate a host cgroup fs with the nested `container/` leaf present.
+	root := t.TempDir()
+	nestedPath := "/machine.slice/libpod-abc.scope/container"
+	require.NoError(t, os.MkdirAll(filepath.Join(root, nestedPath), 0o755))
+	stubCgroupFSRoot(t, root)
+
 	api := mocks.NewAPIClient(t)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(runningInspect(7777), nil).Once()
 	stubCgroupReader(t, func(int) ([]byte, error) {
@@ -402,6 +421,11 @@ func TestStressContainer_InjectCgroup_UsesNestedLeaf(t *testing.T) {
 // some host podman installs). The scope itself is the leaf and cg-inject
 // must receive the un-decorated path.
 func TestStressContainer_InjectCgroup_UsesScopeLeaf(t *testing.T) {
+	// Host cgroup fs has only the scope, no `container/` child.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "/machine.slice/libpod-abc.scope"), 0o755))
+	stubCgroupFSRoot(t, root)
+
 	api := mocks.NewAPIClient(t)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(runningInspect(7777), nil).Once()
 	stubCgroupReader(t, func(int) ([]byte, error) {
@@ -424,6 +448,44 @@ func TestStressContainer_InjectCgroup_UsesScopeLeaf(t *testing.T) {
 		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope", "--", "/stress-ng", "--cpu", "1"},
 		[]string(gotConfig.Cmd),
 		"cg-inject must not invent a `container/` suffix when /proc/<pid>/cgroup doesn't report one",
+	)
+}
+
+// TestStressContainer_InjectCgroup_FallsBackWhenNestedLeafMissing covers
+// the race observed on Podman 4.9.x (Ubuntu 24.04): /proc/<pid>/cgroup
+// reports the nested `container/` leaf, but the directory is GC'd by the
+// time the sidecar runs cg-inject. Pumba must fall back to the truncated
+// scope so cg-inject doesn't write to a non-existent path.
+func TestStressContainer_InjectCgroup_FallsBackWhenNestedLeafMissing(t *testing.T) {
+	// /proc reports `.scope/container` but the directory doesn't exist
+	// on the host cgroup fs at stat time.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "/machine.slice/libpod-abc.scope"), 0o755))
+	// Note: we intentionally do NOT create `.scope/container/`.
+	stubCgroupFSRoot(t, root)
+
+	api := mocks.NewAPIClient(t)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(runningInspect(7777), nil).Once()
+	stubCgroupReader(t, func(int) ([]byte, error) {
+		return []byte("0::/machine.slice/libpod-abc.scope/container\n"), nil
+	})
+
+	var gotConfig *ctypes.Config
+	api.EXPECT().ContainerCreate(
+		mock.Anything,
+		mock.MatchedBy(func(c *ctypes.Config) bool { gotConfig = c; return true }),
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
+
+	p := &podmanClient{api: api}
+	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	require.Error(t, err)
+
+	require.NotNil(t, gotConfig)
+	require.Equal(t,
+		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope", "--", "/stress-ng", "--cpu", "1"},
+		[]string(gotConfig.Cmd),
+		"stale /proc reading must fall back to truncated scope when `container/` is gone",
 	)
 }
 
