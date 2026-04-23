@@ -24,6 +24,7 @@ setup() {
     fi
     podman_rm_force pdm-ipt-ctr
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
+    podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
     podman run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
     sleep 1
 }
@@ -38,7 +39,7 @@ teardown() {
 }
 
 @test "Should apply iptables packet loss via podman runtime" {
-    pumba --runtime podman --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 pdm-ipt-ctr &
+    pumba --runtime podman --log-level debug iptables --interface lo --pull-image=false --duration 30s loss --probability 1.0 pdm-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -57,7 +58,7 @@ teardown() {
 }
 
 @test "Should apply iptables loss with nth mode via podman runtime" {
-    pumba --runtime podman --log-level debug iptables --interface lo --duration 30s loss --mode nth --every 3 pdm-ipt-ctr &
+    pumba --runtime podman --log-level debug iptables --interface lo --pull-image=false --duration 30s loss --mode nth --every 3 pdm-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -75,12 +76,12 @@ teardown() {
 }
 
 @test "Should handle iptables on non-existent container via podman runtime" {
-    run pumba --runtime podman --log-level debug iptables --interface lo --duration 2s loss --probability 1.0 nonexistent_container_12345
+    run pumba --runtime podman --log-level debug iptables --interface lo --pull-image=false --duration 2s loss --probability 1.0 nonexistent_container_12345
     assert_success
 }
 
 @test "Should apply iptables loss with destination IP filter via podman runtime" {
-    pumba --runtime podman --log-level debug iptables --interface lo --destination 10.0.0.0/8 --duration 30s loss --probability 1.0 pdm-ipt-ctr &
+    pumba --runtime podman --log-level debug iptables --interface lo --destination 10.0.0.0/8 --pull-image=false --duration 30s loss --probability 1.0 pdm-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -98,7 +99,7 @@ teardown() {
 }
 
 @test "Should apply iptables loss with port filters via podman runtime" {
-    pumba --runtime podman --log-level debug iptables --interface lo --protocol tcp --dst-port 80 --duration 30s loss --probability 1.0 pdm-ipt-ctr &
+    pumba --runtime podman --log-level debug iptables --interface lo --protocol tcp --dst-port 80 --pull-image=false --duration 30s loss --probability 1.0 pdm-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -117,7 +118,7 @@ teardown() {
 }
 
 @test "Should apply iptables loss with source IP filter via podman runtime" {
-    pumba --runtime podman --log-level debug iptables --interface lo --source 10.0.0.0/8 --duration 30s loss --probability 1.0 pdm-ipt-ctr &
+    pumba --runtime podman --log-level debug iptables --interface lo --source 10.0.0.0/8 --pull-image=false --duration 30s loss --probability 1.0 pdm-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
