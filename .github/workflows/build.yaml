@@ -99,14 +99,17 @@ jobs:
           file-install: false
       - name: Pull Test Images
         run: |
-          docker pull alpine:latest
-          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
+          docker pull alpine:latest &
+          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
+          wait
       - name: Warm Up Docker Runtime
         run: |
           docker run --rm alpine:latest true
           cid=$(docker create --rm alpine:latest sleep 10)
           docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
           docker rm -f "${cid}" 2>/dev/null || true
+      - name: Install GNU Parallel
+        run: sudo apt-get update && sudo apt-get install -y parallel
       - name: Run Docker Integration Tests
         uses: nick-fields/retry@v4
         with:
@@ -114,7 +117,8 @@ jobs:
           max_attempts: 2
           command: |
             shopt -s extglob
-            sudo env "PATH=$PATH" bats --print-output-on-failure tests/!(containerd_*).bats
+            sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
+              --print-output-on-failure tests/!(containerd_*).bats
       - name: Setup Containerd
         run: |
           if command -v containerd &>/dev/null; then
@@ -136,7 +140,8 @@ jobs:
       - name: Run Containerd Integration Tests
         run: |
           if [ -S /run/containerd/containerd.sock ]; then
-            sudo env "PATH=$PATH" bats --print-output-on-failure tests/containerd_*.bats
+            sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
+              --print-output-on-failure tests/containerd_*.bats
           else
             echo "Containerd socket not available, skipping containerd tests"
           fi
@@ -157,10 +162,10 @@ jobs:
           go-version: "1.26"
           cache: true
           cache-dependency-path: go.sum
-      - name: Install Podman
+      - name: Install Podman and GNU Parallel
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman
+          sudo apt-get install -y podman parallel
           podman --version
       - name: Install Bats and Libraries
         uses: bats-core/bats-action@4.0.0
@@ -180,14 +185,16 @@ jobs:
         run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
       - name: Pull Test Images
         run: |
-          sudo podman pull docker.io/library/alpine:latest
-          sudo podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
-          sudo podman pull ghcr.io/alexei-led/stress-ng:latest
-          sudo podman pull docker.io/nicolaka/netshoot:latest || true
+          sudo podman pull docker.io/library/alpine:latest &
+          sudo podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
+          sudo podman pull ghcr.io/alexei-led/stress-ng:latest &
+          sudo podman pull docker.io/nicolaka/netshoot:latest &
+          wait
       - name: Run Podman Integration Tests
         run: |
           set -o pipefail
-          sudo env "PATH=$PATH" bats --print-output-on-failure tests/podman_*.bats 2>&1 | tee podman-bats.log
+          sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
+            --print-output-on-failure tests/podman_*.bats 2>&1 | tee podman-bats.log
       - name: Collect Podman Journal on Failure
         if: failure()
         run: |
