@@ -63,11 +63,19 @@ jobs:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
   integration:
-    name: Integration Tests
+    name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }})
+    needs: test
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        runtime:
+          - docker
+          - containerd
+          - podman
+        platform:
+          - linux/amd64
+          - linux/arm64
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
@@ -97,18 +105,22 @@ jobs:
           assert-path: /usr/local/lib/bats-assert
           detik-install: false
           file-install: false
-      - name: Pull Test Images
+      # ── Docker runtime setup ──────────────────────────────────────────────
+      - name: Pull Test Images (docker)
+        if: matrix.runtime == 'docker'
         run: |
           docker pull alpine:latest &
           docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
           wait
       - name: Warm Up Docker Runtime
+        if: matrix.runtime == 'docker'
         run: |
           docker run --rm alpine:latest true
           cid=$(docker create --rm alpine:latest sleep 10)
           docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
           docker rm -f "${cid}" 2>/dev/null || true
       - name: Run Docker Integration Tests
+        if: matrix.runtime == 'docker'
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 10
@@ -117,7 +129,9 @@ jobs:
             shopt -s extglob
             sudo env "PATH=$PATH" bats --print-output-on-failure \
               tests/!(containerd_*|podman_*).bats
-      - name: Setup Containerd
+      # ── Containerd runtime setup ──────────────────────────────────────────
+      - name: Install Containerd
+        if: matrix.runtime == 'containerd'
         run: |
           if command -v containerd &>/dev/null; then
             echo "containerd already installed: $(containerd --version)"
@@ -135,52 +149,40 @@ jobs:
             sleep 2
           fi
           sudo ctr version
+      - name: Pull Test Images (containerd)
+        if: matrix.runtime == 'containerd'
+        run: |
+          # Containerd tests also drive Docker (for creating moby-namespace
+          # containers); docker daemon is pre-installed on ubuntu runners.
+          docker pull alpine:latest &
+          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
+          docker pull docker.io/nicolaka/netshoot:latest &
+          docker pull ghcr.io/alexei-led/stress-ng:latest &
+          wait
       - name: Run Containerd Integration Tests
+        if: matrix.runtime == 'containerd'
         run: |
           if [ -S /run/containerd/containerd.sock ]; then
             sudo env "PATH=$PATH" bats --print-output-on-failure tests/containerd_*.bats
           else
             echo "Containerd socket not available, skipping containerd tests"
+            exit 1
           fi
-  integration-tests-podman:
-    name: Integration Tests (Podman)
-    needs: test
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Setup Go Environment
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.26"
-          cache: true
-          cache-dependency-path: go.sum
+      # ── Podman runtime setup ──────────────────────────────────────────────
       - name: Install Podman
+        if: matrix.runtime == 'podman'
         run: |
           sudo apt-get update
           sudo apt-get install -y podman
           podman --version
-      - name: Install Bats and Libraries
-        uses: bats-core/bats-action@4.0.0
-        with:
-          support-path: /usr/local/lib/bats-support
-          assert-path: /usr/local/lib/bats-assert
-          detik-install: false
-          file-install: false
       - name: Enable Rootful Podman Socket
+        if: matrix.runtime == 'podman'
         run: |
           sudo systemctl enable --now podman.socket
           sudo ls -l /run/podman/podman.sock
           sudo podman info
-      - name: Build Pumba Binary
-        run: make build TARGETARCH="$(dpkg --print-architecture)"
-      - name: Install Pumba
-        run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
-      - name: Pull Test Images
+      - name: Pull Test Images (podman)
+        if: matrix.runtime == 'podman'
         run: |
           sudo podman pull docker.io/library/alpine:latest &
           sudo podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
@@ -188,20 +190,22 @@ jobs:
           sudo podman pull docker.io/nicolaka/netshoot:latest &
           wait
       - name: Run Podman Integration Tests
+        if: matrix.runtime == 'podman'
         run: |
           set -o pipefail
           sudo env "PATH=$PATH" bats --print-output-on-failure tests/podman_*.bats 2>&1 | tee podman-bats.log
+      # ── Failure diagnostics (podman-only; journal access requires systemd) ─
       - name: Collect Podman Journal on Failure
-        if: failure()
+        if: matrix.runtime == 'podman' && failure()
         run: |
           sudo journalctl -u podman.socket --no-pager 2>&1 | tee podman-socket-journal.log >/dev/null || true
           sudo journalctl -u podman.service --no-pager 2>&1 | tee podman-service-journal.log >/dev/null || true
           sudo podman ps -a 2>&1 | tee podman-ps.log >/dev/null || true
       - name: Upload Podman Test Logs
-        if: failure()
+        if: matrix.runtime == 'podman' && failure()
         uses: actions/upload-artifact@v4
         with:
-          name: podman-integration-logs
+          name: podman-integration-logs-${{ matrix.platform }}
           path: |
             podman-bats.log
             podman-socket-journal.log
