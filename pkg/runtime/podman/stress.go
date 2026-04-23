@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -144,25 +143,21 @@ func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (cgro
 	if err != nil {
 		return cgroupLocation{}, fmt.Errorf("podman runtime: parse target cgroup: %w", err)
 	}
+	// procsPath is the un-truncated leaf reported by /proc/<pid>/cgroup —
+	// the cgroup the init process is actually in, which is the only one
+	// cg-inject can write a PID into under cgroup v2. Filesystem probes
+	// race Podman's libpod init creating/destroying `container/`.
+	procsPath, err := RawCgroupPath(string(raw))
+	if err != nil {
+		return cgroupLocation{}, fmt.Errorf("podman runtime: raw target cgroup: %w", err)
+	}
 	return cgroupLocation{
 		driver:    driver,
 		fullPath:  fullPath,
 		parent:    parent,
 		leaf:      leaf,
-		procsPath: resolveProcsPath(fullPath),
+		procsPath: procsPath,
 	}, nil
-}
-
-// resolveProcsPath returns the path whose cgroup.procs can actually receive
-// new PIDs. If fullPath/container/cgroup.procs exists on the host cgroup fs,
-// use it (Podman's libpod init sub-cgroup pattern). Otherwise fullPath is
-// already the leaf.
-func resolveProcsPath(fullPath string) string {
-	childProcs := cgroupFSRoot + fullPath + "/" + containerSegment + "/cgroup.procs"
-	if _, err := os.Stat(childProcs); err == nil {
-		return fullPath + "/" + containerSegment
-	}
-	return fullPath
 }
 
 // buildStressConfig returns the Config/HostConfig for the stress-ng sidecar.

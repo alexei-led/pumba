@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -39,15 +37,6 @@ func stubCgroupReader(t *testing.T, fn func(pid int) ([]byte, error)) {
 	orig := cgroupReader
 	cgroupReader = fn
 	t.Cleanup(func() { cgroupReader = orig })
-}
-
-// stubCgroupFSRoot points cgroupFSRoot at a t.TempDir-backed path so
-// resolveProcsPath can be exercised without /sys/fs/cgroup access.
-func stubCgroupFSRoot(t *testing.T, root string) {
-	t.Helper()
-	orig := cgroupFSRoot
-	cgroupFSRoot = root
-	t.Cleanup(func() { cgroupFSRoot = orig })
 }
 
 func runningInspect(pid int) ctypes.InspectResponse {
@@ -379,50 +368,15 @@ func TestBuildStressConfig_Inject(t *testing.T) {
 	require.True(t, hc.AutoRemove)
 }
 
-// TestResolveProcsPath covers both branches of the cgroup leaf detection:
-// the default rootful `podman machine` shape (with a nested `container/`
-// sub-cgroup created by the libpod init) and the legacy single-leaf shape.
-// resolveProcsPath must return the writable leaf — cgroup v2's "no internal
-// processes" rule rejects PID writes to a non-leaf cgroup.
-func TestResolveProcsPath_NestedContainerLeaf(t *testing.T) {
-	root := t.TempDir()
-	fullPath := "/machine.slice/libpod-abc.scope"
-	nested := filepath.Join(root, fullPath, "container")
-	require.NoError(t, os.MkdirAll(nested, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(nested, "cgroup.procs"), nil, 0o644))
-	stubCgroupFSRoot(t, root)
-
-	got := resolveProcsPath(fullPath)
-	require.Equal(t, fullPath+"/container", got)
-}
-
-func TestResolveProcsPath_NoSubCgroup(t *testing.T) {
-	root := t.TempDir()
-	fullPath := "/machine.slice/libpod-xyz.scope"
-	require.NoError(t, os.MkdirAll(filepath.Join(root, fullPath), 0o755))
-	// Intentionally no `container/` sub-cgroup — resolveProcsPath must fall
-	// back to fullPath since cg-inject has nowhere nested to write.
-	stubCgroupFSRoot(t, root)
-
-	got := resolveProcsPath(fullPath)
-	require.Equal(t, fullPath, got)
-}
-
-// TestStressContainer_InjectCgroup_UsesNestedLeaf exercises the full
-// StressContainer flow with a podman-machine-shaped cgroup tree (nested
-// `container/` leaf present). resolveCgroup → resolveProcsPath must append
-// `/container` and buildStressConfig must forward it as --cgroup-path to
-// /cg-inject.
+// TestStressContainer_InjectCgroup_UsesNestedLeaf confirms cg-inject is
+// given the un-truncated `.scope/container` leaf when /proc/<pid>/cgroup
+// reports Podman's libpod init sub-cgroup shape.
 func TestStressContainer_InjectCgroup_UsesNestedLeaf(t *testing.T) {
-	root := t.TempDir()
-	fullPath := "/machine.slice/libpod-abc.scope"
-	require.NoError(t, os.MkdirAll(filepath.Join(root, fullPath, "container"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, fullPath, "container", "cgroup.procs"), nil, 0o644))
-	stubCgroupFSRoot(t, root)
-
 	api := mocks.NewAPIClient(t)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(runningInspect(7777), nil).Once()
-	stubCgroupReader(t, func(int) ([]byte, error) { return []byte(v2SystemdCgroup), nil })
+	stubCgroupReader(t, func(int) ([]byte, error) {
+		return []byte("0::/machine.slice/libpod-abc.scope/container\n"), nil
+	})
 
 	var gotConfig *ctypes.Config
 	api.EXPECT().ContainerCreate(
@@ -439,7 +393,37 @@ func TestStressContainer_InjectCgroup_UsesNestedLeaf(t *testing.T) {
 	require.Equal(t,
 		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope/container", "--", "/stress-ng", "--cpu", "1"},
 		[]string(gotConfig.Cmd),
-		"cg-inject must target the nested `container/` leaf, not the outer scope",
+		"cg-inject must target the nested `container/` leaf reported by /proc/<pid>/cgroup",
+	)
+}
+
+// TestStressContainer_InjectCgroup_UsesScopeLeaf covers the shape where
+// Podman has NOT created a nested `container/` sub-cgroup (observed on
+// some host podman installs). The scope itself is the leaf and cg-inject
+// must receive the un-decorated path.
+func TestStressContainer_InjectCgroup_UsesScopeLeaf(t *testing.T) {
+	api := mocks.NewAPIClient(t)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(runningInspect(7777), nil).Once()
+	stubCgroupReader(t, func(int) ([]byte, error) {
+		return []byte(v2SystemdCgroup), nil // scope-only leaf
+	})
+
+	var gotConfig *ctypes.Config
+	api.EXPECT().ContainerCreate(
+		mock.Anything,
+		mock.MatchedBy(func(c *ctypes.Config) bool { gotConfig = c; return true }),
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
+
+	p := &podmanClient{api: api}
+	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	require.Error(t, err)
+
+	require.NotNil(t, gotConfig)
+	require.Equal(t,
+		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope", "--", "/stress-ng", "--cpu", "1"},
+		[]string(gotConfig.Cmd),
+		"cg-inject must not invent a `container/` suffix when /proc/<pid>/cgroup doesn't report one",
 	)
 }
 

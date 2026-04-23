@@ -28,10 +28,6 @@ var cgroupReader = func(pid int) ([]byte, error) {
 	return os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
 }
 
-// cgroupFSRoot is the host-side mount point of the cgroup v2 fs. Overrideable
-// in tests so they don't have to fake /sys.
-var cgroupFSRoot = "/sys/fs/cgroup"
-
 // Sentinel errors returned by ParseProc1Cgroup. Exposed for tests and for
 // callers that want to distinguish "my read site is wrong" (cgroupns) from
 // "this payload is junk".
@@ -93,6 +89,27 @@ func ParseProc1Cgroup(contents string) (driver, fullPath, parent, leaf string, e
 	driver = driverForPath(fullPath)
 	parent, leaf = splitParentLeaf(fullPath)
 	return driver, fullPath, parent, leaf, nil
+}
+
+// RawCgroupPath returns the un-truncated cgroup path from /proc/<pid>/cgroup
+// contents — the exact leaf cgroup the process is currently in, which IS the
+// only cgroup that accepts PID writes under cgroup v2's "no internal
+// processes" rule. Prefer this over heuristic filesystem probes (which can
+// race Podman's libpod init creating/destroying a `container/` sub-cgroup).
+func RawCgroupPath(contents string) (string, error) {
+	trimmed := strings.TrimSpace(contents)
+	if trimmed == "" {
+		return "", errEmptyCgroup
+	}
+	rawPath, err := selectCgroupPath(trimmed)
+	if err != nil {
+		return "", err
+	}
+	rawPath = normaliseCgroupPath(rawPath)
+	if rawPath == "/" || rawPath == "/"+containerSegment {
+		return "", fmt.Errorf("%w (saw %q)", errPrivateCgroupnsView, rawPath)
+	}
+	return rawPath, nil
 }
 
 // selectCgroupPath returns the path portion of the preferred line from
