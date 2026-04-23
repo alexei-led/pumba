@@ -161,10 +161,11 @@ teardown() {
     # /run/podman/podman.sock (rootful) or $XDG_RUNTIME_DIR/podman/podman.sock
     # (rootless). The test skips if we cannot detect it so it is hermetic.
     sock=""
-    if podman info --format '{{.Host.RemoteSocket.Path}}' >/tmp/_pdm_sock 2>/dev/null; then
-        sock=$(cat /tmp/_pdm_sock)
-        rm -f /tmp/_pdm_sock
+    sock_file=$(mktemp)
+    if podman info --format '{{.Host.RemoteSocket.Path}}' >"$sock_file" 2>/dev/null; then
+        sock=$(cat "$sock_file")
     fi
+    rm -f "$sock_file"
     if [ -z "$sock" ]; then
         skip "could not resolve podman socket path via podman info"
     fi

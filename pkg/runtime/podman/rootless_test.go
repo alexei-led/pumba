@@ -70,13 +70,13 @@ func TestDetectRootless(t *testing.T) {
 
 func TestRootlessError(t *testing.T) {
 	err := rootlessError("netem", "unix:///run/user/1000/podman/podman.sock")
-	require := assert.New(t)
+	a := assert.New(t)
 
-	require.Error(err)
+	a.Error(err)
 	msg := err.Error()
-	require.Contains(msg, "netem")
-	require.Contains(msg, "unix:///run/user/1000/podman/podman.sock")
-	require.Contains(msg, "podman machine set --rootful")
-	require.Contains(msg, "/run/podman/podman.sock")
-	require.Contains(msg, "rootful")
+	a.Contains(msg, "netem")
+	a.Contains(msg, "unix:///run/user/1000/podman/podman.sock")
+	a.Contains(msg, "podman machine set --rootful")
+	a.Contains(msg, "/run/podman/podman.sock")
+	a.Contains(msg, "rootful")
 }
