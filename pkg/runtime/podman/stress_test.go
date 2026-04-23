@@ -336,7 +336,7 @@ func TestStressContainer_StartError(t *testing.T) {
 }
 
 func TestBuildStressConfig_DefaultSystemd(t *testing.T) {
-	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", false)
+	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", "/machine.slice/libpod-abc.scope", false)
 	require.Equal(t, "img", cfg.Image)
 	require.Equal(t, "true", cfg.Labels[skipLabelKey])
 	require.Equal(t, []string{"/stress-ng"}, []string(cfg.Entrypoint))
@@ -347,20 +347,22 @@ func TestBuildStressConfig_DefaultSystemd(t *testing.T) {
 }
 
 func TestBuildStressConfig_DefaultCgroupfs(t *testing.T) {
-	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverCgroupfs, "/libpod/abc", "/libpod", false)
+	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverCgroupfs, "/libpod/abc", "/libpod", "/libpod/abc", false)
 	require.Equal(t, []string{"/stress-ng"}, []string(cfg.Entrypoint))
 	require.Equal(t, []string{"--cpu", "1"}, []string(cfg.Cmd))
 	require.Equal(t, "/libpod/abc", hc.Resources.CgroupParent, "cgroupfs nests sidecar under target's full path for shared OOM scope")
 }
 
 func TestBuildStressConfig_Inject(t *testing.T) {
-	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", true)
+	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", "/machine.slice/libpod-abc.scope/container", true)
 	require.Equal(t, []string{"/cg-inject"}, []string(cfg.Entrypoint))
 	require.Equal(t,
-		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope", "--", "/stress-ng", "--cpu", "1"},
+		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope/container", "--", "/stress-ng", "--cpu", "1"},
 		[]string(cfg.Cmd),
 	)
 	require.Equal(t, ctypes.CgroupnsMode("host"), hc.CgroupnsMode)
+	require.Equal(t, []string{"SYS_ADMIN"}, []string(hc.CapAdd))
+	require.Equal(t, []string{"label=disable"}, hc.SecurityOpt)
 	require.Equal(t, []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}, hc.Binds)
 	require.Empty(t, hc.Resources.CgroupParent)
 	require.True(t, hc.AutoRemove)

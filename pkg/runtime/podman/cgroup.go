@@ -28,6 +28,10 @@ var cgroupReader = func(pid int) ([]byte, error) {
 	return os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
 }
 
+// cgroupFSRoot is the host-side mount point of the cgroup v2 fs. Overrideable
+// in tests so they don't have to fake /sys.
+var cgroupFSRoot = "/sys/fs/cgroup"
+
 // Sentinel errors returned by ParseProc1Cgroup. Exposed for tests and for
 // callers that want to distinguish "my read site is wrong" (cgroupns) from
 // "this payload is junk".

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -63,18 +64,19 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 		return "", nil, nil, rootlessError("stress", p.socketURI)
 	}
 
-	driver, fullPath, parent, leaf, err := p.resolveCgroup(ctx, c.ID())
+	cg, err := p.resolveCgroup(ctx, c.ID())
 	if err != nil {
 		return "", nil, nil, err
 	}
 	log.WithFields(log.Fields{
-		"driver":    driver,
-		"full-path": fullPath,
-		"parent":    parent,
-		"leaf":      leaf,
+		"driver":     cg.driver,
+		"full-path":  cg.fullPath,
+		"parent":     cg.parent,
+		"leaf":       cg.leaf,
+		"procs-path": cg.procsPath,
 	}).Debug("resolved podman target cgroup")
 
-	config, hconfig := buildStressConfig(image, stressors, driver, fullPath, parent, injectCgroup)
+	config, hconfig := buildStressConfig(image, stressors, cg.driver, cg.fullPath, cg.parent, cg.procsPath, injectCgroup)
 
 	if pull {
 		if err := p.pullStressImage(ctx, image); err != nil {
@@ -109,26 +111,58 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 	return created.ID, output, outerr, nil
 }
 
+// cgroupLocation bundles the host-side cgroup coordinates for a target.
+type cgroupLocation struct {
+	driver    string
+	fullPath  string
+	parent    string
+	leaf      string
+	procsPath string
+}
+
 // resolveCgroup locates targetID's canonical cgroup by reading /proc/<pid>/cgroup
 // from the host's view. Bypasses cgroupns=private isolation that would hide
 // ancestry from a process reading its own namespace-scoped view.
-func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (driver, fullPath, parent, leaf string, err error) {
+//
+// procsPath is the concrete leaf that accepts cgroup.procs writes — either
+// fullPath or fullPath/container when Podman's libpod init sub-cgroup exists.
+// cgroup v2's "no internal processes" rule forbids writing to fullPath itself
+// once it has a populated child, so inject-cgroup mode must target the leaf.
+func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (cgroupLocation, error) {
 	info, err := p.api.ContainerInspect(ctx, targetID)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("podman runtime: inspect target %s: %w", targetID, err)
+		return cgroupLocation{}, fmt.Errorf("podman runtime: inspect target %s: %w", targetID, err)
 	}
 	if info.State == nil || info.State.Pid == 0 {
-		return "", "", "", "", fmt.Errorf("podman runtime: target %s is not running (no pid)", targetID)
+		return cgroupLocation{}, fmt.Errorf("podman runtime: target %s is not running (no pid)", targetID)
 	}
 	raw, err := cgroupReader(info.State.Pid)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("podman runtime: read /proc/%d/cgroup: %w", info.State.Pid, err)
+		return cgroupLocation{}, fmt.Errorf("podman runtime: read /proc/%d/cgroup: %w", info.State.Pid, err)
 	}
-	driver, fullPath, parent, leaf, err = ParseProc1Cgroup(string(raw))
+	driver, fullPath, parent, leaf, err := ParseProc1Cgroup(string(raw))
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("podman runtime: parse target cgroup: %w", err)
+		return cgroupLocation{}, fmt.Errorf("podman runtime: parse target cgroup: %w", err)
 	}
-	return driver, fullPath, parent, leaf, nil
+	return cgroupLocation{
+		driver:    driver,
+		fullPath:  fullPath,
+		parent:    parent,
+		leaf:      leaf,
+		procsPath: resolveProcsPath(fullPath),
+	}, nil
+}
+
+// resolveProcsPath returns the path whose cgroup.procs can actually receive
+// new PIDs. If fullPath/container/cgroup.procs exists on the host cgroup fs,
+// use it (Podman's libpod init sub-cgroup pattern). Otherwise fullPath is
+// already the leaf.
+func resolveProcsPath(fullPath string) string {
+	childProcs := cgroupFSRoot + fullPath + "/" + containerSegment + "/cgroup.procs"
+	if _, err := os.Stat(childProcs); err == nil {
+		return fullPath + "/" + containerSegment
+	}
+	return fullPath
 }
 
 // buildStressConfig returns the Config/HostConfig for the stress-ng sidecar.
@@ -149,10 +183,10 @@ func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (driv
 // /sys/fs/cgroup) and let /cg-inject move its PID into the target's exact
 // cgroup. Required when the target's parent slice is unwritable by a sibling
 // (e.g. kubelet-owned kubepods slices).
-func buildStressConfig(image string, stressors []string, driver, fullPath, parent string, injectCgroup bool) (ctypes.Config, ctypes.HostConfig) {
+func buildStressConfig(image string, stressors []string, driver, fullPath, parent, procsPath string, injectCgroup bool) (ctypes.Config, ctypes.HostConfig) {
 	labels := map[string]string{skipLabelKey: "true"}
 	if injectCgroup {
-		cmd := append([]string{"--cgroup-path", fullPath, "--", "/stress-ng"}, stressors...)
+		cmd := append([]string{"--cgroup-path", procsPath, "--", "/stress-ng"}, stressors...)
 		return ctypes.Config{
 				Image:      image,
 				Labels:     labels,
@@ -161,7 +195,16 @@ func buildStressConfig(image string, stressors []string, driver, fullPath, paren
 			}, ctypes.HostConfig{
 				AutoRemove:   true,
 				CgroupnsMode: "host",
-				Binds:        []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
+				// CAP_SYS_ADMIN is required for cgroup v2 `cgroup.procs` writes
+				// outside the sidecar's own cgroup subtree. Without it Podman
+				// returns EACCES on open(...) from /cg-inject.
+				CapAdd: []string{"SYS_ADMIN"},
+				// Disable SELinux labeling so the sidecar's container_t domain
+				// can open cgroup files under another container's scope. On
+				// SELinux-enforcing hosts (Fedora CoreOS / RHEL) the default
+				// type forbids cross-scope cgroup writes even with SYS_ADMIN.
+				SecurityOpt: []string{"label=disable"},
+				Binds:       []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
 			}
 	}
 	cgroupParent := parent
