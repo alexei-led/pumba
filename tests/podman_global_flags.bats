@@ -39,7 +39,8 @@ teardown() {
 @test "Should target containers by regex pattern via podman" {
     podman run -d --name pdm_flag_victim_1 alpine top
     podman run -d --name pdm_flag_victim_2 alpine top
-    sleep 1
+    wait_for_running podman pdm_flag_victim_1
+    wait_for_running podman pdm_flag_victim_2
 
     run pumba --runtime podman --log-level debug kill "re2:pdm_flag_victim_.*"
     assert_success
@@ -51,12 +52,17 @@ teardown() {
 @test "Should select random container with --random flag via podman" {
     podman run -d --name pdm_flag_victim_1 alpine top
     podman run -d --name pdm_flag_victim_2 alpine top
-    sleep 1
+    wait_for_running podman pdm_flag_victim_1
+    wait_for_running podman pdm_flag_victim_2
 
     run pumba --runtime podman --random --log-level debug kill "re2:pdm_flag_victim_.*"
     assert_success
 
-    sleep 2
+    # Exactly one of the two should exit; poll since kill is async.
+    wait_for 5 '
+        podman inspect -f "{{.State.Status}}" pdm_flag_victim_1 2>/dev/null | grep -q exited ||
+        podman inspect -f "{{.State.Status}}" pdm_flag_victim_2 2>/dev/null | grep -q exited' \
+        "exactly one victim to exit"
     local exited=0
     podman inspect -f '{{.State.Status}}' pdm_flag_victim_1 2>/dev/null | grep -q exited && exited=$((exited+1))
     podman inspect -f '{{.State.Status}}' pdm_flag_victim_2 2>/dev/null | grep -q exited && exited=$((exited+1))
@@ -67,12 +73,12 @@ teardown() {
 @test "Should support --label filter with podman runtime" {
     podman run -d --name pdm_flag_victim_1 --label chaos=true alpine top
     podman run -d --name pdm_flag_victim_2 --label chaos=false alpine top
-    sleep 1
+    wait_for_running podman pdm_flag_victim_1
+    wait_for_running podman pdm_flag_victim_2
 
     run pumba --runtime podman --log-level debug --label "chaos=true" kill "re2:pdm_flag_victim_.*"
     assert_success
 
-    sleep 2
     wait_for 5 "podman inspect -f '{{.State.Status}}' pdm_flag_victim_1 | grep -q exited" "labeled container to exit"
     [ "$(podman inspect -f '{{.State.Status}}' pdm_flag_victim_2)" = "running" ]
 }

@@ -75,7 +75,8 @@ teardown() {
     # Create two containers matching a regex
     docker run -d --name kill_victim_1 alpine tail -f /dev/null
     docker run -d --name kill_victim_2 alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker kill_victim_1
+    wait_for_running docker kill_victim_2
 
     assert_container_state "kill_victim_1" "running"
     assert_container_state "kill_victim_2" "running"

@@ -17,7 +17,7 @@ _podman_create_exec_target() {
     echo "Creating podman test container: $name (using $image)"
     # shellcheck disable=SC2086
     podman run -d --name "$name" "$image" $command
-    sleep 1
+    wait_for_running podman "$name"
 }
 
 setup() {

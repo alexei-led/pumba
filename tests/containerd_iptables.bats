@@ -9,7 +9,7 @@ setup() {
     # Need iptables in the container image for direct exec mode
     ctr_pull_image moby docker.io/nicolaka/netshoot:latest
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-ipt-ctr sleep infinity >/dev/null 2>&1
-    sleep 1
+    wait_for_ctr_running moby test-ipt-ctr
 }
 
 teardown() {

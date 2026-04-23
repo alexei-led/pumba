@@ -29,7 +29,7 @@ setup() {
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
     podman run -d --privileged --name pdm-netem-ctr docker.io/nicolaka/netshoot:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
-    sleep 1
+    wait_for_running podman pdm-netem-ctr
 }
 
 teardown() {

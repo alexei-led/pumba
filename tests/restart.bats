@@ -121,7 +121,8 @@ teardown() {
 @test "Should respect --limit when restarting containers" {
     docker run -d --name restart_test_1 alpine tail -f /dev/null
     docker run -d --name restart_test_2 alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker restart_test_1
+    wait_for_running docker restart_test_2
 
     local start_time_1 start_time_2
     start_time_1=$(docker inspect -f '{{.State.StartedAt}}' restart_test_1)

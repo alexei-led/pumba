@@ -174,7 +174,8 @@ teardown() {
 @test "Should respect --limit when stopping containers via containerd runtime" {
     docker run -d --name ctr_victim_1 alpine top
     docker run -d --name ctr_victim_2 alpine top
-    sleep 1
+    wait_for_running docker ctr_victim_1
+    wait_for_running docker ctr_victim_2
 
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_1)" = "running" ]
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_2)" = "running" ]
@@ -193,7 +194,8 @@ teardown() {
 @test "Should respect --limit when pausing containers via containerd runtime" {
     docker run -d --name ctr_victim_1 alpine tail -f /dev/null
     docker run -d --name ctr_victim_2 alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker ctr_victim_1
+    wait_for_running docker ctr_victim_2
 
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_1)" = "running" ]
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_2)" = "running" ]
@@ -215,7 +217,8 @@ teardown() {
 @test "Should respect --limit when removing containers via containerd runtime" {
     docker run -d --name ctr_victim_1 alpine top
     docker run -d --name ctr_victim_2 alpine top
-    sleep 1
+    wait_for_running docker ctr_victim_1
+    wait_for_running docker ctr_victim_2
 
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_1)" = "running" ]
     [ "$(docker inspect -f '{{.State.Status}}' ctr_victim_2)" = "running" ]
@@ -236,7 +239,8 @@ teardown() {
 @test "Should remove containers matched by regex via containerd runtime" {
     docker run -d --name ctr_victim_1 alpine top
     docker run -d --name ctr_victim_2 alpine top
-    sleep 1
+    wait_for_running docker ctr_victim_1
+    wait_for_running docker ctr_victim_2
 
     run pumba --log-level debug rm "re2:ctr_victim_.*"
     assert_success

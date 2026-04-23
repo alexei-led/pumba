@@ -13,8 +13,7 @@ setup() {
     # Create container with a dummy interface for testing
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-netem-ctr \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
-    # Give container a moment to start and create the interface
-    sleep 1
+    wait_for_ctr_running moby test-netem-ctr
 }
 
 teardown() {

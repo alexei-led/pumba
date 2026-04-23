@@ -77,6 +77,49 @@ wait_for() {
 	return 0
 }
 
+# Poll a container's state via a runtime CLI until it matches the desired
+# status (or timeout). Replaces unconditional `sleep N` after container
+# create/stop commands — typical convergence time is sub-second on a warm
+# daemon, so the `sleep 1` per-iteration granularity is good enough here.
+#
+# Usage:
+#   wait_for_state <cli> <container> <status> [timeout=10]
+#
+#   wait_for_state docker foo running
+#   wait_for_state podman pdm-netem-ctr running 5
+#   wait_for_state podman pdm_victim exited
+wait_for_state() {
+	local cli=$1 container=$2 want=$3 timeout=${4:-10}
+	wait_for "$timeout" \
+		"$cli inspect -f '{{.State.Status}}' '$container' 2>/dev/null | grep -q '^${want}$'" \
+		"$container state=$want"
+}
+
+# Wait until a container is running. Convenience wrapper around
+# wait_for_state covering the >90% case ("I just ran the container, now I
+# want to act on it").
+wait_for_running() {
+	local cli=$1 container=$2 timeout=${3:-10}
+	wait_for_state "$cli" "$container" running "$timeout"
+}
+
+# Wait until a container has exited (e.g. after `kill`/`stop`).
+wait_for_exited() {
+	local cli=$1 container=$2 timeout=${3:-10}
+	wait_for_state "$cli" "$container" exited "$timeout"
+}
+
+# Wait until a containerd-native task exists (for `ctr -n <ns> run -d ...`
+# flows where the container isn't registered with the Docker daemon).
+# Polls `ctr -n <ns> c info <name>` which returns non-zero until the task
+# is committed. Replaces `sleep 1` after `ctr run -d` setup.
+wait_for_ctr_running() {
+	local ns=$1 container=$2 timeout=${3:-10}
+	wait_for "$timeout" \
+		"sudo ctr -n '$ns' c info '$container' >/dev/null 2>&1" \
+		"ctr container $ns/$container present"
+}
+
 # ── Container state assertion wrappers ──────────────────────────────────────
 
 assert_container_running() {

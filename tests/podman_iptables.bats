@@ -26,7 +26,7 @@ setup() {
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
     podman run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
-    sleep 1
+    wait_for_running podman pdm-ipt-ctr
 }
 
 teardown() {

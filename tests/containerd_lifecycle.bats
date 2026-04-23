@@ -92,7 +92,8 @@ teardown() {
 @test "Should respect --limit when killing containers via containerd runtime" {
     docker run -d --name containerd_victim alpine top
     docker run -d --name containerd_victim_2 alpine top
-    sleep 1
+    wait_for_running docker containerd_victim
+    wait_for_running docker containerd_victim_2
 
     id1=$(docker inspect --format="{{.Id}}" containerd_victim)
     id2=$(docker inspect --format="{{.Id}}" containerd_victim_2)
@@ -137,7 +138,8 @@ teardown() {
 @test "Should respect exec --limit parameter via containerd runtime" {
     docker run -d --name containerd_victim alpine top
     docker run -d --name containerd_victim_2 alpine top
-    sleep 1
+    wait_for_running docker containerd_victim
+    wait_for_running docker containerd_victim_2
 
     # Exec with limit=1 targeting both via regex
     run pumba --log-level debug exec --limit 1 --command "touch" --args "/tmp/exec_limit_test" "re2:containerd_victim"

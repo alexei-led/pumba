@@ -76,7 +76,7 @@ teardown() {
     full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
 
     run pumba --runtime podman --log-level debug \
-        stress --duration 10s --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --timeout 3s" "$full_id"
+        stress --duration 10s --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
 
     echo "Pumba output: $output"
     assert_success
@@ -93,7 +93,7 @@ teardown() {
     full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
 
     run pumba --runtime podman --log-level debug \
-        stress --duration 10s --inject-cgroup --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --timeout 3s" "$full_id"
+        stress --duration 10s --inject-cgroup --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
 
     echo "Pumba output: $output"
     assert_success

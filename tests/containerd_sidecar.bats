@@ -16,7 +16,7 @@ setup() {
     # Create with a dummy network interface for testing
     sudo ctr -n moby run -d --privileged docker.io/library/alpine:latest test-sidecar-target \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
-    sleep 1
+    wait_for_ctr_running moby test-sidecar-target
 }
 
 teardown() {
