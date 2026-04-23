@@ -118,7 +118,7 @@ jobs:
           command: |
             shopt -s extglob
             sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
-              --print-output-on-failure tests/!(containerd_*).bats
+              --print-output-on-failure tests/!(containerd_*|podman_*).bats
       - name: Setup Containerd
         run: |
           if command -v containerd &>/dev/null; then
