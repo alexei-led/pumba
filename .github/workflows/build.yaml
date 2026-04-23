@@ -108,8 +108,6 @@ jobs:
           cid=$(docker create --rm alpine:latest sleep 10)
           docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
           docker rm -f "${cid}" 2>/dev/null || true
-      - name: Install GNU Parallel
-        run: sudo apt-get update && sudo apt-get install -y parallel
       - name: Run Docker Integration Tests
         uses: nick-fields/retry@v4
         with:
@@ -117,8 +115,8 @@ jobs:
           max_attempts: 2
           command: |
             shopt -s extglob
-            sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
-              --print-output-on-failure tests/!(containerd_*|podman_*).bats
+            sudo env "PATH=$PATH" bats --print-output-on-failure \
+              tests/!(containerd_*|podman_*).bats
       - name: Setup Containerd
         run: |
           if command -v containerd &>/dev/null; then
@@ -140,8 +138,7 @@ jobs:
       - name: Run Containerd Integration Tests
         run: |
           if [ -S /run/containerd/containerd.sock ]; then
-            sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
-              --print-output-on-failure tests/containerd_*.bats
+            sudo env "PATH=$PATH" bats --print-output-on-failure tests/containerd_*.bats
           else
             echo "Containerd socket not available, skipping containerd tests"
           fi
@@ -162,10 +159,10 @@ jobs:
           go-version: "1.26"
           cache: true
           cache-dependency-path: go.sum
-      - name: Install Podman and GNU Parallel
+      - name: Install Podman
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman parallel
+          sudo apt-get install -y podman
           podman --version
       - name: Install Bats and Libraries
         uses: bats-core/bats-action@4.0.0
@@ -193,8 +190,7 @@ jobs:
       - name: Run Podman Integration Tests
         run: |
           set -o pipefail
-          sudo env "PATH=$PATH" bats --jobs 4 --no-parallelize-within-files \
-            --print-output-on-failure tests/podman_*.bats 2>&1 | tee podman-bats.log
+          sudo env "PATH=$PATH" bats --print-output-on-failure tests/podman_*.bats 2>&1 | tee podman-bats.log
       - name: Collect Podman Journal on Failure
         if: failure()
         run: |
