@@ -1,16 +1,17 @@
 # Pumba User Guide
 
-Pumba is a chaos testing command line tool for Docker containers. This guide covers container chaos commands, targeting, and general usage. For network chaos (netem, iptables), see [Network Chaos](network-chaos.md). For stress testing, see [Stress Testing](stress-testing.md).
+Pumba is a chaos testing command line tool for Docker, containerd, and Podman containers. This guide covers container chaos commands, targeting, and general usage. For network chaos (netem, iptables), see [Network Chaos](network-chaos.md). For stress testing, see [Stress Testing](stress-testing.md).
 
 ## Prerequisites
 
 - **Docker runtime** (default): Docker `v18.06.0` or later
 - **containerd runtime**: containerd `v2.0` or later
+- **Podman runtime**: Podman `v5.x` or later with a Docker-compatible socket (rootful for network/stress chaos)
 - Download the Pumba binary for your OS from the [releases page](https://github.com/alexei-led/pumba/releases), or run it as a [Docker container](deployment.md)
 
 ## Runtime Selection
 
-Pumba supports two container runtimes: **Docker** (default) and **containerd**.
+Pumba supports three container runtimes: **Docker** (default), **containerd**, and **Podman**.
 
 ### Docker Runtime (default)
 
@@ -65,6 +66,78 @@ pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nett
 
 - **Stress testing**: executes `stress-ng` directly inside the target container — the container image must include `stress-ng`. The `--stress-image` and `--inject-cgroup` flags are ignored with the containerd runtime
 - **Remove** (`rm`): For Docker-managed containers in the `moby` namespace, kills the task but Docker retains its own metadata
+
+### Podman Runtime
+
+Use `--runtime podman` to target containers managed by Podman. Pumba reuses the Docker SDK against Podman's Docker-compat socket — every chaos command (`kill`, `stop`, `pause`, `rm`, `restart`, `exec`, `netem`, `iptables`, `stress`) works the same as with Docker:
+
+```bash
+# Kill a container by name (auto-detected socket)
+sudo pumba --runtime podman kill mycontainer
+
+# Add network delay (requires rootful Podman)
+sudo pumba --runtime podman netem --duration 5m delay --time 3000 mycontainer
+
+# Stress CPU using sidecar (child-cgroup mode)
+sudo pumba --runtime podman stress --duration 60s \
+  --stressors="--cpu 4 --timeout 60s" mycontainer
+
+# Inject stress-ng into the target's cgroup (shared resource accounting)
+sudo pumba --runtime podman stress --duration 60s --inject-cgroup \
+  --stress-image ghcr.io/alexei-led/stress-ng:latest \
+  --stressors="--cpu 1 --timeout 5s" mycontainer
+
+# Explicit socket override
+pumba --runtime podman --podman-socket unix:///run/podman/podman.sock kill mycontainer
+```
+
+**Global flags for Podman:**
+
+| Flag              | Default           | Description                                                                                          |
+| ----------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `--runtime`       | `docker`          | Set to `podman` to target Podman                                                                     |
+| `--podman-socket` | _(auto-detected)_ | Podman socket URI (e.g. `unix:///run/podman/podman.sock`); empty triggers auto-detection (see below) |
+
+**Socket auto-detection order:**
+
+1. `$CONTAINER_HOST` environment variable
+2. `$PODMAN_SOCK` environment variable
+3. `podman machine inspect` (macOS — picks up the active machine's socket)
+4. `/run/podman/podman.sock` (Linux rootful default)
+5. `$XDG_RUNTIME_DIR/podman/podman.sock` (Linux rootless default — **not supported** for netem/iptables/stress)
+
+**Rootful requirement:**
+
+`netem`, `iptables`, and `stress` require **rootful Podman**. Rootless is detected at `NewClient` time (via `Info.SecurityOptions`) and each of these commands fails fast with an actionable error pointing to:
+
+- macOS: `podman machine set --rootful` (then `podman machine start`)
+- Linux: the rootful `podman.socket` systemd unit (`systemctl --system enable --now podman.socket`)
+
+Lifecycle commands (`kill`, `stop`, `pause`, `rm`, `restart`, `exec`) work in both rootful and rootless mode.
+
+**macOS development with `podman machine`:**
+
+Podman on macOS runs containers inside a Linux VM. Stress cgroup resolution reads `/proc/<pid>/cgroup` from the **host's view** (Podman's default `cgroupns=private` hides ancestry from inside the container), so pumba must run on the same kernel as the target containers. Run the pumba binary **inside** the `podman machine` VM, mirroring the containerd-in-colima pattern:
+
+```bash
+# one-time setup
+brew install podman
+podman machine init --rootful --cpus 4 --memory 4096 --now
+
+# copy a linux/arm64 or linux/amd64 pumba binary into the VM
+podman machine cp /path/to/pumba podman-machine-default:/tmp/pumba
+podman machine ssh sudo install -m 0755 /tmp/pumba /usr/local/bin/pumba
+
+# run inside the VM
+podman machine ssh sudo pumba --runtime podman --log-level debug ps
+podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time 200 <container-id>
+```
+
+**Known differences from the Docker runtime:**
+
+- **Stress testing**: always runs `stress-ng` in a sidecar (never execs inside the target). `--stress-image` is required; `--inject-cgroup` routes via `/cg-inject` for shared accounting with the target.
+- **Sidecar cgroup placement**: Podman uses `libpod-<id>.scope/container` for the leaf cgroup under systemd, vs Docker's `docker-<id>.scope`. Pumba detects the nested `container/` sub-cgroup automatically for inject-cgroup mode (cgroup v2 "no internal processes" rule).
+- **Rootless is unsupported** for network/stress chaos. The slirp4netns/pasta netns setup and user-namespace cgroup math are out of scope; use rootful mode.
 
 ## Container Targeting
 

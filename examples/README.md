@@ -50,3 +50,23 @@ This demo shows how to create a more realistic network chaos scenario by combini
 1. On the top screen, run Pumba with both netem and iptables commands: `./pumba_combined.sh`
 
 This demonstrates how to simulate asymmetric network conditions (like a slow download but fast upload) that more closely resemble real-world network conditions.
+
+## Podman runtime demos
+
+Pumba's Podman runtime works identically to the Docker one but requires **rootful** Podman for network and stress chaos. The scripts below mirror the demos above; on macOS run them **inside** `podman machine` (`podman machine ssh ...`).
+
+### Kill random Podman containers
+
+1. Split screen horizontally
+2. Launch 10 target containers: `./podman_kill_demo.sh`
+3. Run pumba targeting them: `./pumba_podman_kill.sh`
+
+### Delay network traffic via Podman
+
+1. Launch a target: `podman run -d --name ping-target --privileged nicolaka/netshoot sh -c "ping 1.1.1.1"`
+2. Run pumba netem: `./pumba_podman_delay.sh`
+
+### Stress-test a Podman container
+
+1. Launch a target: `podman run -d --name stress-target alpine sleep infinity`
+2. Run pumba stress (child-cgroup sidecar): `./pumba_podman_stress.sh`
