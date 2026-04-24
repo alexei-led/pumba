@@ -89,19 +89,9 @@ teardown() {
     [ "$(podman inspect -f '{{.State.Status}}' pdm_stress_victim)" = "running" ]
 }
 
-@test "Should run stress via inject-cgroup sidecar on podman" {
-    full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
-
-    run pumba --runtime podman --log-level debug \
-        stress --duration 10s --inject-cgroup --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
-
-    echo "Pumba output: $output"
-    assert_success
-    assert_output --partial "resolved podman target cgroup"
-
-    run podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true"
-    [ -z "$output" ]
-
-    [ "$(podman inspect -f '{{.State.Status}}' pdm_stress_victim)" = "running" ]
-}
+# NOTE: inject-cgroup mode is tested in tests/skip_ci/podman_stress_inject_cgroup.bats
+# (excluded from CI). Stock Podman 4.9.x on Ubuntu 24.04 creates the libpod init
+# sub-cgroup `<scope>/container` transiently and rmdir's it mid-flight, racing
+# cg-inject's write. Podman 5.x (`podman machine`, Fedora CoreOS) keeps it stable.
+# See pkg/runtime/podman/stress.go::resolveCgroup for the resolution logic.
 
