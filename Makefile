@@ -102,12 +102,12 @@ COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
 .PHONY: test-coverage
 test-coverage: setup-go-junit-report setup-gocov setup-gocov-xml; $(info $(M) running coverage tests...) @ ## Run coverage tests
 	$Q mkdir -p $(COVERAGE_DIR)
-	$Q $(GO) test -v -cover \
-		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
+	$Q set -o pipefail; env CGO_ENABLED=1 GOOS= GOARCH= $(GO) test -v -cover \
+		-coverpkg=$$(env CGO_ENABLED=1 GOOS= GOARCH= $(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
 					grep '^$(MODULE)/' | grep -v mocks | \
 					tr '\n' ',' | sed 's/,$$//') \
 		-covermode=$(COVERAGE_MODE) \
-		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS) > $(COVERAGE_DIR)/tests.output
+		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS) 2>&1 | tee $(COVERAGE_DIR)/tests.output
 	$(GOUNIT) -set-exit-code -in $(COVERAGE_DIR)/tests.output -out $(COVERAGE_DIR)/tests.xml
 	$Q $(GO) tool cover -func="$(COVERAGE_PROFILE)"
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
