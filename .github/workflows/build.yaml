@@ -63,11 +63,19 @@ jobs:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
   integration:
-    name: Integration Tests
+    name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }})
+    needs: test
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        runtime:
+          - docker
+          - containerd
+          - podman
+        platform:
+          - linux/amd64
+          - linux/arm64
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
@@ -75,6 +83,8 @@ jobs:
             runner: ubuntu-24.04-arm
     permissions:
       contents: read
+    env:
+      BATS_LOG: /tmp/bats-${{ matrix.runtime }}.log
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
@@ -86,44 +96,49 @@ jobs:
           go-version: "1.26"
           cache: true
           cache-dependency-path: go.sum
-      - name: Build Pumba Binary
-        run: make build TARGETARCH="$(dpkg --print-architecture)"
-      - name: Install Pumba
-        run: sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
-      - name: Install Bats and Libraries
+      - name: Build and Install Pumba
+        run: |
+          make build TARGETARCH="$(dpkg --print-architecture)"
+          sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
+      - name: Install Bats
         uses: bats-core/bats-action@4.0.0
         with:
           support-path: /usr/local/lib/bats-support
           assert-path: /usr/local/lib/bats-assert
           detik-install: false
           file-install: false
-      - name: Pull Test Images
+      # ── Docker runtime ────────────────────────────────────────────────────
+      - name: Setup Docker Runtime
+        if: matrix.runtime == 'docker'
         run: |
-          docker pull alpine:latest
-          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest
-      - name: Warm Up Docker Runtime
-        run: |
-          docker run --rm alpine:latest true
+          docker pull alpine:latest &
+          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
+          wait
+          # Warm up: exercise the nettools sidecar flow once so the first
+          # netem test doesn't pay container-create latency.
           cid=$(docker create --rm alpine:latest sleep 10)
-          docker run --rm --net="container:${cid}" ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
+          docker run --rm --net="container:${cid}" \
+            ghcr.io/alexei-led/pumba-alpine-nettools:latest true 2>/dev/null || true
           docker rm -f "${cid}" 2>/dev/null || true
       - name: Run Docker Integration Tests
+        if: matrix.runtime == 'docker'
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 10
           max_attempts: 2
           command: |
             shopt -s extglob
-            sudo env "PATH=$PATH" bats --print-output-on-failure tests/!(containerd_*).bats
-      - name: Setup Containerd
+            sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
+              tests/!(containerd_*|podman_*).bats 2>&1 | tee "$BATS_LOG"
+      # ── Containerd runtime ────────────────────────────────────────────────
+      - name: Setup Containerd Runtime
+        if: matrix.runtime == 'containerd'
+        env:
+          CONTAINERD_VERSION: 2.0.4
         run: |
-          if command -v containerd &>/dev/null; then
-            echo "containerd already installed: $(containerd --version)"
-          else
-            echo "Installing containerd..."
+          if ! command -v ctr &>/dev/null; then
             arch=$(dpkg --print-architecture)
-            version="2.0.4"
-            url="https://github.com/containerd/containerd/releases/download/v${version}/containerd-${version}-linux-${arch}.tar.gz"
+            url="https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${arch}.tar.gz"
             curl -fsSL "$url" | sudo tar -xz -C /usr/local
           fi
           if ! systemctl is-active --quiet containerd 2>/dev/null; then
@@ -133,10 +148,62 @@ jobs:
             sleep 2
           fi
           sudo ctr version
+          docker pull alpine:latest &
+          docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
+          docker pull docker.io/nicolaka/netshoot:latest &
+          docker pull ghcr.io/alexei-led/stress-ng:latest &
+          wait
       - name: Run Containerd Integration Tests
+        if: matrix.runtime == 'containerd'
         run: |
-          if [ -S /run/containerd/containerd.sock ]; then
-            sudo env "PATH=$PATH" bats --print-output-on-failure tests/containerd_*.bats
-          else
-            echo "Containerd socket not available, skipping containerd tests"
-          fi
+          test -S /run/containerd/containerd.sock
+          sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
+            tests/containerd_*.bats 2>&1 | tee "$BATS_LOG"
+      # ── Podman runtime ────────────────────────────────────────────────────
+      - name: Setup Podman Runtime
+        if: matrix.runtime == 'podman'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq podman
+          sudo systemctl enable --now podman.socket
+          sudo podman info
+          sudo podman pull docker.io/library/alpine:latest &
+          sudo podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
+          sudo podman pull ghcr.io/alexei-led/stress-ng:latest &
+          sudo podman pull docker.io/nicolaka/netshoot:latest &
+          wait
+      - name: Run Podman Integration Tests
+        if: matrix.runtime == 'podman'
+        run: |
+          set -o pipefail
+          sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
+            tests/podman_*.bats 2>&1 | tee "$BATS_LOG"
+      # ── Failure diagnostics (shared across runtimes) ──────────────────────
+      - name: Collect Diagnostics on Failure
+        if: failure()
+        run: |
+          DIAG=/tmp/diag
+          mkdir -p "$DIAG"
+          # Runtime state
+          case "${{ matrix.runtime }}" in
+            docker)
+              docker ps -a 2>&1 | tee "$DIAG/ps.log" >/dev/null
+              docker system info 2>&1 | tee "$DIAG/info.log" >/dev/null ;;
+            containerd)
+              sudo ctr c ls 2>&1 | tee "$DIAG/ps.log" >/dev/null
+              sudo journalctl -u containerd --no-pager 2>&1 | tee "$DIAG/journal.log" >/dev/null || true ;;
+            podman)
+              sudo podman ps -a 2>&1 | tee "$DIAG/ps.log" >/dev/null
+              sudo journalctl -u podman.socket --no-pager 2>&1 | tee "$DIAG/journal.log" >/dev/null || true ;;
+          esac
+          # Always copy the bats log if it exists
+          [ -f "$BATS_LOG" ] && cp "$BATS_LOG" "$DIAG/bats.log" || true
+      - name: Upload Diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          # Artifact names forbid `/` — use runner tag (already encodes arch).
+          name: integration-${{ matrix.runtime }}-${{ matrix.runner }}-diag
+          path: /tmp/diag/
+          retention-days: 7
+          if-no-files-found: ignore

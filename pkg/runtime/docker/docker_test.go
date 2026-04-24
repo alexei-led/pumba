@@ -29,6 +29,17 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// fakeExecAttach returns a HijackedResponse suitable for mocking
+// ContainerExecAttach in tests that don't care about the exec stream output.
+func fakeExecAttach() types.HijackedResponse {
+	conn := &mockConn{}
+	conn.On("Close").Return(nil)
+	return types.HijackedResponse{
+		Conn:   conn,
+		Reader: bufio.NewReader(strings.NewReader("")),
+	}
+}
+
 func NewMockEngine() *mocks.APIClient {
 	return new(mocks.APIClient)
 }
@@ -372,14 +383,14 @@ func TestNetemContainer_Success(t *testing.T) {
 
 	engineClient := NewMockEngine()
 
-	checkConfig := ctypes.ExecOptions{Cmd: []string{"which", "tc"}}
+	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(mock.Anything, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(mock.Anything, "checkID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(mock.Anything, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(mock.Anything, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
+	config := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", "500ms"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(mock.Anything, "abc123", config).Return(ctypes.ExecCreateResponse{ID: "testID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(mock.Anything, "testID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(mock.Anything, "testID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(mock.Anything, "testID").Return(ctypes.ExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -397,14 +408,14 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
-	checkConfig := ctypes.ExecOptions{Cmd: []string{"which", "tc"}}
+	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "checkID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	stopConfig := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
+	stopConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "del", "dev", "eth0", "root", "netem"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", stopConfig).Return(ctypes.ExecCreateResponse{ID: "testID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "testID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "testID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "testID").Return(ctypes.ExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -425,7 +436,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 
 	assert.NoError(t, err)
 	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
-	engineClient.AssertNotCalled(t, "ContainerExecStart", "abc123", mock.Anything)
+	engineClient.AssertNotCalled(t, "ContainerExecAttach", "abc123", mock.Anything)
 }
 
 func TestNetemContainerIPFilter_Success(t *testing.T) {
@@ -436,35 +447,35 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
-	checkConfig := ctypes.ExecOptions{Cmd: []string{"which", "tc"}}
+	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "checkID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config1 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config1).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd1", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
 
-	config2 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"}, Privileged: true}
+	config2 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config2).Return(ctypes.ExecCreateResponse{ID: "cmd2"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd2", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd2").Return(ctypes.ExecInspect{}, nil)
 
-	config3 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"}, Privileged: true}
+	config3 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config3).Return(ctypes.ExecCreateResponse{ID: "cmd3"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd3", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd3", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd3").Return(ctypes.ExecInspect{}, nil)
 
-	config4 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "500ms"}, Privileged: true}
+	config4 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "500ms"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config4).Return(ctypes.ExecCreateResponse{ID: "cmd4"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd4", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd4", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd4").Return(ctypes.ExecInspect{}, nil)
 
-	config5 := ctypes.ExecOptions{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
+	config5 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
 		"parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", "10.10.0.1/32", "flowid", "1:3"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config5).Return(ctypes.ExecCreateResponse{ID: "cmd5"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd5", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd5", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd5").Return(ctypes.ExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -482,35 +493,35 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
-	checkConfig := ctypes.ExecOptions{Cmd: []string{"which", "tc"}}
+	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "checkID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config1 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config1).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd1", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
 
-	config2 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"}, Privileged: true}
+	config2 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config2).Return(ctypes.ExecCreateResponse{ID: "cmd2"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd2", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd2").Return(ctypes.ExecInspect{}, nil)
 
-	config3 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"}, Privileged: true}
+	config3 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config3).Return(ctypes.ExecCreateResponse{ID: "cmd3"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd3", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd3", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd3").Return(ctypes.ExecInspect{}, nil)
 
-	config4 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "500ms"}, Privileged: true}
+	config4 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "500ms"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config4).Return(ctypes.ExecCreateResponse{ID: "cmd4"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd4", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd4", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd4").Return(ctypes.ExecInspect{}, nil)
 
-	config5 := ctypes.ExecOptions{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
+	config5 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
 		"parent", "1:0", "prio", "1", "u32", "match", "ip", "sport", "1234", "0xffff", "flowid", "1:3"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config5).Return(ctypes.ExecCreateResponse{ID: "cmd5"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd5", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd5", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd5").Return(ctypes.ExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -528,35 +539,35 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 	ctx := mock.Anything
 	engineClient := NewMockEngine()
 
-	checkConfig := ctypes.ExecOptions{Cmd: []string{"which", "tc"}}
+	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "checkID", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config1 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config1).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd1", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
 
-	config2 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"}, Privileged: true}
+	config2 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config2).Return(ctypes.ExecCreateResponse{ID: "cmd2"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd2", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd2").Return(ctypes.ExecInspect{}, nil)
 
-	config3 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"}, Privileged: true}
+	config3 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config3).Return(ctypes.ExecCreateResponse{ID: "cmd3"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd3", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd3", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd3").Return(ctypes.ExecInspect{}, nil)
 
-	config4 := ctypes.ExecOptions{Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "500ms"}, Privileged: true}
+	config4 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "500ms"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config4).Return(ctypes.ExecCreateResponse{ID: "cmd4"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd4", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd4", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd4").Return(ctypes.ExecInspect{}, nil)
 
-	config5 := ctypes.ExecOptions{Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
+	config5 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "filter", "add", "dev", "eth0", "protocol", "ip",
 		"parent", "1:0", "prio", "1", "u32", "match", "ip", "dport", "1234", "0xffff", "flowid", "1:3"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config5).Return(ctypes.ExecCreateResponse{ID: "cmd5"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "cmd5", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd5", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd5").Return(ctypes.ExecInspect{}, nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -572,9 +583,11 @@ func Test_tcContainerCommands(t *testing.T) {
 	}
 
 	config := ctypes.Config{
-		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		// Use default entrypoint and cmd from image (new version doesn't set these)
-		Image: "pumba/tcimage",
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Entrypoint: []string{"tail"},
+		Cmd:        []string{"-f", "/dev/null"},
+		Image:      "pumba/tcimage",
+		StopSignal: "SIGKILL",
 	}
 	hconfig := ctypes.HostConfig{
 		AutoRemove:   false,
@@ -606,10 +619,10 @@ func Test_tcContainerCommands(t *testing.T) {
 	engineClient.EXPECT().ImagePull(ctx, config.Image, imagetypes.PullOptions{}).Return(io.NopCloser(readerResponse), nil)
 	engineClient.EXPECT().ContainerCreate(ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(ctypes.CreateResponse{ID: "tcID"}, nil)
 	engineClient.EXPECT().ContainerStart(ctx, "tcID", ctypes.StartOptions{}).Return(nil)
-	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{Cmd: []string{"tc", "test", "one"}}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "execID1", ctypes.ExecStartOptions{}).Return(nil)
-	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{Cmd: []string{"tc", "test", "two"}}).Return(ctypes.ExecCreateResponse{ID: "execID2"}, nil)
-	engineClient.EXPECT().ContainerExecStart(ctx, "execID2", ctypes.ExecStartOptions{}).Return(nil)
+	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "test", "one"}}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "execID1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "test", "two"}}).Return(ctypes.ExecCreateResponse{ID: "execID2"}, nil)
+	engineClient.EXPECT().ContainerExecAttach(ctx, "execID2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerRemove(ctx, "tcID", ctypes.RemoveOptions{Force: true}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
@@ -672,14 +685,14 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				// prepare which command
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				// prepare main command
-				execConfig := ctypes.ExecOptions{Cmd: append([]string{cmd}, args...), Privileged: false}
+				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{ID: "cmdID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "cmdID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "cmdID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "cmdID").Return(ctypes.ExecInspect{}, nil)
 			},
 		},
@@ -694,14 +707,14 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				// prepare which command
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				// prepare main command
-				execConfig := ctypes.ExecOptions{Cmd: append([]string{cmd}, args...), Privileged: true}
+				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: true}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{ID: "cmdID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "cmdID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "cmdID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "cmdID").Return(ctypes.ExecInspect{}, nil)
 			},
 		},
@@ -715,9 +728,9 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				// prepare which command
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil)
 			},
 			wantErr: true,
@@ -730,7 +743,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execCmd: "test-app",
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{}, errors.New("which error"))
 			},
 			wantErr: true,
@@ -743,9 +756,9 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execCmd: "test-app",
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(errors.New("which error"))
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(types.HijackedResponse{}, errors.New("which error"))
 			},
 			wantErr: true,
 		},
@@ -757,9 +770,9 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execCmd: "test-app",
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, errors.New("which error"))
 			},
 			wantErr: true,
@@ -772,12 +785,12 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execCmd: "test-app",
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				// prepare main command
-				execConfig := ctypes.ExecOptions{Cmd: append([]string{cmd}, args...), Privileged: false}
+				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{}, errors.New("cmd error"))
 			},
 			wantErr: true,
@@ -790,14 +803,14 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 				execCmd: "test-app",
 			},
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
-				checkConfig := ctypes.ExecOptions{Cmd: []string{"which", cmd}}
+				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				// prepare main command
-				execConfig := ctypes.ExecOptions{Cmd: append([]string{cmd}, args...), Privileged: false}
+				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{ID: "cmdID"}, nil)
-				engine.EXPECT().ContainerExecStart(ctx, "cmdID", ctypes.ExecStartOptions{}).Return(errors.New("cmd error"))
+				engine.EXPECT().ContainerExecAttach(ctx, "cmdID", ctypes.ExecAttachOptions{}).Return(types.HijackedResponse{}, errors.New("cmd error"))
 			},
 			wantErr: true,
 		},
@@ -1419,12 +1432,12 @@ func TestIPTablesContainer(t *testing.T) {
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// The container has iptables installed, so we execute directly
 				cmdArgs := append(cmdPrefix, cmdSuffix...)
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
@@ -1441,14 +1454,14 @@ func TestIPTablesContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// The container has iptables installed, so we execute directly
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				cmdArgs := append(append([]string{}, cmdPrefix...), "-s", "10.0.0.1/32")
 				cmdArgs = append(cmdArgs, cmdSuffix...)
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
@@ -1465,16 +1478,16 @@ func TestIPTablesContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				// The container has iptables installed, so we execute directly
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				// Expect two commands - one for each port
 				for _, dport := range dports {
 					cmdArgs := append(append([]string{}, cmdPrefix...), "--dport", dport)
 					cmdArgs = append(cmdArgs, cmdSuffix...)
-					api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID-" + dport}, nil)
-					api.EXPECT().ContainerExecStart(ctx, "execID-"+dport, ctypes.ExecStartOptions{}).Return(nil)
+					api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID-" + dport}, nil)
+					api.EXPECT().ContainerExecAttach(ctx, "execID-"+dport, ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 					api.EXPECT().ContainerExecInspect(ctx, "execID-"+dport).Return(ctypes.ExecInspect{}, nil)
 				}
 			},
@@ -1491,12 +1504,12 @@ func TestIPTablesContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				cmdArgs := append(cmdPrefix, cmdSuffix...)
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{ExitCode: 1}, nil) // Exit code 1 indicates command failure
 			},
 			wantErr: true,
@@ -1511,8 +1524,8 @@ func TestIPTablesContainer(t *testing.T) {
 				dryrun:    false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil) // Exit code 1 indicates command not found
 			},
 			wantErr: true,
@@ -1582,14 +1595,14 @@ func TestNetemContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// The container has tc installed, so we execute directly
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				// Call with the tc command
 				tcCmd := []string{"qdisc", "add", "dev", netInterface, "root", "netem", "delay", "100ms"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
@@ -1606,50 +1619,60 @@ func TestNetemContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// The container has tc installed, so we execute directly
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				// With IP filter, need multiple tc commands
 				// First command - create priority qdisc
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{
-					Cmd:        []string{"tc", "qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"},
-					Privileged: true,
+					AttachStdout: true,
+					AttachStderr: true,
+					Cmd:          []string{"tc", "qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"},
+					Privileged:   true,
 				}).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "cmd1", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
 
 				// Second command - add sfq qdisc for first class
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{
-					Cmd:        []string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"},
-					Privileged: true,
+					AttachStdout: true,
+					AttachStderr: true,
+					Cmd:          []string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"},
+					Privileged:   true,
 				}).Return(ctypes.ExecCreateResponse{ID: "cmd2"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "cmd2", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecAttach(ctx, "cmd2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "cmd2").Return(ctypes.ExecInspect{}, nil)
 
 				// Third command - add sfq qdisc for second class
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{
-					Cmd:        []string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"},
-					Privileged: true,
+					AttachStdout: true,
+					AttachStderr: true,
+					Cmd:          []string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"},
+					Privileged:   true,
 				}).Return(ctypes.ExecCreateResponse{ID: "cmd3"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "cmd3", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecAttach(ctx, "cmd3", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "cmd3").Return(ctypes.ExecInspect{}, nil)
 
 				// Fourth command - add netem qdisc for third class
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{
-					Cmd:        []string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
-					Privileged: true,
+					AttachStdout: true,
+					AttachStderr: true,
+					Cmd:          []string{"tc", "qdisc", "add", "dev", netInterface, "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
+					Privileged:   true,
 				}).Return(ctypes.ExecCreateResponse{ID: "cmd4"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "cmd4", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecAttach(ctx, "cmd4", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "cmd4").Return(ctypes.ExecInspect{}, nil)
 
 				// Fifth command - add filter for IP
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{
+					AttachStdout: true,
+					AttachStderr: true,
 					Cmd: []string{"tc", "filter", "add", "dev", netInterface, "protocol", "ip",
 						"parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", "10.0.0.1/32", "flowid", "1:3"},
 					Privileged: true,
 				}).Return(ctypes.ExecCreateResponse{ID: "cmd5"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "cmd5", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecAttach(ctx, "cmd5", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "cmd5").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
@@ -1664,8 +1687,8 @@ func TestNetemContainer(t *testing.T) {
 				dryrun:       false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil) // Exit code 1 indicates command not found
 			},
 			wantErr: true,
@@ -2147,14 +2170,14 @@ func TestStopNetemIPTables(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// Simple case - just remove the root qdisc
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				// Expect tc qdisc del command
 				tcCmd := []string{"qdisc", "del", "dev", netInterface, "root", "netem"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
@@ -2170,30 +2193,30 @@ func TestStopNetemIPTables(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
 				// With IP filters - need to remove all parent qdiscs
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				// Need to remove child qdiscs first
 				tcCmd1 := []string{"qdisc", "del", "dev", netInterface, "parent", "1:1", "handle", "10:"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd1...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID1", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd1...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID1").Return(ctypes.ExecInspect{}, nil)
 
 				tcCmd2 := []string{"qdisc", "del", "dev", netInterface, "parent", "1:2", "handle", "20:"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd2...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID2"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID2", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd2...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID2"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID2").Return(ctypes.ExecInspect{}, nil)
 
 				tcCmd3 := []string{"qdisc", "del", "dev", netInterface, "parent", "1:3", "handle", "30:"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd3...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID3"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID3", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd3...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID3"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID3", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID3").Return(ctypes.ExecInspect{}, nil)
 
 				// Finally remove the root qdisc
 				tcCmd4 := []string{"qdisc", "del", "dev", netInterface, "root", "handle", "1:", "prio"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd4...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID4"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID4", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd4...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID4"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID4", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID4").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
@@ -2207,14 +2230,14 @@ func TestStopNetemIPTables(t *testing.T) {
 				dryrun:       false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimage string, pull, dryrun bool) {
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "whichID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				// Command execution fails
 				tcCmd := []string{"qdisc", "del", "dev", netInterface, "root", "netem"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{Cmd: append([]string{"tc"}, tcCmd...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
-				api.EXPECT().ContainerExecStart(ctx, "execID", ctypes.ExecStartOptions{}).Return(nil)
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID").Return(ctypes.ExecInspect{ExitCode: 1}, nil) // Exit code 1 indicates failure
 			},
 			wantErr: true,
@@ -2401,10 +2424,61 @@ func TestIPTablesForSimpleCases(t *testing.T) {
 
 		api := NewMockEngine()
 		api.EXPECT().ContainerExecCreate(mock.Anything, mock.Anything, mock.Anything).Return(ctypes.ExecCreateResponse{ID: "exec-id"}, nil)
-		api.EXPECT().ContainerExecStart(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.EXPECT().ContainerExecAttach(mock.Anything, mock.Anything, mock.Anything).Return(fakeExecAttach(), nil)
 
 		client := dockerClient{containerAPI: api}
 		err := client.ipTablesExecCommand(ctx, "container-id", []string{"-L"})
 		assert.NoError(t, err)
 	})
+}
+
+func TestNewAPIClient(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		wantErr bool
+	}{
+		{name: "unix socket", host: "unix:///var/run/docker.sock", wantErr: false},
+		{name: "tcp host", host: "tcp://localhost:2375", wantErr: false},
+		{name: "invalid scheme url", host: "://bad", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api, err := NewAPIClient(tt.host, nil)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, api)
+				return
+			}
+			assert.NoError(t, err)
+			assert.NotNil(t, api)
+		})
+	}
+}
+
+func TestNewFromAPI_NilReturnsError(t *testing.T) {
+	c, err := NewFromAPI(nil)
+	assert.Nil(t, c)
+	assert.EqualError(t, err, "docker: api client must not be nil")
+}
+
+func TestNewFromAPI_ValidReturnsClient(t *testing.T) {
+	api, err := NewAPIClient("unix:///var/run/docker.sock", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, api)
+
+	c, err := NewFromAPI(api)
+	assert.NoError(t, err)
+	assert.NotNil(t, c)
+
+	var _ ctr.Client = c
+}
+
+func TestNewClient_DelegatesToHelpers(t *testing.T) {
+	c, err := NewClient("unix:///var/run/docker.sock", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, c)
+
+	_, err = NewClient("://bad", nil)
+	assert.Error(t, err)
 }

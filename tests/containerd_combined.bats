@@ -15,7 +15,7 @@ setup() {
     ctr_pull_image moby "$NETTOOLS_IMAGE"
     sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-combined-ctr \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
-    sleep 1
+    wait_for_ctr_running moby test-combined-ctr
 }
 
 teardown() {

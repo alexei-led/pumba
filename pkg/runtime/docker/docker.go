@@ -23,6 +23,16 @@ import (
 
 // NewClient returns a new Client instance which can be used to interact with the Docker API.
 func NewClient(dockerHost string, tlsConfig *tls.Config) (ctr.Client, error) {
+	apiClient, err := NewAPIClient(dockerHost, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return NewFromAPI(apiClient)
+}
+
+// NewAPIClient returns a bare Docker SDK client. Exposed so alternate runtimes
+// (e.g. Podman via the Docker-compat socket) can reuse the HTTP/TLS setup.
+func NewAPIClient(dockerHost string, tlsConfig *tls.Config) (*dockerapi.Client, error) {
 	httpClient, err := HTTPClient(dockerHost, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -32,8 +42,16 @@ func NewClient(dockerHost string, tlsConfig *tls.Config) (ctr.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
+	return apiClient, nil
+}
 
-	return dockerClient{containerAPI: apiClient, imageAPI: apiClient, systemAPI: apiClient}, nil
+// NewFromAPI wraps an existing Docker SDK client as a ctr.Client. Exposed so
+// alternate runtimes can reuse the Docker implementation via embedding.
+func NewFromAPI(api *dockerapi.Client) (ctr.Client, error) {
+	if api == nil {
+		return nil, errors.New("docker: api client must not be nil")
+	}
+	return dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}, nil
 }
 
 const (
@@ -616,21 +634,41 @@ func (client dockerClient) tcCommands(ctx context.Context, c *ctr.Container, arg
 //nolint:dupl
 func (client dockerClient) tcExecCommand(ctx context.Context, execID string, args []string) error {
 	execConfig := ctypes.ExecOptions{
-		Cmd: append([]string{"tc"}, args...),
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          append([]string{"tc"}, args...),
 	}
 	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create tc-container exec: %w", err)
 	}
-	if err = client.containerAPI.ContainerExecStart(ctx, execCreateResponse.ID, ctypes.ExecStartOptions{}); err != nil {
+	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
 		return fmt.Errorf("failed to start tc-container exec: %w", err)
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("run command on tc-container")
 	return nil
 }
 
+// runExecAttached starts a pre-created exec by attaching to it and draining
+// stdout/stderr until the exec completes. Podman's Docker-compat API rejects
+// ContainerExecStart with empty ExecStartOptions ("must provide at least one
+// stream to attach to"); Docker accepts it. ContainerExecAttach works on both.
+func (client dockerClient) runExecAttached(ctx context.Context, execID string) error {
+	resp, err := client.containerAPI.ContainerExecAttach(ctx, execID, ctypes.ExecAttachOptions{})
+	if err != nil {
+		return err
+	}
+	defer resp.Close()
+	if _, err := io.ReadAll(resp.Reader); err != nil {
+		return fmt.Errorf("drain exec %s output: %w", execID, err)
+	}
+	return nil
+}
+
 // execute tc commands using other container (with iproute2 package installed), using target container network stack
 // try to use `gaiadocker\iproute2` img (Alpine + iproute2 package)
+//
+//nolint:dupl // intentionally parallel to ipTablesContainerCommands; keeping them separate reads clearer at callsite
 func (client dockerClient) tcContainerCommands(ctx context.Context, target *ctr.Container, argsList [][]string, tcimg string, pull bool) error {
 	log.WithFields(log.Fields{
 		"container": target.ID(),
@@ -675,11 +713,18 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *ctr.
 		}
 	}
 
-	// container config
+	// container config — explicit Entrypoint/Cmd so the sidecar stays alive
+	// regardless of the tc-image's default (e.g. nicolaka/netshoot defaults
+	// to zsh which exits immediately in detached mode). StopSignal: SIGKILL
+	// skips the SIGTERM-then-wait grace period on `rm -f`: tail as PID 1
+	// ignores SIGTERM, which otherwise makes Podman wait the full 10 s
+	// StopTimeout before escalating (~tens of seconds per chaos cycle).
 	config := ctypes.Config{
-		Labels: map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		// Use default entrypoint (tail -f /dev/null) from img to keep container alive
-		Image: tcimg,
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Entrypoint: []string{"tail"},
+		Cmd:        []string{"-f", "/dev/null"},
+		Image:      tcimg,
+		StopSignal: "SIGKILL",
 	}
 
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
@@ -696,15 +741,32 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *ctr.
 
 	for _, args := range argsList {
 		if err = client.tcExecCommand(ctx, createResponse.ID, args); err != nil {
+			_ = client.removeSidecar(ctx, createResponse.ID)
 			return fmt.Errorf("error running tc command on container: %v: %w", strings.Join(args, " "), err)
 		}
 	}
 
-	if err = client.containerAPI.ContainerRemove(ctx, createResponse.ID, ctypes.RemoveOptions{Force: true}); err != nil {
+	if err = client.removeSidecar(ctx, createResponse.ID); err != nil {
 		return fmt.Errorf("failed to remove tc-container: %w", err)
 	}
 
 	return nil
+}
+
+// sidecarRemoveTimeout bounds how long pumba will wait for ContainerRemove
+// to reap an ephemeral tc/iptables sidecar after the caller's ctx cancels
+// (e.g. SIGTERM). Podman's force-remove can take a few seconds on slow VMs.
+const sidecarRemoveTimeout = 15 * time.Second
+
+// removeSidecar force-removes an ephemeral tc/iptables sidecar container.
+// Uses context.WithoutCancel with a short timeout so cleanup still runs
+// when the caller's ctx was canceled by SIGTERM — otherwise pumba would
+// leak the sidecar AND the rules it installed in the target's netns,
+// because the caller early-returns on this error.
+func (client dockerClient) removeSidecar(ctx context.Context, id string) error {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
+	defer cancel()
+	return client.containerAPI.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true})
 }
 
 // cgroupDriver queries the Docker daemon for its cgroup driver.
@@ -952,15 +1014,16 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 
 	// check if command exists inside target container
 	checkExists := ctypes.ExecOptions{
-		Cmd: []string{"which", execCmd},
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          []string{"which", execCmd},
 	}
 	exec, err := client.containerAPI.ContainerExecCreate(ctx, c.ID(), checkExists)
 	if err != nil {
 		return fmt.Errorf("failed to create exec configuration to check if command exists: %w", err)
 	}
 	log.WithField("command", execCmd).Debugf("checking if command exists")
-	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, ctypes.ExecStartOptions{})
-	if err != nil {
+	if err = client.runExecAttached(ctx, exec.ID); err != nil {
 		return fmt.Errorf("failed to check if command exists in a container: %w", err)
 	}
 	checkInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
@@ -976,8 +1039,10 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 
 	// prepare exec config
 	config := ctypes.ExecOptions{
-		Privileged: privileged,
-		Cmd:        append([]string{execCmd}, execArgs...),
+		AttachStdout: true,
+		AttachStderr: true,
+		Privileged:   privileged,
+		Cmd:          append([]string{execCmd}, execArgs...),
 	}
 	// execute the command
 	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
@@ -985,8 +1050,7 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 		return fmt.Errorf("failed to create exec configuration for a command: %w", err)
 	}
 	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
-	err = client.containerAPI.ContainerExecStart(ctx, exec.ID, ctypes.ExecStartOptions{})
-	if err != nil {
+	if err = client.runExecAttached(ctx, exec.ID); err != nil {
 		return fmt.Errorf("failed to start command execution: %w", err)
 	}
 	exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
@@ -1124,13 +1188,15 @@ func (client dockerClient) ipTablesCommands(ctx context.Context, c *ctr.Containe
 //nolint:dupl
 func (client dockerClient) ipTablesExecCommand(ctx context.Context, execID string, args []string) error {
 	execConfig := ctypes.ExecOptions{
-		Cmd: append([]string{"iptables"}, args...),
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          append([]string{"iptables"}, args...),
 	}
 	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create iptables-container exec: %w", err)
 	}
-	if err = client.containerAPI.ContainerExecStart(ctx, execCreateResponse.ID, ctypes.ExecStartOptions{}); err != nil {
+	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
 		return fmt.Errorf("failed to start iptables-container exec: %w", err)
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("run command on iptables-container")
@@ -1139,6 +1205,8 @@ func (client dockerClient) ipTablesExecCommand(ctx context.Context, execID strin
 
 // execute iptables commands using other container (with iproute2 and bind-tools package installed), using target container network stack
 // try to use `biarca/iptables` img (Alpine + iproute2 and bind-tools package)
+//
+//nolint:dupl // intentionally parallel to tcContainerCommands; keeping them separate reads clearer at callsite
 func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target *ctr.Container, argsList [][]string, img string, pull bool) error {
 	log.WithFields(log.Fields{
 		"container": target.ID(),
@@ -1183,12 +1251,15 @@ func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target
 		}
 	}
 
-	// container config, keep the container alive by tailing /dev/null
+	// container config, keep the container alive by tailing /dev/null.
+	// StopSignal: SIGKILL avoids the 10 s SIGTERM grace period on `rm -f`
+	// (tail as PID 1 ignores SIGTERM), matching tcContainerCommands.
 	config := ctypes.Config{
 		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
 		Entrypoint: []string{"tail"},
 		Cmd:        []string{"-f", "/dev/null"},
 		Image:      img,
+		StopSignal: "SIGKILL",
 	}
 
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
@@ -1205,11 +1276,12 @@ func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target
 
 	for _, args := range argsList {
 		if err = client.ipTablesExecCommand(ctx, createResponse.ID, args); err != nil {
+			_ = client.removeSidecar(ctx, createResponse.ID)
 			return fmt.Errorf("error running iptables command on container: %v: %w", strings.Join(args, " "), err)
 		}
 	}
 
-	if err = client.containerAPI.ContainerRemove(ctx, createResponse.ID, ctypes.RemoveOptions{Force: true}); err != nil {
+	if err = client.removeSidecar(ctx, createResponse.ID); err != nil {
 		return fmt.Errorf("failed to remove iptables-container: %w", err)
 	}
 

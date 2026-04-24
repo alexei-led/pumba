@@ -189,7 +189,9 @@ teardown() {
     docker run -d --name multi_test_label_one --label app=web alpine tail -f /dev/null
     # Container with neither label
     docker run -d --name multi_test_label_none alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker multi_test_label_both
+    wait_for_running docker multi_test_label_one
+    wait_for_running docker multi_test_label_none
 
     assert_container_running "multi_test_label_both"
     assert_container_running "multi_test_label_one"

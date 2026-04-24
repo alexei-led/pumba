@@ -142,7 +142,8 @@ teardown() {
 @test "Should respect --limit when stopping containers" {
     docker run -d --name stopping_victim_1 alpine top
     docker run -d --name stopping_victim_2 alpine top
-    sleep 1
+    wait_for_running docker stopping_victim_1
+    wait_for_running docker stopping_victim_2
 
     assert_container_running "stopping_victim_1"
     assert_container_running "stopping_victim_2"

@@ -49,7 +49,8 @@ teardown() {
 @test "Should respect --limit when pausing containers" {
     docker run -d --name pause_victim_1 alpine tail -f /dev/null
     docker run -d --name pause_victim_2 alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker pause_victim_1
+    wait_for_running docker pause_victim_2
 
     assert_container_running "pause_victim_1"
     assert_container_running "pause_victim_2"

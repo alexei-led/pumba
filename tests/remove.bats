@@ -88,7 +88,7 @@ teardown() {
 
 @test "Should remove container with --volumes flag" {
     docker run -d --name rm_victim -v /data alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker rm_victim
     assert_container_running "rm_victim"
 
     run pumba rm --volumes rm_victim
@@ -101,7 +101,8 @@ teardown() {
 @test "Should respect --limit when removing containers" {
     docker run -d --name rm_victim_1 alpine tail -f /dev/null
     docker run -d --name rm_victim_2 alpine tail -f /dev/null
-    sleep 1
+    wait_for_running docker rm_victim_1
+    wait_for_running docker rm_victim_2
 
     assert_container_running "rm_victim_1"
     assert_container_running "rm_victim_2"

@@ -216,7 +216,7 @@ spec:
       labels:
         app: pumba
     spec:
-      hostPID: true  # needed for sidecar network namespace sharing
+      hostPID: true # needed for sidecar network namespace sharing
       containers:
         - name: pumba
           image: ghcr.io/alexei-led/pumba
@@ -253,10 +253,75 @@ spec:
 ```
 
 **Key differences from Docker mode:**
+
 - Mount the **containerd socket** instead of the Docker socket
 - Use `--containerd-namespace k8s.io` (Kubernetes containers live in this namespace)
 - Use `--tc-image` for network chaos (sidecar approach — no tools needed in target image)
 - Container names are resolved from Kubernetes labels automatically (`namespace/pod/container`)
+
+### Podman Runtime (Linux host)
+
+On a Linux host running Podman with the rootful API socket, mount Podman's Docker-compat socket into the Pumba container and select `--runtime podman`. This is the equivalent of the Docker DaemonSet, except the socket URI differs.
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: pumba-podman
+  namespace: pumba
+spec:
+  selector:
+    matchLabels:
+      app: pumba
+  template:
+    metadata:
+      labels:
+        app: pumba
+    spec:
+      hostPID: true # needed for cgroup path resolution via /proc/<pid>/cgroup
+      containers:
+        - name: pumba
+          image: ghcr.io/alexei-led/pumba
+          args:
+            - --runtime
+            - podman
+            - --podman-socket
+            - unix:///run/podman/podman.sock
+            - --log-level
+            - info
+            - --interval
+            - 30s
+            - netem
+            - --duration
+            - 20s
+            - --tc-image
+            - ghcr.io/alexei-led/pumba-alpine-nettools:latest
+            - delay
+            - --time
+            - "3000"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: podman-socket
+              mountPath: /run/podman/podman.sock
+            - name: proc
+              mountPath: /proc
+      volumes:
+        - name: podman-socket
+          hostPath:
+            path: /run/podman/podman.sock
+        - name: proc
+          hostPath:
+            path: /proc
+```
+
+**Key requirements for Podman mode:**
+
+- Podman must run **rootful** on the host (`systemctl enable --now podman.socket`) — rootless is rejected for `netem`, `iptables`, and `stress`.
+- Mount `/proc` from the host so pumba can read `/proc/<pid>/cgroup` with the host's cgroupns view (Podman's default `cgroupns=private` hides ancestry from inside containers).
+- Mount the rootful `/run/podman/podman.sock` (not `$XDG_RUNTIME_DIR/podman/podman.sock`).
+- `hostPID: true` lets pumba see target PIDs for cgroup resolution.
+- The Pumba CLI and the target containers must share the same kernel — on macOS that means running pumba **inside** the `podman machine` VM, not on the host.
 
 ### Limitations
 
