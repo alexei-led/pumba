@@ -144,14 +144,24 @@ func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (cgro
 	if err != nil {
 		return cgroupLocation{}, fmt.Errorf("podman runtime: parse target cgroup: %w", err)
 	}
-	// procsPath is where cg-inject writes the sidecar's PID. Two shapes to
-	// handle: Podman 5.x+ creates a `<scope>/container` leaf for the libpod
-	// init, so /proc/<pid>/cgroup includes it and we must target it (the
-	// outer scope is non-leaf and write-rejected with EBUSY). Older Podman
-	// (e.g. 4.9.x on Ubuntu 24.04) creates the /container sub-cgroup
-	// transiently — /proc reports it briefly but it's GC'd by the time
-	// the sidecar runs cg-inject, yielding ENOENT. Resolve via /proc then
-	// fall back to the truncated scope when the filesystem disagrees.
+	// procsPath is where cg-inject writes the sidecar's PID. Two shapes in
+	// the wild:
+	//   - Podman 5.x (podman machine, Fedora CoreOS): `<scope>/container`
+	//     is a stable leaf holding the target PID for the container's
+	//     lifetime. We must target it — the outer scope is non-leaf and
+	//     write-rejected with EBUSY.
+	//   - Podman 4.9.x (Ubuntu 24.04 stock): `<scope>/container` is created
+	//     during libpod init, the PID migrates to `<scope>` shortly after,
+	//     and `/container` is rmdir'd. /proc briefly reports `/container`,
+	//     and so does os.Stat before cleanup — this function CAN'T fully
+	//     close that race: the directory can vanish between os.Stat and
+	//     cg-inject's write(), yielding the documented ENOENT on write.
+	//
+	// Reading /proc + filesystem probe is the best signal we have without
+	// blocking to wait for libpod init stability. The inject-cgroup test
+	// that exercises this path lives in tests/skip_ci/ on Podman 4.9.x
+	// runners for that reason (see tests/podman_stress.bats). A proper
+	// fix requires a retry-on-ENOENT in cg-inject itself.
 	rawPath, err := RawCgroupPath(string(raw))
 	if err != nil {
 		return cgroupLocation{}, fmt.Errorf("podman runtime: raw target cgroup: %w", err)
