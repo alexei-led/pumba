@@ -44,7 +44,9 @@ These tests verify Pumba functionality by running against real Docker and contai
 - `containerd_sidecar.bats`: Sidecar container approach (--tc-image) for containers without tc tools
 - `containerd_stress.bats`: Stress testing via containerd runtime
 - `containerd_global_flags.bats`: Global flags via containerd (dry-run, regex, --random, --label)
-- `skip_ci/stress.bats`: Docker stress test (may be skipped in CI)
+- `skip_ci/stress.bats`: Docker stress test (excluded from CI — long-running)
+- `skip_ci/stress_inject_cgroup.bats`: Docker inject-cgroup stress (excluded from CI — requires stress image with `/cg-inject`)
+- `skip_ci/podman_stress_inject_cgroup.bats`: Podman inject-cgroup stress (excluded from CI — Ubuntu 24.04 ships Podman 4.9.x which rmdir's the libpod init `/container` sub-cgroup mid-flight, racing cg-inject's write. Passes on Podman 5.x.)
 
 ### Other Files
 
