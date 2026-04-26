@@ -4,21 +4,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/stress"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type stressContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// StressParams holds the per-command parameters for the stress CLI subcommand.
+type StressParams struct {
+	Image        string
+	Pull         bool
+	Stressors    string
+	Duration     time.Duration
+	Limit        int
+	InjectCgroup bool
 }
 
-// NewStressCLICommand initialize CLI stress command and bind it to the stressContext
+// NewStressCLICommand initialize CLI stress command.
 func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &stressContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[StressParams]{
 		Name: "stress",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -47,38 +54,26 @@ func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 		Usage:       "stress test specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "stress test target container(s)",
-		Action:      cmdContext.stress,
-	}
+		Parse:       parseStressParams,
+		Build:       buildStressCommand,
+	})
 }
 
-// stress stressNg
-func (cmd *stressContext) stress(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get limit for number of containers to kill
-	limit := c.Int("limit")
-	// get stress-ng stressors
-	stressors := c.String("stressors")
-	// get stress duration
+func parseStressParams(c *cli.Context, _ *chaos.GlobalParams) (StressParams, error) {
 	duration := c.Duration("duration")
 	if duration == 0 {
-		return errors.New("unset or invalid duration value")
+		return StressParams{}, errors.New("unset or invalid duration value")
 	}
-	// get stress-ng image
-	image := c.String("stress-image")
-	// get pull tc image flag
-	pull := c.BoolT("pull-image")
-	// get inject-cgroup flag
-	injectCgroup := c.Bool("inject-cgroup")
-	// init stress command
-	stressCommand := stress.NewStressCommand(cmd.runtime(), globalParams, image, pull, stressors, duration, limit, injectCgroup)
-	// run stress command
-	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running stress command: %w", err)
-	}
-	return nil
+	return StressParams{
+		Image:        c.String("stress-image"),
+		Pull:         c.BoolT("pull-image"),
+		Stressors:    c.String("stressors"),
+		Duration:     duration,
+		Limit:        c.Int("limit"),
+		InjectCgroup: c.Bool("inject-cgroup"),
+	}, nil
+}
+
+func buildStressCommand(client container.Client, gp *chaos.GlobalParams, p StressParams) (chaos.Command, error) {
+	return stress.NewStressCommand(client, gp, p.Image, p.Pull, p.Stressors, p.Duration, p.Limit, p.InjectCgroup), nil
 }

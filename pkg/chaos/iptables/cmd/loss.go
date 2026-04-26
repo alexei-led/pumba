@@ -5,19 +5,24 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/iptables"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type lossContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// LossParams holds the per-command parameters for the iptables loss subcommand.
+type LossParams struct {
+	IPTables    *iptables.Params
+	Mode        string
+	Probability float64
+	Every       int
+	Packet      int
 }
 
-// NewLossCLICommand initialize CLI loss command and bind it to the lossContext
+// NewLossCLICommand initialize CLI loss command.
 func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &lossContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[LossParams]{
 		Name: "loss",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -44,41 +49,25 @@ func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 		Usage:       "adds iptables rules to generate packet loss on ingress traffic",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "adds packet losses on ingress traffic by setting iptable statistic rules\n \tsee:  https://www.man7.org/linux/man-pages/man8/iptables-extensions.8.html",
-		Action:      cmdContext.loss,
-	}
+		Parse:       parseLossParams,
+		Build:       buildLossCommand,
+	})
 }
 
-// IPTABLES LOSS Command - network emulation loss
-func (cmd *lossContext) loss(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseLossParams(c *cli.Context, gp *chaos.GlobalParams) (LossParams, error) {
+	ipTablesParams, err := parseIPTablesParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return LossParams{}, fmt.Errorf("error parsing iptables parameters: %w", err)
 	}
-	// parse iptables flags
-	ipTablesParams, err := parseIPTablesParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing iptables parameters: %w", err)
-	}
+	return LossParams{
+		IPTables:    ipTablesParams,
+		Mode:        c.String("mode"),
+		Probability: c.Float64("probability"),
+		Every:       c.Int("every"),
+		Packet:      c.Int("packet"),
+	}, nil
+}
 
-	// get mode
-	mode := c.String("mode")
-	// get loss probability
-	probability := c.Float64("probability")
-	// get every probability
-	every := c.Int("every")
-	// get packet
-	packet := c.Int("packet")
-
-	// init iptables loss command
-	lossCommand, err := iptables.NewLossCommand(cmd.runtime(), globalParams, ipTablesParams, mode, probability, every, packet)
-	if err != nil {
-		return fmt.Errorf("error creating iptables loss command: %w", err)
-	}
-	// run iptables command
-	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running iptables loss command: %w", err)
-	}
-	return nil
+func buildLossCommand(client container.Client, gp *chaos.GlobalParams, p LossParams) (chaos.Command, error) {
+	return iptables.NewLossCommand(client, gp, p.IPTables, p.Mode, p.Probability, p.Every, p.Packet)
 }
