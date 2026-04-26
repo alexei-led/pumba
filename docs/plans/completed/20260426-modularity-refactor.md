@@ -459,11 +459,11 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Modify: `docs/modularity-review/2026-04-25/modularity-review.md` — append "Resolved on YYYY-MM-DD by docs/plans/completed/20260426-modularity-refactor.md" footer
 - Move: this plan → `docs/plans/completed/20260426-modularity-refactor.md`
 
-- [ ] update CLAUDE.md sections: Code Conventions, Architecture, Gotchas
-- [ ] grep README.md for stale package paths; update if any
-- [ ] append resolution note to modularity review
-- [ ] `mkdir -p docs/plans/completed && git mv docs/plans/20260426-modularity-refactor.md docs/plans/completed/`
-- [ ] commit: `docs: complete modularity refactor; update CLAUDE.md`
+- [x] update CLAUDE.md sections: Code Conventions, Architecture, Gotchas
+- [x] grep README.md for stale package paths; update if any [verified — README has no `pkg/chaos` or package-path references; nothing to update]
+- [x] append resolution note to modularity review
+- [x] `mkdir -p docs/plans/completed && git mv docs/plans/20260426-modularity-refactor.md docs/plans/completed/`
+- [x] commit: `docs: complete modularity refactor; update CLAUDE.md`
 
 ## Post-Completion
 

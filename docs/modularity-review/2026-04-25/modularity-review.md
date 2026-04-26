@@ -429,3 +429,7 @@ Estimated total: **5 days of focused refactoring**. Project [modularity](https:/
 ---
 
 _This analysis was performed using the [Balanced Coupling](https://coupling.dev) model by [Vlad Khononov](https://vladikk.com)._
+
+---
+
+**Resolved on 2026-04-26 by `docs/plans/completed/20260426-modularity-refactor.md`.** All six issues addressed: `pkg/chaos/docker` renamed to `pkg/chaos/lifecycle` (Issue 6); `chaos.DockerClient` global replaced by `chaos.Runtime` factory closure (Issue 1); generic `NewAction[P]` builder collapses 17 cmd files (Issue 4); `pkg/runtime/docker/docker.go` split into 10 per-concern files, all under 350 LOC (Issue 3); `Netem`/`IPTables` interfaces now take `*NetemRequest`/`*IPTablesRequest` value objects (Issue 2); `urfave/cli` v1 hidden behind `pkg/chaos/cliflags` adapter (Issue 5).
