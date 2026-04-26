@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.23
 
 LABEL com.gaiaadm.pumba.skip=true
 LABEL org.opencontainers.image.source="https://github.com/alexei-led/pumba"
