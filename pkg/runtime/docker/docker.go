@@ -18,11 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	defaultStopSignal = "SIGTERM"
-	defaultKillSignal = "SIGKILL"
-)
-
 type imagePullResponse struct {
 	Status         string `json:"status"`
 	Error          string `json:"error"`
@@ -35,200 +30,6 @@ type imagePullResponse struct {
 
 const cgroupDriverSystemd = "systemd"
 const cgroupDriverCgroupfs = "cgroupfs"
-
-// KillContainer kills a container with the given signal
-func (client dockerClient) KillContainer(ctx context.Context, c *ctr.Container, signal string, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"signal": signal,
-		"dryrun": dryrun,
-	}).Info("killing container")
-	if dryrun {
-		return nil
-	}
-	err := client.containerAPI.ContainerKill(ctx, c.ID(), signal)
-	if err != nil {
-		return fmt.Errorf("failed to kill container: %w", err)
-	}
-	return nil
-}
-
-// ExecContainer executes a command in a container
-func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, command string, args []string, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":    c.Name(),
-		"id":      c.ID(),
-		"command": command,
-		"dryrun":  dryrun,
-	}).Info("exec container")
-	if dryrun {
-		return nil
-	}
-	createRes, err := client.containerAPI.ContainerExecCreate(
-		ctx, c.ID(), ctypes.ExecOptions{
-			User:         "root",
-			AttachStdout: true,
-			AttachStderr: true,
-			Cmd:          append([]string{command}, args...),
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("exec create failed: %w", err)
-	}
-
-	attachRes, err := client.containerAPI.ContainerExecAttach(
-		ctx, createRes.ID, ctypes.ExecAttachOptions{},
-	)
-	if err != nil {
-		return fmt.Errorf("exec attach failed: %w", err)
-	}
-	defer attachRes.Close()
-
-	output, err := io.ReadAll(attachRes.Reader)
-	if err != nil {
-		return fmt.Errorf("reading output from exec reader failed: %w", err)
-	}
-	log.WithFields(log.Fields{
-		"name":    c.Name(),
-		"id":      c.ID(),
-		"command": command,
-		"args":    args,
-		"dryrun":  dryrun,
-	}).Info(string(output))
-
-	res, err := client.containerAPI.ContainerExecInspect(ctx, createRes.ID)
-	if err != nil {
-		return fmt.Errorf("exec inspect failed: %w", err)
-	}
-	if res.ExitCode != 0 {
-		return fmt.Errorf("exec failed %s: exit code %d", command, res.ExitCode)
-	}
-	return nil
-}
-
-// RestartContainer restarts a container
-func (client dockerClient) RestartContainer(ctx context.Context, c *ctr.Container, timeout time.Duration, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":    c.Name(),
-		"id":      c.ID(),
-		"timeout": timeout,
-		"dryrun":  dryrun,
-	}).Info("restart container")
-	if dryrun {
-		return nil
-	}
-	timeoutSec := int(timeout.Seconds())
-	if err := client.containerAPI.ContainerRestart(ctx, c.ID(), ctypes.StopOptions{Timeout: &timeoutSec}); err != nil {
-		return fmt.Errorf("failed to restart container: %w", err)
-	}
-	return nil
-}
-
-// StopContainer stops a container
-func (client dockerClient) StopContainer(ctx context.Context, c *ctr.Container, timeout int, dryrun bool) error {
-	signal := c.StopSignal()
-	if signal == "" {
-		signal = defaultStopSignal
-	}
-	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"timout": timeout,
-		"signal": signal,
-		"dryrun": dryrun,
-	}).Info("stopping container")
-	if dryrun {
-		return nil
-	}
-	if err := client.containerAPI.ContainerKill(ctx, c.ID(), signal); err != nil {
-		return fmt.Errorf("failed to kill container: %w", err)
-	}
-
-	// Wait for container to exit, but proceed anyway after the timeout elapses
-	if err := client.waitForStop(ctx, c, timeout); err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			"name":    c.Name(),
-			"id":      c.ID(),
-			"timeout": timeout,
-		}).Warn("failed waiting for container to stop, going to kill it")
-
-		// failed to stop gracefully - going to kill target container
-		log.WithFields(log.Fields{
-			"name":   c.Name(),
-			"id":     c.ID(),
-			"signal": defaultKillSignal,
-		}).Debug("killing container")
-		if err := client.containerAPI.ContainerKill(ctx, c.ID(), defaultKillSignal); err != nil {
-			return fmt.Errorf("failed to kill container: %w", err)
-		}
-		// Wait for container to be removed
-		if err := client.waitForStop(ctx, c, timeout); err != nil {
-			return errors.New("failed waiting for container to stop")
-		}
-	}
-	return nil
-}
-
-// StopContainerWithID stops a container with a timeout
-func (client dockerClient) StopContainerWithID(ctx context.Context, containerID string, timeout time.Duration, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"id":      containerID,
-		"timeout": timeout,
-		"dryrun":  dryrun,
-	}).Info("stopping container")
-	if dryrun {
-		return nil
-	}
-	timeoutSec := int(timeout.Seconds())
-	err := client.containerAPI.ContainerStop(ctx, containerID, ctypes.StopOptions{Timeout: &timeoutSec})
-	if err != nil {
-		return fmt.Errorf("failed to stop container: %w", err)
-	}
-	return nil
-}
-
-// StartContainer starts a container
-func (client dockerClient) StartContainer(ctx context.Context, c *ctr.Container, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"dryrun": dryrun,
-	}).Info("starting container")
-	if dryrun {
-		return nil
-	}
-	err := client.containerAPI.ContainerStart(ctx, c.ID(), ctypes.StartOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to start container: %w", err)
-	}
-	return nil
-}
-
-// RemoveContainer removes a container
-func (client dockerClient) RemoveContainer(ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":    c.Name(),
-		"id":      c.ID(),
-		"force":   force,
-		"links":   links,
-		"volumes": volumes,
-		"dryrun":  dryrun,
-	}).Info("removing container")
-	if dryrun {
-		return nil
-	}
-	removeOpts := ctypes.RemoveOptions{
-		RemoveVolumes: volumes,
-		RemoveLinks:   links,
-		Force:         force,
-	}
-	err := client.containerAPI.ContainerRemove(ctx, c.ID(), removeOpts)
-	if err != nil {
-		return fmt.Errorf("failed to remove container: %w", err)
-	}
-	return nil
-}
 
 // NetemContainer injects sidecar netem container into the given container network namespace
 func (client dockerClient) NetemContainer(ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimg string, pull, dryrun bool) error {
@@ -307,40 +108,6 @@ func (client dockerClient) StopIPTablesContainer(ctx context.Context, c *ctr.Con
 		return client.ipTablesContainer(ctx, c, cmdPrefix, cmdSuffix, img, pull, dryrun)
 	}
 	return client.ipTablesContainerWithIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, img, pull, dryrun)
-}
-
-// PauseContainer pauses a container main process
-func (client dockerClient) PauseContainer(ctx context.Context, c *ctr.Container, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"dryrun": dryrun,
-	}).Info("pausing container")
-	if dryrun {
-		return nil
-	}
-	err := client.containerAPI.ContainerPause(ctx, c.ID())
-	if err != nil {
-		return fmt.Errorf("failed to pause container: %w", err)
-	}
-	return nil
-}
-
-// UnpauseContainer unpauses a container main process
-func (client dockerClient) UnpauseContainer(ctx context.Context, c *ctr.Container, dryrun bool) error {
-	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"dryrun": dryrun,
-	}).Info("stop pausing container")
-	if dryrun {
-		return nil
-	}
-	err := client.containerAPI.ContainerUnpause(ctx, c.ID())
-	if err != nil {
-		return fmt.Errorf("failed to unpause container: %w", err)
-	}
-	return nil
 }
 
 // StressContainer starts stress test on a container (CPU, memory, network, io)
@@ -516,40 +283,6 @@ func (client dockerClient) tcCommands(ctx context.Context, c *ctr.Container, arg
 		return nil
 	}
 	return client.tcContainerCommands(ctx, c, argsList, tcimg, pull)
-}
-
-//nolint:dupl
-func (client dockerClient) tcExecCommand(ctx context.Context, execID string, args []string) error {
-	execConfig := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          append([]string{"tc"}, args...),
-	}
-	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create tc-container exec: %w", err)
-	}
-	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
-		return fmt.Errorf("failed to start tc-container exec: %w", err)
-	}
-	log.WithField("args", strings.Join(args, " ")).Debug("run command on tc-container")
-	return nil
-}
-
-// runExecAttached starts a pre-created exec by attaching to it and draining
-// stdout/stderr until the exec completes. Podman's Docker-compat API rejects
-// ContainerExecStart with empty ExecStartOptions ("must provide at least one
-// stream to attach to"); Docker accepts it. ContainerExecAttach works on both.
-func (client dockerClient) runExecAttached(ctx context.Context, execID string) error {
-	resp, err := client.containerAPI.ContainerExecAttach(ctx, execID, ctypes.ExecAttachOptions{})
-	if err != nil {
-		return err
-	}
-	defer resp.Close()
-	if _, err := io.ReadAll(resp.Reader); err != nil {
-		return fmt.Errorf("drain exec %s output: %w", execID, err)
-	}
-	return nil
 }
 
 // execute tc commands using other container (with iproute2 package installed), using target container network stack
@@ -887,96 +620,6 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	return createResponse.ID, output, outerr, nil
 }
 
-// execute command on container
-func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container, execCmd string, execArgs []string, privileged bool) error {
-	log.WithFields(log.Fields{
-		"id":         c.ID(),
-		"name":       c.Name(),
-		"command":    execCmd,
-		"args":       execArgs,
-		"privileged": privileged,
-	}).Debug("executing command in container")
-	// trim all spaces from cmd
-	execCmd = strings.ReplaceAll(execCmd, " ", "")
-
-	// check if command exists inside target container
-	checkExists := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          []string{"which", execCmd},
-	}
-	exec, err := client.containerAPI.ContainerExecCreate(ctx, c.ID(), checkExists)
-	if err != nil {
-		return fmt.Errorf("failed to create exec configuration to check if command exists: %w", err)
-	}
-	log.WithField("command", execCmd).Debugf("checking if command exists")
-	if err = client.runExecAttached(ctx, exec.ID); err != nil {
-		return fmt.Errorf("failed to check if command exists in a container: %w", err)
-	}
-	checkInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
-	if err != nil {
-		return fmt.Errorf("failed to inspect check execution: %w", err)
-	}
-	if checkInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' not found inside the %s container", execCmd, c.ID())
-	}
-
-	// if command found execute it
-	log.WithField("command", execCmd).Debug("command found: continue execution")
-
-	// prepare exec config
-	config := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Privileged:   privileged,
-		Cmd:          append([]string{execCmd}, execArgs...),
-	}
-	// execute the command
-	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
-	if err != nil {
-		return fmt.Errorf("failed to create exec configuration for a command: %w", err)
-	}
-	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
-	if err = client.runExecAttached(ctx, exec.ID); err != nil {
-		return fmt.Errorf("failed to start command execution: %w", err)
-	}
-	exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
-	if err != nil {
-		return fmt.Errorf("failed to inspect command execution: %w", err)
-	}
-	if exitInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' failed in %s container; run it in manually to debug", execCmd, c.ID())
-	}
-	return nil
-}
-
-func (client dockerClient) waitForStop(ctx context.Context, c *ctr.Container, waitTime int) error {
-	// check status every 100 ms
-	const checkInterval = 100 * time.Millisecond
-	// timeout after waitTime seconds
-	timeout := time.After(time.Duration(waitTime) * time.Second)
-	log.WithFields(log.Fields{
-		"name":    c.Name(),
-		"id":      c.ID(),
-		"timeout": timeout,
-	}).Debug("waiting for container to stop")
-	for {
-		select {
-		case <-timeout:
-			return errors.New("timeout on waiting to stop")
-		case <-ctx.Done():
-			return errors.New("aborted waiting to stop")
-		default:
-			if ci, err := client.containerAPI.ContainerInspect(ctx, c.ID()); err != nil {
-				return fmt.Errorf("failed to inspect container, while waiting to stop: %w", err)
-			} else if !ci.State.Running {
-				return nil
-			}
-		}
-		time.Sleep(checkInterval)
-	}
-}
-
 func (client dockerClient) ipTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, img string, pull, dryrun bool) error {
 	log.WithFields(log.Fields{
 		"name":      c.Name(),
@@ -1070,24 +713,6 @@ func (client dockerClient) ipTablesCommands(ctx context.Context, c *ctr.Containe
 		return nil
 	}
 	return client.ipTablesContainerCommands(ctx, c, argsList, tcimg, pull)
-}
-
-//nolint:dupl
-func (client dockerClient) ipTablesExecCommand(ctx context.Context, execID string, args []string) error {
-	execConfig := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          append([]string{"iptables"}, args...),
-	}
-	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create iptables-container exec: %w", err)
-	}
-	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
-		return fmt.Errorf("failed to start iptables-container exec: %w", err)
-	}
-	log.WithField("args", strings.Join(args, " ")).Debug("run command on iptables-container")
-	return nil
 }
 
 // execute iptables commands using other container (with iproute2 and bind-tools package installed), using target container network stack

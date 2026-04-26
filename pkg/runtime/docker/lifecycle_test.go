@@ -1,0 +1,786 @@
+package docker
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/alexei-led/pumba/mocks"
+	ctr "github.com/alexei-led/pumba/pkg/container"
+	ctypes "github.com/docker/docker/api/types/container"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+func TestStopContainer_DefaultSuccess(t *testing.T) {
+	c := NewTestContainer(AsMap("ID", "abc123", "Name", "foo", "Image", "abc123"))
+	notRunningContainer := DetailsResponse(AsMap("Running", false))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(context.TODO(), c, 1, false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStopContainer_DryRun(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+
+	notRunningContainer := DetailsResponse(AsMap("Running", false))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGKILL").Return(nil)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("not found"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(context.TODO(), c, 1, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
+	api.AssertNotCalled(t, "ContainerInspect", mock.Anything, "abc123")
+	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGKILL")
+	api.AssertNotCalled(t, "ContainerInspect", mock.Anything, "abc123")
+}
+
+func TestKillContainer_DefaultSuccess(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.KillContainer(context.TODO(), c, "SIGTERM", false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestKillContainer_DryRun(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.KillContainer(context.TODO(), c, "SIGTERM", true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
+}
+
+func TestStopContainer_CustomSignalSuccess(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+		"Labels", map[string]string{"com.gaiaadm.pumba.stop-signal": "SIGUSR1"},
+	))
+
+	notRunningContainer := DetailsResponse(AsMap("Running", false))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGUSR1").Return(nil)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(context.TODO(), c, 1, false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStopContainer_KillContainerError(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(context.TODO(), c, 1, false)
+
+	assert.Error(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStopContainer_2ndKillContainerError(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("dangit"))
+	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGKILL").Return(errors.New("whoops"))
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StopContainer(context.TODO(), c, 1, false)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "failed to kill container: whoops")
+	api.AssertExpectations(t)
+}
+
+func TestRemoveContainer_Success(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+
+	engineClient := NewMockEngine()
+	removeOpts := ctypes.RemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
+	engineClient.EXPECT().ContainerRemove(mock.Anything, "abc123", removeOpts).Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.RemoveContainer(context.TODO(), c, true, true, true, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestRemoveContainer_DryRun(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+
+	engineClient := NewMockEngine()
+	removeOpts := ctypes.RemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
+	engineClient.EXPECT().ContainerRemove(mock.Anything, "abc123", removeOpts).Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.RemoveContainer(context.TODO(), c, true, true, true, true)
+
+	assert.NoError(t, err)
+	engineClient.AssertNotCalled(t, "ContainerRemove", mock.Anything, "abc123", removeOpts)
+}
+
+func TestPauseContainer_Success(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+	engineClient := NewMockEngine()
+	engineClient.EXPECT().ContainerPause(mock.Anything, "abc123").Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.PauseContainer(context.TODO(), c, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestUnpauseContainer_Success(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+	engineClient := NewMockEngine()
+	engineClient.EXPECT().ContainerUnpause(mock.Anything, "abc123").Return(nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.UnpauseContainer(context.TODO(), c, false)
+
+	assert.NoError(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestPauseContainer_DryRun(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+
+	engineClient := NewMockEngine()
+	client := dockerClient{containerAPI: engineClient}
+	err := client.PauseContainer(context.TODO(), c, true)
+
+	assert.NoError(t, err)
+	engineClient.AssertNotCalled(t, "ContainerPause", mock.Anything, "abc123")
+}
+
+func TestPauseContainer_PauseError(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+	engineClient := NewMockEngine()
+	engineClient.EXPECT().ContainerPause(mock.Anything, "abc123").Return(errors.New("pause"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.PauseContainer(context.TODO(), c, false)
+
+	assert.Error(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestPauseContainer_UnpauseError(t *testing.T) {
+	c := &ctr.Container{
+		ContainerID: "abc123",
+	}
+	engineClient := NewMockEngine()
+	engineClient.EXPECT().ContainerUnpause(mock.Anything, "abc123").Return(errors.New("unpause"))
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.UnpauseContainer(context.TODO(), c, false)
+
+	assert.Error(t, err)
+	engineClient.AssertExpectations(t)
+}
+
+func TestStartContainer_DefaultSuccess(t *testing.T) {
+	c := NewTestContainer(AsMap("ID", "abc123", "Name", "foo", "Image", "abc123"))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerStart(mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StartContainer(context.TODO(), c, false)
+
+	assert.NoError(t, err)
+	api.AssertExpectations(t)
+}
+
+func TestStartContainer_DryRun(t *testing.T) {
+	c := NewTestContainer(AsMap(
+		"ID", "abc123",
+		"Name", "foo",
+	))
+
+	api := NewMockEngine()
+	api.EXPECT().ContainerStart(mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)
+
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	err := client.StartContainer(context.TODO(), c, true)
+
+	assert.NoError(t, err)
+	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", ctypes.StartOptions{})
+}
+
+func TestRestartContainer(t *testing.T) {
+	type args struct {
+		ctx     context.Context
+		c       *ctr.Container
+		timeout time.Duration
+		dryrun  bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		mockSet func(*mocks.APIClient, context.Context, string, time.Duration, bool)
+		wantErr bool
+	}{
+		{
+			name: "restart container successfully",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				timeout: 10 * time.Second,
+				dryrun:  false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, timeout time.Duration, dryrun bool) {
+				_ = timeout // Used for documentating the function signature
+				api.EXPECT().ContainerRestart(mock.Anything, id, mock.Anything).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "restart container dry run",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				timeout: 5 * time.Second,
+				dryrun:  true,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, timeout time.Duration, dryrun bool) {
+				// Should not be called in dry run mode
+			},
+			wantErr: false,
+		},
+		{
+			name: "restart container error",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				timeout: 10 * time.Second,
+				dryrun:  false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, timeout time.Duration, dryrun bool) {
+				_ = timeout // Used for documentating the function signature
+				api.EXPECT().ContainerRestart(mock.Anything, id, mock.Anything).Return(errors.New("restart error"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewMockEngine()
+			tt.mockSet(api, tt.args.ctx, tt.args.c.ID(), tt.args.timeout, tt.args.dryrun)
+
+			client := dockerClient{containerAPI: api, imageAPI: api}
+			err := client.RestartContainer(tt.args.ctx, tt.args.c, tt.args.timeout, tt.args.dryrun)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.RestartContainer() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			api.AssertExpectations(t)
+		})
+	}
+}
+
+func TestStopContainerWithID(t *testing.T) {
+	type args struct {
+		ctx         context.Context
+		containerID string
+		timeout     time.Duration
+		dryrun      bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		mockSet func(*mocks.APIClient, context.Context, string, time.Duration, bool)
+		wantErr bool
+	}{
+		{
+			name: "stop container by ID successfully",
+			args: args{
+				ctx:         context.TODO(),
+				containerID: "abc123",
+				timeout:     10 * time.Second,
+				dryrun:      false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, timeout time.Duration, dryrun bool) {
+				_ = timeout // Used for documentating the function signature
+				api.EXPECT().ContainerStop(mock.Anything, id, mock.Anything).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "stop container by ID dry run",
+			args: args{
+				ctx:         context.TODO(),
+				containerID: "abc123",
+				timeout:     5 * time.Second,
+				dryrun:      true,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, timeout time.Duration, dryrun bool) {
+				// Should not be called in dry run mode
+			},
+			wantErr: false,
+		},
+		{
+			name: "stop container by ID error",
+			args: args{
+				ctx:         context.TODO(),
+				containerID: "abc123",
+				timeout:     10 * time.Second,
+				dryrun:      false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, timeout time.Duration, dryrun bool) {
+				_ = timeout // Used for documentating the function signature
+				api.EXPECT().ContainerStop(mock.Anything, id, mock.Anything).Return(errors.New("stop error"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewMockEngine()
+			tt.mockSet(api, tt.args.ctx, tt.args.containerID, tt.args.timeout, tt.args.dryrun)
+
+			client := dockerClient{containerAPI: api, imageAPI: api}
+			err := client.StopContainerWithID(tt.args.ctx, tt.args.containerID, tt.args.timeout, tt.args.dryrun)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.StopContainerWithID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			api.AssertExpectations(t)
+		})
+	}
+}
+
+func TestStartContainer(t *testing.T) {
+	type args struct {
+		ctx    context.Context
+		c      *ctr.Container
+		dryrun bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		mockSet func(*mocks.APIClient, context.Context, string, bool)
+		wantErr bool
+	}{
+		{
+			name: "start container successfully",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, dryrun bool) {
+				api.EXPECT().ContainerStart(ctx, id, ctypes.StartOptions{}).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "start container dry run",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: true,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, dryrun bool) {
+				// Should not be called in dry run mode
+			},
+			wantErr: false,
+		},
+		{
+			name: "start container error",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, id string, dryrun bool) {
+				api.EXPECT().ContainerStart(ctx, id, ctypes.StartOptions{}).Return(errors.New("start error"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewMockEngine()
+			tt.mockSet(api, tt.args.ctx, tt.args.c.ID(), tt.args.dryrun)
+
+			client := dockerClient{containerAPI: api, imageAPI: api}
+			err := client.StartContainer(tt.args.ctx, tt.args.c, tt.args.dryrun)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.StartContainer() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			api.AssertExpectations(t)
+		})
+	}
+}
+
+func TestWaitForStop(t *testing.T) {
+	// Create custom test implementation with controlled behavior for testing
+	waitForStopTest := func(_ dockerClient, ctx context.Context, _ *ctr.Container, _ int) error {
+		// For testing purposes, we'll use a more deterministic approach
+		// Check container state only once or twice with deterministic outcomes
+		if tt, ok := ctx.Value("testType").(string); ok {
+			switch tt {
+			case "stops_immediately":
+				return nil
+			case "inspection_error":
+				return errors.New("failed to inspect container, while waiting to stop: inspect error")
+			case "timeout":
+				return errors.New("timeout on waiting to stop")
+			}
+		}
+		return nil
+	}
+
+	type args struct {
+		ctx      context.Context
+		c        *ctr.Container
+		waitTime int
+	}
+	tests := []struct {
+		name     string
+		args     args
+		testType string
+		mockSet  func(*mocks.APIClient)
+		wantErr  bool
+	}{
+		{
+			name: "container stops within timeout",
+			args: args{
+				ctx:      context.WithValue(context.TODO(), "testType", "stops_immediately"),
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				waitTime: 10,
+			},
+			testType: "stops_immediately",
+			mockSet: func(api *mocks.APIClient) {
+			},
+			wantErr: false,
+		},
+		{
+			name: "container inspection error",
+			args: args{
+				ctx:      context.WithValue(context.TODO(), "testType", "inspection_error"),
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				waitTime: 1,
+			},
+			testType: "inspection_error",
+			mockSet: func(api *mocks.APIClient) {
+			},
+			wantErr: true,
+		},
+		{
+			name: "container never stops (timeout)",
+			args: args{
+				ctx:      context.WithValue(context.TODO(), "testType", "timeout"),
+				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				waitTime: 1,
+			},
+			testType: "timeout",
+			mockSet: func(api *mocks.APIClient) {
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewMockEngine()
+			tt.mockSet(api)
+
+			client := dockerClient{containerAPI: api, imageAPI: api}
+
+			err := waitForStopTest(client, tt.args.ctx, tt.args.c, tt.args.waitTime)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.waitForStop() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPauseUnpauseContainer(t *testing.T) {
+	type args struct {
+		ctx    context.Context
+		c      *ctr.Container
+		dryrun bool
+	}
+
+	pauseTests := []struct {
+		name    string
+		args    args
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, bool, bool)
+		wantErr bool
+		isPause bool
+	}{
+		{
+			name: "pause container successfully",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
+				api.EXPECT().ContainerPause(ctx, c.ID()).Return(nil)
+			},
+			wantErr: false,
+			isPause: true,
+		},
+		{
+			name: "pause container dry run",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: true,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
+			},
+			wantErr: false,
+			isPause: true,
+		},
+		{
+			name: "pause container error",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
+				api.EXPECT().ContainerPause(ctx, c.ID()).Return(errors.New("pause error"))
+			},
+			wantErr: true,
+			isPause: true,
+		},
+		{
+			name: "unpause container successfully",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
+				api.EXPECT().ContainerUnpause(ctx, c.ID()).Return(nil)
+			},
+			wantErr: false,
+			isPause: false,
+		},
+		{
+			name: "unpause container dry run",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: true,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
+			},
+			wantErr: false,
+			isPause: false,
+		},
+		{
+			name: "unpause container error",
+			args: args{
+				ctx:    context.TODO(),
+				c:      &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				dryrun: false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, dryrun bool, isPause bool) {
+				api.EXPECT().ContainerUnpause(ctx, c.ID()).Return(errors.New("unpause error"))
+			},
+			wantErr: true,
+			isPause: false,
+		},
+	}
+
+	for _, tt := range pauseTests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewMockEngine()
+			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.dryrun, tt.isPause)
+
+			client := dockerClient{containerAPI: api, imageAPI: api}
+
+			var err error
+			if tt.isPause {
+				err = client.PauseContainer(tt.args.ctx, tt.args.c, tt.args.dryrun)
+			} else {
+				err = client.UnpauseContainer(tt.args.ctx, tt.args.c, tt.args.dryrun)
+			}
+
+			if (err != nil) != tt.wantErr {
+				methodName := "PauseContainer"
+				if !tt.isPause {
+					methodName = "UnpauseContainer"
+				}
+				t.Errorf("dockerClient.%s() error = %v, wantErr %v", methodName, err, tt.wantErr)
+			}
+			api.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRemoveContainer(t *testing.T) {
+	type args struct {
+		ctx     context.Context
+		c       *ctr.Container
+		force   bool
+		links   bool
+		volumes bool
+		dryrun  bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		mockSet func(*mocks.APIClient, context.Context, *ctr.Container, bool, bool, bool, bool)
+		wantErr bool
+	}{
+		{
+			name: "remove container successfully",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				force:   true,
+				links:   false,
+				volumes: true,
+				dryrun:  false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
+				api.EXPECT().ContainerRemove(ctx, c.ID(), ctypes.RemoveOptions{
+					RemoveVolumes: volumes,
+					RemoveLinks:   links,
+					Force:         force,
+				}).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "remove container with links",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				force:   true,
+				links:   true,
+				volumes: true,
+				dryrun:  false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
+				api.EXPECT().ContainerRemove(ctx, c.ID(), ctypes.RemoveOptions{
+					RemoveVolumes: volumes,
+					RemoveLinks:   links,
+					Force:         force,
+				}).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "remove container dry run",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				force:   true,
+				links:   false,
+				volumes: true,
+				dryrun:  true,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
+			},
+			wantErr: false,
+		},
+		{
+			name: "remove container error",
+			args: args{
+				ctx:     context.TODO(),
+				c:       &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
+				force:   true,
+				links:   false,
+				volumes: true,
+				dryrun:  false,
+			},
+			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) {
+				api.EXPECT().ContainerRemove(ctx, c.ID(), ctypes.RemoveOptions{
+					RemoveVolumes: volumes,
+					RemoveLinks:   links,
+					Force:         force,
+				}).Return(errors.New("remove error"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewMockEngine()
+			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
+
+			client := dockerClient{containerAPI: api, imageAPI: api}
+			err := client.RemoveContainer(tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.RemoveContainer() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			api.AssertExpectations(t)
+		})
+	}
+}

@@ -345,8 +345,8 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Create: `pkg/runtime/docker/exec.go` (ExecContainer, execOnContainer, runExecAttached, tcExecCommand, ipTablesExecCommand)
 - Modify: `pkg/runtime/docker/docker.go`
 
-- [ ] move corresponding tests
-- [ ] run `make test && make lint` — must pass
+- [x] move corresponding tests
+- [x] run `make test && make lint` — must pass
 
 ### Task 11: Split `pkg/runtime/docker/docker.go` — extract `sidecar.go` + `netem.go` + `iptables.go` (Issue 3, part C)
 
