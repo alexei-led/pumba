@@ -1,3 +1,4 @@
+//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -5,18 +6,23 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type lossContext struct {
-	context context.Context
+// LossParams holds the per-command parameters for the netem loss subcommand.
+type LossParams struct {
+	Netem       *netem.Params
+	Percent     float64
+	Correlation float64
 }
 
-// NewLossCLICommand initialize CLI loss command and bind it to the lossContext
-func NewLossCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossContext{context: ctx}
-	return &cli.Command{
+// NewLossCLICommand initialize CLI loss command.
+func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[LossParams]{
 		Name: "loss",
 		Flags: []cli.Flag{
 			cli.Float64Flag{
@@ -33,37 +39,23 @@ func NewLossCLICommand(ctx context.Context) *cli.Command {
 		Usage:       "adds packet losses",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "adds packet losses, based on independent (Bernoulli) probability model\n \tsee:  http://www.voiptroubleshooter.com/indepth/burstloss.html",
-		Action:      cmdContext.loss,
-	}
+		Parse:       parseLossParams,
+		Build:       buildLossCommand,
+	})
 }
 
-// NETEM LOSS Command - network emulation loss
-//
-//nolint:dupl
-func (cmd *lossContext) loss(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseLossParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossParams, error) {
+	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return LossParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
-	// parse netem flags
-	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing netem parameters: %w", err)
-	}
-	// get loss percentage
-	percent := c.Float64("percent")
-	// get delay variation
-	correlation := c.Float64("correlation")
-	// init netem loss command
-	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
-	if err != nil {
-		return fmt.Errorf("error creating netem loss command: %w", err)
-	}
-	// run netem command
-	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running netem loss command: %w", err)
-	}
-	return nil
+	return LossParams{
+		Netem:       netemParams,
+		Percent:     c.Float64("percent"),
+		Correlation: c.Float64("correlation"),
+	}, nil
+}
+
+func buildLossCommand(client container.Client, gp *chaos.GlobalParams, p LossParams) (chaos.Command, error) {
+	return netem.NewLossCommand(client, gp, p.Netem, p.Percent, p.Correlation)
 }

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -27,6 +27,11 @@ import (
 
 var (
 	topContext context.Context
+
+	// runtimeClient is captured by before() once createRuntimeClient succeeds and
+	// then read by every CLI builder via the chaos.Runtime closure passed to
+	// initializeCLICommands. app.After calls Close on the same value.
+	runtimeClient ctr.Client
 )
 
 // Runtime client factories. Package-level vars so tests can swap them without
@@ -91,12 +96,12 @@ func main() {
 	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
 	app.Before = before
 	app.After = func(_ *cli.Context) error {
-		if chaos.DockerClient != nil {
-			return chaos.DockerClient.Close()
+		if runtimeClient != nil {
+			return runtimeClient.Close()
 		}
 		return nil
 	}
-	app.Commands = initializeCLICommands()
+	app.Commands = initializeCLICommands(func() ctr.Client { return runtimeClient })
 	app.Flags = globalFlags(rootCertPath)
 
 	if err := app.Run(os.Args); err != nil {
@@ -140,7 +145,7 @@ func before(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	chaos.DockerClient = client
+	runtimeClient = client
 	return nil
 }
 
@@ -340,15 +345,15 @@ func globalFlags(rootCertPath string) []cli.Flag {
 }
 
 //nolint:funlen
-func initializeCLICommands() []cli.Command {
+func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 	return []cli.Command{
-		*cmd.NewKillCLICommand(topContext),
-		*cmd.NewExecCLICommand(topContext),
-		*cmd.NewRestartCLICommand(topContext),
-		*cmd.NewStopCLICommand(topContext),
-		*cmd.NewPauseCLICommand(topContext),
-		*cmd.NewRemoveCLICommand(topContext),
-		*stressCmd.NewStressCLICommand(topContext),
+		*cmd.NewKillCLICommand(topContext, runtime),
+		*cmd.NewExecCLICommand(topContext, runtime),
+		*cmd.NewRestartCLICommand(topContext, runtime),
+		*cmd.NewStopCLICommand(topContext, runtime),
+		*cmd.NewPauseCLICommand(topContext, runtime),
+		*cmd.NewRemoveCLICommand(topContext, runtime),
+		*stressCmd.NewStressCLICommand(topContext, runtime),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
@@ -387,13 +392,13 @@ func initializeCLICommands() []cli.Command {
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
-				*netemCmd.NewDelayCLICommand(topContext),
-				*netemCmd.NewLossCLICommand(topContext),
-				*netemCmd.NewLossStateCLICommand(topContext),
-				*netemCmd.NewLossGECLICommand(topContext),
-				*netemCmd.NewRateCLICommand(topContext),
-				*netemCmd.NewDuplicateCLICommand(topContext),
-				*netemCmd.NewCorruptCLICommand(topContext),
+				*netemCmd.NewDelayCLICommand(topContext, runtime),
+				*netemCmd.NewLossCLICommand(topContext, runtime),
+				*netemCmd.NewLossStateCLICommand(topContext, runtime),
+				*netemCmd.NewLossGECLICommand(topContext, runtime),
+				*netemCmd.NewRateCLICommand(topContext, runtime),
+				*netemCmd.NewDuplicateCLICommand(topContext, runtime),
+				*netemCmd.NewCorruptCLICommand(topContext, runtime),
 			},
 		},
 		{
@@ -443,7 +448,7 @@ func initializeCLICommands() []cli.Command {
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
 			Description: "emulate loss of incoming packets, all ports and address arguments will result in separate rules",
 			Subcommands: []cli.Command{
-				*ipTablesCmd.NewLossCLICommand(topContext),
+				*ipTablesCmd.NewLossCLICommand(topContext, runtime),
 			},
 		},
 	}

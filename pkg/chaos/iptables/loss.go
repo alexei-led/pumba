@@ -125,7 +125,21 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 			defer wg.Done()
 			iptCtx, cancel := context.WithTimeout(ctx, n.duration)
 			defer cancel()
-			errs[i] = runIPTables(iptCtx, n.client, c, addCmdPrefix, delCmdPrefix, cmdSuffix, n.srcIPs, n.dstIPs, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
+			addReq := &container.IPTablesRequest{
+				Container: c,
+				CmdPrefix: addCmdPrefix,
+				CmdSuffix: cmdSuffix,
+				SrcIPs:    n.srcIPs,
+				DstIPs:    n.dstIPs,
+				SPorts:    n.sports,
+				DPorts:    n.dports,
+				Duration:  n.duration,
+				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
+				DryRun:    n.dryRun,
+			}
+			delReqValue := *addReq
+			delReqValue.CmdPrefix = delCmdPrefix
+			errs[i] = runIPTables(iptCtx, n.client, addReq, &delReqValue)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}

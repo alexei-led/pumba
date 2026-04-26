@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -116,37 +115,37 @@ func (p *podmanClient) Close() error {
 // NetemContainer injects a netem qdisc into the target's network namespace.
 // Rootless Podman cannot grant NET_ADMIN to a sidecar in the target's netns;
 // fail fast with a clear diagnostic rather than an opaque sidecar error.
-func (p *podmanClient) NetemContainer(ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimg string, pull, dryrun bool) error {
+func (p *podmanClient) NetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
 	if p.rootless {
 		return rootlessError("netem", p.socketURI)
 	}
-	return p.Client.NetemContainer(ctx, c, netInterface, netemCmd, ips, sports, dports, duration, tcimg, pull, dryrun)
+	return p.Client.NetemContainer(ctx, req)
 }
 
 // StopNetemContainer removes the netem rules installed by NetemContainer.
 // Mirrors the rootless guard so stop-without-start on a rootless socket also
 // returns the same diagnostic instead of a cryptic sidecar failure.
-func (p *podmanClient) StopNetemContainer(ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimg string, pull, dryrun bool) error {
+func (p *podmanClient) StopNetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
 	if p.rootless {
 		return rootlessError("netem", p.socketURI)
 	}
-	return p.Client.StopNetemContainer(ctx, c, netInterface, ip, sports, dports, tcimg, pull, dryrun)
+	return p.Client.StopNetemContainer(ctx, req)
 }
 
 // IPTablesContainer installs iptables rules in the target's network namespace.
 // Same rootless constraint as NetemContainer.
-func (p *podmanClient) IPTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, img string, pull, dryrun bool) error {
+func (p *podmanClient) IPTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
 	if p.rootless {
 		return rootlessError("iptables", p.socketURI)
 	}
-	return p.Client.IPTablesContainer(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, duration, img, pull, dryrun)
+	return p.Client.IPTablesContainer(ctx, req)
 }
 
 // StopIPTablesContainer removes the iptables rules installed by
 // IPTablesContainer. Mirrors the rootless guard.
-func (p *podmanClient) StopIPTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, img string, pull, dryrun bool) error {
+func (p *podmanClient) StopIPTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
 	if p.rootless {
 		return rootlessError("iptables", p.socketURI)
 	}
-	return p.Client.StopIPTablesContainer(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, img, pull, dryrun)
+	return p.Client.StopIPTablesContainer(ctx, req)
 }

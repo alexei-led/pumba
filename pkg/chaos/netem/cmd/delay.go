@@ -1,4 +1,4 @@
-//nolint:dupl
+//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -6,18 +6,25 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type delayContext struct {
-	context context.Context
+// DelayParams holds the per-command parameters for the netem delay subcommand.
+type DelayParams struct {
+	Netem        *netem.Params
+	Time         int
+	Jitter       int
+	Correlation  float64
+	Distribution string
 }
 
-// NewDelayCLICommand initialize CLI delay command and bind it to the delayContext
-func NewDelayCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &delayContext{context: ctx}
-	return &cli.Command{
+// NewDelayCLICommand initialize CLI delay command.
+func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[DelayParams]{
 		Name: "delay",
 		Flags: []cli.Flag{
 			cli.IntFlag{
@@ -44,40 +51,25 @@ func NewDelayCLICommand(ctx context.Context) *cli.Command {
 		Usage:       "delay egress traffic",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "delay egress traffic for specified containers; networks show variability so it is possible to add random variation; delay variation isn't purely random, so to emulate that there is a correlation",
-		Action:      cmdContext.delay,
-	}
+		Parse:       parseDelayParams,
+		Build:       buildDelayCommand,
+	})
 }
 
-// NETEM DELAY Command - network emulation delay
-func (cmd *delayContext) delay(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseDelayParams(c cliflags.Flags, gp *chaos.GlobalParams) (DelayParams, error) {
+	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return DelayParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
-	// parse netem flags
-	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing netem parameters: %w", err)
-	}
-	// get delay time
-	time := c.Int("time")
-	// get delay jitter
-	jitter := c.Int("jitter")
-	// get delay time
-	correlation := c.Float64("correlation")
-	// get delay distribution
-	distribution := c.String("distribution")
+	return DelayParams{
+		Netem:        netemParams,
+		Time:         c.Int("time"),
+		Jitter:       c.Int("jitter"),
+		Correlation:  c.Float64("correlation"),
+		Distribution: c.String("distribution"),
+	}, nil
+}
 
-	// init netem delay command
-	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, globalParams, netemParams, time, jitter, correlation, distribution)
-	if err != nil {
-		return fmt.Errorf("error creating netem delay command: %w", err)
-	}
-	// run netem delay command
-	err = chaos.RunChaosCommand(cmd.context, delayCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running netem delay command: %w", err)
-	}
-	return nil
+func buildDelayCommand(client container.Client, gp *chaos.GlobalParams, p DelayParams) (chaos.Command, error) {
+	return netem.NewDelayCommand(client, gp, p.Netem, p.Time, p.Jitter, p.Correlation, p.Distribution)
 }

@@ -1,4 +1,4 @@
-//nolint:dupl
+//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -6,18 +6,25 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type lossGEContext struct {
-	context context.Context
+// LossGEParams holds the per-command parameters for the netem loss-gemodel subcommand.
+type LossGEParams struct {
+	Netem *netem.Params
+	PG    float64
+	PB    float64
+	OneH  float64
+	OneK  float64
 }
 
-// NewLossGECLICommand initialize CLI loss gemodel command and bind it to the lossContext
-func NewLossGECLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossGEContext{context: ctx}
-	return &cli.Command{
+// NewLossGECLICommand initialize CLI loss-gemodel command.
+func NewLossGECLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[LossGEParams]{
 		Name: "loss-gemodel",
 		Flags: []cli.Flag{
 			cli.Float64Flag{
@@ -45,40 +52,25 @@ func NewLossGECLICommand(ctx context.Context) *cli.Command {
 		ArgsUsage: fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: `adds packet losses, according to the Gilbert-Elliot loss model
 	 see detailed description: http://www.voiptroubleshooter.com/indepth/burstloss.html`,
-		Action: cmdContext.lossGE,
-	}
+		Parse: parseLossGEParams,
+		Build: buildLossGECommand,
+	})
 }
 
-// NETEM LOSS GEMODEL Command - network emulation loss by Gilbert-Elliot model
-func (cmd *lossGEContext) lossGE(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseLossGEParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossGEParams, error) {
+	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return LossGEParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
-	// parse netem flags
-	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing netem parameters: %w", err)
-	}
-	// Good State transition probability
-	pg := c.Float64("pg")
-	// Bad State transition probability
-	pb := c.Float64("pb")
-	// loss probability in Bad state
-	oneH := c.Float64("one-h")
-	// loss probability in Good state
-	oneK := c.Float64("one-k")
+	return LossGEParams{
+		Netem: netemParams,
+		PG:    c.Float64("pg"),
+		PB:    c.Float64("pb"),
+		OneH:  c.Float64("one-h"),
+		OneK:  c.Float64("one-k"),
+	}, nil
+}
 
-	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, globalParams, netemParams, pg, pb, oneH, oneK)
-	if err != nil {
-		return fmt.Errorf("error creating loss gemodel command: %w", err)
-	}
-	// run netem command
-	err = chaos.RunChaosCommand(cmd.context, lossGECommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running netem loss gemodel command: %w", err)
-	}
-	return nil
+func buildLossGECommand(client container.Client, gp *chaos.GlobalParams, p LossGEParams) (chaos.Command, error) {
+	return netem.NewLossGECommand(client, gp, p.Netem, p.PG, p.PB, p.OneH, p.OneK)
 }

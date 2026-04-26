@@ -16,11 +16,11 @@ const (
 	Re2Prefix = "re2:"
 )
 
-var (
-	// DockerClient Docker client instance
-	// TODO(Phase 4): remove this global and inject client via dependency injection
-	DockerClient container.Client
-)
+// Runtime returns the container client to use for chaos execution. Builders
+// receive a Runtime factory rather than a client value so that client
+// construction can be deferred until after global flag parsing while still
+// keeping the dependency visible in every constructor signature.
+type Runtime func() container.Client
 
 // Command chaos command
 type Command interface {
@@ -107,9 +107,13 @@ func RunChaosCommand(topContext context.Context, command Command, params *Global
 	// create Time channel for specified interval
 	var tick <-chan time.Time
 	if params.Interval == 0 {
-		tick = time.NewTimer(params.Interval).C
+		timer := time.NewTimer(params.Interval)
+		defer timer.Stop()
+		tick = timer.C
 	} else {
-		tick = time.NewTicker(params.Interval).C
+		ticker := time.NewTicker(params.Interval)
+		defer ticker.Stop()
+		tick = ticker.C
 	}
 
 	// handle the 'chaos' command

@@ -411,7 +411,7 @@ These are explicit design wins worth preserving:
 - **`pkg/runtime/podman` embeds `ctr.Client` and overrides only divergent methods.** The `apiBackend` interface in `client.go:25` is a clean private test seam — `*dockerapi.Client` satisfies it in production, mocks satisfy it in tests, no real socket needed.
 - **`pkg/chaos/command.go`'s `Command` interface** is one method (`Run(ctx, random) error`). Maximum [contract narrowness](https://coupling.dev/posts/dimensions-of-coupling/integration-strength/).
 - **Test seams in `cmd/main.go`** (`var newDockerClient = docker.NewClient`) allow main-level tests without real sockets.
-- **Cleanup discipline using `context.WithoutCancel`** for sidecar removal (see `pkg/chaos/netem/netem.go:104`, `pkg/runtime/docker/docker.go:767`) is the right pattern for SIGTERM-survival of resource teardown — encoded in CLAUDE.md, applied consistently.
+- **Cleanup discipline using `context.WithoutCancel`** for sidecar removal (see `pkg/chaos/netem/netem.go`, `pkg/runtime/docker/sidecar.go:21`) is the right pattern for SIGTERM-survival of resource teardown — encoded in CLAUDE.md, applied consistently.
 
 ## Recommended order of execution
 
@@ -429,3 +429,7 @@ Estimated total: **5 days of focused refactoring**. Project [modularity](https:/
 ---
 
 _This analysis was performed using the [Balanced Coupling](https://coupling.dev) model by [Vlad Khononov](https://vladikk.com)._
+
+---
+
+**Resolved on 2026-04-26 by `docs/plans/completed/20260426-modularity-refactor.md`.** All six issues addressed: `pkg/chaos/docker` renamed to `pkg/chaos/lifecycle` (Issue 6); `chaos.DockerClient` global replaced by `chaos.Runtime` factory closure (Issue 1); generic `NewAction[P]` builder collapses 17 cmd files (Issue 4); `pkg/runtime/docker/docker.go` split into 10 per-concern files, all under 350 LOC (Issue 3); `Netem`/`IPTables` interfaces now take `*NetemRequest`/`*IPTablesRequest` value objects (Issue 2); `urfave/cli` v1 hidden behind `pkg/chaos/cliflags` adapter (Issue 5).

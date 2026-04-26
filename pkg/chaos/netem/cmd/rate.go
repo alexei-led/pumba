@@ -1,4 +1,4 @@
-//nolint:dupl
+//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -6,18 +6,25 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type rateContext struct {
-	context context.Context
+// RateParams holds the per-command parameters for the netem rate subcommand.
+type RateParams struct {
+	Netem          *netem.Params
+	Rate           string
+	PacketOverhead int
+	CellSize       int
+	CellOverhead   int
 }
 
-// NewRateCLICommand initialize CLI rate command and bind it to the lossContext
-func NewRateCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &rateContext{context: ctx}
-	return &cli.Command{
+// NewRateCLICommand initialize CLI rate command.
+func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[RateParams]{
 		Name: "rate",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -44,40 +51,25 @@ func NewRateCLICommand(ctx context.Context) *cli.Command {
 		Usage:       "rate limit egress traffic",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "rate limit egress traffic for specified containers",
-		Action:      cmdContext.rate,
-	}
+		Parse:       parseRateParams,
+		Build:       buildRateCommand,
+	})
 }
 
-// NETEM RATE Command - network emulation rate
-func (cmd *rateContext) rate(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseRateParams(c cliflags.Flags, gp *chaos.GlobalParams) (RateParams, error) {
+	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return RateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
-	// parse netem flags
-	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing netem parameters: %w", err)
-	}
-	// get target egress rate
-	rate := c.String("rate")
-	// get packet overhead
-	packetOverhead := c.Int("packetoverhead")
-	// get cell size
-	cellSize := c.Int("cellsize")
-	// get cell overhead
-	cellOverhead := c.Int("celloverhead")
+	return RateParams{
+		Netem:          netemParams,
+		Rate:           c.String("rate"),
+		PacketOverhead: c.Int("packetoverhead"),
+		CellSize:       c.Int("cellsize"),
+		CellOverhead:   c.Int("celloverhead"),
+	}, nil
+}
 
-	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
-	if err != nil {
-		return fmt.Errorf("error creating netem rate command: %w", err)
-	}
-	// run netem command
-	err = chaos.RunChaosCommand(cmd.context, lossCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running netem rate command: %w", err)
-	}
-	return nil
+func buildRateCommand(client container.Client, gp *chaos.GlobalParams, p RateParams) (chaos.Command, error) {
+	return netem.NewRateCommand(client, gp, p.Netem, p.Rate, p.PacketOverhead, p.CellSize, p.CellOverhead)
 }

@@ -2,7 +2,6 @@ package iptables
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -93,17 +92,24 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 	delCmdPrefix := []string{"-D", "INPUT", "-i", "eth0"}
 	cmdSuffix := []string{"-m", "statistic", "--mode", "random", "--probability", "0.50", "-j", "DROP"}
 
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, target,
-		addCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "iptables-image", false, true).
-		Return(nil)
-
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, target,
-		delCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"iptables-image", false, true).
-		Return(nil)
+	addReq := &container.IPTablesRequest{
+		Container: target,
+		CmdPrefix: addCmdPrefix,
+		CmdSuffix: cmdSuffix,
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
+		DryRun:    true,
+	}
+	delReq := &container.IPTablesRequest{
+		Container: target,
+		CmdPrefix: delCmdPrefix,
+		CmdSuffix: cmdSuffix,
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
+		DryRun:    true,
+	}
+	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
+	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
@@ -132,17 +138,24 @@ func TestLossCommand_Run_NTHMode(t *testing.T) {
 	delCmdPrefix := []string{"-D", "INPUT", "-i", "eth0"}
 	cmdSuffix := []string{"-m", "statistic", "--mode", "nth", "--every", "5", "--packet", "0", "-j", "DROP"}
 
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, target,
-		addCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "iptables-image", false, true).
-		Return(nil)
-
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, target,
-		delCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"iptables-image", false, true).
-		Return(nil)
+	addReq := &container.IPTablesRequest{
+		Container: target,
+		CmdPrefix: addCmdPrefix,
+		CmdSuffix: cmdSuffix,
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
+		DryRun:    true,
+	}
+	delReq := &container.IPTablesRequest{
+		Container: target,
+		CmdPrefix: delCmdPrefix,
+		CmdSuffix: cmdSuffix,
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
+		DryRun:    true,
+	}
+	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
+	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, params, ModeNTH, 0, 5, 0)
 	require.NoError(t, err)
@@ -171,17 +184,24 @@ func TestLossCommand_Run_WithProtocol(t *testing.T) {
 	delCmdPrefix := []string{"-D", "INPUT", "-i", "eth0", "-p", "tcp"}
 	cmdSuffix := []string{"-m", "statistic", "--mode", "random", "--probability", "0.50", "-j", "DROP"}
 
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, target,
-		addCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "iptables-image", false, true).
-		Return(nil)
-
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, target,
-		delCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"iptables-image", false, true).
-		Return(nil)
+	addReq := &container.IPTablesRequest{
+		Container: target,
+		CmdPrefix: addCmdPrefix,
+		CmdSuffix: cmdSuffix,
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
+		DryRun:    true,
+	}
+	delReq := &container.IPTablesRequest{
+		Container: target,
+		CmdPrefix: delCmdPrefix,
+		CmdSuffix: cmdSuffix,
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
+		DryRun:    true,
+	}
+	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
+	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
@@ -203,21 +223,8 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil)
 
-	addCmdPrefix := []string{"-I", "INPUT", "-i", "eth0"}
-	delCmdPrefix := []string{"-D", "INPUT", "-i", "eth0"}
-	cmdSuffix := []string{"-m", "statistic", "--mode", "random", "--probability", "0.50", "-j", "DROP"}
-
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, mock.AnythingOfType("*container.Container"),
-		addCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "iptables-image", false, true).
-		Return(nil).Once()
-
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, mock.AnythingOfType("*container.Container"),
-		delCmdPrefix, cmdSuffix,
-		([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"iptables-image", false, true).
-		Return(nil).Once()
+	mockClient.EXPECT().IPTablesContainer(mock.Anything, mock.AnythingOfType("*container.IPTablesRequest")).Return(nil).Once()
+	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, mock.AnythingOfType("*container.IPTablesRequest")).Return(nil).Once()
 
 	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)

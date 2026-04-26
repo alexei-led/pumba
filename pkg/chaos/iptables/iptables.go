@@ -87,47 +87,54 @@ func newIPTablesCommand(client iptablesClient, gparams *chaos.GlobalParams, para
 	}
 }
 
-// run iptables command, stop iptables on timeout or abort
-func runIPTables(ctx context.Context, client iptablesClient, c *container.Container, addCmdPrefix, delCmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, image string, pull, dryRun bool) error {
+// cleanupTimeout caps how long the iptables-cleanup sidecar cycle is allowed
+// to run after abort or scheduled stop. Independent of --duration so a
+// 1h chaos run does not give cleanup an hour to complete.
+const cleanupTimeout = 30 * time.Second
+
+// run iptables command, stop iptables on timeout or abort. The add/del prefix
+// pair distinguishes the rule installation command (-I/-A/-N) from its mirror
+// removal command (-D); both share the rest of the request fields.
+func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *container.IPTablesRequest) error {
 	logger := log.WithFields(log.Fields{
-		"id":           c.ID(),
-		"name":         c.Name(),
-		"addCmdPrefix": addCmdPrefix,
-		"delCmdPrefix": delCmdPrefix,
-		"cmdSuffix":    cmdSuffix,
-		"srcIPs":       srcIPs,
-		"dstIPs":       dstIPs,
-		"sports":       sports,
-		"dports":       dports,
-		"duration":     duration,
-		"image":        image,
-		"pull":         pull,
+		"id":           addReq.Container.ID(),
+		"name":         addReq.Container.Name(),
+		"addCmdPrefix": addReq.CmdPrefix,
+		"delCmdPrefix": delReq.CmdPrefix,
+		"cmdSuffix":    addReq.CmdSuffix,
+		"srcIPs":       addReq.SrcIPs,
+		"dstIPs":       addReq.DstIPs,
+		"sports":       addReq.SPorts,
+		"dports":       addReq.DPorts,
+		"duration":     addReq.Duration,
+		"image":        addReq.Sidecar.Image,
+		"pull":         addReq.Sidecar.Pull,
 	})
 	logger.Debug("running iptables command")
-	err := client.IPTablesContainer(ctx, c, addCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, duration, image, pull, dryRun)
-	if err != nil {
+	if err := client.IPTablesContainer(ctx, addReq); err != nil {
 		return fmt.Errorf("iptables failed: %w", err)
 	}
 	logger.Debug("iptables command started")
 
 	// create new context with timeout for canceling
-	stopCtx, cancel := context.WithTimeout(context.Background(), duration)
+	stopCtx, cancel := context.WithTimeout(context.Background(), addReq.Duration)
 	defer cancel()
-	// wait for specified duration and then stop iptables(where it applied) or stop on ctx.Done()
+	// wait for specified duration and then stop iptables (where it applied) or stop on ctx.Done()
+	// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
+	// or if it inherited a deadline that has elapsed alongside stopCtx.
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping iptables command on abort")
-		// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), duration)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 		defer cleanupCancel()
-		err = client.StopIPTablesContainer(cleanupCtx, c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
-		if err != nil {
+		if err := client.StopIPTablesContainer(cleanupCtx, delReq); err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping iptables command on timeout")
-		err = client.StopIPTablesContainer(ctx, c, delCmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, image, pull, dryRun)
-		if err != nil {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
+		defer cleanupCancel()
+		if err := client.StopIPTablesContainer(cleanupCtx, delReq); err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	}

@@ -5,18 +5,26 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type lossStateContext struct {
-	context context.Context
+// LossStateParams holds the per-command parameters for the netem loss-state subcommand.
+type LossStateParams struct {
+	Netem *netem.Params
+	P13   float64
+	P31   float64
+	P32   float64
+	P23   float64
+	P14   float64
 }
 
-// NewLossStateCLICommand initialize CLI loss command and bind it to the lossContext
-func NewLossStateCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossStateContext{context: ctx}
-	return &cli.Command{
+// NewLossStateCLICommand initialize CLI loss-state command.
+func NewLossStateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[LossStateParams]{
 		Name: "loss-state",
 		Flags: []cli.Flag{
 			cli.Float64Flag{
@@ -55,42 +63,26 @@ func NewLossStateCLICommand(ctx context.Context) *cli.Command {
 		tstate (4) – isolated packet lost within a gap
 
 	 	see detailed description: https://www.voiptroubleshooter.com/indepth/burstloss.html`,
-		Action: cmdContext.lossState,
-	}
+		Parse: parseLossStateParams,
+		Build: buildLossStateCommand,
+	})
 }
 
-// NETEM LOSS STATE Command - network emulation loss 4-state Markov
-func (cmd *lossStateContext) lossState(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseLossStateParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossStateParams, error) {
+	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return LossStateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
-	// parse netem flags
-	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing netem parameters: %w", err)
-	}
-	// get loss p13 state probability
-	p13 := c.Float64("p13")
-	// get loss p31 state probability
-	p31 := c.Float64("p31")
-	// get loss p32 state probability
-	p32 := c.Float64("p32")
-	// get loss p23 state probability
-	p23 := c.Float64("p23")
-	// get loss p23 state probability
-	p14 := c.Float64("p14")
+	return LossStateParams{
+		Netem: netemParams,
+		P13:   c.Float64("p13"),
+		P31:   c.Float64("p31"),
+		P32:   c.Float64("p32"),
+		P23:   c.Float64("p23"),
+		P14:   c.Float64("p14"),
+	}, nil
+}
 
-	// init netem loss state command
-	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, globalParams, netemParams, p13, p31, p32, p23, p14)
-	if err != nil {
-		return fmt.Errorf("error creating netem loss state command: %w", err)
-	}
-	// run netem command
-	err = chaos.RunChaosCommand(cmd.context, lossStateCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running netem loss state command: %w", err)
-	}
-	return nil
+func buildLossStateCommand(client container.Client, gp *chaos.GlobalParams, p LossStateParams) (chaos.Command, error) {
+	return netem.NewLossStateCommand(client, gp, p.Netem, p.P13, p.P31, p.P32, p.P23, p.P14)
 }

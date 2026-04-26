@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,4 +85,28 @@ func TestRunChaosCommand_ContextCancel(t *testing.T) {
 	err := RunChaosCommand(ctx, cmd, params)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, cmd.calls)
+}
+
+func TestRuntime_ReturnsInjectedClient(t *testing.T) {
+	want := container.NewMockClient(t)
+
+	var runtime Runtime = func() container.Client { return want }
+
+	assert.Same(t, want, runtime(), "Runtime factory must return the injected client")
+}
+
+func TestRuntime_DefersClientResolution(t *testing.T) {
+	var holder container.Client
+
+	runtime := Runtime(func() container.Client { return holder })
+
+	assert.Nil(t, runtime(), "Runtime should resolve client lazily — nil before assignment")
+
+	first := container.NewMockClient(t)
+	holder = first
+	assert.Same(t, first, runtime(), "Runtime should observe later client assignment")
+
+	second := container.NewMockClient(t)
+	holder = second
+	assert.Same(t, second, runtime(), "Runtime should re-read holder on every call")
 }

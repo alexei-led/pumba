@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -40,7 +39,7 @@ func TestParseRate(t *testing.T) {
 }
 
 func TestRateCommand_Run_DryRun(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	target := &container.Container{
 		ContainerID:   "abc123",
 		ContainerName: "target",
@@ -55,16 +54,16 @@ func TestRateCommand_Run_DryRun(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{target}, nil)
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
-		[]string{"rate", "100mbit", "10", "20", "30"},
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "tc-image", false, true).
-		Return(nil)
-
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"tc-image", false, true).
-		Return(nil)
+	expectedReq := &container.NetemRequest{
+		Container: target,
+		Interface: "eth0",
+		Command:   []string{"rate", "100mbit", "10", "20", "30"},
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "tc-image"},
+		DryRun:    true,
+	}
+	mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
 
 	cmd, err := NewRateCommand(mockClient, gparams, nparams, "100mbit", 10, 20, 30)
 	require.NoError(t, err)

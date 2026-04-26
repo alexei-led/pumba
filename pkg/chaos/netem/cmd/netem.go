@@ -7,12 +7,12 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/util"
-	"github.com/urfave/cli"
 )
 
-func parseNetemParams(c *cli.Context, interval time.Duration) (*netem.Params, error) {
+func parseNetemParams(c cliflags.Flags, interval time.Duration) (*netem.Params, error) {
 	// get duration
 	duration := c.Duration("duration")
 	if duration == 0 {

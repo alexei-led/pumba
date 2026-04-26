@@ -1,14 +1,21 @@
 package docker
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	imagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -99,7 +106,7 @@ func TestStressContainerBasic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.c, tt.args.stressors, tt.args.image, tt.args.pull, tt.args.duration, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
@@ -114,7 +121,7 @@ func TestStressContainerBasic(t *testing.T) {
 }
 
 func TestStressContainerInfoAPIFailure(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -134,7 +141,7 @@ func TestStressContainerInfoAPIFailure(t *testing.T) {
 }
 
 func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -164,7 +171,7 @@ func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
 }
 
 func TestStressContainerSystemdCgroupDriver(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -186,7 +193,7 @@ func TestStressContainerSystemdCgroupDriver(t *testing.T) {
 }
 
 func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -232,7 +239,7 @@ func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -277,7 +284,7 @@ func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupSystemd(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "def456",
 		ContainerName: "test-container",
@@ -322,7 +329,7 @@ func TestStressContainerInjectCgroupSystemd(t *testing.T) {
 }
 
 func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -355,7 +362,7 @@ func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
 }
 
 func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "def456",
 		ContainerName: "test-container",
@@ -388,7 +395,7 @@ func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
 }
 
 func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -419,7 +426,7 @@ func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -465,7 +472,7 @@ func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupCustomImage(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -495,4 +502,243 @@ func TestStressContainerInjectCgroupCustomImage(t *testing.T) {
 	assert.Equal(t, []string{"/cg-inject"}, []string(capturedConfig.Entrypoint))
 
 	api.AssertExpectations(t)
+}
+
+func Test_dockerClient_stressContainerCommand(t *testing.T) {
+	type args struct {
+		ctx       context.Context
+		targetID  string
+		stressors []string
+		image     string
+		pull      bool
+	}
+	tests := []struct {
+		name       string
+		args       args
+		mockInit   func(context.Context, *mocks.APIClient, *mockConn, string, []string, string, bool)
+		want       string
+		wantOutput string
+		wantErr    bool
+		wantErrCh  bool
+	}{
+		{
+			name: "stress test with pull image",
+			args: args{
+				ctx:       context.TODO(),
+				targetID:  "123",
+				stressors: []string{"--cpu", "4"},
+				image:     "test/stress-ng",
+				pull:      true,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				pullResponse := imagePullResponse{
+					Status:   "ok",
+					Error:    "no error",
+					Progress: "done",
+					ProgressDetail: struct {
+						Current int `json:"current"`
+						Total   int `json:"total"`
+					}{
+						Current: 100,
+						Total:   100,
+					},
+				}
+				pullResponseByte, _ := json.Marshal(pullResponse)
+				readerResponse := bytes.NewReader(pullResponseByte)
+				engine.EXPECT().ImagePull(ctx, image, imagetypes.PullOptions{}).Return(io.NopCloser(readerResponse), nil)
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
+				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(nil)
+				inspect := container.InspectResponse{
+					ContainerJSONBase: &container.ContainerJSONBase{
+						State: &container.State{},
+					},
+				}
+				conn.On("Close").Return(nil)
+				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil)
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+		},
+		{
+			name: "stress test fail to pull image",
+			args: args{
+				ctx:   context.TODO(),
+				image: "test/stress-ng",
+				pull:  true,
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ImagePull(ctx, image, imagetypes.PullOptions{}).Return(io.NopCloser(bytes.NewReader([]byte("{}"))), errors.New("failed to pull image"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "stress test without pull image",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
+				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(nil)
+				inspect := container.InspectResponse{
+					ContainerJSONBase: &container.ContainerJSONBase{
+						State: &container.State{},
+					},
+				}
+				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil)
+				conn.On("Close").Return(nil)
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+		},
+		{
+			name: "stress-ng exit with error",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
+				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(nil)
+				inspect := container.InspectResponse{
+					ContainerJSONBase: &container.ContainerJSONBase{
+						State: &container.State{ExitCode: 1},
+					},
+				}
+				conn.On("Close").Return(nil)
+				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil)
+			},
+			want:      "000",
+			wantErrCh: true,
+		},
+		{
+			name: "fail to inspect stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
+				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(nil)
+				conn.On("Close").Return(nil)
+				engine.EXPECT().ContainerInspect(ctx, "000").Return(container.InspectResponse{}, errors.New("filed to inspect"))
+			},
+			want:       "000",
+			wantOutput: "stress completed",
+			wantErrCh:  true,
+		},
+		{
+			name: "fail to start stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
+				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{
+					Conn:   conn,
+					Reader: bufio.NewReader(strings.NewReader("stress completed")),
+				}, nil)
+				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(errors.New("failed to start"))
+				engine.EXPECT().ContainerRemove(mock.Anything, "000", mock.Anything).Return(nil).Maybe()
+				conn.On("Close").Return(nil).Maybe()
+				inspect := container.InspectResponse{
+					ContainerJSONBase: &container.ContainerJSONBase{
+						State: &container.State{},
+					},
+				}
+				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil).Maybe()
+			},
+			want:    "000",
+			wantErr: true,
+		},
+		{
+			name: "fail to attach to stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
+				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{}, errors.New("failed to attach"))
+				engine.EXPECT().ContainerRemove(mock.Anything, "000", mock.Anything).Return(nil).Once()
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail to create to stress-ng container",
+			args: args{
+				ctx: context.TODO(),
+			},
+			mockInit: func(ctx context.Context, engine *mocks.APIClient, conn *mockConn, targetID string, stressors []string, image string, pool bool) {
+				engine.EXPECT().Info(mock.Anything).Return(system.Info{CgroupDriver: "cgroupfs"}, nil)
+				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
+				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{}, errors.New("failed to create"))
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := NewMockEngine(t)
+			mConn := &mockConn{}
+			client := dockerClient{
+				containerAPI: mockClient,
+				imageAPI:     mockClient,
+				systemAPI:    mockClient,
+			}
+			tt.mockInit(tt.args.ctx, mockClient, mConn, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
+			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull, false)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dockerClient.stressContainerCommand() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("dockerClient.stressContainerCommand() got = %v, want %v", got, tt.want)
+			}
+			if err == nil && (got1 != nil || got2 != nil) {
+				select {
+				case output := <-got1:
+					if output != tt.wantOutput {
+						t.Errorf("dockerClient.stressContainerCommand() got = %v, from output channel, want %v", output, tt.wantOutput)
+					}
+				case err = <-got2:
+					if (err != nil) != tt.wantErrCh {
+						t.Errorf("dockerClient.stressContainerCommand() error in error channel = %v, wantErrCh %v", err, tt.wantErrCh)
+					}
+				}
+				for range got1 {
+				}
+				for range got2 {
+				}
+			}
+			mockClient.AssertExpectations(t)
+			mConn.AssertExpectations(t)
+		})
+	}
 }

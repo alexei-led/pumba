@@ -1,3 +1,4 @@
+SHELL    := /bin/bash
 GO       := go
 DOCKER   := docker
 MOCK     := mockery

@@ -51,16 +51,18 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
 cmd/main.go            — CLI entry point, all command/flag definitions
 pkg/
   chaos/
-    command.go         — ChaosCommand interface, scheduling/interval runner
-    docker/            — Docker chaos actions (kill, stop, pause, rm, exec, restart)
-    docker/cmd/        — CLI command builders for docker chaos actions
+    command.go         — ChaosCommand interface, Runtime factory type, scheduling/interval runner
+    cmd/               — Generic NewAction[P] CLI builder shared across all chaos packages
+    cliflags/          — urfave/cli v1 adapter (Flags interface + V1) decoupling cmd builders from cli.Context
+    lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart)
+    lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
     netem/             — Network emulation (delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)
     netem/cmd/         — CLI command builders for netem
     iptables/          — iptables-based packet filtering
     iptables/cmd/      — CLI command builders for iptables
     stress/            — stress-ng based resource stress
     stress/cmd/        — CLI command builder for stress
-  container/           — Container model, interfaces (Client, Lister, Lifecycle, Executor, Netem, etc.), filtering
+  container/           — Container model, interfaces (Client, Lister, Lifecycle, Executor, Netem, etc.), filtering, NetemRequest/IPTablesRequest value objects
   runtime/
     docker/            — Docker runtime implementation of container.Client
     containerd/        — Containerd runtime implementation of container.Client
@@ -75,8 +77,11 @@ examples/              — Demo scripts
 
 ## Architecture
 
-- **Container interfaces** (`pkg/container/client.go`): Focused sub-interfaces (Lister, Lifecycle, Executor, Netem, IPTables, Stressor) composed into a unified Client interface
-- **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client
+- **Container interfaces** (`pkg/container/client.go`): Focused sub-interfaces (Lister, Lifecycle, Executor, Netem, IPTables, Stressor) composed into a unified Client interface. `Netem` and `IPTables` take request value objects (`NetemRequest`/`IPTablesRequest` in `pkg/container/requests.go`) — `SidecarSpec` carries the implementation-hint `(Image, Pull)` pair that runtime adapters may ignore.
+- **Runtime factory injection** (`pkg/chaos/command.go`): `chaos.Runtime func() container.Client` is a closure-based factory. Every CLI builder constructor takes `runtime chaos.Runtime` explicitly — no `chaos.DockerClient` global, no service locator. `cmd/main.go::before` constructs the closure once after global flag parsing and propagates it through `initializeCLICommands`.
+- **Generic CLI builder** (`pkg/chaos/cmd/builder.go`): `NewAction[P]` collapses all 17 chaos cmd files into the same shape — flag list + typed `ParamParser[P]` + `CommandFactory[P]`. Parsers receive `cliflags.Flags`, never `*cli.Context` directly.
+- **CLI flags adapter** (`pkg/chaos/cliflags/`): `Flags` interface wraps `urfave/cli` v1 via `V1`. Future v3 migration is a one-file swap (`v3.go` + wiring change in `cmd/main.go`).
+- **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client; split per-concern across `client.go`, `http_client.go`, `inspect.go`, `lifecycle.go`, `exec.go`, `sidecar.go`, `netem.go`, `iptables.go`, `stress.go`, `cgroup.go`, `pull.go` (no monolith — every file < 350 LOC)
 - **Containerd runtime** (`pkg/runtime/containerd/`): Containerd implementation of container.Client (socket: `/run/containerd/containerd.sock`, namespace: `k8s.io`)
 - **Podman runtime** (`pkg/runtime/podman/`): Podman implementation of container.Client; reuses the Docker SDK against Podman's Docker-compat socket and overrides only what diverges (stress cgroup resolution + rootless guards). Socket auto-detected from `$CONTAINER_HOST`, `$PODMAN_SOCK`, `podman machine inspect`, `/run/podman/podman.sock`, and `$XDG_RUNTIME_DIR/podman/podman.sock`; override via `--podman-socket`. Cgroup parent/leaf derived host-side from `/proc/<pid>/cgroup` of the target container (see `pkg/runtime/podman/cgroup.go`) — pumba must run on the same kernel as the targets.
 - **Chaos commands**: Each action implements `ChaosCommand` interface with `Run(ctx, random)` method
@@ -90,9 +95,11 @@ examples/              — Demo scripts
 
 - **Error wrapping:** Currently uses `github.com/pkg/errors` — migrate to `fmt.Errorf("...: %w", err)`
 - **Interfaces:** Define interfaces for testability (Client in `pkg/container/client.go`)
+- **Constructor injection over globals:** Chaos cmd builders take `runtime chaos.Runtime` and produce a closure that reads it lazily. Never reintroduce a `chaos.DockerClient`-style global — visibility in the function signature is the rule.
+- **Request value objects for fat methods:** `Netem`/`IPTables` interface methods accept `*NetemRequest`/`*IPTablesRequest` (see `pkg/container/requests.go`), not 11+ positional args. New runtime methods that exceed 4 params should follow the same pattern.
 - **Mocking:** testify mocks, generated by mockery. Mock files in `mocks/` and `pkg/container/mock_*.go`
 - **Mock constructor:** Always use `container.NewMockClient(t)` — never `new(container.MockClient)`; auto-asserts expectations on test cleanup
-- **Mock typed nils:** Use `([]*net.IPNet)(nil)` and `[]string(nil)` for nil slice args in EXPECT() calls — plain `nil` causes type mismatch
+- **Mock request structs:** EXPECT() calls for `NetemContainer`/`IPTablesContainer` pass a `*NetemRequest`/`*IPTablesRequest` literal (or `mock.AnythingOfType("*container.NetemRequest")`); never the old positional form.
 - **Mock context:** Use `mock.Anything` only for `context.Context` args; use exact values for all business params
 - **Mock random container:** Use `mock.AnythingOfType("*container.Container")` + `.Once()` when only one of N containers is targeted
 - **Logging:** logrus with structured fields. Log level set via `--log-level` flag
@@ -120,7 +127,7 @@ examples/              — Demo scripts
 - **Podman requires rootful for netem/iptables/stress:** rootless Podman is detected at `NewClient` time from `Info.SecurityOptions` and every netem/iptables/stress call fails fast with a message pointing at `podman machine set --rootful` (macOS) or the rootful systemd unit (Linux). Rootless support is out of scope — would need slirp4netns/pasta netns handling and user-namespace cgroup math.
 - **Podman cgroup leaf naming:** Podman uses `libpod-<id>.scope` (or `libpod-<id>.scope/container` with init sub-cgroup) under systemd, vs Docker's `docker-<id>.scope`. Pointing `--runtime docker` at Podman's compat socket silently places stress-ng sidecars in the wrong cgroup; `--runtime podman` derives the correct path.
 - **Podman cgroup resolution reads host-side `/proc/<pid>/cgroup`:** containers launched under Podman's default `--cgroupns=private` see only `0::/` or `0::/container` from inside the container, so we read from pumba's own view of `/proc` (requires shared kernel with targets). On macOS this means running pumba **inside the `podman machine` VM** — the same pattern used for containerd testing in Colima. See `pkg/runtime/podman/cgroup.go` and the `cgroupReader` var for the test-injectable hook.
-- **`ContainerExecStart` empty options breaks on Podman:** Docker's `ContainerExecStart(ctx, id, ExecStartOptions{})` with no attach/detach flags is accepted by Docker (implicit sync via HTTP hijack) but rejected by Podman's compat API with _"must provide at least one stream to attach to"_. The `runExecAttached` helper in `pkg/runtime/docker/docker.go` goes through `ContainerExecAttach` + drain + inspect — works on both. When writing new exec-driven code, never call `ContainerExecStart` with empty options; use the helper.
+- **`ContainerExecStart` empty options breaks on Podman:** Docker's `ContainerExecStart(ctx, id, ExecStartOptions{})` with no attach/detach flags is accepted by Docker (implicit sync via HTTP hijack) but rejected by Podman's compat API with _"must provide at least one stream to attach to"_. The `runExecAttached` helper in `pkg/runtime/docker/exec.go` goes through `ContainerExecAttach` + drain + inspect — works on both. When writing new exec-driven code, never call `ContainerExecStart` with empty options; use the helper.
 - **tc/iptables sidecar cleanup must survive ctx cancel:** `tcContainerCommands`/`ipTablesContainerCommands` use `removeSidecar` (wraps `ContainerRemove` with `context.WithoutCancel(ctx)` + 15 s timeout). Without this, SIGTERM to pumba during the narrow window after tc exec and before sidecar reap leaks the sidecar AND leaves the netem qdisc on the target's netns.
 - **Sidecar `StopSignal: "SIGKILL"`:** `tail -f /dev/null` as PID 1 ignores SIGTERM. Podman's `DELETE ?force=1` sends SIGTERM and waits the full `StopTimeout` (10 s) before escalating — that's 10 s per sidecar reap on every netem/iptables call. Config sets `StopSignal: "SIGKILL"` so force-remove is immediate.
 - **Podman inject-cgroup needs SYS_ADMIN + `label=disable` + nested leaf:** cg-inject writes the sidecar's PID into the target's `cgroup.procs`. Three gotchas stack on cgroup v2 + systemd: (1) the target's scope may have a nested `container/` leaf (Podman's libpod init sub-cgroup) — cgroup v2's "no internal processes" rule means we must target `libpod-<id>.scope/container/cgroup.procs`, not the outer scope. `pkg/runtime/podman/stress.go::resolveCgroup` reads `/proc/<pid>/cgroup` plus `os.Stat` to pick between them. (2) Writing across sibling scopes requires `CAP_SYS_ADMIN` in the initial user namespace. (3) SELinux `container_t` blocks cgroup writes even with SYS_ADMIN; `SecurityOpt: ["label=disable"]` on the sidecar bypasses this. All three are required on Fedora CoreOS / RHEL hosts.

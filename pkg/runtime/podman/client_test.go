@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"net"
 	"testing"
 	"time"
 
@@ -103,28 +102,45 @@ func TestPodmanClient_RootlessGuards_ReturnError(t *testing.T) {
 	target := &ctr.Container{ContainerID: "abc", ContainerName: "/x"}
 
 	t.Run("NetemContainer", func(t *testing.T) {
-		err := p.NetemContainer(ctx, target, "eth0", []string{"delay", "100ms"}, nil, nil, nil, time.Second, "", false, false)
+		err := p.NetemContainer(ctx, &ctr.NetemRequest{
+			Container: target,
+			Interface: "eth0",
+			Command:   []string{"delay", "100ms"},
+			Duration:  time.Second,
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "netem")
 		require.Contains(t, err.Error(), p.socketURI)
 	})
 
 	t.Run("StopNetemContainer", func(t *testing.T) {
-		err := p.StopNetemContainer(ctx, target, "eth0", nil, nil, nil, "", false, false)
+		err := p.StopNetemContainer(ctx, &ctr.NetemRequest{
+			Container: target,
+			Interface: "eth0",
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "netem")
 		require.Contains(t, err.Error(), p.socketURI)
 	})
 
 	t.Run("IPTablesContainer", func(t *testing.T) {
-		err := p.IPTablesContainer(ctx, target, []string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, time.Second, "", false, false)
+		err := p.IPTablesContainer(ctx, &ctr.IPTablesRequest{
+			Container: target,
+			CmdPrefix: []string{"-A", "INPUT"},
+			CmdSuffix: []string{"-j", "DROP"},
+			Duration:  time.Second,
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "iptables")
 		require.Contains(t, err.Error(), p.socketURI)
 	})
 
 	t.Run("StopIPTablesContainer", func(t *testing.T) {
-		err := p.StopIPTablesContainer(ctx, target, []string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, false)
+		err := p.StopIPTablesContainer(ctx, &ctr.IPTablesRequest{
+			Container: target,
+			CmdPrefix: []string{"-D", "INPUT"},
+			CmdSuffix: []string{"-j", "DROP"},
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "iptables")
 		require.Contains(t, err.Error(), p.socketURI)
@@ -144,27 +160,44 @@ func TestPodmanClient_RootfulGuards_Delegate(t *testing.T) {
 	netemCmd := []string{"delay", "100ms"}
 	img := "img"
 
-	mockDelegate.EXPECT().
-		NetemContainer(ctx, target, "eth0", netemCmd, ([]*net.IPNet)(nil), []string(nil), []string(nil), time.Second, img, false, false).
-		Return(nil).Once()
-	require.NoError(t, p.NetemContainer(ctx, target, "eth0", netemCmd, nil, nil, nil, time.Second, img, false, false))
+	netemReq := &ctr.NetemRequest{
+		Container: target,
+		Interface: "eth0",
+		Command:   netemCmd,
+		Duration:  time.Second,
+		Sidecar:   ctr.SidecarSpec{Image: img},
+	}
+	mockDelegate.EXPECT().NetemContainer(ctx, netemReq).Return(nil).Once()
+	require.NoError(t, p.NetemContainer(ctx, netemReq))
 
-	mockDelegate.EXPECT().
-		StopNetemContainer(ctx, target, "eth0", ([]*net.IPNet)(nil), []string(nil), []string(nil), img, false, false).
-		Return(nil).Once()
-	require.NoError(t, p.StopNetemContainer(ctx, target, "eth0", nil, nil, nil, img, false, false))
+	stopNetemReq := &ctr.NetemRequest{
+		Container: target,
+		Interface: "eth0",
+		Sidecar:   ctr.SidecarSpec{Image: img},
+	}
+	mockDelegate.EXPECT().StopNetemContainer(ctx, stopNetemReq).Return(nil).Once()
+	require.NoError(t, p.StopNetemContainer(ctx, stopNetemReq))
 
 	prefix := []string{"-A", "INPUT"}
 	suffix := []string{"-j", "DROP"}
-	mockDelegate.EXPECT().
-		IPTablesContainer(ctx, target, prefix, suffix, ([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil), time.Second, img, false, false).
-		Return(nil).Once()
-	require.NoError(t, p.IPTablesContainer(ctx, target, prefix, suffix, nil, nil, nil, nil, time.Second, img, false, false))
+	ipReq := &ctr.IPTablesRequest{
+		Container: target,
+		CmdPrefix: prefix,
+		CmdSuffix: suffix,
+		Duration:  time.Second,
+		Sidecar:   ctr.SidecarSpec{Image: img},
+	}
+	mockDelegate.EXPECT().IPTablesContainer(ctx, ipReq).Return(nil).Once()
+	require.NoError(t, p.IPTablesContainer(ctx, ipReq))
 
-	mockDelegate.EXPECT().
-		StopIPTablesContainer(ctx, target, prefix, suffix, ([]*net.IPNet)(nil), ([]*net.IPNet)(nil), []string(nil), []string(nil), img, false, false).
-		Return(nil).Once()
-	require.NoError(t, p.StopIPTablesContainer(ctx, target, prefix, suffix, nil, nil, nil, nil, img, false, false))
+	stopIPReq := &ctr.IPTablesRequest{
+		Container: target,
+		CmdPrefix: prefix,
+		CmdSuffix: suffix,
+		Sidecar:   ctr.SidecarSpec{Image: img},
+	}
+	mockDelegate.EXPECT().StopIPTablesContainer(ctx, stopIPReq).Return(nil).Once()
+	require.NoError(t, p.StopIPTablesContainer(ctx, stopIPReq))
 }
 
 func TestPodmanClient_PromotedMethodsDelegate(t *testing.T) {
