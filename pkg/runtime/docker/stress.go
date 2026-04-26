@@ -110,6 +110,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	}
 	attach, err := client.containerAPI.ContainerAttach(ctx, createResponse.ID, opts)
 	if err != nil {
+		// AutoRemove fires only on container exit; a never-attached container
+		// is leaked unless we remove it explicitly.
+		_ = client.removeSidecar(ctx, createResponse.ID)
 		return "", nil, nil, fmt.Errorf("failed to attach to stress-ng container: %w", err)
 	}
 	output := make(chan string, 1)

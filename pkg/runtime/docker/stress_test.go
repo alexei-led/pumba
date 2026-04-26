@@ -686,6 +686,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				engine.EXPECT().ContainerInspect(mock.Anything, targetID).Return(DetailsResponse(AsMap("ID", targetID)), nil).Once()
 				engine.EXPECT().ContainerCreate(ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, "").Return(container.CreateResponse{ID: "000"}, nil)
 				engine.EXPECT().ContainerAttach(ctx, "000", mock.Anything).Return(types.HijackedResponse{}, errors.New("failed to attach"))
+				engine.EXPECT().ContainerRemove(mock.Anything, "000", mock.Anything).Return(nil).Once()
 			},
 			wantErr: true,
 		},
