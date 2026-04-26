@@ -664,6 +664,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 					Reader: bufio.NewReader(strings.NewReader("stress completed")),
 				}, nil)
 				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(errors.New("failed to start"))
+				engine.EXPECT().ContainerRemove(mock.Anything, "000", mock.Anything).Return(nil).Maybe()
 				conn.On("Close").Return(nil).Maybe()
 				inspect := container.InspectResponse{
 					ContainerJSONBase: &container.ContainerJSONBase{

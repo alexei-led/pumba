@@ -72,6 +72,11 @@ func newNetemCommand(client netemClient, gparams *chaos.GlobalParams, params *Pa
 	}
 }
 
+// cleanupTimeout caps how long the netem-cleanup sidecar cycle is allowed
+// to run after abort or scheduled stop. Independent of --duration so a
+// 1h chaos run does not give cleanup an hour to complete.
+const cleanupTimeout = 30 * time.Second
+
 // run network emulation command, stop netem on timeout or abort
 func runNetem(ctx context.Context, client netemClient, req *container.NetemRequest) error {
 	logger := log.WithFields(log.Fields{
@@ -101,14 +106,14 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping netem command on abort")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), req.Duration)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 		defer cleanupCancel()
 		if err := client.StopNetemContainer(cleanupCtx, req); err != nil {
 			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping netem command on timeout")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), req.Duration)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 		defer cleanupCancel()
 		if err := client.StopNetemContainer(cleanupCtx, req); err != nil {
 			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")

@@ -280,6 +280,7 @@ func (client dockerClient) tcContainerCommands(ctx context.Context, target *ctr.
 	log.WithField("id", createResponse.ID).Debug("tc container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{})
 	if err != nil {
+		_ = client.removeSidecar(ctx, createResponse.ID)
 		return fmt.Errorf("failed to start tc-container: %w", err)
 	}
 

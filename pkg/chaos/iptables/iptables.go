@@ -87,6 +87,11 @@ func newIPTablesCommand(client iptablesClient, gparams *chaos.GlobalParams, para
 	}
 }
 
+// cleanupTimeout caps how long the iptables-cleanup sidecar cycle is allowed
+// to run after abort or scheduled stop. Independent of --duration so a
+// 1h chaos run does not give cleanup an hour to complete.
+const cleanupTimeout = 30 * time.Second
+
 // run iptables command, stop iptables on timeout or abort. The add/del prefix
 // pair distinguishes the rule installation command (-I/-A/-N) from its mirror
 // removal command (-D); both share the rest of the request fields.
@@ -120,14 +125,14 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping iptables command on abort")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), addReq.Duration)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 		defer cleanupCancel()
 		if err := client.StopIPTablesContainer(cleanupCtx, delReq); err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping iptables command on timeout")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), addReq.Duration)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 		defer cleanupCancel()
 		if err := client.StopIPTablesContainer(cleanupCtx, delReq); err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")

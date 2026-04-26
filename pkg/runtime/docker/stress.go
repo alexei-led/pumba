@@ -142,6 +142,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	log.WithField("id", createResponse.ID).Debug("stress-ng container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{})
 	if err != nil {
+		// AutoRemove fires only on container exit; a never-started container
+		// is leaked unless we remove it explicitly.
+		_ = client.removeSidecar(ctx, createResponse.ID)
 		return createResponse.ID, output, outerr, fmt.Errorf("failed to start stress-ng container: %w", err)
 	}
 	return createResponse.ID, output, outerr, nil

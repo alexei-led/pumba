@@ -222,6 +222,7 @@ func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target
 	log.WithField("id", createResponse.ID).Debug("iptables container created, starting it")
 	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{})
 	if err != nil {
+		_ = client.removeSidecar(ctx, createResponse.ID)
 		return fmt.Errorf("failed to start iptables-container: %w", err)
 	}
 
