@@ -233,10 +233,10 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Modify: `pkg/chaos/command.go`
 - Create: `pkg/chaos/command_test.go` (or extend existing) — add test for Runtime factory invocation contract
 
-- [ ] add `type Runtime func() container.Client` to `pkg/chaos/command.go`
-- [ ] write a unit test asserting `Runtime` invocation returns the injected client (basic contract test)
-- [ ] keep `var DockerClient` in place for now (removed in Task 4) but add deprecation comment pointing at `Runtime`
-- [ ] run `make test` — must pass
+- [x] add `type Runtime func() container.Client` to `pkg/chaos/command.go`
+- [x] write a unit test asserting `Runtime` invocation returns the injected client (basic contract test)
+- [x] keep `var DockerClient` in place for now (removed in Task 4) but add deprecation comment pointing at `Runtime`
+- [x] run `make test` — must pass
 
 ### Task 3: Wire runtime factory through every CLI builder (Issue 1, body)
 

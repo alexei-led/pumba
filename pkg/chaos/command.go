@@ -17,10 +17,19 @@ const (
 )
 
 var (
-	// DockerClient Docker client instance
-	// TODO(Phase 4): remove this global and inject client via dependency injection
+	// DockerClient Docker client instance.
+	//
+	// NOTE: superseded by Runtime; new CLI builders take a Runtime factory by
+	// constructor injection. This global is kept only until every builder is
+	// migrated, then removed (modularity refactor, Issue 1).
 	DockerClient container.Client
 )
+
+// Runtime returns the container client to use for chaos execution. Builders
+// receive a Runtime factory rather than a client value so that client
+// construction can be deferred until after global flag parsing while still
+// keeping the dependency visible in every constructor signature.
+type Runtime func() container.Client
 
 // Command chaos command
 type Command interface {
