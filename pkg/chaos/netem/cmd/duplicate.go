@@ -15,11 +15,12 @@ const (
 
 type duplicateContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewDuplicateCLICommand initialize CLI duplicate command and bind it to the duplicateContext
-func NewDuplicateCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &duplicateContext{context: ctx}
+func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &duplicateContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: duplicateCmd,
 		Flags: []cli.Flag{
@@ -61,7 +62,7 @@ func (cmd *duplicateContext) duplicate(c *cli.Context) error {
 	correlation := c.Float64("correlation")
 
 	// init netem duplicate command
-	duplicateCommand, err := netem.NewDuplicateCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
+	duplicateCommand, err := netem.NewDuplicateCommand(cmd.runtime(), globalParams, netemParams, percent, correlation)
 	if err != nil {
 		return fmt.Errorf("unable to create netem duplicate command: %w", err)
 	}

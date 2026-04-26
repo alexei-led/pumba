@@ -12,11 +12,12 @@ import (
 
 type killContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewKillCLICommand initialize CLI kill command and bind it to the killContext
-func NewKillCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &killContext{context: ctx}
+func NewKillCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &killContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "kill",
 		Flags: []cli.Flag{
@@ -53,7 +54,7 @@ func (cmd *killContext) kill(c *cli.Context) error {
 	// get limit for number of containers to kill
 	limit := c.Int("limit")
 	// init kill command
-	killCommand, err := lifecycle.NewKillCommand(chaos.DockerClient, params, signal, limit)
+	killCommand, err := lifecycle.NewKillCommand(cmd.runtime(), params, signal, limit)
 	if err != nil {
 		return fmt.Errorf("could not create kill command: %w", err)
 	}

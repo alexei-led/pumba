@@ -12,11 +12,12 @@ import (
 
 type rateContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewRateCLICommand initialize CLI rate command and bind it to the lossContext
-func NewRateCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &rateContext{context: ctx}
+func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &rateContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "rate",
 		Flags: []cli.Flag{
@@ -70,7 +71,7 @@ func (cmd *rateContext) rate(c *cli.Context) error {
 	cellOverhead := c.Int("celloverhead")
 
 	// init netem rate command
-	lossCommand, err := netem.NewRateCommand(chaos.DockerClient, globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
+	lossCommand, err := netem.NewRateCommand(cmd.runtime(), globalParams, netemParams, rate, packetOverhead, cellSize, cellOverhead)
 	if err != nil {
 		return fmt.Errorf("error creating netem rate command: %w", err)
 	}

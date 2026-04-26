@@ -12,11 +12,12 @@ import (
 
 type restartContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewRestartCLICommand initialize CLI restart command and bind it to the restartContext
-func NewRestartCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &restartContext{context: ctx}
+func NewRestartCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &restartContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "restart",
 		Flags: []cli.Flag{
@@ -50,7 +51,7 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand := lifecycle.NewRestartCommand(chaos.DockerClient, params, timeout, limit)
+	restartCommand := lifecycle.NewRestartCommand(cmd.runtime(), params, timeout, limit)
 	// run restart command
 	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
 	if err != nil {

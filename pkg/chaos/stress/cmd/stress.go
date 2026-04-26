@@ -12,11 +12,12 @@ import (
 
 type stressContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewStressCLICommand initialize CLI stress command and bind it to the stressContext
-func NewStressCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &stressContext{context: ctx}
+func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &stressContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "stress",
 		Flags: []cli.Flag{
@@ -73,7 +74,7 @@ func (cmd *stressContext) stress(c *cli.Context) error {
 	// get inject-cgroup flag
 	injectCgroup := c.Bool("inject-cgroup")
 	// init stress command
-	stressCommand := stress.NewStressCommand(chaos.DockerClient, globalParams, image, pull, stressors, duration, limit, injectCgroup)
+	stressCommand := stress.NewStressCommand(cmd.runtime(), globalParams, image, pull, stressors, duration, limit, injectCgroup)
 	// run stress command
 	err = chaos.RunChaosCommand(cmd.context, stressCommand, globalParams)
 	if err != nil {

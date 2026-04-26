@@ -11,11 +11,12 @@ import (
 
 type lossContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewLossCLICommand initialize CLI loss command and bind it to the lossContext
-func NewLossCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossContext{context: ctx}
+func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &lossContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "loss",
 		Flags: []cli.Flag{
@@ -70,7 +71,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	packet := c.Int("packet")
 
 	// init iptables loss command
-	lossCommand, err := iptables.NewLossCommand(chaos.DockerClient, globalParams, ipTablesParams, mode, probability, every, packet)
+	lossCommand, err := iptables.NewLossCommand(cmd.runtime(), globalParams, ipTablesParams, mode, probability, every, packet)
 	if err != nil {
 		return fmt.Errorf("error creating iptables loss command: %w", err)
 	}

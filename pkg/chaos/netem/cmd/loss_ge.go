@@ -12,11 +12,12 @@ import (
 
 type lossGEContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewLossGECLICommand initialize CLI loss gemodel command and bind it to the lossContext
-func NewLossGECLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossGEContext{context: ctx}
+func NewLossGECLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &lossGEContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "loss-gemodel",
 		Flags: []cli.Flag{
@@ -71,7 +72,7 @@ func (cmd *lossGEContext) lossGE(c *cli.Context) error {
 	oneK := c.Float64("one-k")
 
 	// init netem loss gemodel command
-	lossGECommand, err := netem.NewLossGECommand(chaos.DockerClient, globalParams, netemParams, pg, pb, oneH, oneK)
+	lossGECommand, err := netem.NewLossGECommand(cmd.runtime(), globalParams, netemParams, pg, pb, oneH, oneK)
 	if err != nil {
 		return fmt.Errorf("error creating loss gemodel command: %w", err)
 	}

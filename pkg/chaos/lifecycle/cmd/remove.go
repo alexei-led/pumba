@@ -12,11 +12,12 @@ import (
 
 type removeContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewRemoveCLICommand initialize CLI remove command and bind it to the remove4Context
-func NewRemoveCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &removeContext{context: ctx}
+func NewRemoveCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &removeContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "rm",
 		Flags: []cli.Flag{
@@ -64,7 +65,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// get limit for number of containers to remove
 	limit := c.Int("limit")
 	// init remove command
-	removeCommand := lifecycle.NewRemoveCommand(chaos.DockerClient, params, force, links, volumes, limit)
+	removeCommand := lifecycle.NewRemoveCommand(cmd.runtime(), params, force, links, volumes, limit)
 	// run remove command
 	err = chaos.RunChaosCommand(cmd.context, removeCommand, params)
 	if err != nil {

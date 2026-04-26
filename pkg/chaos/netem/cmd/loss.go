@@ -11,11 +11,12 @@ import (
 
 type lossContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewLossCLICommand initialize CLI loss command and bind it to the lossContext
-func NewLossCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossContext{context: ctx}
+func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &lossContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "loss",
 		Flags: []cli.Flag{
@@ -56,7 +57,7 @@ func (cmd *lossContext) loss(c *cli.Context) error {
 	// get delay variation
 	correlation := c.Float64("correlation")
 	// init netem loss command
-	lossCommand, err := netem.NewLossCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
+	lossCommand, err := netem.NewLossCommand(cmd.runtime(), globalParams, netemParams, percent, correlation)
 	if err != nil {
 		return fmt.Errorf("error creating netem loss command: %w", err)
 	}

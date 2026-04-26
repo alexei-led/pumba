@@ -11,11 +11,12 @@ import (
 
 type corruptContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewCorruptCLICommand initialize CLI corrupt command and bind it to the corruptContext
-func NewCorruptCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &corruptContext{context: ctx}
+func NewCorruptCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &corruptContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "corrupt",
 		Flags: []cli.Flag{
@@ -56,7 +57,7 @@ func (cmd *corruptContext) corrupt(c *cli.Context) error {
 	// get delay variation
 	correlation := c.Float64("correlation")
 	// init netem corrupt command
-	corruptCommand, err := netem.NewCorruptCommand(chaos.DockerClient, globalParams, netemParams, percent, correlation)
+	corruptCommand, err := netem.NewCorruptCommand(cmd.runtime(), globalParams, netemParams, percent, correlation)
 	if err != nil {
 		return fmt.Errorf("error creating netem corrupt command: %w", err)
 	}

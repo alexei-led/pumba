@@ -12,11 +12,12 @@ import (
 
 type delayContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewDelayCLICommand initialize CLI delay command and bind it to the delayContext
-func NewDelayCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &delayContext{context: ctx}
+func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &delayContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "delay",
 		Flags: []cli.Flag{
@@ -70,7 +71,7 @@ func (cmd *delayContext) delay(c *cli.Context) error {
 	distribution := c.String("distribution")
 
 	// init netem delay command
-	delayCommand, err := netem.NewDelayCommand(chaos.DockerClient, globalParams, netemParams, time, jitter, correlation, distribution)
+	delayCommand, err := netem.NewDelayCommand(cmd.runtime(), globalParams, netemParams, time, jitter, correlation, distribution)
 	if err != nil {
 		return fmt.Errorf("error creating netem delay command: %w", err)
 	}

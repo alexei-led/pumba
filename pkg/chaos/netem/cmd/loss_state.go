@@ -11,11 +11,12 @@ import (
 
 type lossStateContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewLossStateCLICommand initialize CLI loss command and bind it to the lossContext
-func NewLossStateCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &lossStateContext{context: ctx}
+func NewLossStateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &lossStateContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "loss-state",
 		Flags: []cli.Flag{
@@ -83,7 +84,7 @@ func (cmd *lossStateContext) lossState(c *cli.Context) error {
 	p14 := c.Float64("p14")
 
 	// init netem loss state command
-	lossStateCommand, err := netem.NewLossStateCommand(chaos.DockerClient, globalParams, netemParams, p13, p31, p32, p23, p14)
+	lossStateCommand, err := netem.NewLossStateCommand(cmd.runtime(), globalParams, netemParams, p13, p31, p32, p23, p14)
 	if err != nil {
 		return fmt.Errorf("error creating netem loss state command: %w", err)
 	}

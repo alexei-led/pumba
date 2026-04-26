@@ -11,11 +11,12 @@ import (
 
 type execContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewExecCLICommand initialize CLI exec command and bind it to the execContext
-func NewExecCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &execContext{context: ctx}
+func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &execContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "exec",
 		Flags: []cli.Flag{
@@ -55,7 +56,7 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand := lifecycle.NewExecCommand(chaos.DockerClient, params, command, args, limit)
+	execCommand := lifecycle.NewExecCommand(cmd.runtime(), params, command, args, limit)
 	// run exec command
 	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {

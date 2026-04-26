@@ -12,11 +12,12 @@ import (
 
 type stopContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewStopCLICommand initialize CLI stop command and bind it to the CommandContext
-func NewStopCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &stopContext{ctx}
+func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &stopContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "stop",
 		Flags: []cli.Flag{
@@ -69,7 +70,7 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 		return errors.New("unset or invalid duration value")
 	}
 	// init stop command
-	stopCommand := lifecycle.NewStopCommand(chaos.DockerClient, params, restart, duration, waitTime, limit)
+	stopCommand := lifecycle.NewStopCommand(cmd.runtime(), params, restart, duration, waitTime, limit)
 	// run stop command
 	err = chaos.RunChaosCommand(cmd.context, stopCommand, params)
 	if err != nil {

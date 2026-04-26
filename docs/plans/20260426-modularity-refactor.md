@@ -249,13 +249,13 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Modify: `cmd/main.go` — change `initializeCLICommands` to take `runtime chaos.Runtime`, pass to each `New*CLICommand`; update `app.Action`/`app.After` accordingly
 - Modify/Create: `*_test.go` for each cmd file — verify constructor accepts injected runtime, builder action uses it
 
-- [ ] update every `New*CLICommand` signature: add `runtime chaos.Runtime` parameter, store on context struct
-- [ ] in each `Action` closure, call `cmd.runtime()` instead of `chaos.DockerClient`
-- [ ] update `cmd/main.go::initializeCLICommands` to accept `runtime chaos.Runtime` and propagate
-- [ ] capture runtime in `before()`: build the closure once after `createRuntimeClient` succeeds, pass it down
-- [ ] write/update unit tests for each cmd file: assert constructor stores runtime, action invokes it (use a test double for `container.Client`)
-- [ ] run `make test` — must pass
-- [ ] run `make lint` — must pass
+- [x] update every `New*CLICommand` signature: add `runtime chaos.Runtime` parameter, store on context struct
+- [x] in each `Action` closure, call `cmd.runtime()` instead of `chaos.DockerClient`
+- [x] update `cmd/main.go::initializeCLICommands` to accept `runtime chaos.Runtime` and propagate
+- [x] capture runtime in `before()`: build the closure once after `createRuntimeClient` succeeds, pass it down
+- [x] write/update unit tests for each cmd file: assert constructor stores runtime, action invokes it (use a test double for `container.Client`)
+- [x] run `make test` — must pass
+- [x] run `make lint` — must pass
 
 ### Task 4: Remove `chaos.DockerClient` global (Issue 1, finish)
 

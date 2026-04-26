@@ -12,11 +12,12 @@ import (
 
 type pauseContext struct {
 	context context.Context
+	runtime chaos.Runtime
 }
 
 // NewPauseCLICommand initialize CLI pause command and bind it to the CommandContext
-func NewPauseCLICommand(ctx context.Context) *cli.Command {
-	cmdContext := &pauseContext{context: ctx}
+func NewPauseCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
+	cmdContext := &pauseContext{context: ctx, runtime: runtime}
 	return &cli.Command{
 		Name: "pause",
 		Flags: []cli.Flag{
@@ -52,7 +53,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 		return errors.New("unset or invalid duration value")
 	}
 	// init pause command
-	pauseCommand := lifecycle.NewPauseCommand(chaos.DockerClient, params, duration, limit)
+	pauseCommand := lifecycle.NewPauseCommand(cmd.runtime(), params, duration, limit)
 	// run pause command
 	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
 	if err != nil {
