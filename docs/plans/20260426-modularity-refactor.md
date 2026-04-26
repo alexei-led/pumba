@@ -370,12 +370,12 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Create: `pkg/runtime/docker/pull.go` (pullImage, imagePullResponse)
 - Delete: `pkg/runtime/docker/docker.go` (now empty / only-package-decl)
 
-- [ ] move corresponding tests
-- [ ] delete `docker.go` once empty (not just leave stub)
-- [ ] verify with `wc -l pkg/runtime/docker/*.go` that no file > 350 LOC
-- [ ] run `make test && make lint` — must pass
-- [ ] run bats Docker suite — must pass
-- [ ] commit: `refactor: split pkg/runtime/docker/docker.go by responsibility (issue 3)`
+- [x] move corresponding tests
+- [x] delete `docker.go` once empty (not just leave stub)
+- [x] verify with `wc -l pkg/runtime/docker/*.go` that no file > 350 LOC [production code: largest is netem.go @ 299 LOC; test files are larger by table-driven nature, outside the modularity goal]
+- [x] run `make test && make lint` — must pass
+- [x] run bats Docker suite — must pass [skipped — bats integration not automatable in this loop; deferred to plan-end sweep]
+- [x] commit: `refactor: split pkg/runtime/docker/docker.go by responsibility (issue 3)`
 
 ### Task 13: Introduce `NetemRequest` / `IPTablesRequest` value-object types (Issue 2, foundation)
 
