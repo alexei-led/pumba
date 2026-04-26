@@ -122,6 +122,7 @@ func Test_runNetem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 
 			startErr := error(nil)
 			if tt.errs.startErr {
@@ -148,16 +149,14 @@ func Test_runNetem(t *testing.T) {
 				mockClient.EXPECT().StopNetemContainer(mock.Anything, req).Return(stopErr)
 			}
 
-			if err := runNetem(ctx, mockClient, req); (err != nil) != tt.wantErr {
-				t.Errorf("runNetem() error = %v, wantErr %v", err, tt.wantErr)
+			// abort case: cancel ctx before runNetem so the ctx.Done() branch
+			// is exercised; otherwise the stopCtx timeout branch wins.
+			if tt.abort {
+				cancel()
 			}
 
-			if tt.abort {
-				t.Log("cancel netem")
-				cancel()
-			} else {
-				t.Log("timeout netem")
-				defer cancel()
+			if err := runNetem(ctx, mockClient, req); (err != nil) != tt.wantErr {
+				t.Errorf("runNetem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

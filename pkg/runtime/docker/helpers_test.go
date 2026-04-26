@@ -3,6 +3,7 @@ package docker
 import (
 	"bufio"
 	"strings"
+	"testing"
 
 	"github.com/alexei-led/pumba/mocks"
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -20,8 +21,11 @@ func fakeExecAttach() types.HijackedResponse {
 	}
 }
 
-func NewMockEngine() *mocks.APIClient {
-	return new(mocks.APIClient)
+// NewMockEngine returns a mock APIClient bound to t so AssertExpectations runs
+// at cleanup. Pass t to catch mismatched EXPECT() calls automatically.
+func NewMockEngine(t *testing.T) *mocks.APIClient {
+	t.Helper()
+	return mocks.NewAPIClient(t)
 }
 
 func mockAllContainers(_ *ctr.Container) bool {

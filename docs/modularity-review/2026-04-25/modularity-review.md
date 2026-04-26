@@ -411,7 +411,7 @@ These are explicit design wins worth preserving:
 - **`pkg/runtime/podman` embeds `ctr.Client` and overrides only divergent methods.** The `apiBackend` interface in `client.go:25` is a clean private test seam — `*dockerapi.Client` satisfies it in production, mocks satisfy it in tests, no real socket needed.
 - **`pkg/chaos/command.go`'s `Command` interface** is one method (`Run(ctx, random) error`). Maximum [contract narrowness](https://coupling.dev/posts/dimensions-of-coupling/integration-strength/).
 - **Test seams in `cmd/main.go`** (`var newDockerClient = docker.NewClient`) allow main-level tests without real sockets.
-- **Cleanup discipline using `context.WithoutCancel`** for sidecar removal (see `pkg/chaos/netem/netem.go:104`, `pkg/runtime/docker/docker.go:767`) is the right pattern for SIGTERM-survival of resource teardown — encoded in CLAUDE.md, applied consistently.
+- **Cleanup discipline using `context.WithoutCancel`** for sidecar removal (see `pkg/chaos/netem/netem.go`, `pkg/runtime/docker/sidecar.go:21`) is the right pattern for SIGTERM-survival of resource teardown — encoded in CLAUDE.md, applied consistently.
 
 ## Recommended order of execution
 

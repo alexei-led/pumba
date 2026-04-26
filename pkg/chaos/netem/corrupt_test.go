@@ -13,7 +13,7 @@ import (
 )
 
 func TestCorruptCommand_Run_DryRun(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	target := &container.Container{
 		ContainerID:   "abc123",
 		ContainerName: "target",

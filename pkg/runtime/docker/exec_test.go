@@ -162,7 +162,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := NewMockEngine()
+			mockClient := NewMockEngine(t)
 			client := dockerClient{
 				containerAPI: mockClient,
 			}
@@ -326,7 +326,7 @@ func TestExecContainer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.command, tt.args.execArgs, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}

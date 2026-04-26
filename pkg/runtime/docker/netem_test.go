@@ -25,7 +25,7 @@ func TestNetemContainer_Success(t *testing.T) {
 		ContainerID: "abc123",
 	}
 
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 
 	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(mock.Anything, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
@@ -55,7 +55,7 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	}
 
 	ctx := mock.Anything
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 
 	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
@@ -82,7 +82,7 @@ func TestNetemContainer_DryRun(t *testing.T) {
 		ContainerID: "abc123",
 	}
 
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	client := dockerClient{containerAPI: engineClient}
 	err := client.NetemContainer(context.TODO(), &ctr.NetemRequest{
 		Container: c,
@@ -103,7 +103,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	}
 
 	ctx := mock.Anything
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 
 	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
@@ -155,7 +155,7 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 	}
 
 	ctx := mock.Anything
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 
 	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
@@ -207,7 +207,7 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 	}
 
 	ctx := mock.Anything
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 
 	checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "tc"}}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", checkConfig).Return(ctypes.ExecCreateResponse{ID: "checkID"}, nil)
@@ -290,7 +290,7 @@ func Test_tcContainerCommands(t *testing.T) {
 	readerResponse := bytes.NewReader(pullResponseByte)
 
 	ctx := mock.Anything
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 
 	engineClient.EXPECT().ImagePull(ctx, config.Image, imagetypes.PullOptions{}).Return(io.NopCloser(readerResponse), nil)
 	engineClient.EXPECT().ContainerCreate(ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(ctypes.CreateResponse{ID: "tcID"}, nil)
@@ -456,7 +456,7 @@ func TestNetemContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			// Set up the mock expectations
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.netInterface, tt.args.netemCmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryrun)
 
@@ -600,7 +600,7 @@ func TestStopNetemIPTables(t *testing.T) {
 
 	for _, tt := range stopNetemTests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			// Set up the mock expectations
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.netInterface, tt.args.ip, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryrun)
 

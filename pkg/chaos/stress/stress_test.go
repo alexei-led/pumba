@@ -140,7 +140,7 @@ func TestStressCommand_Run(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(container.MockClient)
+			mockClient := container.NewMockClient(t)
 			tt.setupMock(mockClient)
 
 			cmd := NewStressCommand(mockClient, tt.params, image, false, stressArgs, duration, 0, false)
@@ -176,7 +176,7 @@ func TestStressCommand_Run_InjectCgroup(t *testing.T) {
 	anyFilter := mock.AnythingOfType("container.FilterFunc")
 	listOpts := container.ListOpts{All: false, Labels: nil}
 
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	output := make(chan string, 1)
 	outerr := make(chan error, 1)
 	output <- "done"
@@ -202,7 +202,7 @@ func TestStressCommand_Run_DurationTimeout(t *testing.T) {
 	anyFilter := mock.AnythingOfType("container.FilterFunc")
 	listOpts := container.ListOpts{All: false, Labels: nil}
 
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	output := make(chan string)
 	outerr := make(chan error)
 
@@ -229,7 +229,7 @@ func TestStressCommand_Run_StopContainerError(t *testing.T) {
 	anyFilter := mock.AnythingOfType("container.FilterFunc")
 	listOpts := container.ListOpts{All: false, Labels: nil}
 
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	output := make(chan string)
 	outerr := make(chan error)
 

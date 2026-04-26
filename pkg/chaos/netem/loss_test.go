@@ -13,7 +13,7 @@ import (
 )
 
 func TestLossCommand_Run_NoContainers(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
@@ -31,7 +31,7 @@ func TestLossCommand_Run_NoContainers(t *testing.T) {
 }
 
 func TestLossCommand_Run_DryRun(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	target := &container.Container{
 		ContainerID:   "abc123",
 		ContainerName: "target",
@@ -66,7 +66,7 @@ func TestLossCommand_Run_DryRun(t *testing.T) {
 }
 
 func TestLossCommand_Run_WithRandom(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1"}
 	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2"}
 

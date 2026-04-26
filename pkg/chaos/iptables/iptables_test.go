@@ -131,6 +131,7 @@ func Test_runIPTables(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 
 			startErr := error(nil)
 			if tt.errs.startErr {
@@ -170,16 +171,14 @@ func Test_runIPTables(t *testing.T) {
 				mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(stopErr)
 			}
 
-			if err := runIPTables(ctx, mockClient, addReq, delReq); (err != nil) != tt.wantErr {
-				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
+			// abort case: cancel ctx before runIPTables so the ctx.Done() branch
+			// is exercised; otherwise the stopCtx timeout branch wins.
+			if tt.abort {
+				cancel()
 			}
 
-			if tt.abort {
-				t.Log("cancel iptables")
-				cancel()
-			} else {
-				t.Log("timeout iptables")
-				defer cancel()
+			if err := runIPTables(ctx, mockClient, addReq, delReq); (err != nil) != tt.wantErr {
+				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

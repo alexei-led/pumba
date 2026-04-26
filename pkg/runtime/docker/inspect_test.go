@@ -21,7 +21,7 @@ func TestListContainers_Success(t *testing.T) {
 	)
 	imageDetails := ImageDetailsResponse(AsMap("ID", "abc123"))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerList(mock.Anything, mock.Anything).Return(allContainersResponse, nil)
 	api.EXPECT().ContainerInspect(mock.Anything, "foo").Return(containerDetails, nil)
 	api.EXPECT().ImageInspect(mock.Anything, "abc123").Return(imageDetails, nil)
@@ -49,7 +49,7 @@ func TestListContainers_Filter(t *testing.T) {
 	)
 	imageDetails := ImageDetailsResponse(AsMap("ID", "abc123"))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerList(mock.Anything, mock.Anything).Return(allContainersResponse, nil)
 	api.EXPECT().ContainerInspect(mock.Anything, "foo").Return(containerDetails, nil)
 	api.EXPECT().ImageInspect(mock.Anything, "abc123").Return(imageDetails, nil)
@@ -63,7 +63,7 @@ func TestListContainers_Filter(t *testing.T) {
 }
 
 func TestListContainers_ListError(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerList(mock.Anything, mock.Anything).Return(Containers(), errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -75,7 +75,7 @@ func TestListContainers_ListError(t *testing.T) {
 }
 
 func TestListContainers_InspectContainerError(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	allContainersResponse := Containers(Response(AsMap(
 		"ID", "foo",
 		"Names", []string{"bar"})),
@@ -98,7 +98,7 @@ func TestListContainers_InspectImageError(t *testing.T) {
 	)
 	resp := DetailsResponse(AsMap("Image", "abc123"))
 	imageDetailsResponse := ImageDetailsResponse(AsMap())
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerList(mock.Anything, mock.Anything).Return(allContainersResponse, nil)
 	api.EXPECT().ContainerInspect(mock.Anything, "foo").Return(resp, nil)
 	api.EXPECT().ImageInspect(mock.Anything, "abc123").Return(imageDetailsResponse, errors.New("whoops"))

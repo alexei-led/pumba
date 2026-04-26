@@ -17,7 +17,7 @@ func TestStopContainer_DefaultSuccess(t *testing.T) {
 	c := NewTestContainer(AsMap("ID", "abc123", "Name", "foo", "Image", "abc123"))
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
 
@@ -34,22 +34,12 @@ func TestStopContainer_DryRun(t *testing.T) {
 		"Name", "foo",
 	))
 
-	notRunningContainer := DetailsResponse(AsMap("Running", false))
-
-	api := NewMockEngine()
-	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
-	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
-	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGKILL").Return(nil)
-	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("not found"))
+	api := NewMockEngine(t)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.StopContainer(context.TODO(), c, 1, true)
 
 	assert.NoError(t, err)
-	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
-	api.AssertNotCalled(t, "ContainerInspect", mock.Anything, "abc123")
-	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGKILL")
-	api.AssertNotCalled(t, "ContainerInspect", mock.Anything, "abc123")
 }
 
 func TestKillContainer_DefaultSuccess(t *testing.T) {
@@ -58,7 +48,7 @@ func TestKillContainer_DefaultSuccess(t *testing.T) {
 		"Name", "foo",
 	))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -74,14 +64,12 @@ func TestKillContainer_DryRun(t *testing.T) {
 		"Name", "foo",
 	))
 
-	api := NewMockEngine()
-	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
+	api := NewMockEngine(t)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.KillContainer(context.TODO(), c, "SIGTERM", true)
 
 	assert.NoError(t, err)
-	api.AssertNotCalled(t, "ContainerKill", mock.Anything, "abc123", "SIGTERM")
 }
 
 func TestStopContainer_CustomSignalSuccess(t *testing.T) {
@@ -93,7 +81,7 @@ func TestStopContainer_CustomSignalSuccess(t *testing.T) {
 
 	notRunningContainer := DetailsResponse(AsMap("Running", false))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGUSR1").Return(nil)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(notRunningContainer, nil).Once()
 
@@ -110,7 +98,7 @@ func TestStopContainer_KillContainerError(t *testing.T) {
 		"Name", "foo",
 	))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(errors.New("oops"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -126,7 +114,7 @@ func TestStopContainer_2ndKillContainerError(t *testing.T) {
 		"Name", "foo",
 	))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGTERM").Return(nil)
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(DetailsResponse(AsMap()), errors.New("dangit"))
 	api.EXPECT().ContainerKill(mock.Anything, "abc123", "SIGKILL").Return(errors.New("whoops"))
@@ -144,7 +132,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 		ContainerID: "abc123",
 	}
 
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	removeOpts := ctypes.RemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
 	engineClient.EXPECT().ContainerRemove(mock.Anything, "abc123", removeOpts).Return(nil)
 
@@ -160,22 +148,19 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 		ContainerID: "abc123",
 	}
 
-	engineClient := NewMockEngine()
-	removeOpts := ctypes.RemoveOptions{RemoveVolumes: true, RemoveLinks: true, Force: true}
-	engineClient.EXPECT().ContainerRemove(mock.Anything, "abc123", removeOpts).Return(nil)
+	engineClient := NewMockEngine(t)
 
 	client := dockerClient{containerAPI: engineClient}
 	err := client.RemoveContainer(context.TODO(), c, true, true, true, true)
 
 	assert.NoError(t, err)
-	engineClient.AssertNotCalled(t, "ContainerRemove", mock.Anything, "abc123", removeOpts)
 }
 
 func TestPauseContainer_Success(t *testing.T) {
 	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	engineClient.EXPECT().ContainerPause(mock.Anything, "abc123").Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -189,7 +174,7 @@ func TestUnpauseContainer_Success(t *testing.T) {
 	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	engineClient.EXPECT().ContainerUnpause(mock.Anything, "abc123").Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
@@ -204,7 +189,7 @@ func TestPauseContainer_DryRun(t *testing.T) {
 		ContainerID: "abc123",
 	}
 
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	client := dockerClient{containerAPI: engineClient}
 	err := client.PauseContainer(context.TODO(), c, true)
 
@@ -216,7 +201,7 @@ func TestPauseContainer_PauseError(t *testing.T) {
 	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	engineClient.EXPECT().ContainerPause(mock.Anything, "abc123").Return(errors.New("pause"))
 
 	client := dockerClient{containerAPI: engineClient}
@@ -230,7 +215,7 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 	c := &ctr.Container{
 		ContainerID: "abc123",
 	}
-	engineClient := NewMockEngine()
+	engineClient := NewMockEngine(t)
 	engineClient.EXPECT().ContainerUnpause(mock.Anything, "abc123").Return(errors.New("unpause"))
 
 	client := dockerClient{containerAPI: engineClient}
@@ -243,7 +228,7 @@ func TestPauseContainer_UnpauseError(t *testing.T) {
 func TestStartContainer_DefaultSuccess(t *testing.T) {
 	c := NewTestContainer(AsMap("ID", "abc123", "Name", "foo", "Image", "abc123"))
 
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	api.EXPECT().ContainerStart(mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -259,14 +244,12 @@ func TestStartContainer_DryRun(t *testing.T) {
 		"Name", "foo",
 	))
 
-	api := NewMockEngine()
-	api.EXPECT().ContainerStart(mock.Anything, "abc123", ctypes.StartOptions{}).Return(nil)
+	api := NewMockEngine(t)
 
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	err := client.StartContainer(context.TODO(), c, true)
 
 	assert.NoError(t, err)
-	api.AssertNotCalled(t, "ContainerStart", mock.Anything, "abc123", ctypes.StartOptions{})
 }
 
 func TestRestartContainer(t *testing.T) {
@@ -327,7 +310,7 @@ func TestRestartContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.c.ID(), tt.args.timeout, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
@@ -399,7 +382,7 @@ func TestStopContainerWithID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.containerID, tt.args.timeout, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
@@ -465,7 +448,7 @@ func TestStartContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.c.ID(), tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
@@ -549,7 +532,7 @@ func TestWaitForStop(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
@@ -657,7 +640,7 @@ func TestPauseUnpauseContainer(t *testing.T) {
 
 	for _, tt := range pauseTests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.dryrun, tt.isPause)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
@@ -771,7 +754,7 @@ func TestRemoveContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}

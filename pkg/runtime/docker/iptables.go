@@ -52,7 +52,7 @@ func (client dockerClient) StopIPTablesContainer(ctx context.Context, req *ctr.I
 		"img":           req.Sidecar.Image,
 		"pull":          req.Sidecar.Pull,
 		"dryrun":        req.DryRun,
-	}).Info("stopping netem on container")
+	}).Info("stopping iptables on container")
 	if len(req.SrcIPs) == 0 && len(req.DstIPs) == 0 && len(req.SPorts) == 0 && len(req.DPorts) == 0 {
 		return client.ipTablesContainer(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 	}

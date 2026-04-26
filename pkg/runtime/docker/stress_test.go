@@ -106,7 +106,7 @@ func TestStressContainerBasic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.c, tt.args.stressors, tt.args.image, tt.args.pull, tt.args.duration, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
@@ -121,7 +121,7 @@ func TestStressContainerBasic(t *testing.T) {
 }
 
 func TestStressContainerInfoAPIFailure(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -141,7 +141,7 @@ func TestStressContainerInfoAPIFailure(t *testing.T) {
 }
 
 func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -171,7 +171,7 @@ func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
 }
 
 func TestStressContainerSystemdCgroupDriver(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -193,7 +193,7 @@ func TestStressContainerSystemdCgroupDriver(t *testing.T) {
 }
 
 func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -239,7 +239,7 @@ func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -284,7 +284,7 @@ func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupSystemd(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "def456",
 		ContainerName: "test-container",
@@ -329,7 +329,7 @@ func TestStressContainerInjectCgroupSystemd(t *testing.T) {
 }
 
 func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -362,7 +362,7 @@ func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
 }
 
 func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "def456",
 		ContainerName: "test-container",
@@ -395,7 +395,7 @@ func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
 }
 
 func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -426,7 +426,7 @@ func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -472,7 +472,7 @@ func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
 }
 
 func TestStressContainerInjectCgroupCustomImage(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	c := &ctr.Container{
 		ContainerID:   "abc123",
 		ContainerName: "test-container",
@@ -703,7 +703,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := NewMockEngine()
+			mockClient := NewMockEngine(t)
 			mConn := &mockConn{}
 			client := dockerClient{
 				containerAPI: mockClient,

@@ -107,9 +107,13 @@ func RunChaosCommand(topContext context.Context, command Command, params *Global
 	// create Time channel for specified interval
 	var tick <-chan time.Time
 	if params.Interval == 0 {
-		tick = time.NewTimer(params.Interval).C
+		timer := time.NewTimer(params.Interval)
+		defer timer.Stop()
+		tick = timer.C
 	} else {
-		tick = time.NewTicker(params.Interval).C
+		ticker := time.NewTicker(params.Interval)
+		defer ticker.Stop()
+		tick = ticker.C
 	}
 
 	// handle the 'chaos' command

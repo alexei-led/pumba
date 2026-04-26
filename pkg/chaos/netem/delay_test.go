@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewDelayCommand_Validation(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"test"}}
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
@@ -103,7 +103,7 @@ func TestNewDelayCommand_Validation(t *testing.T) {
 }
 
 func TestDelayCommand_Run_NoContainers(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
@@ -151,7 +151,7 @@ func TestDelayCommand_Run_DryRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := new(container.MockClient)
+			mockClient := container.NewMockClient(t)
 			target := &container.Container{
 				ContainerID:   "abc123",
 				ContainerName: "target",

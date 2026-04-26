@@ -160,7 +160,7 @@ func TestIPTablesContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := NewMockEngine()
+			api := NewMockEngine(t)
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.cmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.image, tt.args.pull, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
@@ -190,7 +190,7 @@ func TestIPTablesExecCommandWithRealDocker(t *testing.T) {
 }
 
 func TestIPTablesForSimpleCases(t *testing.T) {
-	api := NewMockEngine()
+	api := NewMockEngine(t)
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	ctx := context.Background()
 	container := &ctr.Container{
@@ -211,7 +211,7 @@ func TestIPTablesForSimpleCases(t *testing.T) {
 			t.Skip("Skipping integration test. Set RUN_INTEGRATION_TESTS=true to run")
 		}
 
-		api := NewMockEngine()
+		api := NewMockEngine(t)
 		api.EXPECT().ContainerExecCreate(mock.Anything, mock.Anything, mock.Anything).Return(ctypes.ExecCreateResponse{ID: "exec-id"}, nil)
 		api.EXPECT().ContainerExecAttach(mock.Anything, mock.Anything, mock.Anything).Return(fakeExecAttach(), nil)
 

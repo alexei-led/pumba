@@ -13,7 +13,7 @@ import (
 )
 
 func TestDuplicateCommand_Run_NoContainers(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
 	nparams := &Params{Iface: "eth0", Duration: time.Second}
 
@@ -31,7 +31,7 @@ func TestDuplicateCommand_Run_NoContainers(t *testing.T) {
 }
 
 func TestDuplicateCommand_Run_DryRun(t *testing.T) {
-	mockClient := new(container.MockClient)
+	mockClient := container.NewMockClient(t)
 	target := &container.Container{
 		ContainerID:   "abc123",
 		ContainerName: "target",

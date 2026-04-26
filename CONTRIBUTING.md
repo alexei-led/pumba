@@ -113,22 +113,25 @@ make all
 cmd/main.go            — CLI entry point and command definitions
 pkg/
   chaos/
-    command.go         — ChaosCommand interface, scheduling/interval runner
-    docker/            — Docker chaos actions (kill, stop, pause, rm, exec, restart)
-    docker/cmd/        — CLI command builders for docker chaos actions
+    command.go         — ChaosCommand interface, Runtime factory type, scheduling/interval runner
+    cmd/               — Generic NewAction[P] CLI builder shared across all chaos packages
+    cliflags/          — urfave/cli v1 adapter (Flags interface + V1)
+    lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart)
+    lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
     netem/             — Network emulation (delay, loss, loss-state, loss-gemodel, corrupt, duplicate, rate)
     netem/cmd/         — CLI command builders for netem
     iptables/          — iptables-based packet filtering
     iptables/cmd/      — CLI command builders for iptables
     stress/            — stress-ng resource stress testing
     stress/cmd/        — CLI command builder for stress
-  container/           — Container model, interfaces (Client, Lister, Lifecycle, Executor, Netem, etc.), filtering
+  container/           — Container model, interfaces (Client, Lister, Lifecycle, Executor, Netem, etc.), filtering, NetemRequest/IPTablesRequest value objects
   runtime/
     docker/            — Docker runtime implementation of container.Client
     containerd/        — Containerd runtime implementation of container.Client
+    podman/            — Podman runtime implementation (embeds Docker client, overrides stress cgroup resolution + rootless guards)
   util/                — Shared utilities (IP/port parsing)
 mocks/                 — Generated mock files (mockery)
-tests/                 — Bats integration tests (Docker tests + containerd_*.bats)
+tests/                 — Bats integration tests (Docker tests + containerd_*.bats + podman_*.bats)
 docker/                — Dockerfiles (main, alpine-nettools, debian-nettools, stress)
 deploy/                — Kubernetes and OpenShift deployment manifests
 docs/                  — Detailed documentation
