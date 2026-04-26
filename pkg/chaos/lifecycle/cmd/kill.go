@@ -2,23 +2,24 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type killContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// KillParams holds the per-command parameters for the kill CLI subcommand.
+type KillParams struct {
+	Signal string
+	Limit  int
 }
 
-// NewKillCLICommand initialize CLI kill command and bind it to the killContext
+// NewKillCLICommand initialize CLI kill command.
 func NewKillCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &killContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[KillParams]{
 		Name: "kill",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -35,33 +36,19 @@ func NewKillCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 		Usage:       "kill specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "send termination signal to the main process inside target container(s)",
-		Action:      cmdContext.kill,
-	}
+		RequireArgs: true,
+		Parse:       parseKillParams,
+		Build:       buildKillCommand,
+	})
 }
 
-// KILL Command
-func (cmd *killContext) kill(c *cli.Context) error {
-	if !c.Args().Present() {
-		return errors.New("container name, list of names, or RE2 regex is required")
-	}
-	// parse common chaos flags
-	params, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get signal
-	signal := c.String("signal")
-	// get limit for number of containers to kill
-	limit := c.Int("limit")
-	// init kill command
-	killCommand, err := lifecycle.NewKillCommand(cmd.runtime(), params, signal, limit)
-	if err != nil {
-		return fmt.Errorf("could not create kill command: %w", err)
-	}
-	// run kill command
-	err = chaos.RunChaosCommand(cmd.context, killCommand, params)
-	if err != nil {
-		return fmt.Errorf("could not kill containers: %w", err)
-	}
-	return nil
+func parseKillParams(c *cli.Context, _ *chaos.GlobalParams) (KillParams, error) {
+	return KillParams{
+		Signal: c.String("signal"),
+		Limit:  c.Int("limit"),
+	}, nil
+}
+
+func buildKillCommand(client container.Client, gp *chaos.GlobalParams, p KillParams) (chaos.Command, error) {
+	return lifecycle.NewKillCommand(client, gp, p.Signal, p.Limit)
 }

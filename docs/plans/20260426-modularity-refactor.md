@@ -292,11 +292,11 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - `pkg/chaos/lifecycle/cmd/{stop,kill,restart,pause,remove,exec}.go`
 - `pkg/chaos/lifecycle/cmd/*_test.go` (create where missing)
 
-- [ ] write/update tests for each file using the new builder shape (parse fn isolated, factory fn isolated)
-- [ ] for each cmd: extract per-action params struct, parse function, factory function; call `NewAction[StopParams](...)`
-- [ ] each file should drop to ~30 LOC
-- [ ] remove `//nolint:dupl` markers
-- [ ] run `make test && make lint` — must pass
+- [x] write/update tests for each file using the new builder shape (parse fn isolated, factory fn isolated)
+- [x] for each cmd: extract per-action params struct, parse function, factory function; call `NewAction[StopParams](...)`
+- [x] each file should drop to ~30 LOC [actual: 54–73 LOC; flag definitions dominate, action body fully gone]
+- [x] remove `//nolint:dupl` markers
+- [x] run `make test && make lint` — must pass
 
 ### Task 7: Migrate `pkg/chaos/netem/cmd/*.go` to `NewAction[P]` (Issue 4, netem)
 

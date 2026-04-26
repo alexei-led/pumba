@@ -4,17 +4,25 @@ import (
 	"context"
 	"flag"
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
 
-func newTestCLIContext(args []string) *cli.Context {
+// newTestCLIContext builds a *cli.Context whose flag set carries the given
+// flags and parsed values. Pass `args` like `[]string{"--signal", "SIGTERM"}`.
+func newTestCLIContext(t *testing.T, flags []cli.Flag, args []string) *cli.Context {
+	t.Helper()
 	app := cli.NewApp()
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	_ = fs.Parse(args)
+	for _, f := range flags {
+		f.Apply(fs)
+	}
+	require.NoError(t, fs.Parse(args))
 	return cli.NewContext(app, fs, nil)
 }
 
@@ -22,9 +30,9 @@ func nilRuntime() chaos.Runtime {
 	return func() container.Client { return nil }
 }
 
-// fakeRuntime returns a Runtime closure plus a pointer that records each invocation,
-// so tests can assert the constructor stored the closure (call count) and that the
-// closure resolves to the injected client.
+// fakeRuntime returns a Runtime that resolves to a real MockClient and a
+// pointer to a counter so tests can assert how many times the runtime closure
+// was invoked.
 func fakeRuntime(t *testing.T) (chaos.Runtime, *container.MockClient, *int) {
 	t.Helper()
 	want := container.NewMockClient(t)
@@ -36,84 +44,238 @@ func fakeRuntime(t *testing.T) (chaos.Runtime, *container.MockClient, *int) {
 	return rt, want, &calls
 }
 
-func TestKillRequiresContainerArgument(t *testing.T) {
-	cmd := &killContext{context: context.Background()}
-	c := newTestCLIContext(nil)
-	err := cmd.kill(c)
-	assert.EqualError(t, err, "container name, list of names, or RE2 regex is required")
+func defaultGlobalParams() *chaos.GlobalParams {
+	return &chaos.GlobalParams{}
 }
 
-func TestStopRequiresContainerArgument(t *testing.T) {
-	cmd := &stopContext{context: context.Background()}
-	c := newTestCLIContext(nil)
-	err := cmd.stop(c)
-	assert.EqualError(t, err, "container name, list of names, or RE2 regex is required")
+// findFlag locates a registered flag on a *cli.Command by primary name
+// (matches against the head of "name, alias"). Used to drive parser tests
+// without rebuilding flag definitions inline.
+func findFlag(t *testing.T, cmd *cli.Command, name string) cli.Flag {
+	t.Helper()
+	for _, f := range cmd.Flags {
+		if f.GetName() == name || splitFirst(f.GetName()) == name {
+			return f
+		}
+	}
+	t.Fatalf("flag %q not registered on command %q", name, cmd.Name)
+	return nil
 }
 
-func TestRemoveRequiresContainerArgument(t *testing.T) {
-	cmd := &removeContext{context: context.Background()}
-	c := newTestCLIContext(nil)
-	err := cmd.remove(c)
-	assert.EqualError(t, err, "container name, list of names, or RE2 regex is required")
+func splitFirst(name string) string {
+	for i, ch := range name {
+		if ch == ',' {
+			return name[:i]
+		}
+	}
+	return name
 }
 
-func TestNewKillCLICommand_StoresRuntime(t *testing.T) {
-	rt, want, _ := fakeRuntime(t)
-	cli := NewKillCLICommand(context.Background(), rt)
-	assert.NotNil(t, cli)
-	assert.Equal(t, "kill", cli.Name)
-	cmdCtx := &killContext{context: context.Background(), runtime: rt}
-	assert.Same(t, want, cmdCtx.runtime())
+// constructorContract bundles the per-command facts every constructor must
+// satisfy: name, that an Action closure was attached, that a Runtime can be
+// stored and never resolved before the action fires.
+func assertConstructorContract(t *testing.T, cmd *cli.Command, wantName string) {
+	t.Helper()
+	require.NotNil(t, cmd, "constructor returned nil command")
+	assert.Equal(t, wantName, cmd.Name)
+	assert.NotNil(t, cmd.Action, "constructor must wire an Action closure")
 }
 
-func TestNewStopCLICommand_StoresRuntime(t *testing.T) {
-	rt, want, _ := fakeRuntime(t)
-	cli := NewStopCLICommand(context.Background(), rt)
-	assert.NotNil(t, cli)
-	assert.Equal(t, "stop", cli.Name)
-	cmdCtx := &stopContext{context: context.Background(), runtime: rt}
-	assert.Same(t, want, cmdCtx.runtime())
+// ---- Kill ----------------------------------------------------------------
+
+func TestNewKillCLICommand_Contract(t *testing.T) {
+	rt, _, calls := fakeRuntime(t)
+	cmd := NewKillCLICommand(context.Background(), rt)
+	assertConstructorContract(t, cmd, "kill")
+	assert.Equal(t, 0, *calls, "Runtime must not be resolved at construction time")
 }
 
-func TestNewRemoveCLICommand_StoresRuntime(t *testing.T) {
-	rt, want, _ := fakeRuntime(t)
-	cli := NewRemoveCLICommand(context.Background(), rt)
-	assert.NotNil(t, cli)
-	assert.Equal(t, "rm", cli.Name)
-	cmdCtx := &removeContext{context: context.Background(), runtime: rt}
-	assert.Same(t, want, cmdCtx.runtime())
+func TestParseKillParams(t *testing.T) {
+	cmd := NewKillCLICommand(context.Background(), nilRuntime())
+	c := newTestCLIContext(t, []cli.Flag{findFlag(t, cmd, "signal"), findFlag(t, cmd, "limit")},
+		[]string{"--signal", "SIGTERM", "--limit", "3"})
+	got, err := parseKillParams(c, defaultGlobalParams())
+	require.NoError(t, err)
+	assert.Equal(t, KillParams{Signal: "SIGTERM", Limit: 3}, got)
 }
 
-func TestNewExecCLICommand_StoresRuntime(t *testing.T) {
-	rt, want, _ := fakeRuntime(t)
-	cli := NewExecCLICommand(context.Background(), rt)
-	assert.NotNil(t, cli)
-	assert.Equal(t, "exec", cli.Name)
-	cmdCtx := &execContext{context: context.Background(), runtime: rt}
-	assert.Same(t, want, cmdCtx.runtime())
+func TestBuildKillCommand_ReturnsLifecycleKill(t *testing.T) {
+	client := container.NewMockClient(t)
+	cmd, err := buildKillCommand(client, defaultGlobalParams(), KillParams{Signal: "SIGTERM", Limit: 1})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
 }
 
-func TestNewPauseCLICommand_StoresRuntime(t *testing.T) {
-	rt, want, _ := fakeRuntime(t)
-	cli := NewPauseCLICommand(context.Background(), rt)
-	assert.NotNil(t, cli)
-	assert.Equal(t, "pause", cli.Name)
-	cmdCtx := &pauseContext{context: context.Background(), runtime: rt}
-	assert.Same(t, want, cmdCtx.runtime())
+func TestBuildKillCommand_RejectsInvalidSignal(t *testing.T) {
+	client := container.NewMockClient(t)
+	_, err := buildKillCommand(client, defaultGlobalParams(), KillParams{Signal: "NOT-A-SIGNAL"})
+	assert.Error(t, err)
 }
 
-func TestNewRestartCLICommand_StoresRuntime(t *testing.T) {
-	rt, want, _ := fakeRuntime(t)
-	cli := NewRestartCLICommand(context.Background(), rt)
-	assert.NotNil(t, cli)
-	assert.Equal(t, "restart", cli.Name)
-	cmdCtx := &restartContext{context: context.Background(), runtime: rt}
-	assert.Same(t, want, cmdCtx.runtime())
+// ---- Stop ----------------------------------------------------------------
+
+func TestNewStopCLICommand_Contract(t *testing.T) {
+	rt, _, calls := fakeRuntime(t)
+	cmd := NewStopCLICommand(context.Background(), rt)
+	assertConstructorContract(t, cmd, "stop")
+	assert.Equal(t, 0, *calls)
 }
 
-// TestRuntimeAcceptsNil verifies the constructors accept a nil-returning Runtime
-// without panicking — important since main.go's runtime closure can return nil
-// before before() has constructed a client (e.g. in --help/--version paths).
+func TestParseStopParams(t *testing.T) {
+	cmd := NewStopCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{
+		findFlag(t, cmd, "time"), findFlag(t, cmd, "limit"),
+		findFlag(t, cmd, "restart"), findFlag(t, cmd, "duration"),
+	}
+	c := newTestCLIContext(t, flags,
+		[]string{"--time", "5", "--limit", "2", "--restart", "--duration", "10s"})
+	got, err := parseStopParams(c, defaultGlobalParams())
+	require.NoError(t, err)
+	assert.Equal(t, StopParams{WaitTime: 5, Limit: 2, Restart: true, Duration: 10 * time.Second}, got)
+}
+
+func TestParseStopParams_InvalidDurationErrors(t *testing.T) {
+	cmd := NewStopCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{
+		findFlag(t, cmd, "time"), findFlag(t, cmd, "limit"),
+		findFlag(t, cmd, "restart"), findFlag(t, cmd, "duration"),
+	}
+	// Stop's --duration carries a default of "10s", so test the unparseable
+	// path (non-empty, non-duration string) to exercise the zero-check.
+	c := newTestCLIContext(t, flags, []string{"--duration", "not-a-duration"})
+	_, err := parseStopParams(c, defaultGlobalParams())
+	assert.EqualError(t, err, "unset or invalid duration value")
+}
+
+func TestBuildStopCommand_ReturnsLifecycleStop(t *testing.T) {
+	client := container.NewMockClient(t)
+	cmd, err := buildStopCommand(client, defaultGlobalParams(),
+		StopParams{Restart: true, Duration: time.Second, WaitTime: 1, Limit: 0})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+}
+
+// ---- Pause ---------------------------------------------------------------
+
+func TestNewPauseCLICommand_Contract(t *testing.T) {
+	rt, _, _ := fakeRuntime(t)
+	cmd := NewPauseCLICommand(context.Background(), rt)
+	assertConstructorContract(t, cmd, "pause")
+}
+
+func TestParsePauseParams(t *testing.T) {
+	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
+	c := newTestCLIContext(t, flags, []string{"--duration", "2s", "--limit", "4"})
+	got, err := parsePauseParams(c, defaultGlobalParams())
+	require.NoError(t, err)
+	assert.Equal(t, PauseParams{Duration: 2 * time.Second, Limit: 4}, got)
+}
+
+func TestParsePauseParams_ZeroDurationErrors(t *testing.T) {
+	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
+	c := newTestCLIContext(t, flags, nil)
+	_, err := parsePauseParams(c, defaultGlobalParams())
+	assert.EqualError(t, err, "unset or invalid duration value")
+}
+
+func TestBuildPauseCommand(t *testing.T) {
+	client := container.NewMockClient(t)
+	cmd, err := buildPauseCommand(client, defaultGlobalParams(),
+		PauseParams{Duration: time.Second, Limit: 0})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+}
+
+// ---- Restart -------------------------------------------------------------
+
+func TestNewRestartCLICommand_Contract(t *testing.T) {
+	rt, _, _ := fakeRuntime(t)
+	cmd := NewRestartCLICommand(context.Background(), rt)
+	assertConstructorContract(t, cmd, "restart")
+}
+
+func TestParseRestartParams(t *testing.T) {
+	cmd := NewRestartCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{findFlag(t, cmd, "timeout"), findFlag(t, cmd, "limit")}
+	c := newTestCLIContext(t, flags, []string{"--timeout", "5s", "--limit", "1"})
+	got, err := parseRestartParams(c, defaultGlobalParams())
+	require.NoError(t, err)
+	assert.Equal(t, RestartParams{Timeout: 5 * time.Second, Limit: 1}, got)
+}
+
+func TestBuildRestartCommand(t *testing.T) {
+	client := container.NewMockClient(t)
+	cmd, err := buildRestartCommand(client, defaultGlobalParams(),
+		RestartParams{Timeout: time.Second, Limit: 0})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+}
+
+// ---- Remove --------------------------------------------------------------
+
+func TestNewRemoveCLICommand_Contract(t *testing.T) {
+	rt, _, _ := fakeRuntime(t)
+	cmd := NewRemoveCLICommand(context.Background(), rt)
+	assertConstructorContract(t, cmd, "rm")
+}
+
+func TestParseRemoveParams(t *testing.T) {
+	cmd := NewRemoveCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{
+		findFlag(t, cmd, "force"), findFlag(t, cmd, "links"),
+		findFlag(t, cmd, "volumes"), findFlag(t, cmd, "limit"),
+	}
+	c := newTestCLIContext(t, flags, []string{"--limit", "7"})
+	got, err := parseRemoveParams(c, defaultGlobalParams())
+	require.NoError(t, err)
+	// BoolTFlag defaults to true (force, volumes); BoolFlag defaults to false (links).
+	assert.Equal(t, RemoveParams{Force: true, Links: false, Volumes: true, Limit: 7}, got)
+}
+
+func TestBuildRemoveCommand(t *testing.T) {
+	client := container.NewMockClient(t)
+	cmd, err := buildRemoveCommand(client, defaultGlobalParams(),
+		RemoveParams{Force: true, Links: false, Volumes: true, Limit: 0})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+}
+
+// ---- Exec ----------------------------------------------------------------
+
+func TestNewExecCLICommand_Contract(t *testing.T) {
+	rt, _, _ := fakeRuntime(t)
+	cmd := NewExecCLICommand(context.Background(), rt)
+	assertConstructorContract(t, cmd, "exec")
+}
+
+func TestParseExecParams(t *testing.T) {
+	cmd := NewExecCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{
+		findFlag(t, cmd, "command"), findFlag(t, cmd, "args"), findFlag(t, cmd, "limit"),
+	}
+	c := newTestCLIContext(t, flags,
+		[]string{"--command", "touch", "--args", "/tmp/a", "--args", "/tmp/b", "--limit", "2"})
+	got, err := parseExecParams(c, defaultGlobalParams())
+	require.NoError(t, err)
+	assert.Equal(t, ExecParams{Command: "touch", Args: []string{"/tmp/a", "/tmp/b"}, Limit: 2}, got)
+}
+
+func TestBuildExecCommand(t *testing.T) {
+	client := container.NewMockClient(t)
+	cmd, err := buildExecCommand(client, defaultGlobalParams(),
+		ExecParams{Command: "echo", Args: []string{"hi"}, Limit: 0})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+}
+
+// ---- Cross-cutting -------------------------------------------------------
+
+// TestRuntimeAcceptsNil guards the same property as before: every constructor
+// returns a usable *cli.Command even when the runtime closure happens to
+// return nil (e.g. before main.go's before() has built a client during
+// --help/--version paths).
 func TestRuntimeAcceptsNil(t *testing.T) {
 	rt := nilRuntime()
 	assert.NotNil(t, NewKillCLICommand(context.Background(), rt))
@@ -122,4 +284,39 @@ func TestRuntimeAcceptsNil(t *testing.T) {
 	assert.NotNil(t, NewExecCLICommand(context.Background(), rt))
 	assert.NotNil(t, NewPauseCLICommand(context.Background(), rt))
 	assert.NotNil(t, NewRestartCLICommand(context.Background(), rt))
+}
+
+// TestKillRequiresContainerArgument verifies RequireArgs short-circuit on the
+// kill builder: with no positional args the action returns the canonical error
+// before ever resolving the runtime.
+func TestKillRequiresContainerArgument(t *testing.T) {
+	rt, _, calls := fakeRuntime(t)
+	cmd := NewKillCLICommand(context.Background(), rt)
+	action, ok := cmd.Action.(func(*cli.Context) error)
+	require.True(t, ok)
+	err := action(newTestCLIContext(t, cmd.Flags, nil))
+	assert.EqualError(t, err, "container name, list of names, or RE2 regex is required")
+	assert.Equal(t, 0, *calls)
+}
+
+func TestRemoveRequiresContainerArgument(t *testing.T) {
+	rt, _, calls := fakeRuntime(t)
+	cmd := NewRemoveCLICommand(context.Background(), rt)
+	action, ok := cmd.Action.(func(*cli.Context) error)
+	require.True(t, ok)
+	err := action(newTestCLIContext(t, cmd.Flags, nil))
+	assert.EqualError(t, err, "container name, list of names, or RE2 regex is required")
+	assert.Equal(t, 0, *calls)
+}
+
+// Stop now enforces RequireArgs at the action level. Verify that no positional
+// arg short-circuits to the canonical error before parsing runs.
+func TestStopRequiresContainerArgument(t *testing.T) {
+	rt, _, calls := fakeRuntime(t)
+	cmd := NewStopCLICommand(context.Background(), rt)
+	action, ok := cmd.Action.(func(*cli.Context) error)
+	require.True(t, ok)
+	err := action(newTestCLIContext(t, cmd.Flags, nil))
+	assert.EqualError(t, err, "container name, list of names, or RE2 regex is required")
+	assert.Equal(t, 0, *calls)
 }

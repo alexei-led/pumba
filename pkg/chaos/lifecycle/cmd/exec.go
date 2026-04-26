@@ -5,19 +5,22 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type execContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// ExecParams holds the per-command parameters for the exec CLI subcommand.
+type ExecParams struct {
+	Command string
+	Args    []string
+	Limit   int
 }
 
-// NewExecCLICommand initialize CLI exec command and bind it to the execContext
+// NewExecCLICommand initialize CLI exec command.
 func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &execContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[ExecParams]{
 		Name: "exec",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -38,29 +41,19 @@ func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 		Usage:       "exec specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "send command to target container(s)",
-		Action:      cmdContext.exec,
-	}
+		Parse:       parseExecParams,
+		Build:       buildExecCommand,
+	})
 }
 
-// EXEC Command
-func (cmd *execContext) exec(c *cli.Context) error {
-	// parse common chaos flags
-	params, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get command
-	command := c.String("command")
-	// get args
-	args := c.StringSlice("args")
-	// get limit for number of containers to exec
-	limit := c.Int("limit")
-	// init exec command
-	execCommand := lifecycle.NewExecCommand(cmd.runtime(), params, command, args, limit)
-	// run exec command
-	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
-	if err != nil {
-		return fmt.Errorf("could not run exec command: %w", err)
-	}
-	return nil
+func parseExecParams(c *cli.Context, _ *chaos.GlobalParams) (ExecParams, error) {
+	return ExecParams{
+		Command: c.String("command"),
+		Args:    c.StringSlice("args"),
+		Limit:   c.Int("limit"),
+	}, nil
+}
+
+func buildExecCommand(client container.Client, gp *chaos.GlobalParams, p ExecParams) (chaos.Command, error) {
+	return lifecycle.NewExecCommand(client, gp, p.Command, p.Args, p.Limit), nil
 }

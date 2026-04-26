@@ -6,19 +6,21 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type restartContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// RestartParams holds the per-command parameters for the restart CLI subcommand.
+type RestartParams struct {
+	Timeout time.Duration
+	Limit   int
 }
 
-// NewRestartCLICommand initialize CLI restart command and bind it to the restartContext
+// NewRestartCLICommand initialize CLI restart command.
 func NewRestartCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &restartContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[RestartParams]{
 		Name: "restart",
 		Flags: []cli.Flag{
 			cli.DurationFlag{
@@ -35,27 +37,18 @@ func NewRestartCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comma
 		Usage:       "restart specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "send command to target container(s)",
-		Action:      cmdContext.restart,
-	}
+		Parse:       parseRestartParams,
+		Build:       buildRestartCommand,
+	})
 }
 
-// RESTART Command
-func (cmd *restartContext) restart(c *cli.Context) error {
-	// parse common chaos flags
-	params, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get timeout
-	timeout := c.Duration("timeout")
-	// get limit for number of containers to restart
-	limit := c.Int("limit")
-	// init restart command
-	restartCommand := lifecycle.NewRestartCommand(cmd.runtime(), params, timeout, limit)
-	// run restart command
-	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
-	if err != nil {
-		return fmt.Errorf("error running restart command: %w", err)
-	}
-	return nil
+func parseRestartParams(c *cli.Context, _ *chaos.GlobalParams) (RestartParams, error) {
+	return RestartParams{
+		Timeout: c.Duration("timeout"),
+		Limit:   c.Int("limit"),
+	}, nil
+}
+
+func buildRestartCommand(client container.Client, gp *chaos.GlobalParams, p RestartParams) (chaos.Command, error) {
+	return lifecycle.NewRestartCommand(client, gp, p.Timeout, p.Limit), nil
 }

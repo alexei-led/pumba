@@ -2,23 +2,26 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type removeContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// RemoveParams holds the per-command parameters for the rm CLI subcommand.
+type RemoveParams struct {
+	Force   bool
+	Links   bool
+	Volumes bool
+	Limit   int
 }
 
-// NewRemoveCLICommand initialize CLI remove command and bind it to the remove4Context
+// NewRemoveCLICommand initialize CLI remove command.
 func NewRemoveCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &removeContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[RemoveParams]{
 		Name: "rm",
 		Flags: []cli.Flag{
 			cli.BoolTFlag{
@@ -42,34 +45,21 @@ func NewRemoveCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 		Usage:       "remove containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "remove target containers, with links and volumes",
-		Action:      cmdContext.remove,
-	}
+		RequireArgs: true,
+		Parse:       parseRemoveParams,
+		Build:       buildRemoveCommand,
+	})
 }
 
-// REMOVE Command
-func (cmd *removeContext) remove(c *cli.Context) error {
-	if !c.Args().Present() {
-		return errors.New("container name, list of names, or RE2 regex is required")
-	}
-	// parse common chaos flags
-	params, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get force flag
-	force := c.BoolT("force")
-	// get links flag
-	links := c.BoolT("links")
-	// get volumes flag
-	volumes := c.BoolT("volumes")
-	// get limit for number of containers to remove
-	limit := c.Int("limit")
-	// init remove command
-	removeCommand := lifecycle.NewRemoveCommand(cmd.runtime(), params, force, links, volumes, limit)
-	// run remove command
-	err = chaos.RunChaosCommand(cmd.context, removeCommand, params)
-	if err != nil {
-		return fmt.Errorf("error running remove command: %w", err)
-	}
-	return nil
+func parseRemoveParams(c *cli.Context, _ *chaos.GlobalParams) (RemoveParams, error) {
+	return RemoveParams{
+		Force:   c.BoolT("force"),
+		Links:   c.BoolT("links"),
+		Volumes: c.BoolT("volumes"),
+		Limit:   c.Int("limit"),
+	}, nil
+}
+
+func buildRemoveCommand(client container.Client, gp *chaos.GlobalParams, p RemoveParams) (chaos.Command, error) {
+	return lifecycle.NewRemoveCommand(client, gp, p.Force, p.Links, p.Volumes, p.Limit), nil
 }

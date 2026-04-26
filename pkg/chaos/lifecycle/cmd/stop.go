@@ -4,21 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type stopContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// StopParams holds the per-command parameters for the stop CLI subcommand.
+type StopParams struct {
+	WaitTime int
+	Limit    int
+	Restart  bool
+	Duration time.Duration
 }
 
-// NewStopCLICommand initialize CLI stop command and bind it to the CommandContext
+// NewStopCLICommand initialize CLI stop command.
 func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &stopContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[StopParams]{
 		Name: "stop",
 		Flags: []cli.Flag{
 			cli.IntFlag{
@@ -44,37 +49,25 @@ func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 		Usage:       "stop containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "stop the main process inside target containers, sending  SIGTERM, and then SIGKILL after a grace period",
-		Action:      cmdContext.stop,
-	}
+		RequireArgs: true,
+		Parse:       parseStopParams,
+		Build:       buildStopCommand,
+	})
 }
 
-// STOP Command
-func (cmd *stopContext) stop(c *cli.Context) error {
-	if !c.Args().Present() {
-		return errors.New("container name, list of names, or RE2 regex is required")
-	}
-	// parse common chaos flags
-	params, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get wait time
-	waitTime := c.Int("time")
-	// get limit for number of containers to kill
-	limit := c.Int("limit")
-	// get restart flag
-	restart := c.Bool("restart")
-	// get chaos command duration
+func parseStopParams(c *cli.Context, _ *chaos.GlobalParams) (StopParams, error) {
 	duration := c.Duration("duration")
 	if duration == 0 {
-		return errors.New("unset or invalid duration value")
+		return StopParams{}, errors.New("unset or invalid duration value")
 	}
-	// init stop command
-	stopCommand := lifecycle.NewStopCommand(cmd.runtime(), params, restart, duration, waitTime, limit)
-	// run stop command
-	err = chaos.RunChaosCommand(cmd.context, stopCommand, params)
-	if err != nil {
-		return fmt.Errorf("failed to stop containers: %w", err)
-	}
-	return nil
+	return StopParams{
+		WaitTime: c.Int("time"),
+		Limit:    c.Int("limit"),
+		Restart:  c.Bool("restart"),
+		Duration: duration,
+	}, nil
+}
+
+func buildStopCommand(client container.Client, gp *chaos.GlobalParams, p StopParams) (chaos.Command, error) {
+	return lifecycle.NewStopCommand(client, gp, p.Restart, p.Duration, p.WaitTime, p.Limit), nil
 }

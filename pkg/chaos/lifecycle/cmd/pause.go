@@ -4,21 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-type pauseContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// PauseParams holds the per-command parameters for the pause CLI subcommand.
+type PauseParams struct {
+	Duration time.Duration
+	Limit    int
 }
 
-// NewPauseCLICommand initialize CLI pause command and bind it to the CommandContext
+// NewPauseCLICommand initialize CLI pause command.
 func NewPauseCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &pauseContext{context: ctx, runtime: runtime}
-	return &cli.Command{
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[PauseParams]{
 		Name: "pause",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -34,30 +37,22 @@ func NewPauseCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command
 		Usage:       "pause all processes",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "pause all running processes within target containers",
-		Action:      cmdContext.pause,
-	}
+		Parse:       parsePauseParams,
+		Build:       buildPauseCommand,
+	})
 }
 
-// PAUSE Command
-func (cmd *pauseContext) pause(c *cli.Context) error {
-	// parse common chaos flags
-	params, err := chaos.ParseGlobalParams(c)
-	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
-	}
-	// get limit for number of containers to kill
-	limit := c.Int("limit")
-	// get duration
+func parsePauseParams(c *cli.Context, _ *chaos.GlobalParams) (PauseParams, error) {
 	duration := c.Duration("duration")
 	if duration == 0 {
-		return errors.New("unset or invalid duration value")
+		return PauseParams{}, errors.New("unset or invalid duration value")
 	}
-	// init pause command
-	pauseCommand := lifecycle.NewPauseCommand(cmd.runtime(), params, duration, limit)
-	// run pause command
-	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
-	if err != nil {
-		return fmt.Errorf("error running pause command: %w", err)
-	}
-	return nil
+	return PauseParams{
+		Duration: duration,
+		Limit:    c.Int("limit"),
+	}, nil
+}
+
+func buildPauseCommand(client container.Client, gp *chaos.GlobalParams, p PauseParams) (chaos.Command, error) {
+	return lifecycle.NewPauseCommand(client, gp, p.Duration, p.Limit), nil
 }
