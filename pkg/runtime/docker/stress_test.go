@@ -732,6 +732,10 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 						t.Errorf("dockerClient.stressContainerCommand() error in error channel = %v, wantErrCh %v", err, tt.wantErrCh)
 					}
 				}
+				for range got1 {
+				}
+				for range got2 {
+				}
 			}
 			mockClient.AssertExpectations(t)
 			mConn.AssertExpectations(t)
