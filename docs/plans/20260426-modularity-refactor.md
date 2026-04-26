@@ -333,9 +333,9 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Create: `pkg/runtime/docker/inspect.go` (extract `dockerInspectToContainer`, `ListContainers`, `listContainers`)
 - Modify: `pkg/runtime/docker/docker.go` (remove the extracted code)
 
-- [ ] move tests for these symbols from `docker_test.go` into `client_test.go` and `inspect_test.go`
-- [ ] cut-paste; verify `make test` after each split
-- [ ] run `make test && make lint` — must pass
+- [x] move tests for these symbols from `docker_test.go` into `client_test.go` and `inspect_test.go`
+- [x] cut-paste; verify `make test` after each split
+- [x] run `make test && make lint` — must pass
 
 ### Task 10: Split `pkg/runtime/docker/docker.go` — extract `lifecycle.go` + `exec.go` (Issue 3, part B)
 
