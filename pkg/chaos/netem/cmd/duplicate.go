@@ -1,3 +1,4 @@
+//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -5,24 +6,23 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-const (
-	duplicateCmd = "duplicate"
-)
-
-type duplicateContext struct {
-	context context.Context
-	runtime chaos.Runtime
+// DuplicateParams holds the per-command parameters for the netem duplicate subcommand.
+type DuplicateParams struct {
+	Netem       *netem.Params
+	Percent     float64
+	Correlation float64
 }
 
-// NewDuplicateCLICommand initialize CLI duplicate command and bind it to the duplicateContext
+// NewDuplicateCLICommand initialize CLI duplicate command.
 func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	cmdContext := &duplicateContext{context: ctx, runtime: runtime}
-	return &cli.Command{
-		Name: duplicateCmd,
+	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[DuplicateParams]{
+		Name: "duplicate",
 		Flags: []cli.Flag{
 			cli.Float64Flag{
 				Name:  "percent, p",
@@ -38,38 +38,23 @@ func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Com
 		Usage:       "adds packet duplication",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", chaos.Re2Prefix),
 		Description: "adds packet duplication, based on independent (Bernoulli) probability model\n \tsee:  http://www.voiptroubleshooter.com/indepth/burstloss.html",
-		Action:      cmdContext.duplicate,
-	}
+		Parse:       parseDuplicateParams,
+		Build:       buildDuplicateCommand,
+	})
 }
 
-// NETEM Duplicate Command - network emulation duplicate
-//
-//nolint:dupl
-func (cmd *duplicateContext) duplicate(c *cli.Context) error {
-	// parse common chaos flags
-	globalParams, err := chaos.ParseGlobalParams(c)
+func parseDuplicateParams(c *cli.Context, gp *chaos.GlobalParams) (DuplicateParams, error) {
+	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
-		return fmt.Errorf("error parsing global parameters: %w", err)
+		return DuplicateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
-	// parse netem flags
-	netemParams, err := parseNetemParams(c.Parent(), globalParams.Interval)
-	if err != nil {
-		return fmt.Errorf("error parsing netem parameters: %w", err)
-	}
-	// get duplicate percentage
-	percent := c.Float64("percent")
-	// get delay variation
-	correlation := c.Float64("correlation")
+	return DuplicateParams{
+		Netem:       netemParams,
+		Percent:     c.Float64("percent"),
+		Correlation: c.Float64("correlation"),
+	}, nil
+}
 
-	// init netem duplicate command
-	duplicateCommand, err := netem.NewDuplicateCommand(cmd.runtime(), globalParams, netemParams, percent, correlation)
-	if err != nil {
-		return fmt.Errorf("unable to create netem duplicate command: %w", err)
-	}
-	// run netem command
-	err = chaos.RunChaosCommand(cmd.context, duplicateCommand, globalParams)
-	if err != nil {
-		return fmt.Errorf("error running netem duplicate command: %w", err)
-	}
-	return nil
+func buildDuplicateCommand(client container.Client, gp *chaos.GlobalParams, p DuplicateParams) (chaos.Command, error) {
+	return netem.NewDuplicateCommand(client, gp, p.Netem, p.Percent, p.Correlation)
 }

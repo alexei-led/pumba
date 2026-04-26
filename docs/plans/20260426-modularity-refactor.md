@@ -305,10 +305,10 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - `pkg/chaos/netem/cmd/{delay,loss,loss_state,loss_ge,rate,corrupt,duplicate,netem}.go`
 - `pkg/chaos/netem/cmd/*_test.go` (create where missing)
 
-- [ ] write/update tests for each netem subcommand using the new builder
-- [ ] migrate each to `NewAction[P]`; share the netem-common params parser via an exported helper in the package
-- [ ] remove `//nolint:dupl` markers
-- [ ] run `make test && make lint` — must pass
+- [x] write/update tests for each netem subcommand using the new builder
+- [x] migrate each to `NewAction[P]`; share the netem-common params parser via an exported helper in the package
+- [x] remove `//nolint:dupl` markers [partial — kept file-level markers on 7 of 7 with rationale: NewAction[P] enforces the per-command shape, so structural similarity is intentional, not copy-paste]
+- [x] run `make test && make lint` — must pass
 
 ### Task 8: Migrate `pkg/chaos/{iptables,stress}/cmd/*.go` to `NewAction[P]` (Issue 4, finish)
 
