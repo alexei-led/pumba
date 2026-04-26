@@ -280,10 +280,10 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Create: `pkg/chaos/cmd/builder.go`
 - Create: `pkg/chaos/cmd/builder_test.go`
 
-- [ ] write tests for `NewAction[P]` contract: parse error propagation, build error propagation, action invocation, runtime resolution
-- [ ] implement `pkg/chaos/cmd/builder.go` with `NewAction[P]`, `ParamParser[P]`, `CommandFactory[P]`
-- [ ] include a test using a fake `chaos.Runtime` and a typed `P` (e.g. `struct{ Limit int }`) to verify generic flow
-- [ ] run `make test` — must pass
+- [x] write tests for `NewAction[P]` contract: parse error propagation, build error propagation, action invocation, runtime resolution
+- [x] implement `pkg/chaos/cmd/builder.go` with `NewAction[P]`, `ParamParser[P]`, `CommandFactory[P]`
+- [x] include a test using a fake `chaos.Runtime` and a typed `P` (e.g. `struct{ Limit int }`) to verify generic flow
+- [x] run `make test` — must pass
 
 ### Task 6: Migrate `pkg/chaos/lifecycle/cmd/*.go` to `NewAction[P]` (Issue 4, lifecycle)
 
