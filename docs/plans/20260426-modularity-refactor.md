@@ -384,10 +384,10 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Create: `pkg/container/requests.go` (or `netem.go` + `iptables.go`)
 - Create: `pkg/container/requests_test.go`
 
-- [ ] define `SidecarSpec`, `NetemRequest`, `IPTablesRequest` structs as designed in Technical Details
-- [ ] write basic struct hydration tests + a "zero value is safe" test
-- [ ] do NOT yet change `Netem`/`IPTables` interfaces — that's Task 14
-- [ ] run `make test` — must pass
+- [x] define `SidecarSpec`, `NetemRequest`, `IPTablesRequest` structs as designed in Technical Details
+- [x] write basic struct hydration tests + a "zero value is safe" test
+- [x] do NOT yet change `Netem`/`IPTables` interfaces — that's Task 14
+- [x] run `make test` — must pass
 
 ### Task 14: Switch `Netem`/`IPTables` interfaces to request structs; regen mocks (Issue 2, body)
 
