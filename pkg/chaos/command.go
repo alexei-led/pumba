@@ -16,15 +16,6 @@ const (
 	Re2Prefix = "re2:"
 )
 
-var (
-	// DockerClient Docker client instance.
-	//
-	// NOTE: superseded by Runtime; new CLI builders take a Runtime factory by
-	// constructor injection. This global is kept only until every builder is
-	// migrated, then removed (modularity refactor, Issue 1).
-	DockerClient container.Client
-)
-
 // Runtime returns the container client to use for chaos execution. Builders
 // receive a Runtime factory rather than a client value so that client
 // construction can be deferred until after global flag parsing while still

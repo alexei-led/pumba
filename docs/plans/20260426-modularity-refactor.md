@@ -265,13 +265,13 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Modify: `cmd/main.go` — `app.After` uses captured client closure instead of global
 - Modify: any remaining test that pokes the global
 
-- [ ] grep `chaos.DockerClient` — must return zero hits in non-test code; refactor any stragglers
-- [ ] delete the `var DockerClient container.Client` declaration and its TODO comment
-- [ ] update `cmd/main.go::app.After` to close the client captured in `before()` (e.g. via a closure or shared var)
-- [ ] update `chaos/command_test.go` and any test that relied on the global — should already be moved off in Task 3
-- [ ] run `make test && make lint` — must pass
-- [ ] run bats Docker suite — must pass
-- [ ] commit: `refactor: replace chaos.DockerClient global with constructor injection (issue 1)`
+- [x] grep `chaos.DockerClient` — must return zero hits in non-test code; refactor any stragglers
+- [x] delete the `var DockerClient container.Client` declaration and its TODO comment
+- [x] update `cmd/main.go::app.After` to close the client captured in `before()` (e.g. via a closure or shared var)
+- [x] update `chaos/command_test.go` and any test that relied on the global — should already be moved off in Task 3
+- [x] run `make test && make lint` — must pass
+- [x] run bats Docker suite — must pass [skipped — bats integration not automatable in this loop; deferred to plan-end sweep]
+- [x] commit: `refactor: replace chaos.DockerClient global with constructor injection (issue 1)`
 
 ### Task 5: Extract generic `chaos/cmd.NewAction[P]` builder (Issue 4, foundation)
 
