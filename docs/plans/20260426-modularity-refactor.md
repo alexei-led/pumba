@@ -357,9 +357,9 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Create: `pkg/runtime/docker/iptables.go` (IPTablesContainer, StopIPTablesContainer, ipTablesContainerCommands, ipTablesContainer, ipTablesContainerWithIPFilter, ipTablesCommands)
 - Modify: `pkg/runtime/docker/docker.go`
 
-- [ ] move corresponding tests
-- [ ] verify Podman embed-and-override still resolves correctly (private symbol references)
-- [ ] run `make test && make lint` — must pass
+- [x] move corresponding tests
+- [x] verify Podman embed-and-override still resolves correctly (private symbol references)
+- [x] run `make test && make lint` — must pass
 
 ### Task 12: Split `pkg/runtime/docker/docker.go` — extract `stress.go` + `cgroup.go` + `pull.go`; delete shell file (Issue 3, finish)
 
