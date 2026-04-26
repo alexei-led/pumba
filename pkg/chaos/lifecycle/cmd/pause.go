@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/urfave/cli"
 )
 
@@ -52,7 +52,7 @@ func (cmd *pauseContext) pause(c *cli.Context) error {
 		return errors.New("unset or invalid duration value")
 	}
 	// init pause command
-	pauseCommand := docker.NewPauseCommand(chaos.DockerClient, params, duration, limit)
+	pauseCommand := lifecycle.NewPauseCommand(chaos.DockerClient, params, duration, limit)
 	// run pause command
 	err = chaos.RunChaosCommand(cmd.context, pauseCommand, params)
 	if err != nil {

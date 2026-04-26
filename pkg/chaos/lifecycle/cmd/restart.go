@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/urfave/cli"
 )
 
@@ -50,7 +50,7 @@ func (cmd *restartContext) restart(c *cli.Context) error {
 	// get limit for number of containers to restart
 	limit := c.Int("limit")
 	// init restart command
-	restartCommand := docker.NewRestartCommand(chaos.DockerClient, params, timeout, limit)
+	restartCommand := lifecycle.NewRestartCommand(chaos.DockerClient, params, timeout, limit)
 	// run restart command
 	err = chaos.RunChaosCommand(cmd.context, restartCommand, params)
 	if err != nil {

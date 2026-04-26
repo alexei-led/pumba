@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/urfave/cli"
 )
 
@@ -55,7 +55,7 @@ func (cmd *execContext) exec(c *cli.Context) error {
 	// get limit for number of containers to exec
 	limit := c.Int("limit")
 	// init exec command
-	execCommand := docker.NewExecCommand(chaos.DockerClient, params, command, args, limit)
+	execCommand := lifecycle.NewExecCommand(chaos.DockerClient, params, command, args, limit)
 	// run exec command
 	err = chaos.RunChaosCommand(cmd.context, execCommand, params)
 	if err != nil {

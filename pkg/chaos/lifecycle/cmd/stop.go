@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/urfave/cli"
 )
 
@@ -23,7 +23,7 @@ func NewStopCLICommand(ctx context.Context) *cli.Command {
 			cli.IntFlag{
 				Name:  "time, t",
 				Usage: "seconds to wait for stop before killing container (default 5)",
-				Value: docker.DeafultWaitTime,
+				Value: lifecycle.DeafultWaitTime,
 			},
 			cli.IntFlag{
 				Name:  "limit, l",
@@ -69,7 +69,7 @@ func (cmd *stopContext) stop(c *cli.Context) error {
 		return errors.New("unset or invalid duration value")
 	}
 	// init stop command
-	stopCommand := docker.NewStopCommand(chaos.DockerClient, params, restart, duration, waitTime, limit)
+	stopCommand := lifecycle.NewStopCommand(chaos.DockerClient, params, restart, duration, waitTime, limit)
 	// run stop command
 	err = chaos.RunChaosCommand(cmd.context, stopCommand, params)
 	if err != nil {

@@ -1,10 +1,9 @@
-package docker
+package lifecycle
 
 import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
@@ -12,16 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRestartCommand_Run(t *testing.T) {
+func TestRemoveCommand_Run(t *testing.T) {
 	type wantErrors struct {
-		listError    bool
-		restartError bool
+		listError   bool
+		removeError bool
 	}
 	type fields struct {
 		names   []string
 		pattern string
-		labels  []string
-		timeout time.Duration
+		force   bool
+		links   bool
+		volumes bool
 		limit   int
 		dryRun  bool
 	}
@@ -38,39 +38,32 @@ func TestRestartCommand_Run(t *testing.T) {
 		errs     wantErrors
 	}{
 		{
-			name: "restart matching containers by names",
+			name: "remove matching containers by names",
 			fields: fields{
-				names:   []string{"c1", "c2", "c3"},
-				timeout: 1 * time.Second,
+				names: []string{"c1", "c2", "c3"},
+				force: true,
 			},
 			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
-			name: "restart matching labeled containers by names",
-			fields: fields{
-				names:   []string{"c1", "c2", "c3"},
-				labels:  []string{"key=value"},
-				timeout: 1 * time.Second,
-			},
-			args:     args{ctx: context.TODO()},
-			expected: container.CreateLabeledTestContainers(3, map[string]string{"key": "value"}),
-		},
-		{
-			name: "restart matching containers by filter with limit",
+			name: "remove matching containers by filter with limit",
 			fields: fields{
 				pattern: "^c?",
-				timeout: 1 * time.Second,
+				force:   true,
+				links:   true,
 				limit:   2,
 			},
 			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 		},
 		{
-			name: "restart random matching container by names",
+			name: "remove random matching container by names",
 			fields: fields{
 				names:   []string{"c1", "c2", "c3"},
-				timeout: 1 * time.Second,
+				force:   true,
+				links:   true,
+				volumes: true,
 			},
 			args:     args{ctx: context.TODO(), random: true},
 			expected: container.CreateTestContainers(3),
@@ -78,62 +71,59 @@ func TestRestartCommand_Run(t *testing.T) {
 		{
 			name: "no matching containers by names",
 			fields: fields{
-				names:   []string{"c1", "c2", "c3"},
-				timeout: 1 * time.Second,
+				names: []string{"c1", "c2", "c3"},
 			},
 			args: args{ctx: context.TODO()},
 		},
 		{
 			name: "error listing containers",
 			fields: fields{
-				names:   []string{"c1", "c2", "c3"},
-				timeout: 1 * time.Second,
+				names: []string{"c1", "c2", "c3"},
 			},
 			args:    args{ctx: context.TODO()},
 			wantErr: true,
 			errs:    wantErrors{listError: true},
 		},
 		{
-			name: "error restarting container",
+			name: "error removing container",
 			fields: fields{
-				names:   []string{"c1", "c2", "c3"},
-				timeout: 1 * time.Second,
+				names: []string{"c1", "c2", "c3"},
 			},
 			args:     args{ctx: context.TODO()},
 			expected: container.CreateTestContainers(3),
 			wantErr:  true,
-			errs:     wantErrors{restartError: true},
+			errs:     wantErrors{removeError: true},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := container.NewMockClient(t)
-			k := &restartCommand{
+			k := &removeCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
-				labels:  tt.fields.labels,
-				timeout: 1 * time.Second,
+				force:   tt.fields.force,
+				links:   tt.fields.links,
+				volumes: tt.fields.volumes,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
-			opts := container.ListOpts{Labels: tt.fields.labels}
 			if tt.errs.listError {
-				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), opts).Return(nil, errors.New("ERROR"))
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(nil, errors.New("ERROR"))
 			} else {
-				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), opts).Return(tt.expected, nil)
+				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(tt.expected, nil)
 				if tt.expected != nil {
-					restartCall := mockClient.EXPECT().RestartContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.timeout, tt.fields.dryRun)
-					if tt.errs.restartError {
-						restartCall.Return(errors.New("ERROR")).Once()
+					removeCall := mockClient.EXPECT().RemoveContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
+					if tt.errs.removeError {
+						removeCall.Return(errors.New("ERROR")).Once()
 					} else if tt.args.random {
-						restartCall.Return(nil).Once()
+						removeCall.Return(nil).Once()
 					} else {
 						count := len(tt.expected)
 						if tt.fields.limit > 0 && tt.fields.limit < count {
 							count = tt.fields.limit
 						}
-						restartCall.Return(nil).Times(count)
+						removeCall.Return(nil).Times(count)
 					}
 				}
 			}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/urfave/cli"
 )
 
@@ -64,7 +64,7 @@ func (cmd *removeContext) remove(c *cli.Context) error {
 	// get limit for number of containers to remove
 	limit := c.Int("limit")
 	// init remove command
-	removeCommand := docker.NewRemoveCommand(chaos.DockerClient, params, force, links, volumes, limit)
+	removeCommand := lifecycle.NewRemoveCommand(chaos.DockerClient, params, force, links, volumes, limit)
 	// run remove command
 	err = chaos.RunChaosCommand(cmd.context, removeCommand, params)
 	if err != nil {

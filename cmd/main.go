@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
-	"github.com/alexei-led/pumba/pkg/chaos/docker/cmd"
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	ctr "github.com/alexei-led/pumba/pkg/container"

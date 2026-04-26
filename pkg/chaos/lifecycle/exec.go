@@ -1,48 +1,53 @@
-package docker
+package lifecycle
 
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
 )
 
-// restartClient is the narrow interface needed by the restart command.
-type restartClient interface {
+// execClient is the narrow interface needed by the exec command.
+type execClient interface {
 	container.Lister
-	RestartContainer(context.Context, *container.Container, time.Duration, bool) error
+	container.Executor
 }
 
-// `docker restart` command
-type restartCommand struct {
-	client  restartClient
+// `docker exec` command
+type execCommand struct {
+	client  execClient
 	names   []string
 	pattern string
 	labels  []string
-	timeout time.Duration
+	command string
+	args    []string
 	limit   int
 	dryRun  bool
 }
 
-// NewRestartCommand create new Restart Command instance
-func NewRestartCommand(client restartClient, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
-	return &restartCommand{
+// NewExecCommand create new Exec Command instance
+func NewExecCommand(client execClient, params *chaos.GlobalParams, command string, args []string, limit int) chaos.Command {
+	exec := &execCommand{
 		client:  client,
 		names:   params.Names,
 		pattern: params.Pattern,
 		labels:  params.Labels,
-		timeout: timeout,
+		command: command,
+		args:    args,
 		limit:   limit,
 		dryRun:  params.DryRun,
 	}
+	if exec.command == "" {
+		exec.command = "kill 1"
+	}
+	return exec
 }
 
-// Run restart command
-func (k *restartCommand) Run(ctx context.Context, random bool) error {
-	log.Debug("restarting all matching containers")
+// Run exec command
+func (k *execCommand) Run(ctx context.Context, random bool) error {
+	log.Debug("execing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
 		"pattern": k.pattern,
@@ -55,25 +60,26 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 		return fmt.Errorf("error listing containers: %w", err)
 	}
 	if len(containers) == 0 {
-		log.Warning("no containers to restart")
+		log.Warning("no containers to exec")
 		return nil
 	}
 
-	// select single random container from matching container and replace list with selected item
+	// select single random c from matching c and replace list with selected item
 	if random {
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []*container.Container{c}
 		}
 	}
-
 	for _, c := range containers {
 		log.WithFields(log.Fields{
-			"container": c,
-			"timeout":   k.timeout,
-		}).Debug("restarting container")
-		err = k.client.RestartContainer(ctx, c, k.timeout, k.dryRun)
+			"c":       *c,
+			"command": k.command,
+			"args":    k.args,
+		}).Debug("execing c")
+		cc := c
+		err = k.client.ExecContainer(ctx, cc, k.command, k.args, k.dryRun)
 		if err != nil {
-			return fmt.Errorf("failed to restart container: %w", err)
+			return fmt.Errorf("failed to run exec command: %w", err)
 		}
 	}
 	return nil
