@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -55,7 +56,7 @@ func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 	})
 }
 
-func parseStopParams(c *cli.Context, _ *chaos.GlobalParams) (StopParams, error) {
+func parseStopParams(c cliflags.Flags, _ *chaos.GlobalParams) (StopParams, error) {
 	duration := c.Duration("duration")
 	if duration == 0 {
 		return StopParams{}, errors.New("unset or invalid duration value")

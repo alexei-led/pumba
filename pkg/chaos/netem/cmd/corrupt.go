@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -43,7 +44,7 @@ func NewCorruptCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comma
 	})
 }
 
-func parseCorruptParams(c *cli.Context, gp *chaos.GlobalParams) (CorruptParams, error) {
+func parseCorruptParams(c cliflags.Flags, gp *chaos.GlobalParams) (CorruptParams, error) {
 	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
 		return CorruptParams{}, fmt.Errorf("error parsing netem parameters: %w", err)

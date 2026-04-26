@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -46,7 +47,7 @@ func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 	})
 }
 
-func parseExecParams(c *cli.Context, _ *chaos.GlobalParams) (ExecParams, error) {
+func parseExecParams(c cliflags.Flags, _ *chaos.GlobalParams) (ExecParams, error) {
 	return ExecParams{
 		Command: c.String("command"),
 		Args:    c.StringSlice("args"),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -55,7 +56,7 @@ func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 	})
 }
 
-func parseRateParams(c *cli.Context, gp *chaos.GlobalParams) (RateParams, error) {
+func parseRateParams(c cliflags.Flags, gp *chaos.GlobalParams) (RateParams, error) {
 	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
 		return RateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)

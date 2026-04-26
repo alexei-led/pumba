@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -56,7 +57,7 @@ func NewLossGECLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 	})
 }
 
-func parseLossGEParams(c *cli.Context, gp *chaos.GlobalParams) (LossGEParams, error) {
+func parseLossGEParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossGEParams, error) {
 	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
 		return LossGEParams{}, fmt.Errorf("error parsing netem parameters: %w", err)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -42,7 +43,7 @@ func NewRestartCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comma
 	})
 }
 
-func parseRestartParams(c *cli.Context, _ *chaos.GlobalParams) (RestartParams, error) {
+func parseRestartParams(c cliflags.Flags, _ *chaos.GlobalParams) (RestartParams, error) {
 	return RestartParams{
 		Timeout: c.Duration("timeout"),
 		Limit:   c.Int("limit"),

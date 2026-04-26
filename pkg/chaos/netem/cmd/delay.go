@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -55,7 +56,7 @@ func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command
 	})
 }
 
-func parseDelayParams(c *cli.Context, gp *chaos.GlobalParams) (DelayParams, error) {
+func parseDelayParams(c cliflags.Flags, gp *chaos.GlobalParams) (DelayParams, error) {
 	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
 		return DelayParams{}, fmt.Errorf("error parsing netem parameters: %w", err)

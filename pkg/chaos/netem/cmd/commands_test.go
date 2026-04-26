@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,7 +108,7 @@ func TestParseDelayParams(t *testing.T) {
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--time", "200", "--jitter", "20", "--correlation", "30", "--distribution", "normal"})
-	got, err := parseDelayParams(c, defaultGlobalParams())
+	got, err := parseDelayParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, 200, got.Time)
 	assert.Equal(t, 20, got.Jitter)
@@ -122,7 +123,7 @@ func TestParseDelayParams_BadNetemErrors(t *testing.T) {
 	// duration unset on parent → parseNetemParams must surface the error
 	parent := netemContext(t, []string{"--interface", "eth0"})
 	c := childContext(t, parent, cmd.Flags, nil)
-	_, err := parseDelayParams(c, defaultGlobalParams())
+	_, err := parseDelayParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.ErrorContains(t, err, "duration")
 }
 
@@ -131,7 +132,7 @@ func TestBuildDelayCommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewDelayCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, nil)
-	p, err := parseDelayParams(c, defaultGlobalParams())
+	p, err := parseDelayParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildDelayCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -151,7 +152,7 @@ func TestParseLossParams(t *testing.T) {
 	cmd := NewLossCLICommand(context.Background(), nilRuntime())
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "10", "--correlation", "5"})
-	got, err := parseLossParams(c, defaultGlobalParams())
+	got, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.InDelta(t, 10.0, got.Percent, 0.001)
 	assert.InDelta(t, 5.0, got.Correlation, 0.001)
@@ -162,7 +163,7 @@ func TestBuildLossCommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewLossCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "10"})
-	p, err := parseLossParams(c, defaultGlobalParams())
+	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildLossCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -182,7 +183,7 @@ func TestParseLossStateParams(t *testing.T) {
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--p13", "10", "--p31", "90", "--p32", "5", "--p23", "85", "--p14", "1"})
-	got, err := parseLossStateParams(c, defaultGlobalParams())
+	got, err := parseLossStateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.InDelta(t, 10.0, got.P13, 0.001)
 	assert.InDelta(t, 90.0, got.P31, 0.001)
@@ -196,7 +197,7 @@ func TestBuildLossStateCommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewLossStateCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, nil)
-	p, err := parseLossStateParams(c, defaultGlobalParams())
+	p, err := parseLossStateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildLossStateCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -216,7 +217,7 @@ func TestParseLossGEParams(t *testing.T) {
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--pg", "10", "--pb", "90", "--one-h", "80", "--one-k", "5"})
-	got, err := parseLossGEParams(c, defaultGlobalParams())
+	got, err := parseLossGEParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.InDelta(t, 10.0, got.PG, 0.001)
 	assert.InDelta(t, 90.0, got.PB, 0.001)
@@ -229,7 +230,7 @@ func TestBuildLossGECommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewLossGECLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, nil)
-	p, err := parseLossGEParams(c, defaultGlobalParams())
+	p, err := parseLossGEParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildLossGECommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -249,7 +250,7 @@ func TestParseRateParams(t *testing.T) {
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--rate", "1mbit", "--packetoverhead", "1", "--cellsize", "2", "--celloverhead", "3"})
-	got, err := parseRateParams(c, defaultGlobalParams())
+	got, err := parseRateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, "1mbit", got.Rate)
 	assert.Equal(t, 1, got.PacketOverhead)
@@ -262,7 +263,7 @@ func TestBuildRateCommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewRateCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, []string{"--rate", "1mbit"})
-	p, err := parseRateParams(c, defaultGlobalParams())
+	p, err := parseRateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildRateCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -281,7 +282,7 @@ func TestParseDuplicateParams(t *testing.T) {
 	cmd := NewDuplicateCLICommand(context.Background(), nilRuntime())
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "15", "--correlation", "5"})
-	got, err := parseDuplicateParams(c, defaultGlobalParams())
+	got, err := parseDuplicateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.InDelta(t, 15.0, got.Percent, 0.001)
 	assert.InDelta(t, 5.0, got.Correlation, 0.001)
@@ -292,7 +293,7 @@ func TestBuildDuplicateCommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewDuplicateCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "15"})
-	p, err := parseDuplicateParams(c, defaultGlobalParams())
+	p, err := parseDuplicateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildDuplicateCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -311,7 +312,7 @@ func TestParseCorruptParams(t *testing.T) {
 	cmd := NewCorruptCLICommand(context.Background(), nilRuntime())
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "20", "--correlation", "5"})
-	got, err := parseCorruptParams(c, defaultGlobalParams())
+	got, err := parseCorruptParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.InDelta(t, 20.0, got.Percent, 0.001)
 	assert.InDelta(t, 5.0, got.Correlation, 0.001)
@@ -322,7 +323,7 @@ func TestBuildCorruptCommand(t *testing.T) {
 	parent := netemContext(t, nil)
 	cmd := NewCorruptCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "20"})
-	p, err := parseCorruptParams(c, defaultGlobalParams())
+	p, err := parseCorruptParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildCorruptCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -346,6 +347,6 @@ func TestRuntimeAcceptsNil(t *testing.T) {
 // the shared netem parser still trips the duration<interval invariant.
 func TestParseNetemParamsRejectsBadInterval(t *testing.T) {
 	c := newTestCLIContext(t, netemFlags(), []string{"--duration", "5s"})
-	_, err := parseNetemParams(c, 5*time.Second)
+	_, err := parseNetemParams(cliflags.NewV1(c), 5*time.Second)
 	assert.ErrorContains(t, err, "duration must be shorter than interval")
 }

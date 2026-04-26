@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/stress"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -59,7 +60,7 @@ func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 	})
 }
 
-func parseStressParams(c *cli.Context, _ *chaos.GlobalParams) (StressParams, error) {
+func parseStressParams(c cliflags.Flags, _ *chaos.GlobalParams) (StressParams, error) {
 	duration := c.Duration("duration")
 	if duration == 0 {
 		return StressParams{}, errors.New("unset or invalid duration value")

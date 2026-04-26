@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -51,7 +52,7 @@ func NewRemoveCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 	})
 }
 
-func parseRemoveParams(c *cli.Context, _ *chaos.GlobalParams) (RemoveParams, error) {
+func parseRemoveParams(c cliflags.Flags, _ *chaos.GlobalParams) (RemoveParams, error) {
 	return RemoveParams{
 		Force:   c.BoolT("force"),
 		Links:   c.BoolT("links"),

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -42,7 +43,7 @@ func NewKillCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 	})
 }
 
-func parseKillParams(c *cli.Context, _ *chaos.GlobalParams) (KillParams, error) {
+func parseKillParams(c cliflags.Flags, _ *chaos.GlobalParams) (KillParams, error) {
 	return KillParams{
 		Signal: c.String("signal"),
 		Limit:  c.Int("limit"),

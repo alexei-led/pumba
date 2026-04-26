@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,7 +61,7 @@ func TestNewAction_PopulatesCLICommand(t *testing.T) {
 		ArgsUsage:   "<containers>",
 		Description: "test description",
 		Flags:       []cli.Flag{cli.IntFlag{Name: "limit"}},
-		Parse:       func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) { return testParams{}, nil },
+		Parse:       func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) { return testParams{}, nil },
 		Build: func(client container.Client, gp *chaos.GlobalParams, p testParams) (chaos.Command, error) {
 			return &fakeChaos{}, nil
 		},
@@ -81,7 +82,7 @@ func TestNewAction_RequireArgs_NoneGiven(t *testing.T) {
 	spec := Spec[testParams]{
 		Name:        "test",
 		RequireArgs: true,
-		Parse: func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) {
+		Parse: func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) {
 			parseCalled = true
 			return testParams{}, nil
 		},
@@ -101,7 +102,7 @@ func TestNewAction_RequireArgs_Satisfied(t *testing.T) {
 	spec := Spec[testParams]{
 		Name:        "test",
 		RequireArgs: true,
-		Parse:       func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) { return testParams{}, nil },
+		Parse:       func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) { return testParams{}, nil },
 		Build: func(client container.Client, gp *chaos.GlobalParams, p testParams) (chaos.Command, error) {
 			return &fakeChaos{}, nil
 		},
@@ -116,7 +117,7 @@ func TestNewAction_ParseErrorPropagated(t *testing.T) {
 	parseErr := errors.New("bad params")
 	spec := Spec[testParams]{
 		Name: "test",
-		Parse: func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) {
+		Parse: func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) {
 			return testParams{}, parseErr
 		},
 		Build: func(client container.Client, gp *chaos.GlobalParams, p testParams) (chaos.Command, error) {
@@ -136,7 +137,7 @@ func TestNewAction_BuildErrorPropagated(t *testing.T) {
 	buildErr := errors.New("build failed")
 	spec := Spec[testParams]{
 		Name: "test",
-		Parse: func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) {
+		Parse: func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) {
 			return testParams{Limit: 5}, nil
 		},
 		Build: func(client container.Client, gp *chaos.GlobalParams, p testParams) (chaos.Command, error) {
@@ -159,7 +160,7 @@ func TestNewAction_HappyPath_ResolvesRuntimeAndRunsCommand(t *testing.T) {
 
 	spec := Spec[testParams]{
 		Name: "test",
-		Parse: func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) {
+		Parse: func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) {
 			return testParams{Limit: 7}, nil
 		},
 		Build: func(client container.Client, gp *chaos.GlobalParams, p testParams) (chaos.Command, error) {
@@ -184,7 +185,7 @@ func TestNewAction_RunErrorWrapped(t *testing.T) {
 
 	spec := Spec[testParams]{
 		Name: "ploop",
-		Parse: func(c *cli.Context, gp *chaos.GlobalParams) (testParams, error) {
+		Parse: func(c cliflags.Flags, gp *chaos.GlobalParams) (testParams, error) {
 			return testParams{}, nil
 		},
 		Build: func(client container.Client, gp *chaos.GlobalParams, p testParams) (chaos.Command, error) {

@@ -10,13 +10,16 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/urfave/cli"
 )
 
-// ParamParser turns a CLI context plus already-parsed GlobalParams into the
+// ParamParser turns CLI flag values plus already-parsed GlobalParams into the
 // per-command parameter struct P. Returning an error short-circuits the action.
-type ParamParser[P any] func(c *cli.Context, gp *chaos.GlobalParams) (P, error)
+// The cliflags.Flags abstraction keeps parsers independent of the underlying
+// CLI library version.
+type ParamParser[P any] func(c cliflags.Flags, gp *chaos.GlobalParams) (P, error)
 
 // CommandFactory builds a chaos.Command from the resolved client, GlobalParams,
 // and per-command params P. Returning an error short-circuits the action.
@@ -60,7 +63,7 @@ func NewAction[P any](ctx context.Context, runtime chaos.Runtime, spec Spec[P]) 
 			if err != nil {
 				return fmt.Errorf("error parsing global parameters: %w", err)
 			}
-			p, err := spec.Parse(c, gp)
+			p, err := spec.Parse(cliflags.NewV1(c), gp)
 			if err != nil {
 				return err
 			}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,7 +61,7 @@ func TestParseStressParams(t *testing.T) {
 	cmd := NewStressCLICommand(context.Background(), nilRuntime())
 	c := newTestCLIContext(t, cmd.Flags,
 		[]string{"--duration", "30s", "--stress-image", "custom:tag", "--stressors", "--cpu 2"})
-	got, err := parseStressParams(c, defaultGlobalParams())
+	got, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, "custom:tag", got.Image)
 	assert.True(t, got.Pull, "BoolT pull-image defaults true")
@@ -73,7 +74,7 @@ func TestParseStressParams_InjectCgroup(t *testing.T) {
 	cmd := NewStressCLICommand(context.Background(), nilRuntime())
 	c := newTestCLIContext(t, cmd.Flags,
 		[]string{"--duration", "10s", "--inject-cgroup"})
-	got, err := parseStressParams(c, defaultGlobalParams())
+	got, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.True(t, got.InjectCgroup)
 }
@@ -81,7 +82,7 @@ func TestParseStressParams_InjectCgroup(t *testing.T) {
 func TestParseStressParams_MissingDurationErrors(t *testing.T) {
 	cmd := NewStressCLICommand(context.Background(), nilRuntime())
 	c := newTestCLIContext(t, cmd.Flags, nil)
-	_, err := parseStressParams(c, defaultGlobalParams())
+	_, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.ErrorContains(t, err, "duration")
 }
 
@@ -89,7 +90,7 @@ func TestBuildStressCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	cmd := NewStressCLICommand(context.Background(), nilRuntime())
 	c := newTestCLIContext(t, cmd.Flags, []string{"--duration", "10s"})
-	p, err := parseStressParams(c, defaultGlobalParams())
+	p, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildStressCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)

@@ -8,9 +8,9 @@ import (
 	"slices"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/chaos/iptables"
 	"github.com/alexei-led/pumba/pkg/util"
-	"github.com/urfave/cli"
 )
 
 func validateIPList(list []string) (ips []*net.IPNet, err error) {
@@ -25,7 +25,7 @@ func validateIPList(list []string) (ips []*net.IPNet, err error) {
 	return
 }
 
-func parseIPTablesParams(c *cli.Context, interval time.Duration) (*iptables.Params, error) {
+func parseIPTablesParams(c cliflags.Flags, interval time.Duration) (*iptables.Params, error) {
 	// get duration
 	duration := c.Duration("duration")
 	if duration == 0 {

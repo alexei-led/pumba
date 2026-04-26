@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -43,7 +44,7 @@ func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Com
 	})
 }
 
-func parseDuplicateParams(c *cli.Context, gp *chaos.GlobalParams) (DuplicateParams, error) {
+func parseDuplicateParams(c cliflags.Flags, gp *chaos.GlobalParams) (DuplicateParams, error) {
 	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
 	if err != nil {
 		return DuplicateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)

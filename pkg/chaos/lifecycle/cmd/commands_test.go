@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -94,7 +95,7 @@ func TestParseKillParams(t *testing.T) {
 	cmd := NewKillCLICommand(context.Background(), nilRuntime())
 	c := newTestCLIContext(t, []cli.Flag{findFlag(t, cmd, "signal"), findFlag(t, cmd, "limit")},
 		[]string{"--signal", "SIGTERM", "--limit", "3"})
-	got, err := parseKillParams(c, defaultGlobalParams())
+	got, err := parseKillParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, KillParams{Signal: "SIGTERM", Limit: 3}, got)
 }
@@ -129,7 +130,7 @@ func TestParseStopParams(t *testing.T) {
 	}
 	c := newTestCLIContext(t, flags,
 		[]string{"--time", "5", "--limit", "2", "--restart", "--duration", "10s"})
-	got, err := parseStopParams(c, defaultGlobalParams())
+	got, err := parseStopParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, StopParams{WaitTime: 5, Limit: 2, Restart: true, Duration: 10 * time.Second}, got)
 }
@@ -143,7 +144,7 @@ func TestParseStopParams_InvalidDurationErrors(t *testing.T) {
 	// Stop's --duration carries a default of "10s", so test the unparseable
 	// path (non-empty, non-duration string) to exercise the zero-check.
 	c := newTestCLIContext(t, flags, []string{"--duration", "not-a-duration"})
-	_, err := parseStopParams(c, defaultGlobalParams())
+	_, err := parseStopParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.EqualError(t, err, "unset or invalid duration value")
 }
 
@@ -167,7 +168,7 @@ func TestParsePauseParams(t *testing.T) {
 	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
 	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, []string{"--duration", "2s", "--limit", "4"})
-	got, err := parsePauseParams(c, defaultGlobalParams())
+	got, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, PauseParams{Duration: 2 * time.Second, Limit: 4}, got)
 }
@@ -176,7 +177,7 @@ func TestParsePauseParams_ZeroDurationErrors(t *testing.T) {
 	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
 	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, nil)
-	_, err := parsePauseParams(c, defaultGlobalParams())
+	_, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.EqualError(t, err, "unset or invalid duration value")
 }
 
@@ -200,7 +201,7 @@ func TestParseRestartParams(t *testing.T) {
 	cmd := NewRestartCLICommand(context.Background(), nilRuntime())
 	flags := []cli.Flag{findFlag(t, cmd, "timeout"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, []string{"--timeout", "5s", "--limit", "1"})
-	got, err := parseRestartParams(c, defaultGlobalParams())
+	got, err := parseRestartParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, RestartParams{Timeout: 5 * time.Second, Limit: 1}, got)
 }
@@ -228,7 +229,7 @@ func TestParseRemoveParams(t *testing.T) {
 		findFlag(t, cmd, "volumes"), findFlag(t, cmd, "limit"),
 	}
 	c := newTestCLIContext(t, flags, []string{"--limit", "7"})
-	got, err := parseRemoveParams(c, defaultGlobalParams())
+	got, err := parseRemoveParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	// BoolTFlag defaults to true (force, volumes); BoolFlag defaults to false (links).
 	assert.Equal(t, RemoveParams{Force: true, Links: false, Volumes: true, Limit: 7}, got)
@@ -257,7 +258,7 @@ func TestParseExecParams(t *testing.T) {
 	}
 	c := newTestCLIContext(t, flags,
 		[]string{"--command", "touch", "--args", "/tmp/a", "--args", "/tmp/b", "--limit", "2"})
-	got, err := parseExecParams(c, defaultGlobalParams())
+	got, err := parseExecParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, ExecParams{Command: "touch", Args: []string{"/tmp/a", "/tmp/b"}, Limit: 2}, got)
 }

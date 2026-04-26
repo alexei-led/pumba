@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -96,7 +97,7 @@ func TestParseLossParams(t *testing.T) {
 	parent := iptablesParentContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--mode", "random", "--probability", "0.5"})
-	got, err := parseLossParams(c, defaultGlobalParams())
+	got, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	assert.Equal(t, "random", got.Mode)
 	assert.InDelta(t, 0.5, got.Probability, 0.001)
@@ -108,7 +109,7 @@ func TestParseLossParams_BadIPTablesErrors(t *testing.T) {
 	cmd := NewLossCLICommand(context.Background(), nilRuntime())
 	parent := iptablesParentContext(t, []string{"--interface", "eth0"})
 	c := childContext(t, parent, cmd.Flags, nil)
-	_, err := parseLossParams(c, defaultGlobalParams())
+	_, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.ErrorContains(t, err, "duration")
 }
 
@@ -117,7 +118,7 @@ func TestBuildLossCommand_Random(t *testing.T) {
 	parent := iptablesParentContext(t, nil)
 	cmd := NewLossCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, []string{"--mode", "random", "--probability", "0.5"})
-	p, err := parseLossParams(c, defaultGlobalParams())
+	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildLossCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -130,7 +131,7 @@ func TestBuildLossCommand_NTH(t *testing.T) {
 	cmd := NewLossCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--mode", "nth", "--every", "3", "--packet", "0"})
-	p, err := parseLossParams(c, defaultGlobalParams())
+	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	built, err := buildLossCommand(client, defaultGlobalParams(), p)
 	require.NoError(t, err)
@@ -142,7 +143,7 @@ func TestBuildLossCommand_BadMode(t *testing.T) {
 	parent := iptablesParentContext(t, nil)
 	cmd := NewLossCLICommand(context.Background(), nilRuntime())
 	c := childContext(t, parent, cmd.Flags, []string{"--mode", "bogus"})
-	p, err := parseLossParams(c, defaultGlobalParams())
+	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
 	_, err = buildLossCommand(client, defaultGlobalParams(), p)
 	assert.Error(t, err)

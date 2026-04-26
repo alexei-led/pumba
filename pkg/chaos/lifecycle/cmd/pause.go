@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	chaoscmd "github.com/alexei-led/pumba/pkg/chaos/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -42,7 +43,7 @@ func NewPauseCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command
 	})
 }
 
-func parsePauseParams(c *cli.Context, _ *chaos.GlobalParams) (PauseParams, error) {
+func parsePauseParams(c cliflags.Flags, _ *chaos.GlobalParams) (PauseParams, error) {
 	duration := c.Duration("duration")
 	if duration == 0 {
 		return PauseParams{}, errors.New("unset or invalid duration value")

@@ -427,13 +427,13 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Modify: `pkg/chaos/cmd/builder.go` — `ParamParser[P]` takes `cliflags.Flags`, not `*cli.Context`
 - Modify: every `parse` function in cmd builders (Tasks 6–8 leftover)
 
-- [ ] write tests for the `V1` adapter covering every method (`String`, `Bool`, `BoolT`, `Duration`, `Int`, `Float64`, `StringSlice`, `Args`, `Global`)
-- [ ] implement `Flags` interface and `V1` adapter
-- [ ] update `ParamParser[P]` signature to take `cliflags.Flags`; supply `cliflags.V1{ctx: c}` from `NewAction`'s closure
-- [ ] update every `parse` function across `pkg/chaos/{lifecycle,netem,iptables,stress}/cmd/*.go` to use `cliflags.Flags`
-- [ ] update tests so parsers can be called with a fake `Flags`
-- [ ] run `make test && make lint` — must pass
-- [ ] commit: `refactor: wrap urfave/cli v1 behind chaos/cliflags adapter (issue 5)`
+- [x] write tests for the `V1` adapter covering every method (`String`, `Bool`, `BoolT`, `Duration`, `Int`, `Float64`, `StringSlice`, `Args`, `Global`)
+- [x] implement `Flags` interface and `V1` adapter
+- [x] update `ParamParser[P]` signature to take `cliflags.Flags`; supply `cliflags.V1{ctx: c}` from `NewAction`'s closure
+- [x] update every `parse` function across `pkg/chaos/{lifecycle,netem,iptables,stress}/cmd/*.go` to use `cliflags.Flags`
+- [x] update tests so parsers can be called with a fake `Flags` [tests wrap real `*cli.Context` via `cliflags.NewV1` — keeps coverage on the actual adapter; fake-Flags option remains available via the interface]
+- [x] run `make test && make lint` — must pass
+- [x] commit: `refactor: wrap urfave/cli v1 behind chaos/cliflags adapter (issue 5)`
 
 ### Task 17: Verify acceptance criteria
 
