@@ -859,8 +859,12 @@ func TestExecContainer_StartError(t *testing.T) {
 
 func TestNetemContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
-	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
-		[]string{"delay", "100ms"}, nil, nil, nil, 0, "", false, true)
+	err := client.NetemContainer(context.Background(), &ctr.NetemRequest{
+		Container: testContainer("c1"),
+		Interface: "eth0",
+		Command:   []string{"delay", "100ms"},
+		DryRun:    true,
+	})
 	assert.NoError(t, err)
 }
 
@@ -874,15 +878,21 @@ func TestNetemContainer_Success(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.NetemContainer(context.Background(), testContainer("c1"), "eth0",
-		[]string{"delay", "100ms"}, nil, nil, nil, 0, "", false, false)
+	err := client.NetemContainer(context.Background(), &ctr.NetemRequest{
+		Container: testContainer("c1"),
+		Interface: "eth0",
+		Command:   []string{"delay", "100ms"},
+	})
 	require.NoError(t, err)
 }
 
 func TestStopNetemContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
-	err := client.StopNetemContainer(context.Background(), testContainer("c1"), "eth0",
-		nil, nil, nil, "", false, true)
+	err := client.StopNetemContainer(context.Background(), &ctr.NetemRequest{
+		Container: testContainer("c1"),
+		Interface: "eth0",
+		DryRun:    true,
+	})
 	assert.NoError(t, err)
 }
 
@@ -896,15 +906,21 @@ func TestStopNetemContainer_Success(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.StopNetemContainer(context.Background(), testContainer("c1"), "eth0",
-		nil, nil, nil, "", false, false)
+	err := client.StopNetemContainer(context.Background(), &ctr.NetemRequest{
+		Container: testContainer("c1"),
+		Interface: "eth0",
+	})
 	require.NoError(t, err)
 }
 
 func TestIPTablesContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
-	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
-		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, true)
+	err := client.IPTablesContainer(context.Background(), &ctr.IPTablesRequest{
+		Container: testContainer("c1"),
+		CmdPrefix: []string{"-A", "INPUT"},
+		CmdSuffix: []string{"-j", "DROP"},
+		DryRun:    true,
+	})
 	assert.NoError(t, err)
 }
 
@@ -918,8 +934,11 @@ func TestIPTablesContainer_Success(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
-		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
+	err := client.IPTablesContainer(context.Background(), &ctr.IPTablesRequest{
+		Container: testContainer("c1"),
+		CmdPrefix: []string{"-A", "INPUT"},
+		CmdSuffix: []string{"-j", "DROP"},
+	})
 	require.NoError(t, err)
 }
 
@@ -932,16 +951,23 @@ func TestIPTablesContainer_ExecError(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.IPTablesContainer(context.Background(), testContainer("c1"),
-		[]string{"-A", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, 0, "", false, false)
+	err := client.IPTablesContainer(context.Background(), &ctr.IPTablesRequest{
+		Container: testContainer("c1"),
+		CmdPrefix: []string{"-A", "INPUT"},
+		CmdSuffix: []string{"-j", "DROP"},
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to run iptables command")
 }
 
 func TestStopIPTablesContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
-	err := client.StopIPTablesContainer(context.Background(), testContainer("c1"),
-		[]string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, true)
+	err := client.StopIPTablesContainer(context.Background(), &ctr.IPTablesRequest{
+		Container: testContainer("c1"),
+		CmdPrefix: []string{"-D", "INPUT"},
+		CmdSuffix: []string{"-j", "DROP"},
+		DryRun:    true,
+	})
 	assert.NoError(t, err)
 }
 
@@ -955,8 +981,11 @@ func TestStopIPTablesContainer_Success(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.StopIPTablesContainer(context.Background(), testContainer("c1"),
-		[]string{"-D", "INPUT"}, []string{"-j", "DROP"}, nil, nil, nil, nil, "", false, false)
+	err := client.StopIPTablesContainer(context.Background(), &ctr.IPTablesRequest{
+		Container: testContainer("c1"),
+		CmdPrefix: []string{"-D", "INPUT"},
+		CmdSuffix: []string{"-j", "DROP"},
+	})
 	require.NoError(t, err)
 }
 

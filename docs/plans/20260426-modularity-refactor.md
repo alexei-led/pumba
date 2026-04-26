@@ -401,13 +401,13 @@ Cmd builders' `parse` closures take `cliflags.Flags`, not `*cli.Context`.
 - Modify: `pkg/chaos/netem/netem.go`, `pkg/chaos/iptables/iptables.go` — call sites build the request struct
 - Modify: every test that mocks `NetemContainer`/`IPTablesContainer` (largest test surface in this plan)
 
-- [ ] update interface signatures in `pkg/container/client.go`
-- [ ] write/update unit tests at every call site to use new struct constructors
-- [ ] update each runtime impl (docker/containerd/podman) to accept the request struct (internal refactor, behavior identical)
-- [ ] update chaos action constructors to populate the request struct in one place each (`netem.go::runNetem`, `iptables.go::runIPTables`)
-- [ ] regenerate mocks: `make mocks`
-- [ ] update test EXPECT() calls to use the new struct shape
-- [ ] run `make test && make lint` — must pass
+- [x] update interface signatures in `pkg/container/client.go`
+- [x] write/update unit tests at every call site to use new struct constructors
+- [x] update each runtime impl (docker/containerd/podman) to accept the request struct (internal refactor, behavior identical)
+- [x] update chaos action constructors to populate the request struct in one place each (`netem.go::runNetem`, `iptables.go::runIPTables`)
+- [x] regenerate mocks: `make mocks`
+- [x] update test EXPECT() calls to use the new struct shape
+- [x] run `make test && make lint` — must pass
 
 ### Task 15: Verify Issue 2 end-to-end (Issue 2, finish)
 

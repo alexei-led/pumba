@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -167,16 +166,16 @@ func TestDelayCommand_Run_DryRun(t *testing.T) {
 				container.ListOpts{All: false, Labels: nil}).
 				Return([]*container.Container{target}, nil)
 
-			mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
-				tt.netemCmd,
-				([]*net.IPNet)(nil), []string(nil), []string(nil),
-				100*time.Millisecond, tt.image, false, true).
-				Return(nil)
-
-			mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
-				([]*net.IPNet)(nil), []string(nil), []string(nil),
-				tt.image, false, true).
-				Return(nil)
+			expectedReq := &container.NetemRequest{
+				Container: target,
+				Interface: "eth0",
+				Command:   tt.netemCmd,
+				Duration:  100 * time.Millisecond,
+				Sidecar:   container.SidecarSpec{Image: tt.image},
+				DryRun:    true,
+			}
+			mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
+			mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
 
 			cmd, err := NewDelayCommand(mockClient, gparams, nparams, tt.delay, tt.jitter, tt.correlation, tt.dist)
 			require.NoError(t, err)

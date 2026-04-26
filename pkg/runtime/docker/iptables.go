@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"strings"
-	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	ctypes "github.com/docker/docker/api/types/container"
@@ -18,46 +17,46 @@ import (
 )
 
 // IPTablesContainer injects sidecar iptables container into the given container network namespace
-func (client dockerClient) IPTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, duration time.Duration, img string, pull, dryrun bool) error {
+func (client dockerClient) IPTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
 	log.WithFields(log.Fields{
-		"name":          c.Name(),
-		"id":            c.ID(),
-		"commandPrefix": cmdPrefix,
-		"commandSuffix": cmdSuffix,
-		"srcIPs":        srcIPs,
-		"dstIPs":        dstIPs,
-		"sports":        sports,
-		"dports":        dports,
-		"duration":      duration,
-		"img":           img,
-		"pull":          pull,
-		"dryrun":        dryrun,
+		"name":          req.Container.Name(),
+		"id":            req.Container.ID(),
+		"commandPrefix": req.CmdPrefix,
+		"commandSuffix": req.CmdSuffix,
+		"srcIPs":        req.SrcIPs,
+		"dstIPs":        req.DstIPs,
+		"sports":        req.SPorts,
+		"dports":        req.DPorts,
+		"duration":      req.Duration,
+		"img":           req.Sidecar.Image,
+		"pull":          req.Sidecar.Pull,
+		"dryrun":        req.DryRun,
 	}).Info("running iptables on container")
-	if len(srcIPs) == 0 && len(dstIPs) == 0 && len(sports) == 0 && len(dports) == 0 {
-		return client.ipTablesContainer(ctx, c, cmdPrefix, cmdSuffix, img, pull, dryrun)
+	if len(req.SrcIPs) == 0 && len(req.DstIPs) == 0 && len(req.SPorts) == 0 && len(req.DPorts) == 0 {
+		return client.ipTablesContainer(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 	}
-	return client.ipTablesContainerWithIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, img, pull, dryrun)
+	return client.ipTablesContainerWithIPFilter(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.SrcIPs, req.DstIPs, req.SPorts, req.DPorts, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 }
 
 // StopIPTablesContainer stops the iptables container injected into the given container network namespace
-func (client dockerClient) StopIPTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, img string, pull, dryrun bool) error {
+func (client dockerClient) StopIPTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
 	log.WithFields(log.Fields{
-		"name":          c.Name(),
-		"id":            c.ID(),
-		"commandPrefix": cmdPrefix,
-		"commandSuffix": cmdSuffix,
-		"srcIPs":        srcIPs,
-		"dstIPs":        dstIPs,
-		"sports":        sports,
-		"dports":        dports,
-		"img":           img,
-		"pull":          pull,
-		"dryrun":        dryrun,
+		"name":          req.Container.Name(),
+		"id":            req.Container.ID(),
+		"commandPrefix": req.CmdPrefix,
+		"commandSuffix": req.CmdSuffix,
+		"srcIPs":        req.SrcIPs,
+		"dstIPs":        req.DstIPs,
+		"sports":        req.SPorts,
+		"dports":        req.DPorts,
+		"img":           req.Sidecar.Image,
+		"pull":          req.Sidecar.Pull,
+		"dryrun":        req.DryRun,
 	}).Info("stopping netem on container")
-	if len(srcIPs) == 0 && len(dstIPs) == 0 && len(sports) == 0 && len(dports) == 0 {
-		return client.ipTablesContainer(ctx, c, cmdPrefix, cmdSuffix, img, pull, dryrun)
+	if len(req.SrcIPs) == 0 && len(req.DstIPs) == 0 && len(req.SPorts) == 0 && len(req.DPorts) == 0 {
+		return client.ipTablesContainer(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 	}
-	return client.ipTablesContainerWithIPFilter(ctx, c, cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports, img, pull, dryrun)
+	return client.ipTablesContainerWithIPFilter(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.SrcIPs, req.DstIPs, req.SPorts, req.DPorts, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 }
 
 func (client dockerClient) ipTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, img string, pull, dryrun bool) error {

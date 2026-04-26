@@ -127,17 +127,28 @@ func Test_runNetem(t *testing.T) {
 			if tt.errs.startErr {
 				startErr = errors.New("test error")
 			}
-			mockClient.EXPECT().NetemContainer(ctx, tt.args.container, tt.args.netInterface, tt.args.cmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.tcimage, tt.args.pull, tt.args.dryRun).Return(startErr)
+			req := &container.NetemRequest{
+				Container: tt.args.container,
+				Interface: tt.args.netInterface,
+				Command:   tt.args.cmd,
+				IPs:       tt.args.ips,
+				SPorts:    tt.args.sports,
+				DPorts:    tt.args.dports,
+				Duration:  tt.args.duration,
+				Sidecar:   container.SidecarSpec{Image: tt.args.tcimage, Pull: tt.args.pull},
+				DryRun:    tt.args.dryRun,
+			}
+			mockClient.EXPECT().NetemContainer(ctx, req).Return(startErr)
 
 			if !tt.errs.startErr {
 				stopErr := error(nil)
 				if tt.errs.stopErr {
 					stopErr = errors.New("test error")
 				}
-				mockClient.EXPECT().StopNetemContainer(mock.Anything, tt.args.container, tt.args.netInterface, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.tcimage, tt.args.pull, tt.args.dryRun).Return(stopErr)
+				mockClient.EXPECT().StopNetemContainer(mock.Anything, req).Return(stopErr)
 			}
 
-			if err := runNetem(ctx, mockClient, tt.args.container, tt.args.netInterface, tt.args.cmd, tt.args.ips, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.tcimage, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
+			if err := runNetem(ctx, mockClient, req); (err != nil) != tt.wantErr {
 				t.Errorf("runNetem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

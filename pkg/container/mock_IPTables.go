@@ -4,8 +4,6 @@ package container
 
 import (
 	context "context"
-	net "net"
-	time "time"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -23,17 +21,17 @@ func (_m *MockIPTables) EXPECT() *MockIPTables_Expecter {
 	return &MockIPTables_Expecter{mock: &_m.Mock}
 }
 
-// IPTablesContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11
-func (_m *MockIPTables) IPTablesContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 time.Duration, _a9 string, _a10 bool, _a11 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11)
+// IPTablesContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockIPTables) IPTablesContainer(_a0 context.Context, _a1 *IPTablesRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IPTablesContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11)
+	if rf, ok := ret.Get(0).(func(context.Context, *IPTablesRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -48,24 +46,14 @@ type MockIPTables_IPTablesContainer_Call struct {
 
 // IPTablesContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 []string
-//   - _a3 []string
-//   - _a4 []*net.IPNet
-//   - _a5 []*net.IPNet
-//   - _a6 []string
-//   - _a7 []string
-//   - _a8 time.Duration
-//   - _a9 string
-//   - _a10 bool
-//   - _a11 bool
-func (_e *MockIPTables_Expecter) IPTablesContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}, _a9 interface{}, _a10 interface{}, _a11 interface{}) *MockIPTables_IPTablesContainer_Call {
-	return &MockIPTables_IPTablesContainer_Call{Call: _e.mock.On("IPTablesContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11)}
+//   - _a1 *IPTablesRequest
+func (_e *MockIPTables_Expecter) IPTablesContainer(_a0 interface{}, _a1 interface{}) *MockIPTables_IPTablesContainer_Call {
+	return &MockIPTables_IPTablesContainer_Call{Call: _e.mock.On("IPTablesContainer", _a0, _a1)}
 }
 
-func (_c *MockIPTables_IPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 time.Duration, _a9 string, _a10 bool, _a11 bool)) *MockIPTables_IPTablesContainer_Call {
+func (_c *MockIPTables_IPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *IPTablesRequest)) *MockIPTables_IPTablesContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].([]string), args[3].([]string), args[4].([]*net.IPNet), args[5].([]*net.IPNet), args[6].([]string), args[7].([]string), args[8].(time.Duration), args[9].(string), args[10].(bool), args[11].(bool))
+		run(args[0].(context.Context), args[1].(*IPTablesRequest))
 	})
 	return _c
 }
@@ -75,22 +63,22 @@ func (_c *MockIPTables_IPTablesContainer_Call) Return(_a0 error) *MockIPTables_I
 	return _c
 }
 
-func (_c *MockIPTables_IPTablesContainer_Call) RunAndReturn(run func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error) *MockIPTables_IPTablesContainer_Call {
+func (_c *MockIPTables_IPTablesContainer_Call) RunAndReturn(run func(context.Context, *IPTablesRequest) error) *MockIPTables_IPTablesContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// StopIPTablesContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10
-func (_m *MockIPTables) StopIPTablesContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 string, _a9 bool, _a10 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+// StopIPTablesContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockIPTables) StopIPTablesContainer(_a0 context.Context, _a1 *IPTablesRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StopIPTablesContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+	if rf, ok := ret.Get(0).(func(context.Context, *IPTablesRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -105,23 +93,14 @@ type MockIPTables_StopIPTablesContainer_Call struct {
 
 // StopIPTablesContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 []string
-//   - _a3 []string
-//   - _a4 []*net.IPNet
-//   - _a5 []*net.IPNet
-//   - _a6 []string
-//   - _a7 []string
-//   - _a8 string
-//   - _a9 bool
-//   - _a10 bool
-func (_e *MockIPTables_Expecter) StopIPTablesContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}, _a9 interface{}, _a10 interface{}) *MockIPTables_StopIPTablesContainer_Call {
-	return &MockIPTables_StopIPTablesContainer_Call{Call: _e.mock.On("StopIPTablesContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)}
+//   - _a1 *IPTablesRequest
+func (_e *MockIPTables_Expecter) StopIPTablesContainer(_a0 interface{}, _a1 interface{}) *MockIPTables_StopIPTablesContainer_Call {
+	return &MockIPTables_StopIPTablesContainer_Call{Call: _e.mock.On("StopIPTablesContainer", _a0, _a1)}
 }
 
-func (_c *MockIPTables_StopIPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 string, _a9 bool, _a10 bool)) *MockIPTables_StopIPTablesContainer_Call {
+func (_c *MockIPTables_StopIPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *IPTablesRequest)) *MockIPTables_StopIPTablesContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].([]string), args[3].([]string), args[4].([]*net.IPNet), args[5].([]*net.IPNet), args[6].([]string), args[7].([]string), args[8].(string), args[9].(bool), args[10].(bool))
+		run(args[0].(context.Context), args[1].(*IPTablesRequest))
 	})
 	return _c
 }
@@ -131,7 +110,7 @@ func (_c *MockIPTables_StopIPTablesContainer_Call) Return(_a0 error) *MockIPTabl
 	return _c
 }
 
-func (_c *MockIPTables_StopIPTablesContainer_Call) RunAndReturn(run func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool) error) *MockIPTables_StopIPTablesContainer_Call {
+func (_c *MockIPTables_StopIPTablesContainer_Call) RunAndReturn(run func(context.Context, *IPTablesRequest) error) *MockIPTables_StopIPTablesContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }

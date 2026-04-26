@@ -73,44 +73,41 @@ func newNetemCommand(client netemClient, gparams *chaos.GlobalParams, params *Pa
 }
 
 // run network emulation command, stop netem on timeout or abort
-func runNetem(ctx context.Context, client netemClient, c *container.Container, netInterface string, cmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimage string, pull, dryRun bool) error {
+func runNetem(ctx context.Context, client netemClient, req *container.NetemRequest) error {
 	logger := log.WithFields(log.Fields{
-		"id":       c.ID(),
-		"name":     c.Name(),
-		"iface":    netInterface,
-		"netem":    cmd,
-		"ips":      ips,
-		"sports":   sports,
-		"dports":   dports,
-		"duration": duration,
-		"tc-image": tcimage,
-		"pull":     pull,
+		"id":       req.Container.ID(),
+		"name":     req.Container.Name(),
+		"iface":    req.Interface,
+		"netem":    req.Command,
+		"ips":      req.IPs,
+		"sports":   req.SPorts,
+		"dports":   req.DPorts,
+		"duration": req.Duration,
+		"tc-image": req.Sidecar.Image,
+		"pull":     req.Sidecar.Pull,
 	})
 	logger.Debug("running netem command")
-	err := client.NetemContainer(ctx, c, netInterface, cmd, ips, sports, dports, duration, tcimage, pull, dryRun)
-	if err != nil {
+	if err := client.NetemContainer(ctx, req); err != nil {
 		return fmt.Errorf("netem failed: %w", err)
 	}
 	logger.Debug("netem command started")
 
 	// create new context with timeout for canceling
-	stopCtx, cancel := context.WithTimeout(context.Background(), duration)
+	stopCtx, cancel := context.WithTimeout(context.Background(), req.Duration)
 	defer cancel()
 	// wait for specified duration and then stop netem (where it applied) or stop on ctx.Done()
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping netem command on abort")
 		// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), duration)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), req.Duration)
 		defer cleanupCancel()
-		err = client.StopNetemContainer(cleanupCtx, c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
-		if err != nil {
+		if err := client.StopNetemContainer(cleanupCtx, req); err != nil {
 			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping netem command on timeout")
-		err = client.StopNetemContainer(ctx, c, netInterface, ips, sports, dports, tcimage, pull, dryRun)
-		if err != nil {
+		if err := client.StopNetemContainer(ctx, req); err != nil {
 			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
 		}
 	}

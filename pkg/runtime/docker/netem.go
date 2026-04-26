@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"strings"
-	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	ctypes "github.com/docker/docker/api/types/container"
@@ -18,39 +17,39 @@ import (
 )
 
 // NetemContainer injects sidecar netem container into the given container network namespace
-func (client dockerClient) NetemContainer(ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, ips []*net.IPNet, sports, dports []string, duration time.Duration, tcimg string, pull, dryrun bool) error {
+func (client dockerClient) NetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
 	log.WithFields(log.Fields{
-		"name":     c.Name(),
-		"id":       c.ID(),
-		"command":  netemCmd,
-		"ips":      ips,
-		"sports":   sports,
-		"dports":   dports,
-		"duration": duration,
-		"tc-img":   tcimg,
-		"pull":     pull,
-		"dryrun":   dryrun,
+		"name":     req.Container.Name(),
+		"id":       req.Container.ID(),
+		"command":  req.Command,
+		"ips":      req.IPs,
+		"sports":   req.SPorts,
+		"dports":   req.DPorts,
+		"duration": req.Duration,
+		"tc-img":   req.Sidecar.Image,
+		"pull":     req.Sidecar.Pull,
+		"dryrun":   req.DryRun,
 	}).Info("running netem on container")
-	if len(ips) == 0 && len(sports) == 0 && len(dports) == 0 {
-		return client.startNetemContainer(ctx, c, netInterface, netemCmd, tcimg, pull, dryrun)
+	if len(req.IPs) == 0 && len(req.SPorts) == 0 && len(req.DPorts) == 0 {
+		return client.startNetemContainer(ctx, req.Container, req.Interface, req.Command, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 	}
-	return client.startNetemContainerIPFilter(ctx, c, netInterface, netemCmd, ips, sports, dports, tcimg, pull, dryrun)
+	return client.startNetemContainerIPFilter(ctx, req.Container, req.Interface, req.Command, req.IPs, req.SPorts, req.DPorts, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 }
 
 // StopNetemContainer stops the netem container injected into the given container network namespace
-func (client dockerClient) StopNetemContainer(ctx context.Context, c *ctr.Container, netInterface string, ip []*net.IPNet, sports, dports []string, tcimg string, pull, dryrun bool) error {
+func (client dockerClient) StopNetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
 	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"IPs":    ip,
-		"sports": sports,
-		"dports": dports,
-		"iface":  netInterface,
-		"tc-img": tcimg,
-		"pull":   pull,
-		"dryrun": dryrun,
+		"name":   req.Container.Name(),
+		"id":     req.Container.ID(),
+		"IPs":    req.IPs,
+		"sports": req.SPorts,
+		"dports": req.DPorts,
+		"iface":  req.Interface,
+		"tc-img": req.Sidecar.Image,
+		"pull":   req.Sidecar.Pull,
+		"dryrun": req.DryRun,
 	}).Info("stopping netem on container")
-	return client.stopNetemContainer(ctx, c, netInterface, ip, sports, dports, tcimg, pull, dryrun)
+	return client.stopNetemContainer(ctx, req.Container, req.Interface, req.IPs, req.SPorts, req.DPorts, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
 }
 
 func (client dockerClient) startNetemContainer(ctx context.Context, c *ctr.Container, netInterface string, netemCmd []string, tcimg string, pull, dryrun bool) error {

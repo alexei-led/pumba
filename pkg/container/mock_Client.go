@@ -4,7 +4,6 @@ package container
 
 import (
 	context "context"
-	net "net"
 	time "time"
 
 	mock "github.com/stretchr/testify/mock"
@@ -118,17 +117,17 @@ func (_c *MockClient_ExecContainer_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// IPTablesContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11
-func (_m *MockClient) IPTablesContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 time.Duration, _a9 string, _a10 bool, _a11 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11)
+// IPTablesContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockClient) IPTablesContainer(_a0 context.Context, _a1 *IPTablesRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IPTablesContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11)
+	if rf, ok := ret.Get(0).(func(context.Context, *IPTablesRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -143,24 +142,14 @@ type MockClient_IPTablesContainer_Call struct {
 
 // IPTablesContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 []string
-//   - _a3 []string
-//   - _a4 []*net.IPNet
-//   - _a5 []*net.IPNet
-//   - _a6 []string
-//   - _a7 []string
-//   - _a8 time.Duration
-//   - _a9 string
-//   - _a10 bool
-//   - _a11 bool
-func (_e *MockClient_Expecter) IPTablesContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}, _a9 interface{}, _a10 interface{}, _a11 interface{}) *MockClient_IPTablesContainer_Call {
-	return &MockClient_IPTablesContainer_Call{Call: _e.mock.On("IPTablesContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10, _a11)}
+//   - _a1 *IPTablesRequest
+func (_e *MockClient_Expecter) IPTablesContainer(_a0 interface{}, _a1 interface{}) *MockClient_IPTablesContainer_Call {
+	return &MockClient_IPTablesContainer_Call{Call: _e.mock.On("IPTablesContainer", _a0, _a1)}
 }
 
-func (_c *MockClient_IPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 time.Duration, _a9 string, _a10 bool, _a11 bool)) *MockClient_IPTablesContainer_Call {
+func (_c *MockClient_IPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *IPTablesRequest)) *MockClient_IPTablesContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].([]string), args[3].([]string), args[4].([]*net.IPNet), args[5].([]*net.IPNet), args[6].([]string), args[7].([]string), args[8].(time.Duration), args[9].(string), args[10].(bool), args[11].(bool))
+		run(args[0].(context.Context), args[1].(*IPTablesRequest))
 	})
 	return _c
 }
@@ -170,7 +159,7 @@ func (_c *MockClient_IPTablesContainer_Call) Return(_a0 error) *MockClient_IPTab
 	return _c
 }
 
-func (_c *MockClient_IPTablesContainer_Call) RunAndReturn(run func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error) *MockClient_IPTablesContainer_Call {
+func (_c *MockClient_IPTablesContainer_Call) RunAndReturn(run func(context.Context, *IPTablesRequest) error) *MockClient_IPTablesContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -284,17 +273,17 @@ func (_c *MockClient_ListContainers_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
-// NetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10
-func (_m *MockClient) NetemContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 []string, _a4 []*net.IPNet, _a5 []string, _a6 []string, _a7 time.Duration, _a8 string, _a9 bool, _a10 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+// NetemContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockClient) NetemContainer(_a0 context.Context, _a1 *NetemRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NetemContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+	if rf, ok := ret.Get(0).(func(context.Context, *NetemRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -309,23 +298,14 @@ type MockClient_NetemContainer_Call struct {
 
 // NetemContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 string
-//   - _a3 []string
-//   - _a4 []*net.IPNet
-//   - _a5 []string
-//   - _a6 []string
-//   - _a7 time.Duration
-//   - _a8 string
-//   - _a9 bool
-//   - _a10 bool
-func (_e *MockClient_Expecter) NetemContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}, _a9 interface{}, _a10 interface{}) *MockClient_NetemContainer_Call {
-	return &MockClient_NetemContainer_Call{Call: _e.mock.On("NetemContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)}
+//   - _a1 *NetemRequest
+func (_e *MockClient_Expecter) NetemContainer(_a0 interface{}, _a1 interface{}) *MockClient_NetemContainer_Call {
+	return &MockClient_NetemContainer_Call{Call: _e.mock.On("NetemContainer", _a0, _a1)}
 }
 
-func (_c *MockClient_NetemContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 string, _a3 []string, _a4 []*net.IPNet, _a5 []string, _a6 []string, _a7 time.Duration, _a8 string, _a9 bool, _a10 bool)) *MockClient_NetemContainer_Call {
+func (_c *MockClient_NetemContainer_Call) Run(run func(_a0 context.Context, _a1 *NetemRequest)) *MockClient_NetemContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].(string), args[3].([]string), args[4].([]*net.IPNet), args[5].([]string), args[6].([]string), args[7].(time.Duration), args[8].(string), args[9].(bool), args[10].(bool))
+		run(args[0].(context.Context), args[1].(*NetemRequest))
 	})
 	return _c
 }
@@ -335,7 +315,7 @@ func (_c *MockClient_NetemContainer_Call) Return(_a0 error) *MockClient_NetemCon
 	return _c
 }
 
-func (_c *MockClient_NetemContainer_Call) RunAndReturn(run func(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error) *MockClient_NetemContainer_Call {
+func (_c *MockClient_NetemContainer_Call) RunAndReturn(run func(context.Context, *NetemRequest) error) *MockClient_NetemContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -634,17 +614,17 @@ func (_c *MockClient_StopContainerWithID_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
-// StopIPTablesContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10
-func (_m *MockClient) StopIPTablesContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 string, _a9 bool, _a10 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+// StopIPTablesContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockClient) StopIPTablesContainer(_a0 context.Context, _a1 *IPTablesRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StopIPTablesContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+	if rf, ok := ret.Get(0).(func(context.Context, *IPTablesRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -659,23 +639,14 @@ type MockClient_StopIPTablesContainer_Call struct {
 
 // StopIPTablesContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 []string
-//   - _a3 []string
-//   - _a4 []*net.IPNet
-//   - _a5 []*net.IPNet
-//   - _a6 []string
-//   - _a7 []string
-//   - _a8 string
-//   - _a9 bool
-//   - _a10 bool
-func (_e *MockClient_Expecter) StopIPTablesContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}, _a9 interface{}, _a10 interface{}) *MockClient_StopIPTablesContainer_Call {
-	return &MockClient_StopIPTablesContainer_Call{Call: _e.mock.On("StopIPTablesContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)}
+//   - _a1 *IPTablesRequest
+func (_e *MockClient_Expecter) StopIPTablesContainer(_a0 interface{}, _a1 interface{}) *MockClient_StopIPTablesContainer_Call {
+	return &MockClient_StopIPTablesContainer_Call{Call: _e.mock.On("StopIPTablesContainer", _a0, _a1)}
 }
 
-func (_c *MockClient_StopIPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 []string, _a3 []string, _a4 []*net.IPNet, _a5 []*net.IPNet, _a6 []string, _a7 []string, _a8 string, _a9 bool, _a10 bool)) *MockClient_StopIPTablesContainer_Call {
+func (_c *MockClient_StopIPTablesContainer_Call) Run(run func(_a0 context.Context, _a1 *IPTablesRequest)) *MockClient_StopIPTablesContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].([]string), args[3].([]string), args[4].([]*net.IPNet), args[5].([]*net.IPNet), args[6].([]string), args[7].([]string), args[8].(string), args[9].(bool), args[10].(bool))
+		run(args[0].(context.Context), args[1].(*IPTablesRequest))
 	})
 	return _c
 }
@@ -685,22 +656,22 @@ func (_c *MockClient_StopIPTablesContainer_Call) Return(_a0 error) *MockClient_S
 	return _c
 }
 
-func (_c *MockClient_StopIPTablesContainer_Call) RunAndReturn(run func(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool) error) *MockClient_StopIPTablesContainer_Call {
+func (_c *MockClient_StopIPTablesContainer_Call) RunAndReturn(run func(context.Context, *IPTablesRequest) error) *MockClient_StopIPTablesContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// StopNetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8
-func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 []*net.IPNet, _a4 []string, _a5 []string, _a6 string, _a7 bool, _a8 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
+// StopNetemContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockClient) StopNetemContainer(_a0 context.Context, _a1 *NetemRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StopNetemContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
+	if rf, ok := ret.Get(0).(func(context.Context, *NetemRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -715,21 +686,14 @@ type MockClient_StopNetemContainer_Call struct {
 
 // StopNetemContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 string
-//   - _a3 []*net.IPNet
-//   - _a4 []string
-//   - _a5 []string
-//   - _a6 string
-//   - _a7 bool
-//   - _a8 bool
-func (_e *MockClient_Expecter) StopNetemContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}) *MockClient_StopNetemContainer_Call {
-	return &MockClient_StopNetemContainer_Call{Call: _e.mock.On("StopNetemContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)}
+//   - _a1 *NetemRequest
+func (_e *MockClient_Expecter) StopNetemContainer(_a0 interface{}, _a1 interface{}) *MockClient_StopNetemContainer_Call {
+	return &MockClient_StopNetemContainer_Call{Call: _e.mock.On("StopNetemContainer", _a0, _a1)}
 }
 
-func (_c *MockClient_StopNetemContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 string, _a3 []*net.IPNet, _a4 []string, _a5 []string, _a6 string, _a7 bool, _a8 bool)) *MockClient_StopNetemContainer_Call {
+func (_c *MockClient_StopNetemContainer_Call) Run(run func(_a0 context.Context, _a1 *NetemRequest)) *MockClient_StopNetemContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].(string), args[3].([]*net.IPNet), args[4].([]string), args[5].([]string), args[6].(string), args[7].(bool), args[8].(bool))
+		run(args[0].(context.Context), args[1].(*NetemRequest))
 	})
 	return _c
 }
@@ -739,7 +703,7 @@ func (_c *MockClient_StopNetemContainer_Call) Return(_a0 error) *MockClient_Stop
 	return _c
 }
 
-func (_c *MockClient_StopNetemContainer_Call) RunAndReturn(run func(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error) *MockClient_StopNetemContainer_Call {
+func (_c *MockClient_StopNetemContainer_Call) RunAndReturn(run func(context.Context, *NetemRequest) error) *MockClient_StopNetemContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }

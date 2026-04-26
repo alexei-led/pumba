@@ -4,8 +4,6 @@ package container
 
 import (
 	context "context"
-	net "net"
-	time "time"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -23,17 +21,17 @@ func (_m *MockNetem) EXPECT() *MockNetem_Expecter {
 	return &MockNetem_Expecter{mock: &_m.Mock}
 }
 
-// NetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10
-func (_m *MockNetem) NetemContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 []string, _a4 []*net.IPNet, _a5 []string, _a6 []string, _a7 time.Duration, _a8 string, _a9 bool, _a10 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+// NetemContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockNetem) NetemContainer(_a0 context.Context, _a1 *NetemRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NetemContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)
+	if rf, ok := ret.Get(0).(func(context.Context, *NetemRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -48,23 +46,14 @@ type MockNetem_NetemContainer_Call struct {
 
 // NetemContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 string
-//   - _a3 []string
-//   - _a4 []*net.IPNet
-//   - _a5 []string
-//   - _a6 []string
-//   - _a7 time.Duration
-//   - _a8 string
-//   - _a9 bool
-//   - _a10 bool
-func (_e *MockNetem_Expecter) NetemContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}, _a9 interface{}, _a10 interface{}) *MockNetem_NetemContainer_Call {
-	return &MockNetem_NetemContainer_Call{Call: _e.mock.On("NetemContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8, _a9, _a10)}
+//   - _a1 *NetemRequest
+func (_e *MockNetem_Expecter) NetemContainer(_a0 interface{}, _a1 interface{}) *MockNetem_NetemContainer_Call {
+	return &MockNetem_NetemContainer_Call{Call: _e.mock.On("NetemContainer", _a0, _a1)}
 }
 
-func (_c *MockNetem_NetemContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 string, _a3 []string, _a4 []*net.IPNet, _a5 []string, _a6 []string, _a7 time.Duration, _a8 string, _a9 bool, _a10 bool)) *MockNetem_NetemContainer_Call {
+func (_c *MockNetem_NetemContainer_Call) Run(run func(_a0 context.Context, _a1 *NetemRequest)) *MockNetem_NetemContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].(string), args[3].([]string), args[4].([]*net.IPNet), args[5].([]string), args[6].([]string), args[7].(time.Duration), args[8].(string), args[9].(bool), args[10].(bool))
+		run(args[0].(context.Context), args[1].(*NetemRequest))
 	})
 	return _c
 }
@@ -74,22 +63,22 @@ func (_c *MockNetem_NetemContainer_Call) Return(_a0 error) *MockNetem_NetemConta
 	return _c
 }
 
-func (_c *MockNetem_NetemContainer_Call) RunAndReturn(run func(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error) *MockNetem_NetemContainer_Call {
+func (_c *MockNetem_NetemContainer_Call) RunAndReturn(run func(context.Context, *NetemRequest) error) *MockNetem_NetemContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// StopNetemContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8
-func (_m *MockNetem) StopNetemContainer(_a0 context.Context, _a1 *Container, _a2 string, _a3 []*net.IPNet, _a4 []string, _a5 []string, _a6 string, _a7 bool, _a8 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
+// StopNetemContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockNetem) StopNetemContainer(_a0 context.Context, _a1 *NetemRequest) error {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StopNetemContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)
+	if rf, ok := ret.Get(0).(func(context.Context, *NetemRequest) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -104,21 +93,14 @@ type MockNetem_StopNetemContainer_Call struct {
 
 // StopNetemContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 string
-//   - _a3 []*net.IPNet
-//   - _a4 []string
-//   - _a5 []string
-//   - _a6 string
-//   - _a7 bool
-//   - _a8 bool
-func (_e *MockNetem_Expecter) StopNetemContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}, _a8 interface{}) *MockNetem_StopNetemContainer_Call {
-	return &MockNetem_StopNetemContainer_Call{Call: _e.mock.On("StopNetemContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7, _a8)}
+//   - _a1 *NetemRequest
+func (_e *MockNetem_Expecter) StopNetemContainer(_a0 interface{}, _a1 interface{}) *MockNetem_StopNetemContainer_Call {
+	return &MockNetem_StopNetemContainer_Call{Call: _e.mock.On("StopNetemContainer", _a0, _a1)}
 }
 
-func (_c *MockNetem_StopNetemContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 string, _a3 []*net.IPNet, _a4 []string, _a5 []string, _a6 string, _a7 bool, _a8 bool)) *MockNetem_StopNetemContainer_Call {
+func (_c *MockNetem_StopNetemContainer_Call) Run(run func(_a0 context.Context, _a1 *NetemRequest)) *MockNetem_StopNetemContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].(string), args[3].([]*net.IPNet), args[4].([]string), args[5].([]string), args[6].(string), args[7].(bool), args[8].(bool))
+		run(args[0].(context.Context), args[1].(*NetemRequest))
 	})
 	return _c
 }
@@ -128,7 +110,7 @@ func (_c *MockNetem_StopNetemContainer_Call) Return(_a0 error) *MockNetem_StopNe
 	return _c
 }
 
-func (_c *MockNetem_StopNetemContainer_Call) RunAndReturn(run func(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error) *MockNetem_StopNetemContainer_Call {
+func (_c *MockNetem_StopNetemContainer_Call) RunAndReturn(run func(context.Context, *NetemRequest) error) *MockNetem_StopNetemContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }

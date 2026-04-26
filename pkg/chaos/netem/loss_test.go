@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -47,16 +46,16 @@ func TestLossCommand_Run_DryRun(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{target}, nil)
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
-		[]string{"loss", "10.00", "5.00"},
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "tc-image", false, true).
-		Return(nil)
-
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"tc-image", false, true).
-		Return(nil)
+	expectedReq := &container.NetemRequest{
+		Container: target,
+		Interface: "eth0",
+		Command:   []string{"loss", "10.00", "5.00"},
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "tc-image"},
+		DryRun:    true,
+	}
+	mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, nparams, 10.0, 5.0)
 	require.NoError(t, err)
@@ -79,16 +78,8 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil)
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
-		[]string{"loss", "10.00"},
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "tc", false, true).
-		Return(nil).Once()
-
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.Container"), "eth0",
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"tc", false, true).
-		Return(nil).Once()
+	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
 
 	cmd, err := NewLossCommand(mockClient, gparams, nparams, 10.0, 0.0)
 	require.NoError(t, err)

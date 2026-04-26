@@ -2,7 +2,6 @@ package container
 
 import (
 	"context"
-	"net"
 	"time"
 )
 
@@ -34,16 +33,19 @@ type Executor interface {
 	ExecContainer(context.Context, *Container, string, []string, bool) error
 }
 
-// Netem manages network emulation on containers.
+// Netem manages network emulation on containers. Requests are passed by
+// pointer because NetemRequest is large (~160 bytes) — value semantics would
+// cost a copy on every call.
 type Netem interface {
-	NetemContainer(context.Context, *Container, string, []string, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
-	StopNetemContainer(context.Context, *Container, string, []*net.IPNet, []string, []string, string, bool, bool) error
+	NetemContainer(context.Context, *NetemRequest) error
+	StopNetemContainer(context.Context, *NetemRequest) error
 }
 
-// IPTables manages iptables rules on containers.
+// IPTables manages iptables rules on containers. Requests are passed by
+// pointer for the same size reason as Netem.
 type IPTables interface {
-	IPTablesContainer(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, time.Duration, string, bool, bool) error
-	StopIPTablesContainer(context.Context, *Container, []string, []string, []*net.IPNet, []*net.IPNet, []string, []string, string, bool, bool) error
+	IPTablesContainer(context.Context, *IPTablesRequest) error
+	StopIPTablesContainer(context.Context, *IPTablesRequest) error
 }
 
 // Stressor manages stress testing on containers.

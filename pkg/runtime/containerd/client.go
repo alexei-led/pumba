@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
 	"strings"
 	"syscall"
 	"time"
@@ -245,62 +244,60 @@ func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Con
 }
 
 // NetemContainer applies network emulation to a container by executing tc commands.
-func (c *containerdClient) NetemContainer(ctx context.Context, container *ctr.Container, netInterface string, netemCmd []string,
-	ips []*net.IPNet, sports, dports []string, _ time.Duration, tcimg string, pull, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface, "tc-image": tcimg}).Debug("netem on containerd container")
-	if dryrun {
+func (c *containerdClient) NetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
+	log.WithFields(log.Fields{"id": req.Container.ID(), "interface": req.Interface, "tc-image": req.Sidecar.Image}).Debug("netem on containerd container")
+	if req.DryRun {
 		return nil
 	}
-	tcCommands := buildNetemCommands(netInterface, netemCmd, ips, sports, dports)
-	if tcimg != "" {
-		return c.sidecarExec(ctx, container, tcimg, pull, "tc", tcCommands)
+	tcCommands := buildNetemCommands(req.Interface, req.Command, req.IPs, req.SPorts, req.DPorts)
+	if req.Sidecar.Image != "" {
+		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "tc", tcCommands)
 	}
-	return c.runTCCommands(c.nsCtx(ctx), container.ID(), tcCommands)
+	return c.runTCCommands(c.nsCtx(ctx), req.Container.ID(), tcCommands)
 }
 
 // StopNetemContainer removes network emulation from a container.
-func (c *containerdClient) StopNetemContainer(ctx context.Context, container *ctr.Container, netInterface string,
-	ips []*net.IPNet, sports, dports []string, tcimg string, pull, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "interface": netInterface, "tc-image": tcimg}).Debug("stop netem on containerd container")
-	if dryrun {
+func (c *containerdClient) StopNetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
+	log.WithFields(log.Fields{"id": req.Container.ID(), "interface": req.Interface, "tc-image": req.Sidecar.Image}).Debug("stop netem on containerd container")
+	if req.DryRun {
 		return nil
 	}
-	hasFilters := len(ips) > 0 || len(sports) > 0 || len(dports) > 0
-	tcCommands := buildStopNetemCommands(netInterface, hasFilters)
-	if tcimg != "" {
-		return c.sidecarExec(ctx, container, tcimg, pull, "tc", tcCommands)
+	hasFilters := len(req.IPs) > 0 || len(req.SPorts) > 0 || len(req.DPorts) > 0
+	tcCommands := buildStopNetemCommands(req.Interface, hasFilters)
+	if req.Sidecar.Image != "" {
+		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "tc", tcCommands)
 	}
-	return c.runTCCommands(c.nsCtx(ctx), container.ID(), tcCommands)
+	return c.runTCCommands(c.nsCtx(ctx), req.Container.ID(), tcCommands)
 }
 
 // IPTablesContainer applies iptables rules to a container.
-func (c *containerdClient) IPTablesContainer(ctx context.Context, container *ctr.Container,
-	cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string,
-	_ time.Duration, tcimg string, pull, dryrun bool) error {
-	log.WithField("id", container.ID()).Debug("iptables on containerd container")
-	if dryrun {
+//
+//nolint:dupl // intentionally parallel to StopIPTablesContainer; install/remove use identical IPTables commands on this runtime
+func (c *containerdClient) IPTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
+	log.WithField("id", req.Container.ID()).Debug("iptables on containerd container")
+	if req.DryRun {
 		return nil
 	}
-	commands := buildIPTablesCommands(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
-	if tcimg != "" {
-		return c.sidecarExec(ctx, container, tcimg, pull, "iptables", commands)
+	commands := buildIPTablesCommands(req.CmdPrefix, req.CmdSuffix, req.SrcIPs, req.DstIPs, req.SPorts, req.DPorts)
+	if req.Sidecar.Image != "" {
+		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "iptables", commands)
 	}
-	return c.runIPTablesCommands(ctx, container.ID(), commands)
+	return c.runIPTablesCommands(ctx, req.Container.ID(), commands)
 }
 
 // StopIPTablesContainer removes iptables rules from a container.
-func (c *containerdClient) StopIPTablesContainer(ctx context.Context, container *ctr.Container,
-	cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string,
-	tcimg string, pull, dryrun bool) error {
-	log.WithField("id", container.ID()).Debug("stop iptables on containerd container")
-	if dryrun {
+//
+//nolint:dupl // intentionally parallel to IPTablesContainer; install/remove use identical IPTables commands on this runtime
+func (c *containerdClient) StopIPTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
+	log.WithField("id", req.Container.ID()).Debug("stop iptables on containerd container")
+	if req.DryRun {
 		return nil
 	}
-	commands := buildIPTablesCommands(cmdPrefix, cmdSuffix, srcIPs, dstIPs, sports, dports)
-	if tcimg != "" {
-		return c.sidecarExec(ctx, container, tcimg, pull, "iptables", commands)
+	commands := buildIPTablesCommands(req.CmdPrefix, req.CmdSuffix, req.SrcIPs, req.DstIPs, req.SPorts, req.DPorts)
+	if req.Sidecar.Image != "" {
+		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "iptables", commands)
 	}
-	return c.runIPTablesCommands(ctx, container.ID(), commands)
+	return c.runIPTablesCommands(ctx, req.Container.ID(), commands)
 }
 
 func (c *containerdClient) runTCCommands(ctx context.Context, containerID string, commands [][]string) error {

@@ -111,7 +111,17 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 			defer wg.Done()
 			netemCtx, cancel := context.WithTimeout(ctx, n.duration)
 			defer cancel()
-			errs[i] = runNetem(netemCtx, n.client, c, n.iface, netemCmd, n.ips, n.sports, n.dports, n.duration, n.image, n.pull, n.dryRun)
+			errs[i] = runNetem(netemCtx, n.client, &container.NetemRequest{
+				Container: c,
+				Interface: n.iface,
+				Command:   netemCmd,
+				IPs:       n.ips,
+				SPorts:    n.sports,
+				DPorts:    n.dports,
+				Duration:  n.duration,
+				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
+				DryRun:    n.dryRun,
+			})
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}

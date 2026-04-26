@@ -136,17 +136,41 @@ func Test_runIPTables(t *testing.T) {
 			if tt.errs.startErr {
 				startErr = errors.New("test error")
 			}
-			mockClient.EXPECT().IPTablesContainer(ctx, tt.args.container, tt.args.addCmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.image, tt.args.pull, tt.args.dryRun).Return(startErr)
+			addReq := &container.IPTablesRequest{
+				Container: tt.args.container,
+				CmdPrefix: tt.args.addCmdPrefix,
+				CmdSuffix: tt.args.cmdSuffix,
+				SrcIPs:    tt.args.srcIPs,
+				DstIPs:    tt.args.dstIPs,
+				SPorts:    tt.args.sports,
+				DPorts:    tt.args.dports,
+				Duration:  tt.args.duration,
+				Sidecar:   container.SidecarSpec{Image: tt.args.image, Pull: tt.args.pull},
+				DryRun:    tt.args.dryRun,
+			}
+			delReq := &container.IPTablesRequest{
+				Container: tt.args.container,
+				CmdPrefix: tt.args.delCmdPrefix,
+				CmdSuffix: tt.args.cmdSuffix,
+				SrcIPs:    tt.args.srcIPs,
+				DstIPs:    tt.args.dstIPs,
+				SPorts:    tt.args.sports,
+				DPorts:    tt.args.dports,
+				Duration:  tt.args.duration,
+				Sidecar:   container.SidecarSpec{Image: tt.args.image, Pull: tt.args.pull},
+				DryRun:    tt.args.dryRun,
+			}
+			mockClient.EXPECT().IPTablesContainer(ctx, addReq).Return(startErr)
 
 			if !tt.errs.startErr {
 				stopErr := error(nil)
 				if tt.errs.stopErr {
 					stopErr = errors.New("test error")
 				}
-				mockClient.EXPECT().StopIPTablesContainer(mock.Anything, tt.args.container, tt.args.delCmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.image, tt.args.pull, tt.args.dryRun).Return(stopErr)
+				mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(stopErr)
 			}
 
-			if err := runIPTables(ctx, mockClient, tt.args.container, tt.args.addCmdPrefix, tt.args.delCmdPrefix, tt.args.cmdSuffix, tt.args.srcIPs, tt.args.dstIPs, tt.args.sports, tt.args.dports, tt.args.duration, tt.args.image, tt.args.pull, tt.args.dryRun); (err != nil) != tt.wantErr {
+			if err := runIPTables(ctx, mockClient, addReq, delReq); (err != nil) != tt.wantErr {
 				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

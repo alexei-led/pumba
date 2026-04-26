@@ -2,7 +2,6 @@ package netem
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -47,16 +46,16 @@ func TestDuplicateCommand_Run_DryRun(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{target}, nil)
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, target, "eth0",
-		[]string{"duplicate", "10.00", "5.00"},
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		100*time.Millisecond, "tc-image", false, true).
-		Return(nil)
-
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, target, "eth0",
-		([]*net.IPNet)(nil), []string(nil), []string(nil),
-		"tc-image", false, true).
-		Return(nil)
+	expectedReq := &container.NetemRequest{
+		Container: target,
+		Interface: "eth0",
+		Command:   []string{"duplicate", "10.00", "5.00"},
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "tc-image"},
+		DryRun:    true,
+	}
+	mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
 
 	cmd, err := NewDuplicateCommand(mockClient, gparams, nparams, 10.0, 5.0)
 	require.NoError(t, err)
