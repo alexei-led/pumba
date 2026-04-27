@@ -341,14 +341,14 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 - Create: `cmd/flags.go` (~150 LOC: `globalFlags(rootCertPath)`, `initializeCLICommands`)
 - Modify: `cmd/main_test.go` if package-internal references break
 
-- [ ] move `createRuntimeClient`, `tlsConfig`, `newDockerClient`/`newContainerdClient`/`newPodmanClient` factory vars to `cmd/runtime.go`
-- [ ] extract the log-level switch and slackrus hook setup from `before` into `setupLogging(f cliflags.Flags)` in `cmd/logging.go`; `before` calls it
-- [ ] move `globalFlags` and `initializeCLICommands` into `cmd/flags.go`
-- [ ] keep `cmd/main.go` minimal: `main()`, `init()`, `handleSignals`, `topContext`, `runtimeClient` package var, `app := cli.NewApp(); ...; app.Run(os.Args)`
-- [ ] verify every file is under 200 LOC (`wc -l cmd/*.go`)
-- [ ] verify the build: `go build ./cmd/...`
-- [ ] run any existing main_test.go tests — none expected to need changes since `package main` stays unified
-- [ ] run `CGO_ENABLED=0 go test ./...` and `make lint` — must pass before Task 10
+- [x] move `createRuntimeClient`, `tlsConfig`, `newDockerClient`/`newContainerdClient`/`newPodmanClient` factory vars to `cmd/runtime.go`
+- [x] extract the log-level switch and slackrus hook setup from `before` into `setupLogging(f cliflags.Flags)` in `cmd/logging.go`; `before` calls it
+- [x] move `globalFlags` and `initializeCLICommands` into `cmd/flags.go` (initializeCLICommands extracted further into `cmd/commands.go` to keep both under the 200 LOC budget)
+- [x] keep `cmd/main.go` minimal: `main()`, `init()`, `handleSignals`, `topContext`, `runtimeClient` package var, `app := cli.NewApp(); ...; app.Run(os.Args)`
+- [x] verify every file is under 200 LOC (`wc -l cmd/*.go`)
+- [x] verify the build: `go build ./cmd/...`
+- [x] run any existing main_test.go tests — none expected to need changes since `package main` stays unified
+- [x] run `CGO_ENABLED=0 go test ./...` and `make lint` — must pass before Task 10
 
 ### Task 10: Verify acceptance criteria
 
