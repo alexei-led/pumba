@@ -56,29 +56,18 @@ func splitLabels(raw []string) []string {
 // ParseGlobalParams parses application-level flags from any cliflags.Flags
 // implementation. Reads global flags via c.Global() so the caller may pass the
 // subcommand-level Flags directly.
-func ParseGlobalParams(c cliflags.Flags) (*GlobalParams, error) {
+func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
 	g := c.Global()
-	// get random flag
-	random := g.Bool("random")
-	// get labels; support both --label k=v --label k2=v2 and --label k=v,k2=v2
-	labels := splitLabels(g.StringSlice("label"))
-	// get dry-run mode
-	dryRun := g.Bool("dry-run")
-	// get skip error flag
-	skipError := g.Bool("skip-error")
-	// get names or pattern (positional args live at the subcommand level, not the root)
 	names, pattern := getNamesOrPattern(c)
-	// get global chaos interval
-	interval := g.Duration("interval")
 	return &GlobalParams{
-		Random:     random,
-		Labels:     labels,
+		Random:     g.Bool("random"),
+		Labels:     splitLabels(g.StringSlice("label")),
 		Pattern:    pattern,
 		Names:      names,
-		DryRun:     dryRun,
-		SkipErrors: skipError,
-		Interval:   interval,
-	}, nil
+		DryRun:     g.Bool("dry-run"),
+		SkipErrors: g.Bool("skip-error"),
+		Interval:   g.Duration("interval"),
+	}
 }
 
 // get names list of filter pattern from command line

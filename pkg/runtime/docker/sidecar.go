@@ -74,8 +74,8 @@ func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container
 		StopSignal: "SIGKILL",
 	}
 
-	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	log.WithField("img", config.Image).Debugf("creating %s-container", tool)
+	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	if err != nil {
 		return fmt.Errorf("failed to create %s-container from %s-img: %w", tool, tool, err)
 	}
@@ -119,7 +119,9 @@ func (client dockerClient) pullSidecarImage(ctx context.Context, img, tool strin
 }
 
 // runSidecarExec creates and runs an exec inside the sidecar container,
-// invoking `tool` (tc or iptables) with args.
+// invoking `tool` (tc or iptables) with args. The exit code is inspected so
+// that a non-zero status (e.g. tc rejecting bad args, iptables rule rejected
+// by kernel) surfaces as an error instead of silent success.
 func (client dockerClient) runSidecarExec(ctx context.Context, sidecarID, tool string, args []string) error {
 	execConfig := ctypes.ExecOptions{
 		AttachStdout: true,
@@ -132,6 +134,13 @@ func (client dockerClient) runSidecarExec(ctx context.Context, sidecarID, tool s
 	}
 	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
 		return fmt.Errorf("failed to start %s-container exec: %w", tool, err)
+	}
+	insp, err := client.containerAPI.ContainerExecInspect(ctx, execCreateResponse.ID)
+	if err != nil {
+		return fmt.Errorf("failed to inspect %s-container exec: %w", tool, err)
+	}
+	if insp.ExitCode != 0 {
+		return fmt.Errorf("%s %s failed with exit code %d", tool, strings.Join(args, " "), insp.ExitCode)
 	}
 	log.WithField("args", strings.Join(args, " ")).Debugf("run command on %s-container", tool)
 	return nil
