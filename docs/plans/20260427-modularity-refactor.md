@@ -220,15 +220,15 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 - Modify: all 17 CLI builders in `pkg/chaos/{lifecycle,netem,iptables,stress}/cmd/*.go`
 - Modify: existing tests for those builders + `pkg/chaos/command_test.go`
 
-- [ ] add `pkg/chaos/runtime.go` with `type RuntimeFactory func() container.Client`
-- [ ] delete `DockerClient` var from `pkg/chaos/command.go`
-- [ ] update `cmd/main.go` `before()` to build the factory closure once and pass to every `New*CLICommand`
-- [ ] update each `NewXxxCLICommand` signature to accept `runtime chaos.RuntimeFactory`
-- [ ] replace every `chaos.DockerClient` read with `runtime()` inside the Action
-- [ ] update `pkg/chaos/command_test.go` if it touches the deleted var
-- [ ] update each `*_test.go` next to a renamed CLI builder (signature change)
-- [ ] `make lint` — must pass
-- [ ] `make test` — must pass before next task
+- [x] add `pkg/chaos/runtime.go` with `type RuntimeFactory func() container.Client` (placed in `pkg/chaos/command.go` as `chaos.Runtime`)
+- [x] delete `DockerClient` var from `pkg/chaos/command.go`
+- [x] update `cmd/main.go` `before()` to build the factory closure once and pass to every `New*CLICommand`
+- [x] update each `NewXxxCLICommand` signature to accept `runtime chaos.RuntimeFactory` (named `chaos.Runtime`)
+- [x] replace every `chaos.DockerClient` read with `runtime()` inside the Action
+- [x] update `pkg/chaos/command_test.go` if it touches the deleted var
+- [x] update each `*_test.go` next to a renamed CLI builder (signature change)
+- [x] `make lint` — must pass
+- [x] `make test` — must pass before next task
 
 ### Task 3: Extract generic `NewAction[P]` CLI builder
 
