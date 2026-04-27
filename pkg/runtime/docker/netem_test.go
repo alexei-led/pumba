@@ -93,8 +93,8 @@ func TestNetemContainer_DryRun(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything)
-	engineClient.AssertNotCalled(t, "ContainerExecAttach", "abc123", mock.Anything)
+	engineClient.AssertNotCalled(t, "ContainerExecCreate", mock.Anything, mock.Anything, mock.Anything)
+	engineClient.AssertNotCalled(t, "ContainerExecAttach", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestNetemContainerIPFilter_Success(t *testing.T) {

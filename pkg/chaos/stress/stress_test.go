@@ -54,6 +54,7 @@ func TestStressCommand_Run(t *testing.T) {
 		params    *chaos.GlobalParams
 		random    bool
 		setupMock func(*container.MockClient)
+		preRun    func(context.CancelFunc)
 		wantErr   string
 	}{
 		{
@@ -134,6 +135,12 @@ func TestStressCommand_Run(t *testing.T) {
 				m.EXPECT().StopContainerWithID(mock.Anything, stressID, defaultStopTimeout, false).
 					Return(nil)
 			},
+			preRun: func(cancel context.CancelFunc) {
+				go func() {
+					time.Sleep(50 * time.Millisecond)
+					cancel()
+				}()
+			},
 		},
 		{
 			name:   "random mode picks one from multiple containers",
@@ -157,14 +164,10 @@ func TestStressCommand_Run(t *testing.T) {
 
 			cmd := NewStressCommand(mockClient, tt.params, image, false, stressArgs, duration, 0, false)
 
-			ctx := context.Background()
-			if tt.name == "context cancellation stops stress container" {
-				var cancel context.CancelFunc
-				ctx, cancel = context.WithCancel(ctx)
-				go func() {
-					time.Sleep(50 * time.Millisecond)
-					cancel()
-				}()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if tt.preRun != nil {
+				tt.preRun(cancel)
 			}
 
 			err := cmd.Run(ctx, tt.random)

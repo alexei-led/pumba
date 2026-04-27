@@ -30,6 +30,35 @@ func TestDuplicateCommand_Run_NoContainers(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestDuplicateCommand_Run_WithRandom(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1"}
+	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2"}
+
+	gparams := &chaos.GlobalParams{Names: []string{"c1", "c2"}, DryRun: true}
+	nparams := &container.NetemRequest{
+		Interface: "eth0",
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "tc"},
+		DryRun:    true,
+	}
+
+	mockClient.EXPECT().ListContainers(mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"),
+		container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{c1, c2}, nil)
+
+	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
+
+	cmd, err := NewDuplicateCommand(mockClient, gparams, nparams, 0, 10.0, 0.0)
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), true)
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
 func TestDuplicateCommand_Run_DryRun(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	target := &container.Container{

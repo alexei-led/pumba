@@ -115,7 +115,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	if err != nil {
 		// AutoRemove fires only on container exit; a never-attached container
 		// is leaked unless we remove it explicitly.
-		_ = client.removeSidecar(ctx, createResponse.ID)
+		if rmErr := client.removeSidecar(ctx, createResponse.ID); rmErr != nil {
+			log.WithError(rmErr).WithField("id", createResponse.ID).Warn("failed to remove never-attached stress-ng sidecar")
+		}
 		return "", nil, nil, fmt.Errorf("failed to attach to stress-ng container: %w", err)
 	}
 	output := make(chan string, 1)
@@ -150,7 +152,9 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, targetID 
 	if err != nil {
 		// AutoRemove fires only on container exit; a never-started container
 		// is leaked unless we remove it explicitly.
-		_ = client.removeSidecar(ctx, createResponse.ID)
+		if rmErr := client.removeSidecar(ctx, createResponse.ID); rmErr != nil {
+			log.WithError(rmErr).WithField("id", createResponse.ID).Warn("failed to remove never-started stress-ng sidecar")
+		}
 		return createResponse.ID, output, outerr, fmt.Errorf("failed to start stress-ng container: %w", err)
 	}
 	return createResponse.ID, output, outerr, nil

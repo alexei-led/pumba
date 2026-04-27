@@ -69,16 +69,14 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		}
 	}
 
-	for _, container := range containers {
+	for _, c := range containers {
 		log.WithFields(log.Fields{
-			"container": container,
+			"container": c,
 			"force":     r.opts.Force,
 			"links":     r.opts.Links,
 			"volumes":   r.opts.Volumes,
 		}).Debug("removing container")
-		c := container
-		err = r.client.RemoveContainer(ctx, c, r.opts)
-		if err != nil {
+		if err = r.client.RemoveContainer(ctx, c, r.opts); err != nil {
 			return fmt.Errorf("failed to remove container: %w", err)
 		}
 	}
