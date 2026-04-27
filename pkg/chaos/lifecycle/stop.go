@@ -106,8 +106,8 @@ func (s *stopCommand) startStoppedContainers(ctx context.Context, containers []*
 		c := container
 		log.WithField("container", c).Debug("start stopped container")
 		if e := s.client.StartContainer(ctx, c, s.dryRun); e != nil {
-			err = fmt.Errorf("failed to start stopped container: %w", e)
+			err = errors.Join(err, fmt.Errorf("failed to start stopped container: %w", e))
 		}
 	}
-	return err // last non nil error
+	return err
 }

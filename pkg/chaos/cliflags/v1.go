@@ -21,10 +21,10 @@ func NewV1(ctx *cli.Context) Flags { return V1{Ctx: ctx} }
 // NewV1FromApp wraps the application-level (root) *cli.Context as Flags.
 // Use it from app.Before / app.After callbacks and any other call site that
 // already holds the root context and reads global flags (e.g. cmd/main.go).
-// Semantically equivalent to NewV1(ctx).Global(); the dedicated constructor
-// signals intent — "this context is the root" — without forcing readers to
-// chase a Global() call to confirm.
-func NewV1FromApp(ctx *cli.Context) Flags { return V1{Ctx: ctx} }
+// The constructor walks to the root via Global() so that a subcommand context
+// passed by mistake still yields correct global-flag reads instead of silently
+// returning subcommand-scoped values.
+func NewV1FromApp(ctx *cli.Context) Flags { return V1{Ctx: ctx}.Global() }
 
 // String returns the value of the named string flag.
 func (f V1) String(name string) string { return f.Ctx.String(name) }

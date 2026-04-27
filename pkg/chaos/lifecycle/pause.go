@@ -94,8 +94,8 @@ func (p *pauseCommand) unpauseContainers(ctx context.Context, containers []*cont
 		log.WithField("container", container).Debug("unpause container")
 		c := container
 		if e := p.client.UnpauseContainer(ctx, c, p.dryRun); e != nil {
-			err = fmt.Errorf("failed to unpause container: %w", e)
+			err = errors.Join(err, fmt.Errorf("failed to unpause container: %w", e))
 		}
 	}
-	return err // last non nil error
+	return err
 }
