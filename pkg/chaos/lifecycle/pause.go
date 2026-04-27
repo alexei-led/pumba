@@ -51,38 +51,18 @@ func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 		"limit":    p.limit,
 		"random":   random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, p.client, p.names, p.pattern, p.labels, p.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to stop")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// keep paused containers
-	pausedContainers := make([]*container.Container, 0, len(containers))
-	// pause containers
-	for _, container := range containers {
-		log.WithFields(log.Fields{
-			"container": container,
-			"duration":  p.duration,
-		}).Debug("pausing container for duration")
-		c := container
-		err = p.client.PauseContainer(ctx, c, p.dryRun)
-		if err != nil {
-			log.WithError(err).Warn("failed to pause container")
-			break
-		}
-		pausedContainers = append(pausedContainers, container)
-	}
+	gp := &chaos.GlobalParams{Names: p.names, Pattern: p.pattern, Labels: p.labels}
+	pausedContainers := make([]*container.Container, 0)
+	err := chaos.RunOnContainers(ctx, p.client, gp, p.limit, random, false,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": c, "duration": p.duration}).Debug("pausing container for duration")
+			if pErr := p.client.PauseContainer(ctx, c, p.dryRun); pErr != nil {
+				log.WithError(pErr).Warn("failed to pause container")
+				return pErr
+			}
+			pausedContainers = append(pausedContainers, c)
+			return nil
+		})
 
 	// if there are paused containers unpause them
 	if len(pausedContainers) > 0 {

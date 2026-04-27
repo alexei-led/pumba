@@ -14,11 +14,11 @@ import (
 // and aborts a serial run on first error.
 type ContainerAction func(ctx context.Context, c *container.Container) error
 
-// RunOnContainers lists containers matching gp.{Names,Pattern,Labels} (capped
-// by limit), optionally narrows to a single random pick when random is true,
-// then invokes fn for each container. parallel selects between errgroup
-// fanout (true) and a sequential for-loop (false). Returns nil when no
-// containers match — same warning the per-action loops used to log.
+// RunOnContainers lists running containers matching gp.{Names,Pattern,Labels}
+// (capped by limit), optionally narrows to a single random pick when random
+// is true, then invokes fn for each container. parallel selects between
+// errgroup fanout (true) and a sequential for-loop (false). Returns nil when
+// no containers match — same warning the per-action loops used to log.
 //
 // The helper takes container.Lister rather than the per-action narrow client
 // interface so it stays domain-agnostic; every action's client embeds Lister.
@@ -42,7 +42,32 @@ func RunOnContainers(
 	random, parallel bool,
 	fn ContainerAction,
 ) error {
-	containers, err := container.ListNContainers(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit)
+	return runOnContainers(ctx, lister, gp, limit, false, random, parallel, fn)
+}
+
+// RunOnContainersAll behaves like RunOnContainers but also includes stopped
+// containers in the candidate set. Used by lifecycle.remove which can target
+// non-running containers.
+func RunOnContainersAll(
+	ctx context.Context,
+	lister container.Lister,
+	gp *GlobalParams,
+	limit int,
+	random, parallel bool,
+	fn ContainerAction,
+) error {
+	return runOnContainers(ctx, lister, gp, limit, true, random, parallel, fn)
+}
+
+func runOnContainers(
+	ctx context.Context,
+	lister container.Lister,
+	gp *GlobalParams,
+	limit int,
+	all, random, parallel bool,
+	fn ContainerAction,
+) error {
+	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit, all)
 	if err != nil {
 		return fmt.Errorf("listing containers: %w", err)
 	}

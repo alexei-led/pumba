@@ -87,40 +87,21 @@ func NewKillCommand(client killClient, params *chaos.GlobalParams, signal string
 
 // Run kill command
 func (k *killCommand) Run(ctx context.Context, random bool) error {
-	log.Debug("killing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
 		"pattern": k.pattern,
 		"labels":  k.labels,
+		"signal":  k.signal,
 		"limit":   k.limit,
 		"random":  random,
-	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to kill")
-		return nil
-	}
-
-	// select single random ctr from matching ctr and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	for _, ctr := range containers {
-		log.WithFields(log.Fields{
-			"ctr":    ctr,
-			"signal": k.signal,
-		}).Debug("killing ctr")
-		c := ctr
-		err = k.client.KillContainer(ctx, c, k.signal, k.dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to kill ctr: %w", err)
-		}
-	}
-	return nil
+	}).Debug("killing all matching containers")
+	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels}
+	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"ctr": c, "signal": k.signal}).Debug("killing ctr")
+			if err := k.client.KillContainer(ctx, c, k.signal, k.dryRun); err != nil {
+				return fmt.Errorf("failed to kill ctr: %w", err)
+			}
+			return nil
+		})
 }

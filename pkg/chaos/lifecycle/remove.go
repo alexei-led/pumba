@@ -53,32 +53,18 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		"limit":   r.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainersAll(ctx, r.client, r.names, r.pattern, r.labels, r.limit, true)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to remove")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	for _, c := range containers {
-		log.WithFields(log.Fields{
-			"container": c,
-			"force":     r.opts.Force,
-			"links":     r.opts.Links,
-			"volumes":   r.opts.Volumes,
-		}).Debug("removing container")
-		if err = r.client.RemoveContainer(ctx, c, r.opts); err != nil {
-			return fmt.Errorf("failed to remove container: %w", err)
-		}
-	}
-	return nil
+	gp := &chaos.GlobalParams{Names: r.names, Pattern: r.pattern, Labels: r.labels}
+	return chaos.RunOnContainersAll(ctx, r.client, gp, r.limit, random, false,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{
+				"container": c,
+				"force":     r.opts.Force,
+				"links":     r.opts.Links,
+				"volumes":   r.opts.Volumes,
+			}).Debug("removing container")
+			if err := r.client.RemoveContainer(ctx, c, r.opts); err != nil {
+				return fmt.Errorf("failed to remove container: %w", err)
+			}
+			return nil
+		})
 }

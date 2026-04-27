@@ -262,12 +262,12 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 - Modify: `pkg/chaos/lifecycle/{exec,kill,pause,remove,restart,stop}.go`
 - Modify: `pkg/chaos/stress/stress.go`
 
-- [ ] iptables/loss.go: extract `cmdPrefix`/`cmdSuffix` builder into a private method; replace Run body with `RunOnContainers(... parallel=true, fn)` matching netem migration shape
-- [ ] lifecycle actions: each Run body becomes `RunOnContainers(... parallel=false, ...)` (lifecycle ops are sequential today — preserve)
-- [ ] stress: replace the existing `errgroup` block with `RunOnContainers(... parallel=true, ...)` — keeps the same fanout semantics with one fewer pattern
-- [ ] verify NoContainers / DryRun / WithRandom tests pass in each action's existing `*_test.go`
-- [ ] confirm grep finds no remaining `container.ListNContainers(ctx, ` callers in `pkg/chaos/{netem,iptables,lifecycle,stress}` — all should route through the helper
-- [ ] run `CGO_ENABLED=0 go test ./pkg/chaos/...` and `make lint` — must pass before Task 4
+- [x] iptables/loss.go: extract `cmdPrefix`/`cmdSuffix` builder into a private method; replace Run body with `RunOnContainers(... parallel=true, fn)` matching netem migration shape
+- [x] lifecycle actions: each Run body becomes `RunOnContainers(... parallel=false, ...)` (lifecycle ops are sequential today — preserve)
+- [x] stress: replace the existing `errgroup` block with `RunOnContainers(... parallel=true, ...)` — keeps the same fanout semantics with one fewer pattern
+- [x] verify NoContainers / DryRun / WithRandom tests pass in each action's existing `*_test.go`
+- [x] confirm grep finds no remaining `container.ListNContainers(ctx, ` callers in `pkg/chaos/{netem,iptables,lifecycle,stress}` — all should route through the helper
+- [x] run `CGO_ENABLED=0 go test ./pkg/chaos/...` and `make lint` — must pass before Task 4
 
 ### Task 4: Move `reInterface` regex to `pkg/util`
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -84,53 +83,10 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers found")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// prepare iptables command prefix
-	cmdPrefix := []string{"INPUT", "-i", n.iface}
-	if n.protocol != "any" {
-		cmdPrefix = append(cmdPrefix, "-p", n.protocol)
-	}
-
-	// prepare iptables add command prefix
-	addCmdPrefix := append([]string{"-I"}, cmdPrefix...)
-
-	// prepare iptables del command prefix
-	delCmdPrefix := append([]string{"-D"}, cmdPrefix...)
-
-	// prepare iptables loss command suffix
-	cmdSuffix := []string{"-m", "statistic", "--mode", n.mode}
-	if n.mode == ModeRandom {
-		cmdSuffix = append(cmdSuffix, "--probability", strconv.FormatFloat(n.probability, 'f', 2, 64))
-	} else { // mode == nth
-		cmdSuffix = append(cmdSuffix, "--every", strconv.Itoa(n.every), "--packet", strconv.Itoa(n.packet))
-	}
-	cmdSuffix = append(cmdSuffix, "-j", "DROP")
-
-	// run iptables loss command for selected containers
-	var wg sync.WaitGroup
-	errs := make([]error, len(containers))
-	for i, c := range containers {
-		log.WithFields(log.Fields{
-			"container": *c,
-		}).Debug("adding network random packet loss for container")
-		wg.Add(1)
-		go func(i int, c *container.Container) {
-			defer wg.Done()
+	addCmdPrefix, delCmdPrefix, cmdSuffix := n.buildIPTablesCmd()
+	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": *c}).Debug("adding network random packet loss for container")
 			iptCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
 			addReq := *n.req
@@ -139,23 +95,27 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 			addReq.CmdSuffix = cmdSuffix
 			delReq := addReq
 			delReq.CmdPrefix = delCmdPrefix
-			errs[i] = runIPTables(iptCtx, n.client, &addReq, &delReq)
-			if errs[i] != nil {
-				log.WithError(errs[i]).Warn("failed to set packet loss for container")
+			if err := runIPTables(iptCtx, n.client, &addReq, &delReq); err != nil {
+				log.WithError(err).Warn("failed to set packet loss for container")
+				return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
 			}
-		}(i, c)
+			return nil
+		})
+}
+
+func (n *lossCommand) buildIPTablesCmd() (addCmdPrefix, delCmdPrefix, cmdSuffix []string) {
+	cmdPrefix := []string{"INPUT", "-i", n.iface}
+	if n.protocol != "any" {
+		cmdPrefix = append(cmdPrefix, "-p", n.protocol)
 	}
-
-	// Wait for all iptables delay commands to complete
-	wg.Wait()
-
-	// scan through all errors in goroutines
-	for _, err = range errs {
-		// take first found error
-		if err != nil {
-			return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
-		}
+	addCmdPrefix = append([]string{"-I"}, cmdPrefix...)
+	delCmdPrefix = append([]string{"-D"}, cmdPrefix...)
+	cmdSuffix = []string{"-m", "statistic", "--mode", n.mode}
+	if n.mode == ModeRandom {
+		cmdSuffix = append(cmdSuffix, "--probability", strconv.FormatFloat(n.probability, 'f', 2, 64))
+	} else { // mode == nth
+		cmdSuffix = append(cmdSuffix, "--every", strconv.Itoa(n.every), "--packet", strconv.Itoa(n.packet))
 	}
-
-	return nil
+	cmdSuffix = append(cmdSuffix, "-j", "DROP")
+	return addCmdPrefix, delCmdPrefix, cmdSuffix
 }

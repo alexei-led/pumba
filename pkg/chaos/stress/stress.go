@@ -9,7 +9,6 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // stressClient is the narrow interface needed by the stress command.
@@ -58,7 +57,6 @@ func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, ima
 
 // Run stress command
 func (s *stressCommand) Run(ctx context.Context, random bool) error {
-	log.Debug("stress testing all matching containers")
 	log.WithFields(log.Fields{
 		"names":     s.names,
 		"pattern":   s.pattern,
@@ -67,32 +65,9 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 		"stressors": s.stressors,
 		"limit":     s.limit,
 		"random":    random,
-	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to stress test")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// stress containers
-	var eg errgroup.Group
-	for _, c := range containers {
-		eg.Go(func() error {
-			return s.stressContainer(ctx, c)
-		})
-	}
-	// wait till all stress tests complete
-	if err := eg.Wait(); err != nil {
+	}).Debug("stress testing all matching containers")
+	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	if err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, true, s.stressContainer); err != nil {
 		return fmt.Errorf("one or more stress test failed: %w", err)
 	}
 	return nil

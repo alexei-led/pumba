@@ -196,3 +196,42 @@ func TestRunOnContainers_PassesLabelsAndPatternToLister(t *testing.T) {
 		func(_ context.Context, _ *container.Container) error { return nil })
 	require.NoError(t, err)
 }
+
+func TestRunOnContainersAll_IncludesStoppedContainers(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	gp := &chaos.GlobalParams{Names: []string{"a", "b"}}
+	cs := makeContainers("a", "b")
+
+	mockClient.EXPECT().
+		ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+			container.ListOpts{All: true}).
+		Return(cs, nil)
+
+	var seen []string
+	err := chaos.RunOnContainersAll(context.Background(), mockClient, gp, 0, false, false,
+		func(_ context.Context, c *container.Container) error {
+			seen = append(seen, c.ContainerID)
+			return nil
+		})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a", "b"}, seen)
+}
+
+func TestRunOnContainersAll_EmptyList(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	gp := &chaos.GlobalParams{Names: []string{"none"}}
+
+	mockClient.EXPECT().
+		ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+			container.ListOpts{All: true}).
+		Return(nil, nil)
+
+	called := false
+	err := chaos.RunOnContainersAll(context.Background(), mockClient, gp, 0, false, false,
+		func(_ context.Context, _ *container.Container) error {
+			called = true
+			return nil
+		})
+	require.NoError(t, err)
+	assert.False(t, called, "fn must not run when no containers match")
+}
