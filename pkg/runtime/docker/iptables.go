@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -27,9 +26,9 @@ func (client dockerClient) IPTablesContainer(ctx context.Context, req *ctr.IPTab
 		"dryrun":        req.DryRun,
 	}).Info("running iptables on container")
 	if len(req.SrcIPs) == 0 && len(req.DstIPs) == 0 && len(req.SPorts) == 0 && len(req.DPorts) == 0 {
-		return client.ipTablesContainer(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
+		return client.ipTablesContainer(ctx, req)
 	}
-	return client.ipTablesContainerWithIPFilter(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.SrcIPs, req.DstIPs, req.SPorts, req.DPorts, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
+	return client.ipTablesContainerWithIPFilter(ctx, req)
 }
 
 // StopIPTablesContainer stops the iptables container injected into the given container network namespace
@@ -48,87 +47,86 @@ func (client dockerClient) StopIPTablesContainer(ctx context.Context, req *ctr.I
 		"dryrun":        req.DryRun,
 	}).Info("stopping iptables on container")
 	if len(req.SrcIPs) == 0 && len(req.DstIPs) == 0 && len(req.SPorts) == 0 && len(req.DPorts) == 0 {
-		return client.ipTablesContainer(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
+		return client.ipTablesContainer(ctx, req)
 	}
-	return client.ipTablesContainerWithIPFilter(ctx, req.Container, req.CmdPrefix, req.CmdSuffix, req.SrcIPs, req.DstIPs, req.SPorts, req.DPorts, req.Sidecar.Image, req.Sidecar.Pull, req.DryRun)
+	return client.ipTablesContainerWithIPFilter(ctx, req)
 }
 
-func (client dockerClient) ipTablesContainer(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, img string, pull, dryrun bool) error {
+func (client dockerClient) ipTablesContainer(ctx context.Context, req *ctr.IPTablesRequest) error {
 	log.WithFields(log.Fields{
-		"name":      c.Name(),
-		"id":        c.ID(),
-		"cmdPrefix": strings.Join(cmdPrefix, " "),
-		"cmdSuffix": strings.Join(cmdSuffix, " "),
-		"img":       img,
-		"pull":      pull,
-		"dryrun":    dryrun,
+		"name":      req.Container.Name(),
+		"id":        req.Container.ID(),
+		"cmdPrefix": strings.Join(req.CmdPrefix, " "),
+		"cmdSuffix": strings.Join(req.CmdSuffix, " "),
+		"img":       req.Sidecar.Image,
+		"pull":      req.Sidecar.Pull,
+		"dryrun":    req.DryRun,
 	}).Debug("execute iptables for container")
-	if !dryrun {
+	if !req.DryRun {
 		var command []string
-		command = append(command, cmdPrefix...)
-		command = append(command, cmdSuffix...)
+		command = append(command, req.CmdPrefix...)
+		command = append(command, req.CmdSuffix...)
 		log.WithField("iptables", strings.Join(command, " ")).Debug("executing iptables")
-		return client.ipTablesCommands(ctx, c, [][]string{command}, img, pull)
+		return client.ipTablesCommands(ctx, req.Container, [][]string{command}, req.Sidecar.Image, req.Sidecar.Pull)
 	}
 	return nil
 }
 
-func (client dockerClient) ipTablesContainerWithIPFilter(ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string,
-	srcIPs, dstIPs []*net.IPNet, sports, dports []string, img string, pull bool, dryrun bool) error {
+func (client dockerClient) ipTablesContainerWithIPFilter(ctx context.Context, req *ctr.IPTablesRequest) error {
 	log.WithFields(log.Fields{
-		"name":   c.Name(),
-		"id":     c.ID(),
-		"srcIPs": srcIPs,
-		"dstIPs": dstIPs,
-		"Sports": sports,
-		"Dports": dports,
-		"img":    img,
-		"pull":   pull,
-		"dryrun": dryrun,
+		"name":   req.Container.Name(),
+		"id":     req.Container.ID(),
+		"srcIPs": req.SrcIPs,
+		"dstIPs": req.DstIPs,
+		"Sports": req.SPorts,
+		"Dports": req.DPorts,
+		"img":    req.Sidecar.Image,
+		"pull":   req.Sidecar.Pull,
+		"dryrun": req.DryRun,
 	}).Debug("execute iptables for container with IP(s) filter")
-	if !dryrun {
+	if !req.DryRun {
 		// use docker client ExecStart to run iptables rules to filter network
 		commands := [][]string{}
 
 		// See more about the iptables statistics extension: https://www.man7.org/linux/man-pages/man8/iptables-extensions.8.html
 		// # drop traffic to a specific source address
 
-		for _, ip := range srcIPs {
+		for _, ip := range req.SrcIPs {
 			cmd := []string{}
-			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, req.CmdPrefix...)
 			cmd = append(cmd, "-s", ip.String())
-			cmd = append(cmd, cmdSuffix...)
+			cmd = append(cmd, req.CmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination address
-		for _, ip := range dstIPs {
+		for _, ip := range req.DstIPs {
 			cmd := []string{}
-			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, req.CmdPrefix...)
 			cmd = append(cmd, "-d", ip.String())
-			cmd = append(cmd, cmdSuffix...)
+			cmd = append(cmd, req.CmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific source port
-		for _, sport := range sports {
+		for _, sport := range req.SPorts {
 			cmd := []string{}
-			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, req.CmdPrefix...)
 			cmd = append(cmd, "--sport", sport)
-			cmd = append(cmd, cmdSuffix...)
+			cmd = append(cmd, req.CmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
 		// # drop traffic to a specific destination port
-		for _, dport := range dports {
+		for _, dport := range req.DPorts {
 			cmd := []string{}
-			cmd = append(cmd, cmdPrefix...)
+			cmd = append(cmd, req.CmdPrefix...)
 			cmd = append(cmd, "--dport", dport)
-			cmd = append(cmd, cmdSuffix...)
+			cmd = append(cmd, req.CmdSuffix...)
 			commands = append(commands, cmd)
 		}
 
-		err := client.ipTablesCommands(ctx, c, commands, img, pull)
+		err := client.ipTablesCommands(ctx, req.Container, commands, req.Sidecar.Image, req.Sidecar.Pull)
 		if err != nil {
 			return fmt.Errorf("failed to run iptables commands: %w", err)
 		}
