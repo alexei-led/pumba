@@ -48,11 +48,32 @@ var (
 )
 
 // podmanClient implements ctr.Client for the Podman runtime via its
-// Docker-compatible API socket. The embedded ctr.Client handles every method
-// where Docker and Podman agree; this struct overrides only the ones that
-// differ: chaos commands that require kernel privileges (guarded against
-// rootless sockets) and — in Task 6 — StressContainer (cgroup leaf naming
-// divergence).
+// Docker-compatible API socket. The embedded ctr.Client (a Docker delegate)
+// handles every method where Docker and Podman agree; this struct overrides
+// only the methods whose semantics or implementation diverge.
+//
+// Override set (the only methods this struct implements directly):
+//
+//   - Close                 — shadows the embedded delegate's no-op Close to
+//     release the Docker SDK HTTP transport (no leaked connection cache).
+//   - NetemContainer        — adds a rootless guard before delegating; rootless
+//     Podman cannot grant NET_ADMIN to a sidecar in the target's netns.
+//   - StopNetemContainer    — same rootless guard as NetemContainer so
+//     stop-without-start on a rootless socket fails with the same diagnostic.
+//   - IPTablesContainer     — same rootless constraint as NetemContainer.
+//   - StopIPTablesContainer — mirrors the IPTablesContainer rootless guard.
+//   - StressContainer       — diverges in cgroup leaf naming
+//     (libpod-<id>.scope vs Docker's docker-<id>.scope) and in the
+//     `--cgroup-parent` host-config path; see stress.go and cgroup.go.
+//
+// Embedding invariant: when adding a method to ctr.Client, audit Podman
+// behavior — either confirm Docker's implementation works unchanged on the
+// Docker-compat socket and rely on the embedded delegate, or override
+// defensively in this package. Silently inheriting a Docker method that
+// Podman implements differently produces the worst kind of bug: works in
+// CI against Docker, fails in the field against Podman, with no signal at
+// the type system level. See pkg/runtime/podman/doc.go for the broader
+// vocabulary rationale (Docker SDK types as Podman's working vocabulary).
 type podmanClient struct {
 	ctr.Client
 	api       apiBackend

@@ -290,10 +290,10 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 
 - Modify: `pkg/runtime/podman/client.go`
 
-- [ ] add a godoc block above `type podmanClient struct` listing the override set (`NetemContainer`, `StopNetemContainer`, `IPTablesContainer`, `StopIPTablesContainer`, `Close`, `StressContainer`) and explaining that every other `ctr.Client` method is intentionally inherited from the docker delegate
-- [ ] state the invariant: "When adding a method to `ctr.Client`, audit Podman behavior — either confirm Docker's implementation works on the Docker-compat socket, or override defensively in this package."
-- [ ] no code change; doc-only — no test changes needed
-- [ ] run `make lint` — must pass before Task 6
+- [x] add a godoc block above `type podmanClient struct` listing the override set (`NetemContainer`, `StopNetemContainer`, `IPTablesContainer`, `StopIPTablesContainer`, `Close`, `StressContainer`) and explaining that every other `ctr.Client` method is intentionally inherited from the docker delegate
+- [x] state the invariant: "When adding a method to `ctr.Client`, audit Podman behavior — either confirm Docker's implementation works on the Docker-compat socket, or override defensively in this package."
+- [x] no code change; doc-only — no test changes needed
+- [x] run `make lint` — must pass before Task 6
 
 ### Task 6: Add `pkg/runtime/podman/doc.go`
 
