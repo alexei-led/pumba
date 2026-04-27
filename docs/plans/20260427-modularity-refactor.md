@@ -202,13 +202,13 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 - Modify: every importer of `github.com/alexei-led/pumba/pkg/chaos/docker` (find via `git grep`)
 - Modify: every importer of `github.com/alexei-led/pumba/pkg/chaos/docker/cmd`
 
-- [ ] `git mv pkg/chaos/docker pkg/chaos/lifecycle`
-- [ ] update package declaration in all moved files: `package docker` → `package lifecycle`
-- [ ] update package declaration in `cmd/` subdir: keep `package cmd`
-- [ ] grep-and-replace import path `pkg/chaos/docker` → `pkg/chaos/lifecycle` repo-wide (excluding `pkg/runtime/docker`)
-- [ ] update existing tests — only import paths change, no logic
-- [ ] `make lint` — must pass (catches missed imports)
-- [ ] `make test` — must pass before next task
+- [x] `git mv pkg/chaos/docker pkg/chaos/lifecycle` (done in f1f509f)
+- [x] update package declaration in all moved files: `package docker` → `package lifecycle`
+- [x] update package declaration in `cmd/` subdir: keep `package cmd`
+- [x] grep-and-replace import path `pkg/chaos/docker` → `pkg/chaos/lifecycle` repo-wide (excluding `pkg/runtime/docker`)
+- [x] update existing tests — only import paths change, no logic
+- [x] `make lint` — must pass (catches missed imports)
+- [x] `make test` — must pass before next task
 
 ### Task 2: Remove `chaos.DockerClient` global, inject runtime via constructor
 
