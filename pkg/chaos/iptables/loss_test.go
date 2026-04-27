@@ -12,10 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newBase(req *container.IPTablesRequest, iface, protocol string) *RequestBase {
+	return &RequestBase{Request: req, Iface: iface, Protocol: protocol}
+}
+
 func TestNewLossCommand_Validation(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"test"}}
-	params := &Params{Iface: "eth0", Duration: time.Second}
+	base := newBase(&container.IPTablesRequest{Duration: time.Second}, "eth0", "any")
 
 	tests := []struct {
 		name        string
@@ -42,7 +46,7 @@ func TestNewLossCommand_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := NewLossCommand(mockClient, gparams, params, tt.mode, tt.probability, tt.every, tt.packet)
+			cmd, err := NewLossCommand(mockClient, gparams, base, tt.mode, tt.probability, tt.every, tt.packet)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -58,14 +62,14 @@ func TestNewLossCommand_Validation(t *testing.T) {
 func TestLossCommand_Run_NoContainers(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}
-	params := &Params{Iface: "eth0", Duration: time.Second}
+	base := newBase(&container.IPTablesRequest{Duration: time.Second}, "eth0", "any")
 
 	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{}, nil)
 
-	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
+	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), false)
@@ -81,7 +85,11 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 		Networks:      map[string]container.NetworkLink{},
 	}
 	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
-	params := &Params{Iface: "eth0", Protocol: "any", Duration: 100 * time.Millisecond, Image: "iptables-image"}
+	base := newBase(&container.IPTablesRequest{
+		Duration: 100 * time.Millisecond,
+		Sidecar:  container.SidecarSpec{Image: "iptables-image"},
+		DryRun:   true,
+	}, "eth0", "any")
 
 	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
@@ -111,7 +119,7 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
 	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
 
-	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
+	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), false)
@@ -127,7 +135,11 @@ func TestLossCommand_Run_NTHMode(t *testing.T) {
 		Networks:      map[string]container.NetworkLink{},
 	}
 	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
-	params := &Params{Iface: "eth0", Protocol: "any", Duration: 100 * time.Millisecond, Image: "iptables-image"}
+	base := newBase(&container.IPTablesRequest{
+		Duration: 100 * time.Millisecond,
+		Sidecar:  container.SidecarSpec{Image: "iptables-image"},
+		DryRun:   true,
+	}, "eth0", "any")
 
 	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
@@ -157,7 +169,7 @@ func TestLossCommand_Run_NTHMode(t *testing.T) {
 	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
 	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
 
-	cmd, err := NewLossCommand(mockClient, gparams, params, ModeNTH, 0, 5, 0)
+	cmd, err := NewLossCommand(mockClient, gparams, base, ModeNTH, 0, 5, 0)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), false)
@@ -173,7 +185,11 @@ func TestLossCommand_Run_WithProtocol(t *testing.T) {
 		Networks:      map[string]container.NetworkLink{},
 	}
 	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
-	params := &Params{Iface: "eth0", Protocol: "tcp", Duration: 100 * time.Millisecond, Image: "iptables-image"}
+	base := newBase(&container.IPTablesRequest{
+		Duration: 100 * time.Millisecond,
+		Sidecar:  container.SidecarSpec{Image: "iptables-image"},
+		DryRun:   true,
+	}, "eth0", "tcp")
 
 	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
@@ -203,7 +219,7 @@ func TestLossCommand_Run_WithProtocol(t *testing.T) {
 	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
 	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
 
-	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
+	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), false)
@@ -216,7 +232,11 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2"}
 
 	gparams := &chaos.GlobalParams{Names: []string{"c1", "c2"}, DryRun: true}
-	params := &Params{Iface: "eth0", Protocol: "any", Duration: 100 * time.Millisecond, Image: "iptables-image"}
+	base := newBase(&container.IPTablesRequest{
+		Duration: 100 * time.Millisecond,
+		Sidecar:  container.SidecarSpec{Image: "iptables-image"},
+		DryRun:   true,
+	}, "eth0", "any")
 
 	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
@@ -226,7 +246,7 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 	mockClient.EXPECT().IPTablesContainer(mock.Anything, mock.AnythingOfType("*container.IPTablesRequest")).Return(nil).Once()
 	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, mock.AnythingOfType("*container.IPTablesRequest")).Return(nil).Once()
 
-	cmd, err := NewLossCommand(mockClient, gparams, params, ModeRandom, 0.5, 0, 0)
+	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), true)

@@ -14,7 +14,7 @@ import (
 
 // LossParams holds the per-command parameters for the iptables loss subcommand.
 type LossParams struct {
-	IPTables    *iptables.Params
+	Base        *iptables.RequestBase
 	Mode        string
 	Probability float64
 	Every       int
@@ -56,12 +56,12 @@ func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 }
 
 func parseLossParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossParams, error) {
-	ipTablesParams, err := parseIPTablesParams(c.Parent(), gp.Interval)
+	base, err := iptables.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return LossParams{}, fmt.Errorf("error parsing iptables parameters: %w", err)
 	}
 	return LossParams{
-		IPTables:    ipTablesParams,
+		Base:        base,
 		Mode:        c.String("mode"),
 		Probability: c.Float64("probability"),
 		Every:       c.Int("every"),
@@ -70,5 +70,5 @@ func parseLossParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossParams, erro
 }
 
 func buildLossCommand(client container.Client, gp *chaos.GlobalParams, p LossParams) (chaos.Command, error) {
-	return iptables.NewLossCommand(client, gp, p.IPTables, p.Mode, p.Probability, p.Every, p.Packet)
+	return iptables.NewLossCommand(client, gp, p.Base, p.Mode, p.Probability, p.Every, p.Packet)
 }

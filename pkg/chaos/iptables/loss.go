@@ -14,7 +14,12 @@ import (
 
 // `iptables loss` command
 type lossCommand struct {
-	ipTablesCommand
+	client      iptablesClient
+	gp          *chaos.GlobalParams
+	req         *container.IPTablesRequest
+	iface       string
+	protocol    string
+	limit       int
 	mode        string
 	probability float64
 	every       int
@@ -28,8 +33,8 @@ const (
 
 // NewLossCommand create new iptables loss command
 func NewLossCommand(client iptablesClient,
-	globalParams *chaos.GlobalParams,
-	params *Params,
+	gp *chaos.GlobalParams,
+	base *RequestBase,
 	mode string, // loss mode
 	probability float64, // loss probability
 	every int, // drop every nth
@@ -56,11 +61,16 @@ func NewLossCommand(client iptablesClient,
 	}
 
 	return &lossCommand{
-		ipTablesCommand: newIPTablesCommand(client, globalParams, params),
-		mode:            mode,
-		probability:     probability,
-		every:           every,
-		packet:          packet,
+		client:      client,
+		gp:          gp,
+		req:         base.Request,
+		iface:       base.Iface,
+		protocol:    base.Protocol,
+		limit:       base.Limit,
+		mode:        mode,
+		probability: probability,
+		every:       every,
+		packet:      packet,
 	}, nil
 }
 
@@ -68,13 +78,13 @@ func NewLossCommand(client iptablesClient,
 func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet loss to all matching containers")
 	log.WithFields(log.Fields{
-		"names":   n.names,
-		"pattern": n.pattern,
-		"labels":  n.labels,
+		"names":   n.gp.Names,
+		"pattern": n.gp.Pattern,
+		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
+	containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
 	if err != nil {
 		return fmt.Errorf("error listing containers: %w", err)
 	}
@@ -97,16 +107,14 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	}
 
 	// prepare iptables add command prefix
-	addCmdPrefix := []string{"-I"}
-	addCmdPrefix = append(addCmdPrefix, cmdPrefix...)
+	addCmdPrefix := append([]string{"-I"}, cmdPrefix...)
 
 	// prepare iptables del command prefix
-	delCmdPrefix := []string{"-D"}
-	delCmdPrefix = append(delCmdPrefix, cmdPrefix...)
+	delCmdPrefix := append([]string{"-D"}, cmdPrefix...)
 
 	// prepare iptables loss command suffix
 	cmdSuffix := []string{"-m", "statistic", "--mode", n.mode}
-	if n.mode == "random" {
+	if n.mode == ModeRandom {
 		cmdSuffix = append(cmdSuffix, "--probability", strconv.FormatFloat(n.probability, 'f', 2, 64))
 	} else { // mode == nth
 		cmdSuffix = append(cmdSuffix, "--every", strconv.Itoa(n.every), "--packet", strconv.Itoa(n.packet))
@@ -123,23 +131,15 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
-			iptCtx, cancel := context.WithTimeout(ctx, n.duration)
+			iptCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
-			addReq := &container.IPTablesRequest{
-				Container: c,
-				CmdPrefix: addCmdPrefix,
-				CmdSuffix: cmdSuffix,
-				SrcIPs:    n.srcIPs,
-				DstIPs:    n.dstIPs,
-				SPorts:    n.sports,
-				DPorts:    n.dports,
-				Duration:  n.duration,
-				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
-				DryRun:    n.dryRun,
-			}
-			delReqValue := *addReq
-			delReqValue.CmdPrefix = delCmdPrefix
-			errs[i] = runIPTables(iptCtx, n.client, addReq, &delReqValue)
+			addReq := *n.req
+			addReq.Container = c
+			addReq.CmdPrefix = addCmdPrefix
+			addReq.CmdSuffix = cmdSuffix
+			delReq := addReq
+			delReq.CmdPrefix = delCmdPrefix
+			errs[i] = runIPTables(iptCtx, n.client, &addReq, &delReq)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}
