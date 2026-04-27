@@ -10,6 +10,7 @@ import (
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	cerrdefs "github.com/containerd/errdefs"
 	ctypes "github.com/docker/docker/api/types/container"
 	imagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/go-connections/nat"
@@ -19,7 +20,10 @@ import (
 // sidecarRemoveTimeout bounds how long pumba will wait for ContainerRemove
 // to reap an ephemeral tc/iptables sidecar after the caller's ctx cancels
 // (e.g. SIGTERM). Podman's force-remove can take a few seconds on slow VMs.
-const sidecarRemoveTimeout = 15 * time.Second
+const (
+	sidecarRemoveTimeout  = 15 * time.Second
+	sidecarInspectTimeout = 2 * time.Second
+)
 
 // removeSidecar force-removes an ephemeral tc/iptables sidecar container.
 // Uses context.WithoutCancel with a short timeout so cleanup still runs
@@ -29,7 +33,36 @@ const sidecarRemoveTimeout = 15 * time.Second
 func (client dockerClient) removeSidecar(ctx context.Context, id string) error {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
 	defer cancel()
-	return client.containerAPI.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true})
+	if err := client.containerAPI.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true}); err != nil {
+		if client.sidecarRemovalComplete(ctx, id, err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (client dockerClient) sidecarRemovalComplete(ctx context.Context, id string, removeErr error) bool {
+	if cerrdefs.IsNotFound(removeErr) {
+		return true
+	}
+	deadlineErr := cerrdefs.IsDeadlineExceeded(removeErr) ||
+		errors.Is(removeErr, context.DeadlineExceeded) ||
+		strings.Contains(removeErr.Error(), "context deadline exceeded")
+	if !deadlineErr {
+		return false
+	}
+
+	inspectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarInspectTimeout)
+	defer cancel()
+	inspect, err := client.containerAPI.ContainerInspect(inspectCtx, id)
+	if cerrdefs.IsNotFound(err) {
+		return true
+	}
+	if err != nil || inspect.State == nil {
+		return false
+	}
+	return inspect.State.Status == "removing" || inspect.State.Status == "dead" || inspect.State.Dead
 }
 
 // runSidecar launches an ephemeral sidecar container that joins target's

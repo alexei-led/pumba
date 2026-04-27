@@ -310,6 +310,32 @@ func Test_tcContainerCommands(t *testing.T) {
 	engineClient.AssertExpectations(t)
 }
 
+func TestRemoveSidecarTreatsRemovingAfterDeadlineAsSuccess(t *testing.T) {
+	engineClient := NewMockEngine(t)
+	engineClient.EXPECT().ContainerRemove(mock.Anything, "sidecarID", ctypes.RemoveOptions{Force: true}).Return(context.DeadlineExceeded)
+	engineClient.EXPECT().ContainerInspect(mock.Anything, "sidecarID").Return(ctypes.InspectResponse{
+		ContainerJSONBase: &ctypes.ContainerJSONBase{State: &ctypes.State{Status: "removing"}},
+	}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.removeSidecar(context.TODO(), "sidecarID")
+
+	assert.NoError(t, err)
+}
+
+func TestRemoveSidecarKeepsDeadlineErrorWhenContainerStillRunning(t *testing.T) {
+	engineClient := NewMockEngine(t)
+	engineClient.EXPECT().ContainerRemove(mock.Anything, "sidecarID", ctypes.RemoveOptions{Force: true}).Return(context.DeadlineExceeded)
+	engineClient.EXPECT().ContainerInspect(mock.Anything, "sidecarID").Return(ctypes.InspectResponse{
+		ContainerJSONBase: &ctypes.ContainerJSONBase{State: &ctypes.State{Status: "running", Running: true}},
+	}, nil)
+
+	client := dockerClient{containerAPI: engineClient}
+	err := client.removeSidecar(context.TODO(), "sidecarID")
+
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
 // Test for NetemContainer functionality
 func TestNetemContainer(t *testing.T) {
 	type args struct {
