@@ -369,10 +369,10 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 
 ### Task 11: [Final] Update documentation
 
-- [ ] update `CLAUDE.md` Architecture section: add `chaos.RunOnContainers` as the canonical fanout helper; add `util.ValidateInterfaceName` as the canonical interface-name validator
-- [ ] update `CLAUDE.md` Code Conventions: new chaos actions MUST use `chaos.RunOnContainers` (no hand-rolled list-then-fanout); document the convention next to the existing "Request value objects" rule
-- [ ] update `CLAUDE.md` Project Structure: list the new `cmd/{runtime,logging,flags}.go` files
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update `CLAUDE.md` Architecture section: add `chaos.RunOnContainers` as the canonical fanout helper; add `util.ValidateInterfaceName` as the canonical interface-name validator
+- [x] update `CLAUDE.md` Code Conventions: new chaos actions MUST use `chaos.RunOnContainers` (no hand-rolled list-then-fanout); document the convention next to the existing "Request value objects" rule
+- [x] update `CLAUDE.md` Project Structure: list the new `cmd/{runtime,logging,flags,commands}.go` files
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 

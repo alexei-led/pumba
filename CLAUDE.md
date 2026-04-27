@@ -48,12 +48,18 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
 ## Project Structure
 
 ```
-cmd/main.go            — CLI entry point, all command/flag definitions
+cmd/
+  main.go              — CLI entry point: main(), init(), signal context, app construction
+  runtime.go           — createRuntimeClient, tlsConfig, runtime factory vars (newDockerClient/newContainerdClient/newPodmanClient)
+  logging.go           — setupLogging: log-level switch + slackrus hook wiring
+  flags.go             — globalFlags(rootCertPath) builder
+  commands.go          — initializeCLICommands wiring chaos cmd builders into urfave/cli commands
 pkg/
   chaos/
     command.go         — ChaosCommand interface, Runtime factory type, scheduling/interval runner
+    runner.go          — chaos.RunOnContainers / RunOnContainersAll fanout helper (the canonical list-then-random-then-parallel/serial pattern)
     cmd/               — Generic NewAction[P] CLI builder shared across all chaos packages
-    cliflags/          — urfave/cli v1 adapter (Flags interface + V1) decoupling cmd builders from cli.Context
+    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context
     lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart)
     lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
     netem/             — Network emulation (delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)
@@ -67,7 +73,7 @@ pkg/
     docker/            — Docker runtime implementation of container.Client
     containerd/        — Containerd runtime implementation of container.Client
     podman/            — Podman runtime implementation (embeds Docker client, overrides stress cgroup resolution + rootless guards)
-  util/                — Shared utilities (IP/port parsing)
+  util/                — Shared utilities (IP/port parsing, ValidateInterfaceName for network interface name validation)
 mocks/                 — Generated mock files (mockery)
 tests/                 — Bats integration tests
 docker/                — Dockerfiles (main, alpine-nettools, debian-nettools)
@@ -79,6 +85,8 @@ examples/              — Demo scripts
 
 - **Container interfaces** (`pkg/container/client.go`): Focused sub-interfaces (Lister, Lifecycle, Executor, Netem, IPTables, Stressor) composed into a unified Client interface. Fat methods take request value objects from `pkg/container/requests.go`: `Netem`/`IPTables` take `*NetemRequest`/`*IPTablesRequest`, `Stressor.StressContainer` takes `*StressRequest` and returns `*StressResult` (`SidecarID` + `Output`/`Errors` channels), `Lifecycle.RemoveContainer` takes `RemoveOpts` (force/links/volumes/dryRun bools). `SidecarSpec` carries the implementation-hint `(Image, Pull)` pair that runtime adapters may ignore.
 - **Runtime factory injection** (`pkg/chaos/command.go`): `chaos.Runtime func() container.Client` is a closure-based factory. Every CLI builder constructor takes `runtime chaos.Runtime` explicitly — no `chaos.DockerClient` global, no service locator. `cmd/main.go::before` constructs the closure once after global flag parsing and propagates it through `initializeCLICommands`.
+- **Canonical chaos fanout** (`pkg/chaos/runner.go`): `RunOnContainers(ctx, lister, gp, limit, random, parallel, fn)` is the single helper every chaos action's `Run()` calls — it lists matching containers, optionally narrows to a random pick, and runs `fn` either via `errgroup` (parallel) or sequentially (serial). `RunOnContainersAll` variant lists stopped + running for lifecycle ops that target stopped containers. New chaos actions MUST use this helper instead of hand-rolling the list-then-fanout loop.
+- **Interface name validation** (`pkg/util/util.go::ValidateInterfaceName`): single source of truth for the `eth0`/`en0`/`lo`/`vlan.10` regex check; both `pkg/chaos/netem/parse.go` and `pkg/chaos/iptables/parse.go` call it. Never re-introduce a local `regexp.MustCompile` for interface names.
 - **Generic CLI builder** (`pkg/chaos/cmd/builder.go`): `NewAction[P]` collapses all 17 chaos cmd files into the same shape — flag list + typed `ParamParser[P]` + `CommandFactory[P]`. Parsers receive `cliflags.Flags`, never `*cli.Context` directly.
 - **Shared cmd parsing** (`pkg/chaos/{netem,iptables}/parse.go::ParseRequestBase`): per-action cmd parsers (`delay.go`, `loss.go`, …) call `ParseRequestBase` first to read parent-level flags via `c.Parent()` and build the populated base request (`*NetemRequest` for netem; iptables returns a small `RequestBase` carrying `*IPTablesRequest` + iface/protocol/limit). Per-action parsers then fill only their action-specific fields. New netem/iptables subcommands MUST follow this pattern — never re-parse the parent flag set inline.
 - **CLI flags adapter** (`pkg/chaos/cliflags/`): `Flags` interface wraps `urfave/cli` v1 via `V1`. Future v3 migration is a one-file swap (`v3.go` + wiring change in `cmd/main.go`).
@@ -98,6 +106,8 @@ examples/              — Demo scripts
 - **Interfaces:** Define interfaces for testability (Client in `pkg/container/client.go`)
 - **Constructor injection over globals:** Chaos cmd builders take `runtime chaos.Runtime` and produce a closure that reads it lazily. Never reintroduce a `chaos.DockerClient`-style global — visibility in the function signature is the rule.
 - **Request value objects for fat methods:** Interface methods accept request structs from `pkg/container/requests.go`, not long positional arg lists. Examples: `Netem.NetemContainer(*NetemRequest)`, `IPTables.IPTablesContainer(*IPTablesRequest)`, `Stressor.StressContainer(*StressRequest) (*StressResult, error)`, `Lifecycle.RemoveContainer(*Container, RemoveOpts)`. New runtime methods that exceed 4 params must follow the same pattern. Pass pointer for ≥3-field requests; pass-by-value for tiny opts (like `RemoveOpts`'s 4 bools).
+- **Chaos fanout via `chaos.RunOnContainers`:** New chaos actions MUST route through `chaos.RunOnContainers` (or `RunOnContainersAll` for stopped-container targeting) — never hand-roll `container.ListNContainers` + manual `sync.WaitGroup`/`errgroup` fanout in a `Run()` body. The helper enforces the list → random-pick → parallel-or-serial → collect-errors shape uniformly. Action-specific timeouts (e.g. `context.WithTimeout(ctx, n.req.Duration)`) belong inside the closure, not at the caller.
+- **Interface name validation:** call `util.ValidateInterfaceName(name)` for any new flag that takes a network interface name. Do not introduce a local `regexp.MustCompile` for the `eth0`/`en0`/`vlan.10` pattern.
 - **Mocking:** testify mocks, generated by mockery. Mock files in `mocks/` and `pkg/container/mock_*.go`
 - **Mock constructor:** Always use `container.NewMockClient(t)` — never `new(container.MockClient)`; auto-asserts expectations on test cleanup
 - **Mock request structs:** EXPECT() calls for `NetemContainer`/`IPTablesContainer`/`StressContainer` pass the corresponding `*NetemRequest`/`*IPTablesRequest`/`*StressRequest` literal (or `mock.AnythingOfType("*container.NetemRequest")` etc.); `RemoveContainer` takes a `RemoveOpts{...}` literal (value, not pointer). Never the old positional form.
@@ -114,7 +124,7 @@ examples/              — Demo scripts
 ## Unit Test Coverage Strategy
 
 - **Skip from unit tests** (covered by integration tests or untestable without real runtime):
-  `cmd/main.go`, `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
+  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go`'s `createRuntimeClient` seam, `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
 - **Run() method variants:** Always add NoContainers + DryRun + WithRandom test cases
 - **Run unit tests in sandbox:** `CGO_ENABLED=0 go test ./...` (no CGO needed outside CI)
 
