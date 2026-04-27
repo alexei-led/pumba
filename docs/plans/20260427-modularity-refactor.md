@@ -288,21 +288,21 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 - Regenerate: `pkg/container/mock_Netem.go`, `pkg/container/mock_IPTables.go`, `pkg/container/mock_Client.go`
 - Modify: every `*_test.go` that uses `EXPECT().NetemContainer(...)` / `EXPECT().IPTablesContainer(...)`
 
-- [ ] add `pkg/container/netem.go` with `NetemRequest`, `SidecarSpec`
-- [ ] add `pkg/container/iptables.go` with `IPTablesRequest`
-- [ ] update `Netem` and `IPTables` interfaces in `pkg/container/client.go`
-- [ ] `make mocks` — regenerate
-- [ ] update `pkg/runtime/docker/netem.go` to accept `NetemRequest` (unpack to existing internal vars; minimal body change)
-- [ ] update `pkg/runtime/docker/iptables.go` to accept `IPTablesRequest`
-- [ ] update `pkg/runtime/containerd/` netem + iptables impls
-- [ ] verify `pkg/runtime/podman/` override surface (no public surface change there since Podman delegates to Docker for netem/iptables — confirm nothing breaks)
-- [ ] update `pkg/chaos/netem/netem.go` to construct `NetemRequest` from existing fields and pass to interface
-- [ ] update `pkg/chaos/iptables/iptables.go` similarly
-- [ ] update each `pkg/chaos/{netem,iptables}/cmd/*.go` parse function — flag values flow into request struct
-- [ ] update every `EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("container.NetemRequest"))` style call in tests — test bodies stay the same logic, mock matcher changes
-- [ ] update test docs in `CLAUDE.md` if the typed-nil gotchas shift (the `[]string(nil)` / `[]*net.IPNet(nil)` traps move into the struct)
-- [ ] `make lint` — must pass
-- [ ] `make test` — must pass before next task
+- [x] add `pkg/container/netem.go` with `NetemRequest`, `SidecarSpec` (landed at `pkg/container/requests.go` — both request types live in one file)
+- [x] add `pkg/container/iptables.go` with `IPTablesRequest` (landed at `pkg/container/requests.go`)
+- [x] update `Netem` and `IPTables` interfaces in `pkg/container/client.go` (take `*NetemRequest`/`*IPTablesRequest` — pointer for size, ~160 bytes)
+- [x] `make mocks` — regenerate
+- [x] update `pkg/runtime/docker/netem.go` to accept `NetemRequest` (unpack to existing internal vars; minimal body change)
+- [x] update `pkg/runtime/docker/iptables.go` to accept `IPTablesRequest`
+- [x] update `pkg/runtime/containerd/` netem + iptables impls
+- [x] verify `pkg/runtime/podman/` override surface (no public surface change there since Podman delegates to Docker for netem/iptables — confirm nothing breaks)
+- [x] update `pkg/chaos/netem/netem.go` to construct `NetemRequest` from existing fields and pass to interface
+- [x] update `pkg/chaos/iptables/iptables.go` similarly
+- [x] update each `pkg/chaos/{netem,iptables}/cmd/*.go` parse function — flag values flow into request struct
+- [x] update every `EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("container.NetemRequest"))` style call in tests — test bodies stay the same logic, mock matcher changes
+- [x] update test docs in `CLAUDE.md` if the typed-nil gotchas shift (the `[]string(nil)` / `[]*net.IPNet(nil)` traps move into the struct)
+- [x] `make lint` — must pass
+- [x] `make test` — must pass before next task
 
 ### Task 6: Wrap `urfave/cli` v1 behind `Flags` interface
 
