@@ -234,11 +234,11 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 - Create: `pkg/chaos/runner.go`
 - Create: `pkg/chaos/runner_test.go`
 
-- [ ] create `pkg/chaos/runner.go` with `ContainerAction` type and `RunOnContainers` function (exact shape per Technical Details)
-- [ ] write table-driven tests in `pkg/chaos/runner_test.go` covering: empty list / list error / single container serial / multiple containers serial / multiple containers parallel / random pick path / parallel error short-circuits via errgroup / serial error stops on first
-- [ ] use `container.NewMockClient(t)` for the `container.Lister` argument; assert with `testify/require` for setup, `assert` for outcomes
-- [ ] add a godoc example showing a typical call site so future actions copy from one canonical place
-- [ ] run `CGO_ENABLED=0 go test ./pkg/chaos/...` and `make lint` — must pass before Task 2
+- [x] create `pkg/chaos/runner.go` with `ContainerAction` type and `RunOnContainers` function (exact shape per Technical Details)
+- [x] write table-driven tests in `pkg/chaos/runner_test.go` covering: empty list / list error / single container serial / multiple containers serial / multiple containers parallel / random pick path / parallel error short-circuits via errgroup / serial error stops on first
+- [x] use `container.NewMockClient(t)` for the `container.Lister` argument; assert with `testify/require` for setup, `assert` for outcomes
+- [x] add a godoc example showing a typical call site so future actions copy from one canonical place
+- [x] run `CGO_ENABLED=0 go test ./pkg/chaos/...` and `make lint` — must pass before Task 2
 
 ### Task 2: Migrate netem actions to `chaos.RunOnContainers`
 
