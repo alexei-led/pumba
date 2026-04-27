@@ -22,8 +22,13 @@ TESTPKGS := $(shell $(GO) list -f \
 LINT_CONFIG := $(CURDIR)/.golangci.yaml
 LDFLAGS_VERSION := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.branch=$(BRANCH) -X \"main.buildTime=$(DATE)\"
 BIN        := $(CURDIR)/.bin
+PUMBA_BIN  := $(BIN)/$(basename $(MODULE))
+ADVANCED_TEST_BIN = $(BIN)/integration-tests-$(LOCAL_TARGETARCH).test
 TARGETOS   := $(or $(TARGETOS), linux)
 TARGETARCH := $(or $(TARGETARCH), amd64)
+HOSTOS     := $(shell uname -s)
+LOCAL_TARGETARCH ?= $(shell uname -m | sed -e 's/aarch64/arm64/' -e 's/x86_64/amd64/')
+LOCAL_PODMAN_MACHINE ?= pumba-podman
 
 # platforms and architectures for release
 PLATFORMS     = darwin linux windows
@@ -50,7 +55,7 @@ build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Bui
 	$Q $(GO) build \
 		-tags release \
 		-ldflags "$(LDFLAGS_VERSION)" \
-		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
+		-o $(BIN)/$(basename $(MODULE)) ./cmd
 
 .PHONY: release
 release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for paltforms and os
@@ -61,7 +66,7 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 				$(GO) build \
 				-tags release \
 				-ldflags "$(LDFLAGS_VERSION)" \
-				-o $(BIN)/pumba_$(GOOS)_$(GOARCH) ./cmd/main.go)))
+				-o $(BIN)/pumba_$(GOOS)_$(GOARCH) ./cmd)))
 
 # Tools
 
@@ -113,22 +118,68 @@ test-coverage: setup-go-junit-report setup-gocov setup-gocov-xml; $(info $(M) ru
 	$Q $(GO) tool cover -func="$(COVERAGE_PROFILE)"
 	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
+ifeq ($(HOSTOS),Darwin)
+.PHONY: integration-tests integration-tests-all integration-tests-local-docker integration-tests-local-docker-all integration-tests-local-containerd integration-tests-local-podman build-local-linux install-pumba-colima install-pumba-podman ensure-colima-test-deps ensure-podman-test-deps
+integration-tests: integration-tests-local-docker integration-tests-local-containerd integration-tests-local-podman ## Run local macOS integration tests in runtime VMs
+integration-tests-all: integration-tests-local-docker-all integration-tests-local-containerd integration-tests-local-podman ## Run all local macOS integration tests in runtime VMs
+
+build-local-linux: ; $(info $(M) building linux/$(LOCAL_TARGETARCH) binary for local VMs...) @
+	$Q $(MAKE) build TARGETOS=linux TARGETARCH=$(LOCAL_TARGETARCH)
+
+install-pumba-colima: build-local-linux ; $(info $(M) installing pumba in Colima VM...) @
+	$Q colima ssh -- sudo install -m 755 $(PUMBA_BIN) /usr/local/bin/pumba
+	$Q colima ssh -- pumba --version
+
+install-pumba-podman: build-local-linux ; $(info $(M) installing pumba in Podman VM...) @
+	$Q podman machine ssh $(LOCAL_PODMAN_MACHINE) sudo install -m 755 $(PUMBA_BIN) /usr/local/bin/pumba
+	$Q podman machine ssh $(LOCAL_PODMAN_MACHINE) pumba --version
+
+ensure-colima-test-deps: ; $(info $(M) checking Colima integration test dependencies...) @
+	$Q colima status >/dev/null
+	$Q colima ssh -- bash -lc 'set -e; if ! command -v bats >/dev/null 2>&1; then sudo apt-get update -qq && sudo apt-get install -y -qq bats git; fi; sudo mkdir -p /usr/local/lib; if [ ! -d /usr/local/lib/bats-support ]; then sudo git clone --depth 1 https://github.com/bats-core/bats-support.git /usr/local/lib/bats-support; fi; if [ ! -d /usr/local/lib/bats-assert ]; then sudo git clone --depth 1 https://github.com/bats-core/bats-assert.git /usr/local/lib/bats-assert; fi; for img in docker.io/library/alpine:latest docker.io/nicolaka/netshoot:latest ghcr.io/alexei-led/pumba-alpine-nettools:latest ghcr.io/alexei-led/stress-ng:latest; do docker image inspect "$$img" >/dev/null 2>&1 || docker pull "$$img"; sudo ctr -n moby i ls -q | grep -qx "$$img" || sudo ctr -n moby i pull "$$img"; done; sudo ctr i ls -q | grep -qx docker.io/library/alpine:latest || sudo ctr i pull docker.io/library/alpine:latest'
+
+ensure-podman-test-deps: ; $(info $(M) checking Podman integration test dependencies...) @
+	$Q podman machine ssh $(LOCAL_PODMAN_MACHINE) 'set -e; sudo mkdir -p /usr/local/lib /usr/local/bin; if ! command -v bats >/dev/null 2>&1; then if [ ! -d /usr/local/lib/bats-core ]; then sudo git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git /usr/local/lib/bats-core; fi; sudo ln -sf /usr/local/lib/bats-core/bin/bats /usr/local/bin/bats; fi; if [ ! -d /usr/local/lib/bats-support ]; then sudo git clone --depth 1 https://github.com/bats-core/bats-support.git /usr/local/lib/bats-support; fi; if [ ! -d /usr/local/lib/bats-assert ]; then sudo git clone --depth 1 https://github.com/bats-core/bats-assert.git /usr/local/lib/bats-assert; fi; for img in docker.io/library/alpine:latest docker.io/nicolaka/netshoot:latest ghcr.io/alexei-led/pumba-alpine-nettools:latest ghcr.io/alexei-led/stress-ng:latest; do sudo podman image exists "$$img" || sudo podman pull "$$img"; done'
+
+integration-tests-local-docker: install-pumba-colima ensure-colima-test-deps ; $(info $(M) running Docker integration tests in Colima VM...) @
+	$Q colima ssh -- bash -O extglob -lc 'cd $(CURDIR) && sudo env "PATH=/usr/local/bin:$$PATH" bats --tap --timing --print-output-on-failure tests/!(containerd_*|podman_*|stress).bats'
+
+integration-tests-local-docker-all: install-pumba-colima ensure-colima-test-deps ; $(info $(M) running all Docker integration tests in Colima VM...) @
+	$Q colima ssh -- bash -O extglob -lc 'cd $(CURDIR) && sudo env "PATH=/usr/local/bin:$$PATH" bats --tap --timing --print-output-on-failure tests/!(containerd_*|podman_*).bats'
+
+integration-tests-local-containerd: install-pumba-colima ensure-colima-test-deps ; $(info $(M) running containerd integration tests in Colima VM...) @
+	$Q colima ssh -- bash -lc 'cd $(CURDIR) && sudo env "PATH=/usr/local/bin:$$PATH" bats --tap --timing --print-output-on-failure tests/containerd_*.bats'
+
+integration-tests-local-podman: install-pumba-podman ensure-podman-test-deps ; $(info $(M) running Podman integration tests in Podman VM...) @
+	$Q podman machine ssh $(LOCAL_PODMAN_MACHINE) 'cd $(CURDIR) && sudo env "PATH=/usr/local/bin:$$PATH" bats --tap --timing --print-output-on-failure tests/podman_*.bats'
+else
 # run integration tests
 .PHONY: integration-tests
 integration-tests: build ; $(info $(M) running integration tests with bats...) @ ## Run bats tests
-	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
-	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(SHELL) tests/run_tests.sh
+	$Q PATH="$(BIN)/$(dir $(MODULE)):$(PATH)" pumba --version
+	$Q PATH="$(BIN)/$(dir $(MODULE)):$(PATH)" $(SHELL) tests/run_tests.sh
 	
 # run all integration tests including stress tests
 .PHONY: integration-tests-all
 integration-tests-all: build ; $(info $(M) running all integration tests with bats...) @ ## Run all bats tests including stress tests
-	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) pumba --version
-	$Q PATH=$(BIN)/$(dir $(MODULE)):$(PATH) $(SHELL) tests/run_tests.sh --all
+	$Q PATH="$(BIN)/$(dir $(MODULE)):$(PATH)" pumba --version
+	$Q PATH="$(BIN)/$(dir $(MODULE)):$(PATH)" $(SHELL) tests/run_tests.sh --all
+endif
 
+ifeq ($(HOSTOS),Darwin)
+# run advanced Go integration tests (requires Docker, sudo for nsenter/containerd)
+.PHONY: integration-tests-advanced build-advanced-integration-linux
+build-advanced-integration-linux: ; $(info $(M) building linux/$(LOCAL_TARGETARCH) advanced integration test binary...) @
+	$Q env CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCAL_TARGETARCH) $(GO) test -c -tags integration -o $(ADVANCED_TEST_BIN) ./tests/integration
+
+integration-tests-advanced: install-pumba-colima ensure-colima-test-deps build-advanced-integration-linux ; $(info $(M) running advanced Go integration tests in Colima VM...) @ ## Run Go integration tests
+	$Q colima ssh -- bash -lc 'cd $(CURDIR) && sudo env "PATH=/usr/local/bin:$$PATH" $(ADVANCED_TEST_BIN) -test.v -test.timeout=300s -test.parallel=1'
+else
 # run advanced Go integration tests (requires Docker, sudo for nsenter/containerd)
 .PHONY: integration-tests-advanced
 integration-tests-advanced: build ; $(info $(M) running advanced Go integration tests...) @ ## Run Go integration tests
 	$Q CGO_ENABLED=0 $(GO) test -v -tags integration -timeout 300s -count=1 ./tests/integration/...
+endif
 
 .PHONY: lint
 lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
