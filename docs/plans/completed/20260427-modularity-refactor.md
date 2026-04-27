@@ -340,11 +340,11 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 
 ### Task 8: Update documentation
 
-- [ ] update `CLAUDE.md` Architecture section: `pkg/chaos/docker` → `pkg/chaos/lifecycle`; `chaos.DockerClient` removed; `NetemRequest`/`IPTablesRequest` mentioned
-- [ ] update `CLAUDE.md` Code Conventions: mockery `EXPECT().NetemContainer(ctx, container.NetemRequest{...})` example
-- [ ] update `CLAUDE.md` Gotchas if typed-nil traps shifted (likely simpler now — the request struct holds nil slices uniformly)
-- [ ] regenerate `docs/modularity-review/` for 2026-04-30 (or schedule for later) to confirm score moved 7.4 → ~9.0
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update `CLAUDE.md` Architecture section: `pkg/chaos/docker` → `pkg/chaos/lifecycle`; `chaos.DockerClient` removed; `NetemRequest`/`IPTablesRequest` mentioned — verified at CLAUDE.md:78-92 (already current as of Tasks 1, 2, 4, 5)
+- [x] update `CLAUDE.md` Code Conventions: mockery `EXPECT().NetemContainer(ctx, container.NetemRequest{...})` example — verified at CLAUDE.md:99,102 (constructor injection rule + `*NetemRequest`/`*IPTablesRequest` mock-literal convention already present)
+- [x] update `CLAUDE.md` Gotchas if typed-nil traps shifted — no shift required: the prior typed-nil traps were never documented as Gotchas (they lived only in test code) and the request-struct migration consolidated the nil-slice fields into one place, so no new gotcha is warranted
+- [x] regenerate `docs/modularity-review/` for 2026-04-30 (or schedule for later) to confirm score moved 7.4 → ~9.0 — deferred to scheduled re-baseline per Post-Completion section (refactor PRs need to land first; running it on the same branch that introduced the changes would just measure intent, not lived code)
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
