@@ -325,11 +325,11 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 
 - Modify: `cmd/main.go` (still monolithic at this point; Task 9 splits it)
 
-- [ ] change `before(c *cli.Context) error` body to construct `f := cliflags.NewV1FromApp(c)` once at the top, then read all global values via `f.String("log-level")`, `f.Bool("json")`, etc. (the function signature must keep `*cli.Context` because urfave/cli v1 dictates it — the conversion is internal-only)
-- [ ] change `createRuntimeClient(c *cli.Context)` similarly: read `runtime`, `host`, `tlsverify`, `tlscacert`, `tlscert`, `tlskey` via the adapter
-- [ ] keep `tlsConfig(c *cli.Context)` reading directly from `*cli.Context` for now — it uses `os.Getenv` paths and TLS-specific helpers; converting it adds noise without payoff. Document why in a one-line comment.
-- [ ] run all main_test.go tests (existing tests for `createRuntimeClient` already swap factories via package vars — keep those test seams unchanged)
-- [ ] run `CGO_ENABLED=0 go test ./cmd/...` and `make lint` — must pass before Task 9
+- [x] change `before(c *cli.Context) error` body to construct `f := cliflags.NewV1FromApp(c)` once at the top, then read all global values via `f.String("log-level")`, `f.Bool("json")`, etc. (the function signature must keep `*cli.Context` because urfave/cli v1 dictates it — the conversion is internal-only)
+- [x] change `createRuntimeClient(c *cli.Context)` similarly: read `runtime`, `host`, `tlsverify`, `tlscacert`, `tlscert`, `tlskey` via the adapter
+- [x] keep `tlsConfig(c *cli.Context)` reading directly from `*cli.Context` for now — it uses `os.Getenv` paths and TLS-specific helpers; converting it adds noise without payoff. Document why in a one-line comment.
+- [x] run all main_test.go tests (existing tests for `createRuntimeClient` already swap factories via package vars — keep those test seams unchanged)
+- [x] run `CGO_ENABLED=0 go test ./cmd/...` and `make lint` — must pass before Task 9
 
 ### Task 9: Split `cmd/main.go` into focused per-concern files
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
@@ -110,8 +111,9 @@ func main() {
 }
 
 func before(c *cli.Context) error {
+	f := cliflags.NewV1FromApp(c)
 	// set debug log level
-	switch level := c.GlobalString("log-level"); level {
+	switch level := f.String("log-level"); level {
 	case "debug", "DEBUG":
 		log.SetLevel(log.DebugLevel)
 	case "info", "INFO":
@@ -128,15 +130,15 @@ func before(c *cli.Context) error {
 		log.SetLevel(log.WarnLevel)
 	}
 	// set log formatter to JSON
-	if c.GlobalBool("json") {
+	if f.Bool("json") {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
 	// set Slack log channel
-	if c.GlobalString("slackhook") != "" {
+	if f.String("slackhook") != "" {
 		log.AddHook(&slackrus.SlackrusHook{
-			HookURL:        c.GlobalString("slackhook"),
+			HookURL:        f.String("slackhook"),
 			AcceptedLevels: slackrus.LevelThreshold(log.GetLevel()),
-			Channel:        c.GlobalString("slackchannel"),
+			Channel:        f.String("slackchannel"),
 			IconEmoji:      ":boar:",
 			Username:       "pumba_bot",
 		})
@@ -153,25 +155,29 @@ func before(c *cli.Context) error {
 // via --runtime. Extracted from before() to keep gocyclo under the 15 limit
 // and to give unit tests a single function to exercise.
 func createRuntimeClient(c *cli.Context) (ctr.Client, error) {
-	switch runtime := c.GlobalString("runtime"); runtime {
+	f := cliflags.NewV1FromApp(c)
+	switch runtime := f.String("runtime"); runtime {
 	case "docker":
+		// tlsConfig still reads *cli.Context directly: it mixes flag reads with
+		// os.ReadFile/x509 helpers, so threading the adapter would add noise
+		// without payoff for the v3 migration this abstraction targets.
 		tlsCfg, err := tlsConfig(c)
 		if err != nil {
 			return nil, err
 		}
-		client, err := newDockerClient(c.GlobalString("host"), tlsCfg)
+		client, err := newDockerClient(f.String("host"), tlsCfg)
 		if err != nil {
 			return nil, fmt.Errorf("could not create Docker client: %w", err)
 		}
 		return client, nil
 	case "containerd":
-		client, err := newContainerdClient(c.GlobalString("containerd-socket"), c.GlobalString("containerd-namespace"))
+		client, err := newContainerdClient(f.String("containerd-socket"), f.String("containerd-namespace"))
 		if err != nil {
 			return nil, fmt.Errorf("could not create containerd client: %w", err)
 		}
 		return client, nil
 	case "podman":
-		client, err := newPodmanClient(c.GlobalString("podman-socket"))
+		client, err := newPodmanClient(f.String("podman-socket"))
 		if err != nil {
 			return nil, fmt.Errorf("could not create podman client: %w", err)
 		}
