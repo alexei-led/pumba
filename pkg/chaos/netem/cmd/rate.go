@@ -15,7 +15,8 @@ import (
 
 // RateParams holds the per-command parameters for the netem rate subcommand.
 type RateParams struct {
-	Netem          *netem.Params
+	Base           *container.NetemRequest
+	Limit          int
 	Rate           string
 	PacketOverhead int
 	CellSize       int
@@ -57,12 +58,13 @@ func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 }
 
 func parseRateParams(c cliflags.Flags, gp *chaos.GlobalParams) (RateParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return RateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return RateParams{
-		Netem:          netemParams,
+		Base:           base,
+		Limit:          limit,
 		Rate:           c.String("rate"),
 		PacketOverhead: c.Int("packetoverhead"),
 		CellSize:       c.Int("cellsize"),
@@ -71,5 +73,5 @@ func parseRateParams(c cliflags.Flags, gp *chaos.GlobalParams) (RateParams, erro
 }
 
 func buildRateCommand(client container.Client, gp *chaos.GlobalParams, p RateParams) (chaos.Command, error) {
-	return netem.NewRateCommand(client, gp, p.Netem, p.Rate, p.PacketOverhead, p.CellSize, p.CellOverhead)
+	return netem.NewRateCommand(client, gp, p.Base, p.Limit, p.Rate, p.PacketOverhead, p.CellSize, p.CellOverhead)
 }

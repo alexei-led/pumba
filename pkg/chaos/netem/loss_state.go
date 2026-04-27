@@ -14,18 +14,22 @@ import (
 
 // `netem loss state` command
 type lossStateCommand struct {
-	netemCommand
-	p13 float64
-	p31 float64
-	p32 float64
-	p23 float64
-	p14 float64
+	client netemClient
+	gp     *chaos.GlobalParams
+	req    *container.NetemRequest
+	limit  int
+	p13    float64
+	p31    float64
+	p32    float64
+	p23    float64
+	p14    float64
 }
 
 // NewLossStateCommand create new netem loss state command
 func NewLossStateCommand(client netemClient,
-	globalParams *chaos.GlobalParams,
-	netemParams *Params,
+	gp *chaos.GlobalParams,
+	req *container.NetemRequest,
+	limit int,
 	p13, // probability to go from state (1) to state (3)
 	p31, // probability to go from state (3) to state (1)
 	p32, // probability to go from state (3) to state (2)
@@ -54,12 +58,15 @@ func NewLossStateCommand(client netemClient,
 	}
 
 	return &lossStateCommand{
-		netemCommand: newNetemCommand(client, globalParams, netemParams),
-		p13:          p13,
-		p31:          p31,
-		p32:          p32,
-		p23:          p23,
-		p14:          p14,
+		client: client,
+		gp:     gp,
+		req:    req,
+		limit:  limit,
+		p13:    p13,
+		p31:    p31,
+		p32:    p32,
+		p23:    p23,
+		p14:    p14,
 	}, nil
 }
 
@@ -67,13 +74,13 @@ func NewLossStateCommand(client netemClient,
 func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according 4-state Markov model to all matching containers")
 	log.WithFields(log.Fields{
-		"names":   n.names,
-		"pattern": n.pattern,
-		"labels":  n.labels,
+		"names":   n.gp.Names,
+		"pattern": n.gp.Pattern,
+		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
+	containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
 	if err != nil {
 		return fmt.Errorf("error listing containers: %w", err)
 	}
@@ -109,19 +116,12 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
-			netemCtx, cancel := context.WithTimeout(ctx, n.duration)
+			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
-			errs[i] = runNetem(netemCtx, n.client, &container.NetemRequest{
-				Container: c,
-				Interface: n.iface,
-				Command:   netemCmd,
-				IPs:       n.ips,
-				SPorts:    n.sports,
-				DPorts:    n.dports,
-				Duration:  n.duration,
-				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
-				DryRun:    n.dryRun,
-			})
+			req := *n.req
+			req.Container = c
+			req.Command = netemCmd
+			errs[i] = runNetem(netemCtx, n.client, &req)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet loss for container")
 			}

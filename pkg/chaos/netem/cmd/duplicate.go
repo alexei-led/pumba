@@ -15,7 +15,8 @@ import (
 
 // DuplicateParams holds the per-command parameters for the netem duplicate subcommand.
 type DuplicateParams struct {
-	Netem       *netem.Params
+	Base        *container.NetemRequest
+	Limit       int
 	Percent     float64
 	Correlation float64
 }
@@ -45,17 +46,18 @@ func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Com
 }
 
 func parseDuplicateParams(c cliflags.Flags, gp *chaos.GlobalParams) (DuplicateParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return DuplicateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return DuplicateParams{
-		Netem:       netemParams,
+		Base:        base,
+		Limit:       limit,
 		Percent:     c.Float64("percent"),
 		Correlation: c.Float64("correlation"),
 	}, nil
 }
 
 func buildDuplicateCommand(client container.Client, gp *chaos.GlobalParams, p DuplicateParams) (chaos.Command, error) {
-	return netem.NewDuplicateCommand(client, gp, p.Netem, p.Percent, p.Correlation)
+	return netem.NewDuplicateCommand(client, gp, p.Base, p.Limit, p.Percent, p.Correlation)
 }

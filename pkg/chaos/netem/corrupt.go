@@ -14,15 +14,19 @@ import (
 
 // `netem corrupt` command
 type corruptCommand struct {
-	netemCommand
+	client      netemClient
+	gp          *chaos.GlobalParams
+	req         *container.NetemRequest
+	limit       int
 	percent     float64
 	correlation float64
 }
 
 // NewCorruptCommand create new netem corrupt command
 func NewCorruptCommand(client netemClient,
-	globalParams *chaos.GlobalParams,
-	netemParams *Params,
+	gp *chaos.GlobalParams,
+	req *container.NetemRequest,
+	limit int,
 	percent, // corrupt percent
 	correlation float64, // corrupt correlation
 ) (chaos.Command, error) {
@@ -35,9 +39,12 @@ func NewCorruptCommand(client netemClient,
 		return nil, errors.New("invalid corrupt correlation: must be between 0.0 and 100.0")
 	}
 	return &corruptCommand{
-		netemCommand: newNetemCommand(client, globalParams, netemParams),
-		percent:      percent,
-		correlation:  correlation,
+		client:      client,
+		gp:          gp,
+		req:         req,
+		limit:       limit,
+		percent:     percent,
+		correlation: correlation,
 	}, nil
 }
 
@@ -45,13 +52,13 @@ func NewCorruptCommand(client netemClient,
 func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet corrupt to all matching containers")
 	log.WithFields(log.Fields{
-		"names":   n.names,
-		"pattern": n.pattern,
-		"labels":  n.labels,
+		"names":   n.gp.Names,
+		"pattern": n.gp.Pattern,
+		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
+	containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
 	if err != nil {
 		return fmt.Errorf("error listing containers: %w", err)
 	}
@@ -85,19 +92,12 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 		wg.Add(1)
 		go func(i int, c *container.Container) {
 			defer wg.Done()
-			netemCtx, cancel := context.WithTimeout(ctx, n.duration)
+			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
-			errs[i] = runNetem(netemCtx, n.client, &container.NetemRequest{
-				Container: c,
-				Interface: n.iface,
-				Command:   netemCmd,
-				IPs:       n.ips,
-				SPorts:    n.sports,
-				DPorts:    n.dports,
-				Duration:  n.duration,
-				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
-				DryRun:    n.dryRun,
-			})
+			req := *n.req
+			req.Container = c
+			req.Command = netemCmd
+			errs[i] = runNetem(netemCtx, n.client, &req)
 			if errs[i] != nil {
 				log.WithError(errs[i]).Warn("failed to set packet corrupt for container")
 			}

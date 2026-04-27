@@ -47,7 +47,12 @@ func TestRateCommand_Run_DryRun(t *testing.T) {
 		Networks:      map[string]container.NetworkLink{},
 	}
 	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
-	nparams := &Params{Iface: "eth0", Duration: 100 * time.Millisecond, Image: "tc-image"}
+	nparams := &container.NetemRequest{
+		Interface: "eth0",
+		Duration:  100 * time.Millisecond,
+		Sidecar:   container.SidecarSpec{Image: "tc-image"},
+		DryRun:    true,
+	}
 
 	mockClient.EXPECT().ListContainers(mock.Anything,
 		mock.AnythingOfType("container.FilterFunc"),
@@ -65,7 +70,7 @@ func TestRateCommand_Run_DryRun(t *testing.T) {
 	mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
 	mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
 
-	cmd, err := NewRateCommand(mockClient, gparams, nparams, "100mbit", 10, 20, 30)
+	cmd, err := NewRateCommand(mockClient, gparams, nparams, 0, "100mbit", 10, 20, 30)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), false)

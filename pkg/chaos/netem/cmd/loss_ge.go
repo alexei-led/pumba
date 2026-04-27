@@ -15,7 +15,8 @@ import (
 
 // LossGEParams holds the per-command parameters for the netem loss-gemodel subcommand.
 type LossGEParams struct {
-	Netem *netem.Params
+	Base  *container.NetemRequest
+	Limit int
 	PG    float64
 	PB    float64
 	OneH  float64
@@ -58,12 +59,13 @@ func NewLossGECLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 }
 
 func parseLossGEParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossGEParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return LossGEParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return LossGEParams{
-		Netem: netemParams,
+		Base:  base,
+		Limit: limit,
 		PG:    c.Float64("pg"),
 		PB:    c.Float64("pb"),
 		OneH:  c.Float64("one-h"),
@@ -72,5 +74,5 @@ func parseLossGEParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossGEParams, 
 }
 
 func buildLossGECommand(client container.Client, gp *chaos.GlobalParams, p LossGEParams) (chaos.Command, error) {
-	return netem.NewLossGECommand(client, gp, p.Netem, p.PG, p.PB, p.OneH, p.OneK)
+	return netem.NewLossGECommand(client, gp, p.Base, p.Limit, p.PG, p.PB, p.OneH, p.OneK)
 }
