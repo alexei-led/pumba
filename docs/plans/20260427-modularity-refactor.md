@@ -314,15 +314,15 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 - Modify: every parse function in `pkg/chaos/{lifecycle,netem,iptables,stress}/cmd/*.go` to take `cliflags.Flags`
 - Modify: `pkg/chaos/command.go` — `ParseGlobalParams` takes `cliflags.Flags`
 
-- [ ] write `pkg/chaos/cliflags/flags.go` — interface, `v1Flags` adapter wrapping `*cli.Context`, `From()` constructor, `Global()` returning a wrapped global view
-- [ ] write `pkg/chaos/cliflags/flags_test.go` — verify each adapter method delegates correctly with a stub `*cli.Context` (or via fake `cli.App` invocation)
-- [ ] modify `pkg/chaos/cli/builder.go` — `NewAction[P]` constructs `cliflags.From(c)` once, passes to `parse`
-- [ ] modify `pkg/chaos/command.go` `ParseGlobalParams` to take `cliflags.Flags`
-- [ ] modify every parse function in the 17 CLI builders — drop `*cli.Context` param, take `cliflags.Flags`
-- [ ] update parse-function tests if they call directly (most go through `NewAction`)
-- [ ] grep verify `*cli.Context` is now imported only in `cmd/main.go`, `pkg/chaos/cli/builder.go`, `pkg/chaos/cliflags/flags.go`
-- [ ] `make lint` — must pass
-- [ ] `make test` — must pass before next task
+- [x] write `pkg/chaos/cliflags/flags.go` — interface, `v1Flags` adapter wrapping `*cli.Context`, `From()` constructor, `Global()` returning a wrapped global view (interface in `flags.go`, V1 adapter split into `v1.go`; `NewV1` is the constructor)
+- [x] write `pkg/chaos/cliflags/flags_test.go` — verify each adapter method delegates correctly with a stub `*cli.Context` (or via fake `cli.App` invocation)
+- [x] modify `pkg/chaos/cli/builder.go` — `NewAction[P]` constructs `cliflags.From(c)` once, passes to `parse` (landed at `pkg/chaos/cmd/builder.go`; wraps once via `cliflags.NewV1(c)` and reuses for both `ParseGlobalParams` and `spec.Parse`)
+- [x] modify `pkg/chaos/command.go` `ParseGlobalParams` to take `cliflags.Flags` (also `getNamesOrPattern`; reads root flags via `c.Global()`)
+- [x] modify every parse function in the 17 CLI builders — drop `*cli.Context` param, take `cliflags.Flags`
+- [x] update parse-function tests if they call directly (most go through `NewAction`) — tests already wrap their `*cli.Context` in `cliflags.NewV1(c)` before calling parse functions
+- [x] grep verify `*cli.Context` is now imported only in `cmd/main.go`, `pkg/chaos/cli/builder.go`, `pkg/chaos/cliflags/flags.go` (verified: production references in `pkg/chaos/cmd/builder.go` (Action sig) and `pkg/chaos/cliflags/v1.go` (adapter); test files exempt)
+- [x] `make lint` — must pass
+- [x] `make test` — must pass before next task
 
 ### Task 7: Verify acceptance criteria
 

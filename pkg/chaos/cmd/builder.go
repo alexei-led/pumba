@@ -59,11 +59,12 @@ func NewAction[P any](ctx context.Context, runtime chaos.Runtime, spec Spec[P]) 
 			if spec.RequireArgs && !c.Args().Present() {
 				return ErrContainerArgRequired
 			}
-			gp, err := chaos.ParseGlobalParams(c)
+			f := cliflags.NewV1(c)
+			gp, err := chaos.ParseGlobalParams(f)
 			if err != nil {
 				return fmt.Errorf("error parsing global parameters: %w", err)
 			}
-			p, err := spec.Parse(cliflags.NewV1(c), gp)
+			p, err := spec.Parse(f, gp)
 			if err != nil {
 				return err
 			}
