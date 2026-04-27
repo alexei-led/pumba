@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -81,67 +80,36 @@ func (n *rateCommand) Run(ctx context.Context, random bool) error {
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers found")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// prepare netem rate command
-	netemCmd := []string{"rate", n.rate}
-	if n.packetOverhead != 0 {
-		netemCmd = append(netemCmd, strconv.Itoa(n.packetOverhead))
-	}
-	if n.cellSize > 0 {
-		netemCmd = append(netemCmd, strconv.Itoa(n.cellSize))
-	}
-	if n.cellOverhead != 0 {
-		netemCmd = append(netemCmd, strconv.Itoa(n.cellOverhead))
-	}
-
-	// run netem loss command for selected containers
-	var wg sync.WaitGroup
-	errs := make([]error, len(containers))
-	for i, c := range containers {
-		log.WithFields(log.Fields{
-			"container": c,
-			"command":   netemCmd,
-		}).Debug("setting network rate for container")
-		wg.Add(1)
-		go func(i int, c *container.Container) {
-			defer wg.Done()
+	netemCmd := n.buildNetemCmd()
+	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{
+				"container": c,
+				"command":   netemCmd,
+			}).Debug("setting network rate for container")
 			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
 			req := *n.req
 			req.Container = c
 			req.Command = netemCmd
-			errs[i] = runNetem(netemCtx, n.client, &req)
-			if errs[i] != nil {
-				log.WithError(errs[i]).Warn("failed to set network rate for container")
+			if err := runNetem(netemCtx, n.client, &req); err != nil {
+				log.WithError(err).Warn("failed to set network rate for container")
+				return fmt.Errorf("failed to set network rate for one or more containers: %w", err)
 			}
-		}(i, c)
+			return nil
+		})
+}
+
+func (n *rateCommand) buildNetemCmd() []string {
+	cmd := []string{"rate", n.rate}
+	if n.packetOverhead != 0 {
+		cmd = append(cmd, strconv.Itoa(n.packetOverhead))
 	}
-
-	// Wait for all netem delay commands to complete
-	wg.Wait()
-
-	// scan through all errors in goroutines
-	for _, err = range errs {
-		// take first found error
-		if err != nil {
-			return fmt.Errorf("failed to set network rate for one or more containers: %w", err)
-		}
+	if n.cellSize > 0 {
+		cmd = append(cmd, strconv.Itoa(n.cellSize))
 	}
-
-	return nil
+	if n.cellOverhead != 0 {
+		cmd = append(cmd, strconv.Itoa(n.cellOverhead))
+	}
+	return cmd
 }

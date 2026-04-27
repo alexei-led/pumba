@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -49,6 +48,8 @@ func NewCorruptCommand(client netemClient,
 }
 
 // Run netem corrupt command
+//
+//nolint:dupl
 func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet corrupt to all matching containers")
 	log.WithFields(log.Fields{
@@ -58,62 +59,27 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers found")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// prepare netem corrupt command
-	netemCmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)}
-	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
-	}
-
-	// run netem corrupt command for selected containers
-	var wg sync.WaitGroup
-	errs := make([]error, len(containers))
-
-	//nolint:dupl
-	for i, c := range containers {
-		log.WithFields(log.Fields{
-			"container": c,
-		}).Debug("adding network random packet corrupt for container")
-		wg.Add(1)
-		go func(i int, c *container.Container) {
-			defer wg.Done()
+	netemCmd := n.buildNetemCmd()
+	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": c}).Debug("adding network random packet corrupt for container")
 			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
 			req := *n.req
 			req.Container = c
 			req.Command = netemCmd
-			errs[i] = runNetem(netemCtx, n.client, &req)
-			if errs[i] != nil {
-				log.WithError(errs[i]).Warn("failed to set packet corrupt for container")
+			if err := runNetem(netemCtx, n.client, &req); err != nil {
+				log.WithError(err).Warn("failed to set packet corrupt for container")
+				return fmt.Errorf("failed to corrupt packets for one or more containers: %w", err)
 			}
-		}(i, c)
+			return nil
+		})
+}
+
+func (n *corruptCommand) buildNetemCmd() []string {
+	cmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	if n.correlation > 0 {
+		cmd = append(cmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
 	}
-
-	// Wait for all netem commands to complete
-	wg.Wait()
-
-	// scan through all errors in goroutines
-	for _, err = range errs {
-		// take first reported error
-		if err != nil {
-			return fmt.Errorf("failed to corrupt packets for one or more containers: %w", err)
-		}
-	}
-
-	return nil
+	return cmd
 }

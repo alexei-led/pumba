@@ -247,12 +247,12 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 - Modify: `pkg/chaos/netem/{corrupt,delay,duplicate,loss,loss_ge,loss_state,rate}.go`
 - Modify: `pkg/chaos/netem/{corrupt,delay,duplicate,loss,loss_ge,loss_state,rate}_test.go` (only if existing assertions reference removed `sync.WaitGroup`/`errs[]` internals — likely none do)
 
-- [ ] extract the `netemCmd := []string{...}` builder logic from each action's Run() into a private method (e.g. `(n *delayCommand) buildNetemCmd()`); the closure remains data-only
-- [ ] replace each action's Run() body with a `chaos.RunOnContainers(...)` call wrapping the existing per-container closure (timeout/withTimeout stays inside the closure where the existing code put it)
-- [ ] drop the `sync` and `sync.WaitGroup` imports per file once the manual fanout is gone
-- [ ] verify tests still pass for NoContainers / DryRun / WithRandom paths in each action's existing `*_test.go`
-- [ ] update any test that asserted `WaitGroup` invariants (none expected; verify with grep)
-- [ ] run `CGO_ENABLED=0 go test ./pkg/chaos/netem/...` and `make lint` — must pass before Task 3
+- [x] extract the `netemCmd := []string{...}` builder logic from each action's Run() into a private method (e.g. `(n *delayCommand) buildNetemCmd()`); the closure remains data-only
+- [x] replace each action's Run() body with a `chaos.RunOnContainers(...)` call wrapping the existing per-container closure (timeout/withTimeout stays inside the closure where the existing code put it)
+- [x] drop the `sync` and `sync.WaitGroup` imports per file once the manual fanout is gone
+- [x] verify tests still pass for NoContainers / DryRun / WithRandom paths in each action's existing `*_test.go`
+- [x] update any test that asserted `WaitGroup` invariants (none expected; verify with grep)
+- [x] run `CGO_ENABLED=0 go test ./pkg/chaos/netem/...` and `make lint` — must pass before Task 3
 
 ### Task 3: Migrate iptables, lifecycle, stress actions to `chaos.RunOnContainers`
 
