@@ -314,10 +314,10 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 - Modify: `pkg/chaos/cliflags/v1.go`
 - Create: `pkg/chaos/cliflags/v1_test.go` (or extend existing if present)
 
-- [ ] add `cliflags.NewV1FromApp(c *cli.Context) Flags` that wraps the app-level (root) cli.Context — semantically equivalent to `NewV1(c).Global()` but exposed as a standalone constructor for callers that don't have a subcommand context (i.e. `cmd/main.go::before`)
-- [ ] verify the existing `Flags` interface's read methods (`Bool`, `String`, `StringSlice`, `Int`, `Duration`) cover every global-flag read in `cmd/main.go::before` and `createRuntimeClient` (they do — the v1 adapter's reads delegate to the underlying `*cli.Context`'s `String`/`Bool` which work identically on the app-level context)
-- [ ] add tests in `pkg/chaos/cliflags/v1_test.go` for `NewV1FromApp`: read each global flag type via the Flags interface and assert the value
-- [ ] run `CGO_ENABLED=0 go test ./pkg/chaos/cliflags/...` and `make lint` — must pass before Task 8
+- [x] add `cliflags.NewV1FromApp(c *cli.Context) Flags` that wraps the app-level (root) cli.Context — semantically equivalent to `NewV1(c).Global()` but exposed as a standalone constructor for callers that don't have a subcommand context (i.e. `cmd/main.go::before`)
+- [x] verify the existing `Flags` interface's read methods (`Bool`, `String`, `StringSlice`, `Int`, `Duration`) cover every global-flag read in `cmd/main.go::before` and `createRuntimeClient` (they do — the v1 adapter's reads delegate to the underlying `*cli.Context`'s `String`/`Bool` which work identically on the app-level context)
+- [x] add tests in `pkg/chaos/cliflags/v1_test.go` for `NewV1FromApp`: read each global flag type via the Flags interface and assert the value
+- [x] run `CGO_ENABLED=0 go test ./pkg/chaos/cliflags/...` and `make lint` — must pass before Task 8
 
 ### Task 8: Convert `cmd/main.go::before` and `createRuntimeClient` to consume `cliflags.Flags`
 
