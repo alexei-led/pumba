@@ -106,7 +106,15 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		"stress-ng image": s.image,
 		"pull image":      s.pull,
 	}).Debug("stress testing container for duration")
-	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.injectCgroup, s.dryRun)
+	req := &container.StressRequest{
+		Container:    c,
+		Stressors:    s.stressors,
+		Duration:     s.duration,
+		Sidecar:      container.SidecarSpec{Image: s.image, Pull: s.pull},
+		InjectCgroup: s.injectCgroup,
+		DryRun:       s.dryRun,
+	}
+	result, err := s.client.StressContainer(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stress test failed: %w", err)
 	}
@@ -116,16 +124,16 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 	timer := time.NewTimer(s.duration)
 	defer timer.Stop()
 	select {
-	case out := <-output:
+	case out := <-result.Output:
 		log.WithField("stdout", out).Debug("stress-ng completed")
-	case e := <-outerr:
+	case e := <-result.Errors:
 		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
 		log.Debug("stop stress test on containers by stop event")
 		// cleanup must run even when parent ctx is canceled; preserve values but strip cancellation
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
 		defer cleanupCancel()
-		err = s.client.StopContainerWithID(cleanupCtx, stress, defaultStopTimeout, s.dryRun)
+		err = s.client.StopContainerWithID(cleanupCtx, result.SidecarID, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
@@ -134,7 +142,7 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		// parent ctx may cancel simultaneously with the timer; strip cancellation for cleanup
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
 		defer cleanupCancel()
-		err = s.client.StopContainerWithID(cleanupCtx, stress, defaultStopTimeout, s.dryRun)
+		err = s.client.StopContainerWithID(cleanupCtx, result.SidecarID, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}

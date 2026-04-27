@@ -63,6 +63,29 @@ func runningInspect(pid int) ctypes.InspectResponse {
 	}
 }
 
+// stressReq builds a *ctr.StressRequest mirroring the old positional
+// StressContainer signature for terse per-test invocations.
+func stressReq(c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) *ctr.StressRequest {
+	return &ctr.StressRequest{
+		Container:    c,
+		Stressors:    stressors,
+		Duration:     duration,
+		Sidecar:      ctr.SidecarSpec{Image: image, Pull: pull},
+		InjectCgroup: injectCgroup,
+		DryRun:       dryrun,
+	}
+}
+
+// stressIDOutErr destructures a (*ctr.StressResult, error) pair into the
+// historical (id, output, errors, error) tuple to keep test bodies
+// idiomatic with the old shape.
+func stressIDOutErr(result *ctr.StressResult, err error) (string, <-chan string, <-chan error, error) {
+	if result == nil {
+		return "", nil, nil, err
+	}
+	return result.SidecarID, result.Output, result.Errors, err
+}
+
 // fakeConn implements net.Conn with Close-only behavior; sufficient for the
 // attach.Close() path in drainStressOutput.
 type fakeConn struct{ net.Conn }
@@ -80,7 +103,7 @@ func TestStressContainer_Dryrun(t *testing.T) {
 	api := mocks.NewAPIClient(t)
 	p := &podmanClient{api: api, socketURI: "unix:///run/podman/podman.sock"}
 
-	id, outCh, errCh, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, true)
+	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, true)))
 	require.NoError(t, err)
 	require.Empty(t, id)
 	require.Nil(t, outCh)
@@ -92,7 +115,7 @@ func TestStressContainer_RootlessGuard(t *testing.T) {
 	api := mocks.NewAPIClient(t)
 	p := &podmanClient{api: api, rootless: true, socketURI: "unix:///run/user/1000/podman/podman.sock"}
 
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "stress")
 	require.Contains(t, err.Error(), "rootful podman")
@@ -104,7 +127,7 @@ func TestStressContainer_InspectError(t *testing.T) {
 	api.EXPECT().ContainerInspect(mock.Anything, "abc123").Return(ctypes.InspectResponse{}, errors.New("inspect boom")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "inspect target")
 	require.Contains(t, err.Error(), "inspect boom")
@@ -118,7 +141,7 @@ func TestStressContainer_NoPID(t *testing.T) {
 	}, nil).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not running")
 }
@@ -132,7 +155,7 @@ func TestStressContainer_CgroupReaderError(t *testing.T) {
 	})
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "read /proc/4242/cgroup")
 	require.Contains(t, err.Error(), "no such file")
@@ -144,7 +167,7 @@ func TestStressContainer_CgroupParseError(t *testing.T) {
 	stubCgroupReader(t, func(int) ([]byte, error) { return []byte("garbage-no-colons\n"), nil })
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "parse target cgroup")
 }
@@ -164,7 +187,7 @@ func TestStressContainer_DefaultSystemd_SetsCgroupParent(t *testing.T) {
 	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create stress-ng container")
 
@@ -197,7 +220,7 @@ func TestStressContainer_DefaultCgroupfs_SetsCgroupParent(t *testing.T) {
 	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.NotNil(t, gotHost)
 	require.Equal(t, "/libpod/abc", gotHost.Resources.CgroupParent)
@@ -218,7 +241,7 @@ func TestStressContainer_InjectCgroup_UsesFullPath(t *testing.T) {
 	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false))
 	require.Error(t, err)
 
 	require.NotNil(t, gotConfig)
@@ -242,7 +265,7 @@ func TestStressContainer_PullError(t *testing.T) {
 	api.EXPECT().ImagePull(mock.Anything, "stress-ng:latest", mock.Anything).Return(nil, errors.New("net down")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "pull stress-ng image")
 	require.Contains(t, err.Error(), "net down")
@@ -256,7 +279,7 @@ func TestStressContainer_CreateError(t *testing.T) {
 		Return(ctypes.CreateResponse{}, errors.New("disk full")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create stress-ng container")
 	require.Contains(t, err.Error(), "disk full")
@@ -274,7 +297,7 @@ func TestStressContainer_AttachError(t *testing.T) {
 	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
-	id, outCh, errCh, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "attach stress-ng container")
 	require.Empty(t, id)
@@ -302,7 +325,7 @@ func TestStressContainer_Success_FullFlow(t *testing.T) {
 	}, nil).Once()
 
 	p := &podmanClient{api: api}
-	id, outCh, errCh, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)
+	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)))
 	require.NoError(t, err)
 	require.Equal(t, "sidecar1", id)
 	require.NotNil(t, outCh)
@@ -339,7 +362,7 @@ func TestStressContainer_StartError(t *testing.T) {
 	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
-	id, outCh, errCh, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "start stress-ng container")
 	require.Empty(t, id)
@@ -405,7 +428,7 @@ func TestStressContainer_InjectCgroup_UsesNestedLeaf(t *testing.T) {
 	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false))
 	require.Error(t, err)
 
 	require.NotNil(t, gotConfig)
@@ -440,7 +463,7 @@ func TestStressContainer_InjectCgroup_UsesScopeLeaf(t *testing.T) {
 	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false))
 	require.Error(t, err)
 
 	require.NotNil(t, gotConfig)
@@ -478,7 +501,7 @@ func TestStressContainer_InjectCgroup_FallsBackWhenNestedLeafMissing(t *testing.
 	).Return(ctypes.CreateResponse{}, errors.New("stop here")).Once()
 
 	p := &podmanClient{api: api}
-	_, _, _, err := p.StressContainer(t.Context(), newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false))
 	require.Error(t, err)
 
 	require.NotNil(t, gotConfig)

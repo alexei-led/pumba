@@ -48,9 +48,11 @@ type IPTables interface {
 	StopIPTablesContainer(context.Context, *IPTablesRequest) error
 }
 
-// Stressor manages stress testing on containers.
+// Stressor manages stress testing on containers. Requests are passed by
+// pointer to keep the call site small and to leave room for runtime hints
+// (image / pull / inject-cgroup) without growing the signature again.
 type Stressor interface {
-	StressContainer(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) (string, <-chan string, <-chan error, error)
+	StressContainer(context.Context, *StressRequest) (*StressResult, error)
 }
 
 // Client is the full container runtime interface, combining all focused interfaces.

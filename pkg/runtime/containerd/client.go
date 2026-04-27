@@ -321,28 +321,32 @@ func (c *containerdClient) runIPTablesCommands(ctx context.Context, containerID 
 
 // StressContainer runs stress-ng to stress a container.
 // Mode selection:
-//   - image == "": direct exec inside the target container
-//   - image != "" && !injectCgroup: sidecar with /stress-ng in target's cgroup parent
-//   - image != "" && injectCgroup: sidecar with /cg-inject injecting into target's cgroup
-func (c *containerdClient) StressContainer(ctx context.Context, container *ctr.Container,
-	stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error) {
+//   - Sidecar.Image == "": direct exec inside the target container
+//   - Sidecar.Image != "" && !InjectCgroup: sidecar with /stress-ng in target's cgroup parent
+//   - Sidecar.Image != "" && InjectCgroup: sidecar with /cg-inject injecting into target's cgroup
+func (c *containerdClient) StressContainer(ctx context.Context, req *ctr.StressRequest) (*ctr.StressResult, error) {
 	log.WithFields(log.Fields{
-		"id":            container.ID(),
-		"image":         image,
-		"inject-cgroup": injectCgroup,
+		"id":            req.Container.ID(),
+		"image":         req.Sidecar.Image,
+		"inject-cgroup": req.InjectCgroup,
 	}).Debug("stress on containerd container")
-	if dryrun {
-		return "", nil, nil, nil
+	if req.DryRun {
+		return &ctr.StressResult{}, nil
 	}
-	if image != "" {
-		return c.stressSidecar(ctx, container, image, stressors, injectCgroup, pull)
+	if req.Sidecar.Image != "" {
+		id, outCh, errCh, err := c.stressSidecar(ctx, req.Container, req.Sidecar.Image, req.Stressors, req.InjectCgroup, req.Sidecar.Pull)
+		if err != nil {
+			return nil, err
+		}
+		return &ctr.StressResult{SidecarID: id, Output: outCh, Errors: errCh}, nil
 	}
-	return c.stressDirectExec(ctx, container, stressors, duration)
+	id, outCh, errCh := c.stressDirectExec(ctx, req.Container, req.Stressors, req.Duration)
+	return &ctr.StressResult{SidecarID: id, Output: outCh, Errors: errCh}, nil
 }
 
 // stressDirectExec runs stress-ng directly inside the target container via exec.
 func (c *containerdClient) stressDirectExec(ctx context.Context, container *ctr.Container,
-	stressors []string, duration time.Duration) (string, <-chan string, <-chan error, error) {
+	stressors []string, duration time.Duration) (string, <-chan string, <-chan error) {
 	errCh := make(chan error, 1)
 	outCh := make(chan string, 1)
 	go func() {
@@ -359,5 +363,5 @@ func (c *containerdClient) stressDirectExec(ctx context.Context, container *ctr.
 		}
 		outCh <- container.ID()
 	}()
-	return container.ID(), outCh, errCh, nil
+	return container.ID(), outCh, errCh
 }

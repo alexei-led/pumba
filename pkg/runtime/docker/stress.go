@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	ctypes "github.com/docker/docker/api/types/container"
@@ -13,21 +12,25 @@ import (
 )
 
 // StressContainer starts stress test on a container (CPU, memory, network, io)
-func (client dockerClient) StressContainer(ctx context.Context, c *ctr.Container, stressors []string, img string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error) {
+func (client dockerClient) StressContainer(ctx context.Context, req *ctr.StressRequest) (*ctr.StressResult, error) {
 	log.WithFields(log.Fields{
-		"name":          c.Name(),
-		"id":            c.ID(),
-		"stressors":     stressors,
-		"img":           img,
-		"pull":          pull,
-		"duration":      duration,
-		"inject-cgroup": injectCgroup,
-		"dryrun":        dryrun,
+		"name":          req.Container.Name(),
+		"id":            req.Container.ID(),
+		"stressors":     req.Stressors,
+		"img":           req.Sidecar.Image,
+		"pull":          req.Sidecar.Pull,
+		"duration":      req.Duration,
+		"inject-cgroup": req.InjectCgroup,
+		"dryrun":        req.DryRun,
 	}).Info("stress testing container")
-	if dryrun {
-		return "", nil, nil, nil
+	if req.DryRun {
+		return &ctr.StressResult{}, nil
 	}
-	return client.stressContainerCommand(ctx, c.ID(), stressors, img, pull, injectCgroup)
+	id, output, errCh, err := client.stressContainerCommand(ctx, req.Container.ID(), req.Stressors, req.Sidecar.Image, req.Sidecar.Pull, req.InjectCgroup)
+	if err != nil {
+		return nil, err
+	}
+	return &ctr.StressResult{SidecarID: id, Output: output, Errors: errCh}, nil
 }
 
 // stressContainerConfig builds the container and host config for a stress-ng container.

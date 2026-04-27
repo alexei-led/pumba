@@ -24,6 +24,28 @@ import (
 	metrictypes "github.com/containerd/containerd/api/types"
 )
 
+// stressReq builds a *ctr.StressRequest mirroring the old positional
+// StressContainer signature for terse per-test invocations.
+func stressReq(c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) *ctr.StressRequest {
+	return &ctr.StressRequest{
+		Container:    c,
+		Stressors:    stressors,
+		Duration:     duration,
+		Sidecar:      ctr.SidecarSpec{Image: image, Pull: pull},
+		InjectCgroup: injectCgroup,
+		DryRun:       dryrun,
+	}
+}
+
+// stressIDOutErr destructures (*ctr.StressResult, error) into the
+// (id, output, errors, error) tuple used by the legacy test bodies.
+func stressIDOutErr(result *ctr.StressResult, err error) (string, <-chan string, <-chan error, error) {
+	if result == nil {
+		return "", nil, nil, err
+	}
+	return result.SidecarID, result.Output, result.Errors, err
+}
+
 type stubImage struct{ containerd.Image }
 
 type mockProcess struct {
@@ -991,8 +1013,8 @@ func TestStopIPTablesContainer_Success(t *testing.T) {
 
 func TestStressContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
-	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, true)
+	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, true)))
 	assert.NoError(t, err)
 	assert.Equal(t, "", id)
 	assert.Nil(t, outCh)
@@ -1009,8 +1031,8 @@ func TestStressContainer_Success(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, false)
+	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 	assert.Equal(t, "c1", id)
 
@@ -1033,8 +1055,8 @@ func TestStressContainer_ExecError(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "", false, 10*time.Second, false, false)
+	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 	assert.Equal(t, "c1", id)
 
@@ -1236,8 +1258,8 @@ func TestStressContainer_SidecarGetTaskError(t *testing.T) {
 	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get target task")
 }
@@ -1249,8 +1271,8 @@ func TestStressContainer_SidecarTargetPIDZero(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "PID 0")
 }
@@ -1265,8 +1287,8 @@ func TestStressContainer_SidecarCgroupResolveError(t *testing.T) { //nolint:para
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to resolve cgroup")
 }
@@ -1276,8 +1298,8 @@ func TestStressContainer_SidecarGetImageError(t *testing.T) {
 	api.EXPECT().GetImage(mock.Anything, "stress-ng:latest").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get stress image")
 }
@@ -1291,8 +1313,8 @@ func TestStressContainer_SidecarCreateError(t *testing.T) {
 	).Return(nil, assert.AnError)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create stress sidecar")
 }
@@ -1307,8 +1329,8 @@ func TestStressContainer_SidecarNewTaskError(t *testing.T) {
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create stress task")
 }
@@ -1327,8 +1349,8 @@ func TestStressContainer_SidecarWaitError(t *testing.T) {
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to set up stress task wait")
 }
@@ -1349,8 +1371,8 @@ func TestStressContainer_SidecarStartError(t *testing.T) {
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start stress task")
 }
@@ -1392,8 +1414,8 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 			setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 			client := newTestClient(api)
-			id, outCh, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-				tc.stressors, "stress-ng:latest", false, 10*time.Second, tc.injectCgroup, false)
+			id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
+				stressReq(testContainer("c1"), tc.stressors, "stress-ng:latest", false, 10*time.Second, tc.injectCgroup, false)))
 			require.NoError(t, err)
 			assert.Contains(t, id, "pumba-stress-")
 
@@ -1436,8 +1458,8 @@ func TestStressContainer_SidecarContextCanceled(t *testing.T) { //nolint:paralle
 
 	ctx, cancel := context.WithCancel(context.Background())
 	client := newTestClient(api)
-	_, _, errCh, err := client.StressContainer(ctx, testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, _, errCh, err := stressIDOutErr(client.StressContainer(ctx,
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 
 	cancel()
@@ -1469,8 +1491,8 @@ func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:parallelte
 	setupStressSidecar(api, "stress-ng:latest", sidecarCntr)
 
 	client := newTestClient(api)
-	_, _, errCh, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, _, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 
 	select {
@@ -1487,8 +1509,8 @@ func TestStressContainer_SidecarPullImageError(t *testing.T) {
 	api.EXPECT().Pull(mock.Anything, "stress-ng:latest", mock.Anything).Return(nil, assert.AnError)
 
 	client := newTestClient(api)
-	_, _, _, err := client.StressContainer(context.Background(), testContainer("c1"),
-		[]string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.Background(),
+		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to pull image")
 }
