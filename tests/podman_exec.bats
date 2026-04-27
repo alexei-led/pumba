@@ -114,5 +114,5 @@ teardown() {
     assert_success
 
     echo "Command output: $output"
-    assert_output --partial "no containers to exec"
+    assert_output --partial "no containers found"
 }

@@ -62,7 +62,7 @@ teardown() {
 @test "Should run stress in dry-run mode via podman runtime" {
     full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
 
-    run pumba --runtime podman --dry-run --log-level debug stress --duration 5s --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --timeout 2s" "$full_id"
+    run pumba --runtime podman --dry-run --log-level debug stress --duration 5s --pull-image=false --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --timeout 2s" "$full_id"
     assert_success
 
     [ "$(podman inspect -f '{{.State.Status}}' pdm_stress_victim)" = "running" ]
@@ -76,7 +76,7 @@ teardown() {
     full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
 
     run pumba --runtime podman --log-level debug \
-        stress --duration 10s --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
+        stress --duration 10s --pull-image=false --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
 
     echo "Pumba output: $output"
     assert_success

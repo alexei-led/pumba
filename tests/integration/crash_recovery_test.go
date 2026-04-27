@@ -148,7 +148,7 @@ func TestCrashRecovery_SIGTERMDuringStress(t *testing.T) {
 	sidecarsBefore := countSidecars(t)
 
 	pp := runPumbaBackground(t, "--log-level", "debug",
-		"stress", "--duration", "60s",
+		"stress", "--duration", "60s", "--pull-image=false",
 		"--stressors=--cpu 1 --timeout 55s", name)
 
 	// Wait for stress sidecar to appear

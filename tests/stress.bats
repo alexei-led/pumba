@@ -20,7 +20,7 @@ teardown() {
 @test "Should handle gracefully when stress targets non-existent container" {
     run pumba stress --duration 1s --stressors="--cpu 1 --cpu-method loop --timeout 1s" nonexistent_xyz
     assert_success
-    assert_output --partial "no containers to stress"
+    assert_output --partial "no containers found"
 }
 
 @test "Should stress container with CPU stressor" {
@@ -32,7 +32,7 @@ teardown() {
     assert_success
 
     # Run stress for a short time
-    run pumba --log-level debug stress --duration 10s --stressors="--cpu 1 --cpu-method loop --timeout 3s" stress_victim
+    run pumba --log-level debug stress --duration 10s --pull-image=false --stressors="--cpu 1 --cpu-method loop --timeout 3s" stress_victim
     echo "Stress output: $output"
     assert_success
 }

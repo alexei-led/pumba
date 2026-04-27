@@ -46,7 +46,7 @@ teardown() {
     # Get full container ID (Docker-created containers live in moby namespace)
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
-    run pumba --log-level debug stress --duration 10s --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
+    run pumba --log-level debug stress --duration 10s --pull-image=false --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
 
     echo "Pumba stress output: $output"
 
@@ -64,7 +64,7 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
     run sudo pumba --runtime containerd --containerd-namespace moby --dry-run --log-level debug \
-        stress --duration 5s --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop" $full_id
+        stress --duration 5s --pull-image=false --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop" $full_id
     assert_success
 
     run sudo ctr -n moby c ls -q
@@ -81,7 +81,7 @@ teardown() {
     # Run stress sidecar — pumba creates a container with /stress-ng as entrypoint,
     # placed in the target's cgroup parent (child cgroup)
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug \
-        stress --duration 10s --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
+        stress --duration 10s --pull-image=false --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
 
     echo "Pumba output: $output"
 
@@ -101,11 +101,20 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
     ctr_pull_image moby ${STRESS_IMAGE}
+    if ! docker image inspect ${STRESS_IMAGE} >/dev/null 2>&1; then
+        skip "stress image not available"
+    fi
+    check_id=$(docker create --entrypoint /stress-ng ${STRESS_IMAGE} --help)
+    if ! docker export "$check_id" | tar -tf - | grep -qx "cg-inject"; then
+        docker rm -f "$check_id" >/dev/null 2>&1 || true
+        skip "stress image does not contain /cg-inject"
+    fi
+    docker rm -f "$check_id" >/dev/null 2>&1 || true
 
     # Run inject-cgroup stress — pumba creates a sidecar with /cg-inject as entrypoint,
     # host cgroupns, /sys/fs/cgroup mount, and --cgroup-path pointing to the target
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug \
-        stress --duration 10s --inject-cgroup --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
+        stress --duration 10s --inject-cgroup --pull-image=false --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
 
     echo "Pumba output: $output"
 

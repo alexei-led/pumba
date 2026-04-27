@@ -126,12 +126,18 @@ func containerStatus(t *testing.T, id string) string {
 // containerPID returns the PID of a running container.
 func containerPID(t *testing.T, id string) int {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	info, err := dockerCli.ContainerInspect(ctx, id)
-	require.NoError(t, err, "inspect container %s", id)
-	require.NotZero(t, info.State.Pid, "container %s has no PID (not running?)", id)
-	return info.State.Pid
+	var pid int
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		info, err := dockerCli.ContainerInspect(ctx, id)
+		if err != nil || info.State == nil {
+			return false
+		}
+		pid = info.State.Pid
+		return pid != 0
+	}, 10*time.Second, 200*time.Millisecond, "container %s has no PID (not running?)", id)
+	return pid
 }
 
 // containerIP returns the IP address of a container on the default bridge network.

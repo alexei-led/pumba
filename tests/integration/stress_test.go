@@ -38,7 +38,7 @@ func TestStress_CPUUsage(t *testing.T) {
 	id := startStressContainer(t, name)
 
 	_, stderr, err := runPumba(t, "--log-level", "debug",
-		"stress", "--duration", "10s",
+		"stress", "--duration", "10s", "--pull-image=false",
 		"--stressors", "--cpu 1 --timeout 5s",
 		name,
 	)
@@ -55,7 +55,7 @@ func TestStress_MemoryStressor(t *testing.T) {
 	id := startStressContainer(t, name)
 
 	_, stderr, err := runPumba(t, "--log-level", "debug",
-		"stress", "--duration", "10s",
+		"stress", "--duration", "10s", "--pull-image=false",
 		"--stressors", "--vm 1 --vm-bytes 64M --timeout 5s",
 		name,
 	)
@@ -72,7 +72,7 @@ func TestStress_CleanupNoLeakedProcesses(t *testing.T) {
 	id := startStressContainer(t, name)
 
 	_, stderr, err := runPumba(t, "--log-level", "debug",
-		"stress", "--duration", "10s",
+		"stress", "--duration", "10s", "--pull-image=false",
 		"--stressors", "--cpu 1 --timeout 5s",
 		name,
 	)
@@ -94,7 +94,7 @@ func TestStress_WithMemoryLimit(t *testing.T) {
 	})
 
 	_, stderr, err := runPumba(t, "--log-level", "debug",
-		"stress", "--duration", "10s",
+		"stress", "--duration", "10s", "--pull-image=false",
 		"--stressors", "--vm 1 --vm-bytes 64M --timeout 5s",
 		name,
 	)
