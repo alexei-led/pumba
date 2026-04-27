@@ -124,7 +124,7 @@ examples/              — Demo scripts
 ## Unit Test Coverage Strategy
 
 - **Skip from unit tests** (covered by integration tests or untestable without real runtime):
-  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go`'s `createRuntimeClient` seam, `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
+  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
 - **Run() method variants:** Always add NoContainers + DryRun + WithRandom test cases
 - **Run unit tests in sandbox:** `CGO_ENABLED=0 go test ./...` (no CGO needed outside CI)
 

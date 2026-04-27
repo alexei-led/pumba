@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -81,17 +82,19 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 		// wait for specified duration and then start containers or start on ctx.Done()
 		durationTimer := time.NewTimer(s.duration)
 		defer durationTimer.Stop()
+		var restartErr error
 		select {
 		case <-ctx.Done():
 			log.Debug("start stopped containers by stop event")
 			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
 			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.duration)
 			defer cancel()
-			err = s.startStoppedContainers(cleanupCtx, stoppedContainers)
+			restartErr = s.startStoppedContainers(cleanupCtx, stoppedContainers)
 		case <-durationTimer.C:
 			log.WithField("duration", s.duration).Debug("start stopped containers after duration")
-			err = s.startStoppedContainers(ctx, stoppedContainers)
+			restartErr = s.startStoppedContainers(ctx, stoppedContainers)
 		}
+		err = errors.Join(err, restartErr)
 	}
 	return err
 }

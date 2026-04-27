@@ -143,8 +143,10 @@ func TestRunOnContainers_ParallelErrorReturned(t *testing.T) {
 		Return(cs, nil)
 
 	wantErr := errors.New("fail-b")
+	var counter atomic.Int32
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, true,
 		func(_ context.Context, c *container.Container) error {
+			counter.Add(1)
 			if c.ContainerID == "b" {
 				return wantErr
 			}
@@ -152,6 +154,7 @@ func TestRunOnContainers_ParallelErrorReturned(t *testing.T) {
 		})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, wantErr)
+	assert.Equal(t, int32(2), counter.Load(), "bare errgroup must let every closure complete; not WithContext")
 }
 
 func TestRunOnContainers_SerialStopsOnFirstError(t *testing.T) {

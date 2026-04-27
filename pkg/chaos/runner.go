@@ -10,8 +10,9 @@ import (
 )
 
 // ContainerAction applies a chaos action to a single target container.
-// Returning an error from any closure aborts a parallel run via errgroup
-// and aborts a serial run on first error.
+// In serial runs, the first error stops iteration. In parallel runs, every
+// closure runs to completion regardless of errors; errgroup.Wait returns
+// the first reported error.
 type ContainerAction func(ctx context.Context, c *container.Container) error
 
 // RunOnContainers lists running containers matching gp.{Names,Pattern,Labels}

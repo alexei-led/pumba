@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,17 +70,19 @@ func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 		// wait for specified duration and then unpause containers or unpause on ctx.Done()
 		durationTimer := time.NewTimer(p.duration)
 		defer durationTimer.Stop()
+		var unpauseErr error
 		select {
 		case <-ctx.Done():
 			log.Debug("unpause containers by stop event")
 			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
 			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.duration)
 			defer cancel()
-			err = p.unpauseContainers(cleanupCtx, pausedContainers)
+			unpauseErr = p.unpauseContainers(cleanupCtx, pausedContainers)
 		case <-durationTimer.C:
 			log.WithField("duration", p.duration).Debug("unpause containers after duration")
-			err = p.unpauseContainers(ctx, pausedContainers)
+			unpauseErr = p.unpauseContainers(ctx, pausedContainers)
 		}
+		err = errors.Join(err, unpauseErr)
 	}
 	return err
 }
