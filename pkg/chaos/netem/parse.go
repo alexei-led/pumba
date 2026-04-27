@@ -4,16 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"regexp"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
 )
-
-// reInterface validates --interface against shell-injection. Compiled once.
-var reInterface = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
 
 // ParseRequestBase reads the netem-level flags (--duration, --interface,
 // --target, --egress-port, --ingress-port, --tc-image, --pull-image, --limit)
@@ -32,8 +28,8 @@ func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*container.Nete
 		return nil, 0, errors.New("duration must be shorter than interval")
 	}
 	iface := c.String("interface")
-	if iface != reInterface.FindString(iface) {
-		return nil, 0, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
+	if err := util.ValidateInterfaceName(iface); err != nil {
+		return nil, 0, err
 	}
 	ipsList := c.StringSlice("target")
 	ips := make([]*net.IPNet, 0, len(ipsList))

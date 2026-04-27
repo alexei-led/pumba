@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"regexp"
 	"slices"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -12,9 +11,6 @@ import (
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/util"
 )
-
-// reInterface validates --interface against shell-injection. Compiled once.
-var reInterface = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
 
 // RequestBase bundles the parsed iptables-level state shared by every
 // per-action subcommand. Request carries the runtime fields (IPs, ports,
@@ -45,8 +41,8 @@ func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*RequestBase, e
 		return nil, errors.New("duration must be shorter than interval")
 	}
 	iface := c.String("interface")
-	if iface != reInterface.FindString(iface) {
-		return nil, fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
+	if err := util.ValidateInterfaceName(iface); err != nil {
+		return nil, err
 	}
 	protocol := c.String("protocol")
 	if !slices.Contains([]string{ProtocolAny, ProtocolTCP, ProtocolUDP, ProtocolICMP}, protocol) {

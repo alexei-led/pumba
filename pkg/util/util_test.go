@@ -87,6 +87,41 @@ func TestCidrNotation(t *testing.T) {
 	}
 }
 
+func TestValidateInterfaceName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"eth0", "eth0", false},
+		{"en0", "en0", false},
+		{"loopback", "lo", false},
+		{"hyphenated", "wlan-1", false},
+		{"dotted vlan", "vlan.10", false},
+		{"colon alias", "eth0:1", false},
+		{"underscore", "br_lan", false},
+		{"single letter", "a", false},
+		{"leading digit", "1eth", true},
+		{"shell metachar star", "eth*", true},
+		{"shell metachar dollar", "eth$", true},
+		{"empty", "", true},
+		{"injection attempt", "rm -rf /", true},
+		{"semicolon", "eth0;rm", true},
+		{"space", "eth 0", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateInterfaceName(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "bad network interface name")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestParseCIDR(t *testing.T) {
 	tests := []struct {
 		name    string

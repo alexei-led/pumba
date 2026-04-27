@@ -278,11 +278,11 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 - Modify: `pkg/chaos/netem/parse.go`
 - Modify: `pkg/chaos/iptables/parse.go`
 
-- [ ] add `var reInterface = regexp.MustCompile(...)` and `func ValidateInterfaceName(name string) error` to `pkg/util/util.go`
-- [ ] replace `iface != reInterface.FindString(iface)` checks in both parse.go files with `if err := util.ValidateInterfaceName(iface); err != nil { ... }`
-- [ ] remove the `var reInterface = ...` constant and the unused `regexp` import from both parse files
-- [ ] add table-driven tests in `pkg/util/util_test.go` covering: valid names (eth0, en0, lo, wlan-1, vlan.10), invalid names (1eth, eth\*, eth$, empty, "rm -rf /")
-- [ ] run `CGO_ENABLED=0 go test ./pkg/...` and `make lint` — must pass before Task 5
+- [x] add `var reInterface = regexp.MustCompile(...)` and `func ValidateInterfaceName(name string) error` to `pkg/util/util.go`
+- [x] replace `iface != reInterface.FindString(iface)` checks in both parse.go files with `if err := util.ValidateInterfaceName(iface); err != nil { ... }`
+- [x] remove the `var reInterface = ...` constant and the unused `regexp` import from both parse files
+- [x] add table-driven tests in `pkg/util/util_test.go` covering: valid names (eth0, en0, lo, wlan-1, vlan.10), invalid names (1eth, eth\*, eth$, empty, "rm -rf /")
+- [x] run `CGO_ENABLED=0 go test ./pkg/...` and `make lint` — must pass before Task 5
 
 ### Task 5: Document Podman embedding invariant
 
