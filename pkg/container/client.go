@@ -22,7 +22,7 @@ type Lifecycle interface {
 	KillContainer(context.Context, *Container, string, bool) error
 	StartContainer(context.Context, *Container, bool) error
 	RestartContainer(context.Context, *Container, time.Duration, bool) error
-	RemoveContainer(context.Context, *Container, bool, bool, bool, bool) error
+	RemoveContainer(context.Context, *Container, RemoveOpts) error
 	PauseContainer(context.Context, *Container, bool) error
 	UnpauseContainer(context.Context, *Container, bool) error
 	StopContainerWithID(context.Context, string, time.Duration, bool) error

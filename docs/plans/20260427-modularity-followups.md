@@ -272,16 +272,16 @@ Pure cut-and-paste. No public surface change. Each resulting file lands at 100�
 - Regenerate: `pkg/container/mock_Lifecycle.go`, `pkg/container/mock_Client.go`
 - Modify: `pkg/chaos/lifecycle/remove_test.go`, runtime lifecycle tests if they exercise `RemoveContainer` directly
 
-- [ ] add `RemoveOpts{Force, Links, Volumes, DryRun bool}` to `pkg/container/requests.go`
-- [ ] update `Lifecycle.RemoveContainer` signature in `pkg/container/client.go` to `RemoveContainer(context.Context, *Container, RemoveOpts) error` (pass by value — 4 bytes)
-- [ ] `make mocks` — regenerate
-- [ ] update `pkg/runtime/docker/lifecycle.go::RemoveContainer` to take `RemoveOpts` (unpack to existing internals)
-- [ ] update `pkg/runtime/containerd/client.go::RemoveContainer`
-- [ ] update Podman impl if it overrides RemoveContainer (it does not — embedded delegate handles it; verify)
-- [ ] update `pkg/chaos/lifecycle/remove.go` to construct `RemoveOpts`
-- [ ] update tests — replace 4-bool positional matcher with `RemoveOpts` literal
-- [ ] `CGO_ENABLED=0 go test ./...` — all green
-- [ ] `make lint` — must pass before next task
+- [x] add `RemoveOpts{Force, Links, Volumes, DryRun bool}` to `pkg/container/requests.go`
+- [x] update `Lifecycle.RemoveContainer` signature in `pkg/container/client.go` to `RemoveContainer(context.Context, *Container, RemoveOpts) error` (pass by value — 4 bytes)
+- [x] regenerate mocks (mockery v2.53.5 incompatible with Go 1.26 — hand-edited `mock_Lifecycle.go` + `mock_Client.go` to match generated shape)
+- [x] update `pkg/runtime/docker/lifecycle.go::RemoveContainer` to take `RemoveOpts` (unpack to existing internals)
+- [x] update `pkg/runtime/containerd/client.go::RemoveContainer`
+- [x] verified Podman does not override RemoveContainer (embedded Docker delegate handles it)
+- [x] update `pkg/chaos/lifecycle/remove.go` to construct `RemoveOpts` (collapsed individual force/links/volumes/dryRun fields into single `opts` field on `removeCommand`)
+- [x] update tests — replace 4-bool positional matcher with `RemoveOpts` literal
+- [x] `CGO_ENABLED=0 go test ./...` — all green
+- [x] `make lint` — 0 issues
 
 ### Task 5: push request structs deeper in `pkg/runtime/docker/{netem,iptables}.go`
 

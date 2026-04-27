@@ -160,12 +160,12 @@ func (c *containerdClient) RestartContainer(ctx context.Context, container *ctr.
 }
 
 // RemoveContainer deletes a container and optionally its task.
-func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.Container, force, links, volumes, dryrun bool) error {
-	log.WithFields(log.Fields{"id": container.ID(), "force": force}).Debug("removing containerd container")
-	if links || volumes {
+func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.Container, opts ctr.RemoveOpts) error {
+	log.WithFields(log.Fields{"id": container.ID(), "force": opts.Force}).Debug("removing containerd container")
+	if opts.Links || opts.Volumes {
 		log.WithField("id", container.ID()).Debug("containerd runtime: links/volumes removal not supported, ignored")
 	}
-	if dryrun {
+	if opts.DryRun {
 		return nil
 	}
 	ctx = c.nsCtx(ctx)
@@ -173,7 +173,7 @@ func (c *containerdClient) RemoveContainer(ctx context.Context, container *ctr.C
 	if err != nil {
 		return fmt.Errorf("failed to load container %s: %w", container.ID(), err)
 	}
-	if force {
+	if opts.Force {
 		c.forceKillTask(ctx, cntr, container.ID())
 	}
 	// Try to delete with snapshot cleanup first; if that fails (e.g. Docker-managed

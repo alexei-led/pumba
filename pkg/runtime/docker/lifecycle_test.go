@@ -137,7 +137,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 	engineClient.EXPECT().ContainerRemove(mock.Anything, "abc123", removeOpts).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(context.TODO(), c, true, true, true, false)
+	err := client.RemoveContainer(context.TODO(), c, ctr.RemoveOpts{Force: true, Links: true, Volumes: true})
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -151,7 +151,7 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 	engineClient := NewMockEngine(t)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(context.TODO(), c, true, true, true, true)
+	err := client.RemoveContainer(context.TODO(), c, ctr.RemoveOpts{Force: true, Links: true, Volumes: true, DryRun: true})
 
 	assert.NoError(t, err)
 }
@@ -758,7 +758,12 @@ func TestRemoveContainer(t *testing.T) {
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
-			err := client.RemoveContainer(tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
+			err := client.RemoveContainer(tt.args.ctx, tt.args.c, ctr.RemoveOpts{
+				Force:   tt.args.force,
+				Links:   tt.args.links,
+				Volumes: tt.args.volumes,
+				DryRun:  tt.args.dryrun,
+			})
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.RemoveContainer() error = %v, wantErr %v", err, tt.wantErr)

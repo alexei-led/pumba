@@ -623,7 +623,7 @@ func TestRestartContainer_StopFails(t *testing.T) {
 
 func TestRemoveContainer_Dryrun(t *testing.T) {
 	client := newTestClient(NewMockapiClient(t))
-	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, true)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), ctr.RemoveOpts{DryRun: true})
 	assert.NoError(t, err)
 }
 
@@ -635,7 +635,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), ctr.RemoveOpts{})
 	require.NoError(t, err)
 	mc.AssertCalled(t, "Delete", mock.Anything)
 }
@@ -655,7 +655,7 @@ func TestRemoveContainer_Force(t *testing.T) {
 	setupLoadContainer(api, "c1", mc)
 
 	client := newTestClient(api)
-	err := client.RemoveContainer(context.Background(), testContainer("c1"), true, false, false, false)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), ctr.RemoveOpts{Force: true})
 	require.NoError(t, err)
 	task.AssertCalled(t, "Kill", mock.Anything, syscall.SIGKILL)
 	task.AssertCalled(t, "Delete", mock.Anything)
@@ -667,7 +667,7 @@ func TestRemoveContainer_LoadError(t *testing.T) {
 	api.EXPECT().LoadContainer(mock.Anything, "c1").Return(nil, assert.AnError)
 
 	client := newTestClient(api)
-	err := client.RemoveContainer(context.Background(), testContainer("c1"), false, false, false, false)
+	err := client.RemoveContainer(context.Background(), testContainer("c1"), ctr.RemoveOpts{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load container")
 }

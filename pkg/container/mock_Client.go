@@ -368,17 +368,17 @@ func (_c *MockClient_PauseContainer_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
-// RemoveContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5
-func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 bool, _a3 bool, _a4 bool, _a5 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5)
+// RemoveContainer provides a mock function with given fields: _a0, _a1, _a2
+func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 RemoveOpts) error {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, bool, bool, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5)
+	if rf, ok := ret.Get(0).(func(context.Context, *Container, RemoveOpts) error); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -394,17 +394,14 @@ type MockClient_RemoveContainer_Call struct {
 // RemoveContainer is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 *Container
-//   - _a2 bool
-//   - _a3 bool
-//   - _a4 bool
-//   - _a5 bool
-func (_e *MockClient_Expecter) RemoveContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}) *MockClient_RemoveContainer_Call {
-	return &MockClient_RemoveContainer_Call{Call: _e.mock.On("RemoveContainer", _a0, _a1, _a2, _a3, _a4, _a5)}
+//   - _a2 RemoveOpts
+func (_e *MockClient_Expecter) RemoveContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *MockClient_RemoveContainer_Call {
+	return &MockClient_RemoveContainer_Call{Call: _e.mock.On("RemoveContainer", _a0, _a1, _a2)}
 }
 
-func (_c *MockClient_RemoveContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 bool, _a3 bool, _a4 bool, _a5 bool)) *MockClient_RemoveContainer_Call {
+func (_c *MockClient_RemoveContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 RemoveOpts)) *MockClient_RemoveContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].(bool), args[3].(bool), args[4].(bool), args[5].(bool))
+		run(args[0].(context.Context), args[1].(*Container), args[2].(RemoveOpts))
 	})
 	return _c
 }
@@ -414,7 +411,7 @@ func (_c *MockClient_RemoveContainer_Call) Return(_a0 error) *MockClient_RemoveC
 	return _c
 }
 
-func (_c *MockClient_RemoveContainer_Call) RunAndReturn(run func(context.Context, *Container, bool, bool, bool, bool) error) *MockClient_RemoveContainer_Call {
+func (_c *MockClient_RemoveContainer_Call) RunAndReturn(run func(context.Context, *Container, RemoveOpts) error) *MockClient_RemoveContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }

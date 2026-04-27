@@ -12,7 +12,7 @@ import (
 // removeClient is the narrow interface needed by the remove command.
 type removeClient interface {
 	container.Lister
-	RemoveContainer(context.Context, *container.Container, bool, bool, bool, bool) error
+	RemoveContainer(context.Context, *container.Container, container.RemoveOpts) error
 }
 
 // `docker rm` command
@@ -21,11 +21,8 @@ type removeCommand struct {
 	names   []string
 	pattern string
 	labels  []string
-	force   bool
-	links   bool
-	volumes bool
+	opts    container.RemoveOpts
 	limit   int
-	dryRun  bool
 }
 
 // NewRemoveCommand create new Kill Command instance
@@ -35,11 +32,13 @@ func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, li
 		names:   params.Names,
 		pattern: params.Pattern,
 		labels:  params.Labels,
-		force:   force,
-		links:   links,
-		volumes: volumes,
-		limit:   limit,
-		dryRun:  params.DryRun,
+		opts: container.RemoveOpts{
+			Force:   force,
+			Links:   links,
+			Volumes: volumes,
+			DryRun:  params.DryRun,
+		},
+		limit: limit,
 	}
 	return remove
 }
@@ -73,12 +72,12 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 	for _, container := range containers {
 		log.WithFields(log.Fields{
 			"container": container,
-			"force":     r.force,
-			"links":     r.links,
-			"volumes":   r.volumes,
+			"force":     r.opts.Force,
+			"links":     r.opts.Links,
+			"volumes":   r.opts.Volumes,
 		}).Debug("removing container")
 		c := container
-		err = r.client.RemoveContainer(ctx, c, r.force, r.links, r.volumes, r.dryRun)
+		err = r.client.RemoveContainer(ctx, c, r.opts)
 		if err != nil {
 			return fmt.Errorf("failed to remove container: %w", err)
 		}

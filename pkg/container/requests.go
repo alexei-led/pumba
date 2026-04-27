@@ -69,3 +69,16 @@ type StressResult struct {
 	Output    <-chan string
 	Errors    <-chan error
 }
+
+// RemoveOpts bundles the boolean flags that govern Lifecycle.RemoveContainer.
+// Force translates to the runtime's force-removal flag (typically SIGKILL +
+// teardown). Links and Volumes opt into removing linked containers and
+// associated volumes — runtimes that don't support a flag (e.g. containerd)
+// log and ignore it. DryRun short-circuits the call without touching the
+// runtime.
+type RemoveOpts struct {
+	Force   bool
+	Links   bool
+	Volumes bool
+	DryRun  bool
+}
