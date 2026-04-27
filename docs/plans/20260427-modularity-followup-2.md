@@ -301,10 +301,10 @@ The existing `Global()` method already returns a `Flags` (via `c.App.Run(...)` g
 
 - Create: `pkg/runtime/podman/doc.go`
 
-- [ ] create `doc.go` with a package-level godoc comment explaining: (a) Podman exposes a Docker-compatible API socket and pumba programs against that socket via the Docker SDK, (b) the package depends on `github.com/docker/docker/api/types/{container,image,network,system}` by design, (c) only the three divergent paths (rootless guards, cgroup leaf naming, sidecar config) carry Podman-specific code
-- [ ] cross-link to `pkg/runtime/podman/client.go`'s embedding-invariant doc block from Task 5
-- [ ] no code change; doc-only — no test changes needed
-- [ ] run `make lint` — must pass before Task 7
+- [x] create `doc.go` with a package-level godoc comment explaining: (a) Podman exposes a Docker-compatible API socket and pumba programs against that socket via the Docker SDK, (b) the package depends on `github.com/docker/docker/api/types/{container,image,network,system}` by design, (c) only the three divergent paths (rootless guards, cgroup leaf naming, sidecar config) carry Podman-specific code
+- [x] cross-link to `pkg/runtime/podman/client.go`'s embedding-invariant doc block from Task 5
+- [x] no code change; doc-only — no test changes needed
+- [x] run `make lint` — must pass before Task 7
 
 ### Task 7: Extend `cliflags.Flags` for global-flag reads
 
