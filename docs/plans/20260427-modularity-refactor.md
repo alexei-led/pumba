@@ -239,17 +239,17 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 - Modify: all 17 CLI builders in `pkg/chaos/{lifecycle,netem,iptables,stress}/cmd/*.go` — collapse `*Context` struct + duplicated boilerplate, keep flag list + parse fn + build call only
 - Modify: `pkg/chaos/{lifecycle,netem,iptables,stress}/cmd/*_test.go`
 
-- [ ] write `pkg/chaos/cli/builder.go` with `NewAction[P]`, `ParamParser[P]`, `CommandFactory[P]`
-- [ ] write `pkg/chaos/cli/builder_test.go` — table-driven cases for happy path, parse error, build error, run error
-- [ ] convert `pkg/chaos/lifecycle/cmd/stop.go` to use `NewAction[stopParams]` (pilot — confirm shape)
-- [ ] convert remaining 5 lifecycle subcommands (`kill`, `restart`, `pause`, `remove`, `exec`)
-- [ ] convert 8 netem subcommands (`delay`, `loss`, `loss_ge`, `loss_state`, `rate`, `corrupt`, `duplicate`, plus `netem.go` parent)
-- [ ] convert iptables `loss.go` + parent `iptables.go`
-- [ ] convert `stress/cmd/stress.go`
-- [ ] delete `//nolint:dupl` annotations now that the duplication is gone
-- [ ] update each subcommand's `*_test.go` — expectations stay the same, constructor invocation changes
-- [ ] `make lint` — must pass (no `dupl` complaints, no unused imports)
-- [ ] `make test` — must pass before next task
+- [x] write `pkg/chaos/cli/builder.go` with `NewAction[P]`, `ParamParser[P]`, `CommandFactory[P]` (landed at `pkg/chaos/cmd/builder.go`)
+- [x] write `pkg/chaos/cli/builder_test.go` — table-driven cases for happy path, parse error, build error, run error (landed at `pkg/chaos/cmd/builder_test.go`)
+- [x] convert `pkg/chaos/lifecycle/cmd/stop.go` to use `NewAction[stopParams]` (pilot — confirm shape)
+- [x] convert remaining 5 lifecycle subcommands (`kill`, `restart`, `pause`, `remove`, `exec`)
+- [x] convert 8 netem subcommands (`delay`, `loss`, `loss_ge`, `loss_state`, `rate`, `corrupt`, `duplicate`, plus `netem.go` parent)
+- [x] convert iptables `loss.go` + parent `iptables.go`
+- [x] convert `stress/cmd/stress.go`
+- [x] delete `//nolint:dupl` annotations now that the duplication is gone (kept on 6 netem cmd files — verified via lint-and-revert: dupl linter still flags structural similarity from generic builder shape; annotations document this is intentional, not copy-paste)
+- [x] update each subcommand's `*_test.go` — expectations stay the same, constructor invocation changes
+- [x] `make lint` — must pass (no `dupl` complaints, no unused imports)
+- [x] `make test` — must pass before next task
 
 ### Task 4: Split `pkg/runtime/docker/docker.go` into per-concern files
 
