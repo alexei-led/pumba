@@ -2,17 +2,11 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strings"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
-	ctypes "github.com/docker/docker/api/types/container"
-	imagetypes "github.com/docker/docker/api/types/image"
-	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -206,94 +200,5 @@ func (client dockerClient) tcCommands(ctx context.Context, c *ctr.Container, arg
 		}
 		return nil
 	}
-	return client.tcContainerCommands(ctx, c, argsList, tcimg, pull)
-}
-
-// execute tc commands using other container (with iproute2 package installed), using target container network stack
-// try to use `gaiadocker\iproute2` img (Alpine + iproute2 package)
-//
-//nolint:dupl // intentionally parallel to ipTablesContainerCommands; keeping them separate reads clearer at callsite
-func (client dockerClient) tcContainerCommands(ctx context.Context, target *ctr.Container, argsList [][]string, tcimg string, pull bool) error {
-	log.WithFields(log.Fields{
-		"container": target.ID(),
-		"tc-img":    tcimg,
-		"pull":      pull,
-		"args-list": argsList,
-	}).Debug("executing tc command in a separate container joining target container network namespace")
-
-	// host config
-	hconfig := ctypes.HostConfig{
-		// Don't auto-remove, since we may want to run multiple commands
-		AutoRemove: false,
-		// NET_ADMIN is required for "tc netem"
-		CapAdd: []string{"NET_ADMIN"},
-		// use target container network stack
-		NetworkMode: ctypes.NetworkMode("container:" + target.ID()),
-		// others
-		PortBindings: nat.PortMap{},
-		DNS:          []string{},
-		DNSOptions:   []string{},
-		DNSSearch:    []string{},
-	}
-	log.WithField("network", hconfig.NetworkMode).Debug("network mode")
-	// pull docker img if required: can pull only public imgs
-	if pull {
-		log.WithField("img", tcimg).Debug("pulling tc-img")
-		events, err := client.imageAPI.ImagePull(ctx, tcimg, imagetypes.PullOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to pull tc-img: %w", err)
-		}
-		defer events.Close()
-		d := json.NewDecoder(events)
-		var pullResponse *imagePullResponse
-		for {
-			if err = d.Decode(&pullResponse); err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return fmt.Errorf("failed to decode docker pull response for tc-img: %w", err)
-			}
-			log.Debug(pullResponse)
-		}
-	}
-
-	// container config — explicit Entrypoint/Cmd so the sidecar stays alive
-	// regardless of the tc-image's default (e.g. nicolaka/netshoot defaults
-	// to zsh which exits immediately in detached mode). StopSignal: SIGKILL
-	// skips the SIGTERM-then-wait grace period on `rm -f`: tail as PID 1
-	// ignores SIGTERM, which otherwise makes Podman wait the full 10 s
-	// StopTimeout before escalating (~tens of seconds per chaos cycle).
-	config := ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		Entrypoint: []string{"tail"},
-		Cmd:        []string{"-f", "/dev/null"},
-		Image:      tcimg,
-		StopSignal: "SIGKILL",
-	}
-
-	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
-
-	log.WithField("img", config.Image).Debug("creating tc-container")
-	if err != nil {
-		return fmt.Errorf("failed to create tc-container from tc-img: %w", err)
-	}
-	log.WithField("id", createResponse.ID).Debug("tc container created, starting it")
-	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{})
-	if err != nil {
-		_ = client.removeSidecar(ctx, createResponse.ID)
-		return fmt.Errorf("failed to start tc-container: %w", err)
-	}
-
-	for _, args := range argsList {
-		if err = client.tcExecCommand(ctx, createResponse.ID, args); err != nil {
-			_ = client.removeSidecar(ctx, createResponse.ID)
-			return fmt.Errorf("error running tc command on container: %v: %w", strings.Join(args, " "), err)
-		}
-	}
-
-	if err = client.removeSidecar(ctx, createResponse.ID); err != nil {
-		return fmt.Errorf("failed to remove tc-container: %w", err)
-	}
-
-	return nil
+	return client.runSidecar(ctx, c, argsList, tcimg, "tc", pull)
 }

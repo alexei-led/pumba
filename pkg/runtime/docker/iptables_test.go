@@ -216,7 +216,7 @@ func TestIPTablesForSimpleCases(t *testing.T) {
 		api.EXPECT().ContainerExecAttach(mock.Anything, mock.Anything, mock.Anything).Return(fakeExecAttach(), nil)
 
 		client := dockerClient{containerAPI: api}
-		err := client.ipTablesExecCommand(ctx, "container-id", []string{"-L"})
+		err := client.runSidecarExec(ctx, "container-id", "iptables", []string{"-L"})
 		assert.NoError(t, err)
 	})
 }

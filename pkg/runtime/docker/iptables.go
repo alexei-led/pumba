@@ -2,17 +2,11 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strings"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
-	ctypes "github.com/docker/docker/api/types/container"
-	imagetypes "github.com/docker/docker/api/types/image"
-	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -151,91 +145,5 @@ func (client dockerClient) ipTablesCommands(ctx context.Context, c *ctr.Containe
 		}
 		return nil
 	}
-	return client.ipTablesContainerCommands(ctx, c, argsList, tcimg, pull)
-}
-
-// execute iptables commands using other container (with iproute2 and bind-tools package installed), using target container network stack
-// try to use `biarca/iptables` img (Alpine + iproute2 and bind-tools package)
-//
-//nolint:dupl // intentionally parallel to tcContainerCommands; keeping them separate reads clearer at callsite
-func (client dockerClient) ipTablesContainerCommands(ctx context.Context, target *ctr.Container, argsList [][]string, img string, pull bool) error {
-	log.WithFields(log.Fields{
-		"container": target.ID(),
-		"img":       img,
-		"pull":      pull,
-		"args-list": argsList,
-	}).Debug("executing iptables command in a separate container joining target container network namespace")
-
-	// host config
-	hconfig := ctypes.HostConfig{
-		// Don't auto-remove, since we may want to run multiple commands
-		AutoRemove: false,
-		// NET_ADMIN is required for "tc netem"
-		CapAdd: []string{"NET_ADMIN"},
-		// use target container network stack
-		NetworkMode: ctypes.NetworkMode("container:" + target.ID()),
-		// others
-		PortBindings: nat.PortMap{},
-		DNS:          []string{},
-		DNSOptions:   []string{},
-		DNSSearch:    []string{},
-	}
-	log.WithField("network", hconfig.NetworkMode).Debug("network mode")
-	// pull docker img if required: can pull only public imgs
-	if pull {
-		log.WithField("img", img).Debug("pulling iptables-img")
-		events, err := client.imageAPI.ImagePull(ctx, img, imagetypes.PullOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to pull iptables-img: %w", err)
-		}
-		defer events.Close()
-		d := json.NewDecoder(events)
-		var pullResponse *imagePullResponse
-		for {
-			if err = d.Decode(&pullResponse); err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return fmt.Errorf("failed to decode docker pull response for iptables-img: %w", err)
-			}
-			log.Debug(pullResponse)
-		}
-	}
-
-	// container config, keep the container alive by tailing /dev/null.
-	// StopSignal: SIGKILL avoids the 10 s SIGTERM grace period on `rm -f`
-	// (tail as PID 1 ignores SIGTERM), matching tcContainerCommands.
-	config := ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-		Entrypoint: []string{"tail"},
-		Cmd:        []string{"-f", "/dev/null"},
-		Image:      img,
-		StopSignal: "SIGKILL",
-	}
-
-	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
-
-	log.WithField("img", config.Image).Debug("creating iptables-container")
-	if err != nil {
-		return fmt.Errorf("failed to create iptables-container from iptables-img: %w", err)
-	}
-	log.WithField("id", createResponse.ID).Debug("iptables container created, starting it")
-	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{})
-	if err != nil {
-		_ = client.removeSidecar(ctx, createResponse.ID)
-		return fmt.Errorf("failed to start iptables-container: %w", err)
-	}
-
-	for _, args := range argsList {
-		if err = client.ipTablesExecCommand(ctx, createResponse.ID, args); err != nil {
-			_ = client.removeSidecar(ctx, createResponse.ID)
-			return fmt.Errorf("error running iptables command on container: %v: %w", strings.Join(args, " "), err)
-		}
-	}
-
-	if err = client.removeSidecar(ctx, createResponse.ID); err != nil {
-		return fmt.Errorf("failed to remove iptables-container: %w", err)
-	}
-
-	return nil
+	return client.runSidecar(ctx, c, argsList, tcimg, "iptables", pull)
 }

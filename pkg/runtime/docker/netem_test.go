@@ -302,7 +302,7 @@ func Test_tcContainerCommands(t *testing.T) {
 	engineClient.EXPECT().ContainerRemove(ctx, "tcID", ctypes.RemoveOptions{Force: true}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
-	err := client.tcContainerCommands(context.TODO(), c, [][]string{{"test", "one"}, {"test", "two"}}, "pumba/tcimage", true)
+	err := client.runSidecar(context.TODO(), c, [][]string{{"test", "one"}, {"test", "two"}}, "pumba/tcimage", "tc", true)
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

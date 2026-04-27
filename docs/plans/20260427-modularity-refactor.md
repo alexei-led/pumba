@@ -259,19 +259,19 @@ Each subcommand `parse` function (introduced in Task 3) takes `Flags` instead of
 - Modify (split): `pkg/runtime/docker/docker_test.go` → mirror per-file test files
 - Keep unchanged: `pkg/runtime/docker/http_client.go`, `dockerinspect_test.go`, `mock_conn.go`, `mockengine_responses.go`, `stress_test.go`
 
-- [ ] create `pkg/runtime/docker/client.go` — move `dockerClient` struct, `NewClient`, `NewAPIClient`, `NewFromAPI`, `Close`
-- [ ] create `pkg/runtime/docker/inspect.go` — move `dockerInspectToContainer`, `ListContainers`
-- [ ] create `pkg/runtime/docker/lifecycle.go` — move `Start`/`Stop`/`Kill`/`Restart`/`Remove`/`Pause`/`Unpause`/`StopContainerWithID`
-- [ ] create `pkg/runtime/docker/exec.go` — move `ExecContainer`, `execOnContainer`, `runExecAttached`
-- [ ] create `pkg/runtime/docker/netem.go` — move `NetemContainer`, `StopNetemContainer`, `tcContainerCommands`, `removeSidecar`
-- [ ] create `pkg/runtime/docker/iptables.go` — move `IPTablesContainer`, `StopIPTablesContainer`, `ipTablesContainerCommands`
-- [ ] create `pkg/runtime/docker/stress.go` — move `StressContainer`, `cgroupDriver`, `containerLeafCgroup`, `defaultCgroupParent`, `inspectCgroupParent`, `stressResolveDriver`, `stressContainerConfig`, `stressContainerCommand`
-- [ ] create `pkg/runtime/docker/pull.go` — move `pullImage`, `imagePullResponse`
-- [ ] delete `pkg/runtime/docker/docker.go` (now empty)
-- [ ] reassign `docker_test.go` cases to matching per-concern test files (`netem_test.go`, `iptables_test.go`, etc.) — leave `docker_test.go` only if any cross-concern setup remains
-- [ ] consolidate the parallel `tcContainerCommands` / `ipTablesContainerCommands` duplication into one `sidecarExec` helper in `netem.go` (now safe — both consumers in the same package, prior `//nolint:dupl` was only justified by their being in one file)
-- [ ] `make lint` — must pass (no unused imports, no orphaned helpers)
-- [ ] `make test` — must pass before next task
+- [x] create `pkg/runtime/docker/client.go` — move `dockerClient` struct, `NewClient`, `NewAPIClient`, `NewFromAPI`, `Close`
+- [x] create `pkg/runtime/docker/inspect.go` — move `dockerInspectToContainer`, `ListContainers`
+- [x] create `pkg/runtime/docker/lifecycle.go` — move `Start`/`Stop`/`Kill`/`Restart`/`Remove`/`Pause`/`Unpause`/`StopContainerWithID`
+- [x] create `pkg/runtime/docker/exec.go` — move `ExecContainer`, `execOnContainer`, `runExecAttached`
+- [x] create `pkg/runtime/docker/netem.go` — move `NetemContainer`, `StopNetemContainer`, `tcContainerCommands`, `removeSidecar`
+- [x] create `pkg/runtime/docker/iptables.go` — move `IPTablesContainer`, `StopIPTablesContainer`, `ipTablesContainerCommands`
+- [x] create `pkg/runtime/docker/stress.go` — move `StressContainer`, `cgroupDriver`, `containerLeafCgroup`, `defaultCgroupParent`, `inspectCgroupParent`, `stressResolveDriver`, `stressContainerConfig`, `stressContainerCommand` (cgroup helpers landed in `cgroup.go`)
+- [x] create `pkg/runtime/docker/pull.go` — move `pullImage`, `imagePullResponse`
+- [x] delete `pkg/runtime/docker/docker.go` (now empty)
+- [x] reassign `docker_test.go` cases to matching per-concern test files (`netem_test.go`, `iptables_test.go`, etc.) — leave `docker_test.go` only if any cross-concern setup remains
+- [x] consolidate the parallel `tcContainerCommands` / `ipTablesContainerCommands` duplication into one `runSidecar` helper in `sidecar.go` (now safe — both consumers in the same package, prior `//nolint:dupl` was only justified by their being in one file)
+- [x] `make lint` — must pass (no unused imports, no orphaned helpers)
+- [x] `make test` — must pass before next task
 
 ### Task 5: `NetemRequest` + `IPTablesRequest` value objects
 
