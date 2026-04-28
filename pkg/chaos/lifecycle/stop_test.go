@@ -3,8 +3,11 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -177,4 +180,98 @@ func TestStopCommand_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewStopCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   *chaos.GlobalParams
+		restart  bool
+		duration time.Duration
+		waitTime int
+		limit    int
+		want     *stopCommand
+	}{
+		{
+			name:     "fields propagated",
+			params:   &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			restart:  true,
+			duration: 5 * time.Second,
+			waitTime: 10,
+			limit:    3,
+			want: &stopCommand{
+				names:    []string{"c1"},
+				pattern:  "^c",
+				labels:   []string{"k=v"},
+				restart:  true,
+				duration: 5 * time.Second,
+				waitTime: 10,
+				limit:    3,
+				dryRun:   true,
+			},
+		},
+		{
+			name:     "waitTime zero defaults to DeafultWaitTime",
+			params:   &chaos.GlobalParams{Names: []string{"c1"}},
+			waitTime: 0,
+			want: &stopCommand{
+				names:    []string{"c1"},
+				waitTime: DeafultWaitTime,
+			},
+		},
+		{
+			name:     "negative waitTime defaults to DeafultWaitTime",
+			params:   &chaos.GlobalParams{Names: []string{"c1"}},
+			waitTime: -5,
+			want: &stopCommand{
+				names:    []string{"c1"},
+				waitTime: DeafultWaitTime,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			got := NewStopCommand(mockClient, tt.params, tt.restart, tt.duration, tt.waitTime, tt.limit)
+			cmd, ok := got.(*stopCommand)
+			require.True(t, ok)
+			tt.want.client = mockClient
+			assert.True(t, reflect.DeepEqual(tt.want, cmd))
+		})
+	}
+}
+
+func TestStopCommand_Run_CtxCancelRestartsContainers(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	containers := container.CreateTestContainers(2)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s := &stopCommand{
+		client:   mockClient,
+		names:    []string{"c1", "c2"},
+		restart:  true,
+		duration: 10 * time.Second, // long — timer must not fire
+		waitTime: 1,
+	}
+
+	mockClient.EXPECT().
+		ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts")).
+		Return(containers, nil)
+	mockClient.EXPECT().
+		StopContainer(mock.Anything, mock.AnythingOfType("*container.Container"), 1, false).
+		Return(nil).Times(2)
+	// StartContainer must still be called even after ctx cancellation.
+	mockClient.EXPECT().
+		StartContainer(mock.Anything, mock.AnythingOfType("*container.Container"), false).
+		Return(nil).Times(2)
+
+	// Cancel while Run is waiting on the duration timer.
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	err := s.Run(ctx, false)
+	assert.NoError(t, err)
 }

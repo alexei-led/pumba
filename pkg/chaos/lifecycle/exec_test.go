@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -163,6 +164,53 @@ func TestExecCommand_Run(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestNewExecCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  *chaos.GlobalParams
+		command string
+		args    []string
+		limit   int
+		want    *execCommand
+	}{
+		{
+			name:    "fields propagated",
+			params:  &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			command: "ls",
+			args:    []string{"-la"},
+			limit:   3,
+			want: &execCommand{
+				names:   []string{"c1"},
+				pattern: "^c",
+				labels:  []string{"k=v"},
+				command: "ls",
+				args:    []string{"-la"},
+				limit:   3,
+				dryRun:  true,
+			},
+		},
+		{
+			name:    "empty command defaults to kill 1",
+			params:  &chaos.GlobalParams{Names: []string{"c1"}},
+			command: "",
+			want: &execCommand{
+				names:   []string{"c1"},
+				command: "kill 1",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			got := NewExecCommand(mockClient, tt.params, tt.command, tt.args, tt.limit)
+			cmd, ok := got.(*execCommand)
+			require.True(t, ok)
+			tt.want.client = mockClient
+			assert.True(t, reflect.DeepEqual(tt.want, cmd))
 		})
 	}
 }

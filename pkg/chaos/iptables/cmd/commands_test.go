@@ -101,8 +101,10 @@ func TestParseLossParams(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "random", got.Mode)
 	assert.InDelta(t, 0.5, got.Probability, 0.001)
-	require.NotNil(t, got.IPTables)
-	assert.Equal(t, "eth0", got.IPTables.Iface)
+	require.NotNil(t, got.Base)
+	assert.Equal(t, "eth0", got.Base.Iface)
+	require.NotNil(t, got.Base.Request)
+	assert.Equal(t, "any", got.Base.Protocol)
 }
 
 func TestParseLossParams_BadIPTablesErrors(t *testing.T) {

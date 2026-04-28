@@ -118,5 +118,5 @@ teardown() {
 @test "Should handle exec on non-existent container gracefully via containerd runtime" {
     run pumba exec nonexistent_container_xyz
     assert_success
-    assert_output --partial "no containers to exec"
+    assert_output --partial "no containers found"
 }

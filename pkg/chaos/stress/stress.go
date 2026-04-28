@@ -9,7 +9,6 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // stressClient is the narrow interface needed by the stress command.
@@ -58,7 +57,6 @@ func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, ima
 
 // Run stress command
 func (s *stressCommand) Run(ctx context.Context, random bool) error {
-	log.Debug("stress testing all matching containers")
 	log.WithFields(log.Fields{
 		"names":     s.names,
 		"pattern":   s.pattern,
@@ -67,32 +65,9 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 		"stressors": s.stressors,
 		"limit":     s.limit,
 		"random":    random,
-	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to stress test")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// stress containers
-	var eg errgroup.Group
-	for _, c := range containers {
-		eg.Go(func() error {
-			return s.stressContainer(ctx, c)
-		})
-	}
-	// wait till all stress tests complete
-	if err := eg.Wait(); err != nil {
+	}).Debug("stress testing all matching containers")
+	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	if err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, true, s.stressContainer); err != nil {
 		return fmt.Errorf("one or more stress test failed: %w", err)
 	}
 	return nil
@@ -106,7 +81,15 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		"stress-ng image": s.image,
 		"pull image":      s.pull,
 	}).Debug("stress testing container for duration")
-	stress, output, outerr, err := s.client.StressContainer(ctx, c, s.stressors, s.image, s.pull, s.duration, s.injectCgroup, s.dryRun)
+	req := &container.StressRequest{
+		Container:    c,
+		Stressors:    s.stressors,
+		Duration:     s.duration,
+		Sidecar:      container.SidecarSpec{Image: s.image, Pull: s.pull},
+		InjectCgroup: s.injectCgroup,
+		DryRun:       s.dryRun,
+	}
+	result, err := s.client.StressContainer(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stress test failed: %w", err)
 	}
@@ -116,16 +99,16 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 	timer := time.NewTimer(s.duration)
 	defer timer.Stop()
 	select {
-	case out := <-output:
+	case out := <-result.Output:
 		log.WithField("stdout", out).Debug("stress-ng completed")
-	case e := <-outerr:
+	case e := <-result.Errors:
 		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
 		log.Debug("stop stress test on containers by stop event")
 		// cleanup must run even when parent ctx is canceled; preserve values but strip cancellation
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
 		defer cleanupCancel()
-		err = s.client.StopContainerWithID(cleanupCtx, stress, defaultStopTimeout, s.dryRun)
+		err = s.client.StopContainerWithID(cleanupCtx, result.SidecarID, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}
@@ -134,7 +117,7 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		// parent ctx may cancel simultaneously with the timer; strip cancellation for cleanup
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
 		defer cleanupCancel()
-		err = s.client.StopContainerWithID(cleanupCtx, stress, defaultStopTimeout, s.dryRun)
+		err = s.client.StopContainerWithID(cleanupCtx, result.SidecarID, defaultStopTimeout, s.dryRun)
 		if err != nil {
 			return fmt.Errorf("failed to stop stress-ng container: %w", err)
 		}

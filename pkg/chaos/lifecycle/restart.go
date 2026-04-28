@@ -50,31 +50,13 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, k.client, k.names, k.pattern, k.labels, k.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to restart")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	for _, c := range containers {
-		log.WithFields(log.Fields{
-			"container": c,
-			"timeout":   k.timeout,
-		}).Debug("restarting container")
-		err = k.client.RestartContainer(ctx, c, k.timeout, k.dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to restart container: %w", err)
-		}
-	}
-	return nil
+	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels}
+	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": c, "timeout": k.timeout}).Debug("restarting container")
+			if err := k.client.RestartContainer(ctx, c, k.timeout, k.dryRun); err != nil {
+				return fmt.Errorf("failed to restart container: %w", err)
+			}
+			return nil
+		})
 }

@@ -12,7 +12,7 @@ import (
 // removeClient is the narrow interface needed by the remove command.
 type removeClient interface {
 	container.Lister
-	RemoveContainer(context.Context, *container.Container, bool, bool, bool, bool) error
+	RemoveContainer(context.Context, *container.Container, container.RemoveOpts) error
 }
 
 // `docker rm` command
@@ -21,11 +21,8 @@ type removeCommand struct {
 	names   []string
 	pattern string
 	labels  []string
-	force   bool
-	links   bool
-	volumes bool
+	opts    container.RemoveOpts
 	limit   int
-	dryRun  bool
 }
 
 // NewRemoveCommand create new Kill Command instance
@@ -35,11 +32,13 @@ func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, li
 		names:   params.Names,
 		pattern: params.Pattern,
 		labels:  params.Labels,
-		force:   force,
-		links:   links,
-		volumes: volumes,
-		limit:   limit,
-		dryRun:  params.DryRun,
+		opts: container.RemoveOpts{
+			Force:   force,
+			Links:   links,
+			Volumes: volumes,
+			DryRun:  params.DryRun,
+		},
+		limit: limit,
 	}
 	return remove
 }
@@ -54,34 +53,18 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		"limit":   r.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainersAll(ctx, r.client, r.names, r.pattern, r.labels, r.limit, true)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to remove")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	for _, container := range containers {
-		log.WithFields(log.Fields{
-			"container": container,
-			"force":     r.force,
-			"links":     r.links,
-			"volumes":   r.volumes,
-		}).Debug("removing container")
-		c := container
-		err = r.client.RemoveContainer(ctx, c, r.force, r.links, r.volumes, r.dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to remove container: %w", err)
-		}
-	}
-	return nil
+	gp := &chaos.GlobalParams{Names: r.names, Pattern: r.pattern, Labels: r.labels}
+	return chaos.RunOnContainersAll(ctx, r.client, gp, r.limit, random, false,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{
+				"container": c,
+				"force":     r.opts.Force,
+				"links":     r.opts.Links,
+				"volumes":   r.opts.Volumes,
+			}).Debug("removing container")
+			if err := r.client.RemoveContainer(ctx, c, r.opts); err != nil {
+				return fmt.Errorf("failed to remove container: %w", err)
+			}
+			return nil
+		})
 }

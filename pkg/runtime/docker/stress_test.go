@@ -110,13 +110,34 @@ func TestStressContainerBasic(t *testing.T) {
 			tt.mockSet(api, tt.args.c, tt.args.stressors, tt.args.image, tt.args.pull, tt.args.duration, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-			_, _, _, err := client.StressContainer(tt.args.ctx, tt.args.c, tt.args.stressors, tt.args.image, tt.args.pull, tt.args.duration, false, tt.args.dryrun)
+			req := &ctr.StressRequest{
+				Container: tt.args.c,
+				Stressors: tt.args.stressors,
+				Duration:  tt.args.duration,
+				Sidecar:   ctr.SidecarSpec{Image: tt.args.image, Pull: tt.args.pull},
+				DryRun:    tt.args.dryrun,
+			}
+			_, err := client.StressContainer(tt.args.ctx, req)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.StressContainer() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			api.AssertExpectations(t)
 		})
+	}
+}
+
+// stressReq builds a *ctr.StressRequest mirroring the old positional
+// StressContainer signature. Used by the per-test cases below to keep
+// the per-call diff minimal.
+func stressReq(c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) *ctr.StressRequest {
+	return &ctr.StressRequest{
+		Container:    c,
+		Stressors:    stressors,
+		Duration:     duration,
+		Sidecar:      ctr.SidecarSpec{Image: image, Pull: pull},
+		InjectCgroup: injectCgroup,
+		DryRun:       dryrun,
 	}
 }
 
@@ -133,7 +154,7 @@ func TestStressContainerInfoAPIFailure(t *testing.T) {
 	api.EXPECT().Info(mock.Anything).Return(system.Info{}, errors.New("connection refused"))
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get docker info")
@@ -161,7 +182,7 @@ func TestStressContainerInfoFailureWithSystemdInspect(t *testing.T) {
 	}), mock.Anything, mock.Anything, mock.Anything).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedHostConfig)
@@ -186,7 +207,7 @@ func TestStressContainerSystemdCgroupDriver(t *testing.T) {
 	}), mock.Anything, mock.Anything, mock.Anything).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 
 	assert.Error(t, err)
 	api.AssertExpectations(t)
@@ -219,7 +240,7 @@ func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedConfig)
@@ -265,7 +286,7 @@ func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, true, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedConfig)
@@ -310,7 +331,7 @@ func TestStressContainerInjectCgroupSystemd(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, true, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedConfig)
@@ -352,7 +373,7 @@ func TestStressContainerK8sCgroupParentCgroupfs(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedHostConfig)
@@ -385,7 +406,7 @@ func TestStressContainerK8sCgroupParentSystemd(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedHostConfig)
@@ -416,7 +437,7 @@ func TestStressContainerEmptyCgroupParentFallback(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, false, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedHostConfig)
@@ -454,7 +475,7 @@ func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, true, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--cpu", "2"}, "stress-ng:latest", false, 10*time.Second, true, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedConfig)
@@ -494,7 +515,7 @@ func TestStressContainerInjectCgroupCustomImage(t *testing.T) {
 	).Return(container.CreateResponse{}, errors.New("stop here")).Once()
 
 	client := dockerClient{containerAPI: api, imageAPI: api, systemAPI: api}
-	_, _, _, err := client.StressContainer(context.TODO(), c, []string{"--vm", "1"}, customImage, false, 10*time.Second, true, false)
+	_, err := client.StressContainer(context.TODO(), stressReq(c, []string{"--vm", "1"}, customImage, false, 10*time.Second, true, false))
 
 	assert.Error(t, err)
 	assert.NotNil(t, capturedConfig)

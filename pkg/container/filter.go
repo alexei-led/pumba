@@ -28,10 +28,8 @@ func matchPattern(pattern, containerName string) bool {
 		return false
 	}
 	if !matched && strings.HasPrefix(containerName, "/") {
-		matched, err = regexp.MatchString(pattern, containerName[1:])
-		if err != nil {
-			return false
-		}
+		// pattern already compiled once above without error; ignore err here
+		matched, _ = regexp.MatchString(pattern, containerName[1:])
 	}
 	return matched
 }

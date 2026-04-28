@@ -188,7 +188,7 @@ teardown() {
 @test "Should fail when exec has no containers to target" {
     run pumba exec nonexistent_container_xyz
     assert_success
-    assert_output --partial "no containers to exec"
+    assert_output --partial "no containers found"
 }
 
 @test "Should handle CIDR notation formats" {

@@ -3,9 +3,25 @@ package util
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// reInterface accepts a network-interface identifier: must start with a
+// letter and contain only letters, digits, '.', ':', '_', or '-'. Used as a
+// shell-injection guard before names flow into `tc qdisc dev <name>` and
+// `iptables -i <name>`.
+var reInterface = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9.:_-]*`)
+
+// ValidateInterfaceName returns an error if name is not a safe network
+// interface identifier per reInterface. Empty names are rejected.
+func ValidateInterfaceName(name string) error {
+	if name == "" || name != reInterface.FindString(name) {
+		return fmt.Errorf("bad network interface name: must match '%s'", reInterface.String())
+	}
+	return nil
+}
 
 // GetPorts will split the string of comma separated ports and return a list of ports
 func GetPorts(ports string) ([]string, error) {

@@ -133,7 +133,7 @@ teardown() {
 @test "Should handle exec on non-existent container gracefully via podman runtime" {
     run pumba --runtime podman exec nonexistent_container_xyz
     assert_success
-    assert_output --partial "no containers to exec"
+    assert_output --partial "no containers found"
 }
 
 @test "Should report unreachable --podman-socket with diagnostic error" {

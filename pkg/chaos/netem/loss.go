@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -14,15 +13,19 @@ import (
 
 // `netem loss` command
 type lossCommand struct {
-	netemCommand
+	client      netemClient
+	gp          *chaos.GlobalParams
+	req         *container.NetemRequest
+	limit       int
 	percent     float64
 	correlation float64
 }
 
 // NewLossCommand create new netem loss command
 func NewLossCommand(client netemClient,
-	globalParams *chaos.GlobalParams,
-	netemParams *Params,
+	gp *chaos.GlobalParams,
+	req *container.NetemRequest,
+	limit int,
 	percent, // loss percent
 	correlation float64, // loss correlation
 ) (chaos.Command, error) {
@@ -36,9 +39,12 @@ func NewLossCommand(client netemClient,
 	}
 
 	return &lossCommand{
-		netemCommand: newNetemCommand(client, globalParams, netemParams),
-		percent:      percent,
-		correlation:  correlation,
+		client:      client,
+		gp:          gp,
+		req:         req,
+		limit:       limit,
+		percent:     percent,
+		correlation: correlation,
 	}, nil
 }
 
@@ -46,74 +52,33 @@ func NewLossCommand(client netemClient,
 func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet loss to all matching containers")
 	log.WithFields(log.Fields{
-		"names":   n.names,
-		"pattern": n.pattern,
-		"labels":  n.labels,
+		"names":   n.gp.Names,
+		"pattern": n.gp.Pattern,
+		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers found")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// prepare netem loss command
-	netemCmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)}
-	if n.correlation > 0 {
-		netemCmd = append(netemCmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
-	}
-
-	// run netem loss command for selected containers
-	var wg sync.WaitGroup
-	errs := make([]error, len(containers))
-	for i, c := range containers {
-		log.WithFields(log.Fields{
-			"container": *c,
-		}).Debug("adding network random packet loss for container")
-		wg.Add(1)
-		//nolint:dupl // structurally identical to the other netem callers; request struct keeps the body cohesive
-		go func(i int, c *container.Container) {
-			defer wg.Done()
-			netemCtx, cancel := context.WithTimeout(ctx, n.duration)
+	netemCmd := n.buildNetemCmd()
+	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": *c}).Debug("adding network random packet loss for container")
+			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
-			errs[i] = runNetem(netemCtx, n.client, &container.NetemRequest{
-				Container: c,
-				Interface: n.iface,
-				Command:   netemCmd,
-				IPs:       n.ips,
-				SPorts:    n.sports,
-				DPorts:    n.dports,
-				Duration:  n.duration,
-				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
-				DryRun:    n.dryRun,
-			})
-			if errs[i] != nil {
-				log.WithError(errs[i]).Warn("failed to set packet loss for container")
+			req := *n.req
+			req.Container = c
+			req.Command = netemCmd
+			if err := runNetem(netemCtx, n.client, &req); err != nil {
+				log.WithError(err).Warn("failed to set packet loss for container")
+				return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
 			}
-		}(i, c)
+			return nil
+		})
+}
+
+func (n *lossCommand) buildNetemCmd() []string {
+	cmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)}
+	if n.correlation > 0 {
+		cmd = append(cmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
 	}
-
-	// Wait for all netem delay commands to complete
-	wg.Wait()
-
-	// scan through all errors in goroutines
-	for _, err = range errs {
-		// take first found error
-		if err != nil {
-			return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
-		}
-	}
-
-	return nil
+	return cmd
 }

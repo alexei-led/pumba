@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func validationFixtures(t *testing.T) (*container.MockClient, *chaos.GlobalParams, *Params) {
+func validationFixtures(t *testing.T) (*container.MockClient, *chaos.GlobalParams, *container.NetemRequest) {
 	return container.NewMockClient(t),
 		&chaos.GlobalParams{Names: []string{"test"}},
-		&Params{Iface: "eth0", Duration: time.Second}
+		&container.NetemRequest{Interface: "eth0", Duration: time.Second}
 }
 
 func TestNewCorruptCommand_Validation(t *testing.T) {
@@ -32,7 +32,7 @@ func TestNewCorruptCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, gParams, nParams := validationFixtures(t)
-			cmd, err := NewCorruptCommand(client, gParams, nParams, tt.percent, tt.correlation)
+			cmd, err := NewCorruptCommand(client, gParams, nParams, 0, tt.percent, tt.correlation)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -60,7 +60,7 @@ func TestNewLossCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, gParams, nParams := validationFixtures(t)
-			cmd, err := NewLossCommand(client, gParams, nParams, tt.percent, tt.correlation)
+			cmd, err := NewLossCommand(client, gParams, nParams, 0, tt.percent, tt.correlation)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -87,7 +87,7 @@ func TestNewDuplicateCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, gParams, nParams := validationFixtures(t)
-			cmd, err := NewDuplicateCommand(client, gParams, nParams, tt.percent, tt.correlation)
+			cmd, err := NewDuplicateCommand(client, gParams, nParams, 0, tt.percent, tt.correlation)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -116,7 +116,7 @@ func TestNewRateCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, gParams, nParams := validationFixtures(t)
-			cmd, err := NewRateCommand(client, gParams, nParams, tt.rate, 0, tt.cellSize, 0)
+			cmd, err := NewRateCommand(client, gParams, nParams, 0, tt.rate, 0, tt.cellSize, 0)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -143,7 +143,7 @@ func TestNewLossGECommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, gParams, nParams := validationFixtures(t)
-			cmd, err := NewLossGECommand(client, gParams, nParams, tt.pg, tt.pb, tt.oneH, tt.oneK)
+			cmd, err := NewLossGECommand(client, gParams, nParams, 0, tt.pg, tt.pb, tt.oneH, tt.oneK)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -171,7 +171,7 @@ func TestNewLossStateCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, gParams, nParams := validationFixtures(t)
-			cmd, err := NewLossStateCommand(client, gParams, nParams, tt.p13, tt.p31, tt.p32, tt.p23, tt.p14)
+			cmd, err := NewLossStateCommand(client, gParams, nParams, 0, tt.p13, tt.p31, tt.p32, tt.p23, tt.p14)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)

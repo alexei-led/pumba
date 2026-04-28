@@ -36,37 +36,37 @@ func removeOnError(ctx context.Context, api apiBackend, id string, cause error) 
 // from chaos target selection. Shared with the docker runtime.
 const skipLabelKey = "com.gaiaadm.pumba.skip"
 
-// StressContainer launches a stress-ng sidecar that targets c's cgroup. The
-// target cgroup is resolved host-side from /proc/<pid>/cgroup — necessary
-// because modern Podman defaults to private cgroup namespaces that hide the
-// full ancestry from a process reading its own /proc/self/cgroup.
+// StressContainer launches a stress-ng sidecar that targets req.Container's
+// cgroup. The target cgroup is resolved host-side from /proc/<pid>/cgroup —
+// necessary because modern Podman defaults to private cgroup namespaces that
+// hide the full ancestry from a process reading its own /proc/self/cgroup.
 //
 // Rootless Podman cannot create a child cgroup under the target's scope (the
 // kernel denies the write) and cannot grant the sidecar the CAP_SYS_ADMIN
 // that cg-inject needs, so fail fast with rootlessError rather than surface
 // an opaque sidecar create/start failure.
-func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, stressors []string, image string, pull bool, duration time.Duration, injectCgroup, dryrun bool) (string, <-chan string, <-chan error, error) {
+func (p *podmanClient) StressContainer(ctx context.Context, req *ctr.StressRequest) (*ctr.StressResult, error) {
 	log.WithFields(log.Fields{
-		"name":          c.Name(),
-		"id":            c.ID(),
-		"stressors":     stressors,
-		"image":         image,
-		"pull":          pull,
-		"duration":      duration,
-		"inject-cgroup": injectCgroup,
-		"dryrun":        dryrun,
+		"name":          req.Container.Name(),
+		"id":            req.Container.ID(),
+		"stressors":     req.Stressors,
+		"image":         req.Sidecar.Image,
+		"pull":          req.Sidecar.Pull,
+		"duration":      req.Duration,
+		"inject-cgroup": req.InjectCgroup,
+		"dryrun":        req.DryRun,
 	}).Info("stress testing podman container")
 
-	if dryrun {
-		return "", nil, nil, nil
+	if req.DryRun {
+		return &ctr.StressResult{}, nil
 	}
 	if p.rootless {
-		return "", nil, nil, rootlessError("stress", p.socketURI)
+		return nil, rootlessError("stress", p.socketURI)
 	}
 
-	cg, err := p.resolveCgroup(ctx, c.ID())
+	cg, err := p.resolveCgroup(ctx, req.Container.ID())
 	if err != nil {
-		return "", nil, nil, err
+		return nil, err
 	}
 	log.WithFields(log.Fields{
 		"driver":     cg.driver,
@@ -76,17 +76,17 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 		"procs-path": cg.procsPath,
 	}).Debug("resolved podman target cgroup")
 
-	config, hconfig := buildStressConfig(image, stressors, cg.driver, cg.fullPath, cg.parent, cg.procsPath, injectCgroup)
+	config, hconfig := buildStressConfig(req.Sidecar.Image, req.Stressors, cg.driver, cg.fullPath, cg.parent, cg.procsPath, req.InjectCgroup)
 
-	if pull {
-		if err := p.pullStressImage(ctx, image); err != nil {
-			return "", nil, nil, err
+	if req.Sidecar.Pull {
+		if err := p.pullStressImage(ctx, req.Sidecar.Image); err != nil {
+			return nil, err
 		}
 	}
 
 	created, err := p.api.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("podman runtime: create stress-ng container: %w", err)
+		return nil, fmt.Errorf("podman runtime: create stress-ng container: %w", err)
 	}
 
 	attach, err := p.api.ContainerAttach(ctx, created.ID, ctypes.AttachOptions{
@@ -95,20 +95,20 @@ func (p *podmanClient) StressContainer(ctx context.Context, c *ctr.Container, st
 		Stream: true,
 	})
 	if err != nil {
-		return "", nil, nil, removeOnError(ctx, p.api, created.ID,
+		return nil, removeOnError(ctx, p.api, created.ID,
 			fmt.Errorf("podman runtime: attach stress-ng container: %w", err))
 	}
 
 	if err := p.api.ContainerStart(ctx, created.ID, ctypes.StartOptions{}); err != nil {
 		attach.Close()
-		return "", nil, nil, removeOnError(ctx, p.api, created.ID,
+		return nil, removeOnError(ctx, p.api, created.ID,
 			fmt.Errorf("podman runtime: start stress-ng container: %w", err))
 	}
 
 	output := make(chan string, 1)
 	outerr := make(chan error, 1)
 	go drainStressOutput(ctx, p.api, created.ID, attach, output, outerr)
-	return created.ID, output, outerr, nil
+	return &ctr.StressResult{SidecarID: created.ID, Output: output, Errors: outerr}, nil
 }
 
 // cgroupLocation bundles the host-side cgroup coordinates for a target.

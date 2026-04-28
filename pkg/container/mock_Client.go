@@ -368,17 +368,17 @@ func (_c *MockClient_PauseContainer_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
-// RemoveContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5
-func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 bool, _a3 bool, _a4 bool, _a5 bool) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5)
+// RemoveContainer provides a mock function with given fields: _a0, _a1, _a2
+func (_m *MockClient) RemoveContainer(_a0 context.Context, _a1 *Container, _a2 RemoveOpts) error {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveContainer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, bool, bool, bool, bool) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5)
+	if rf, ok := ret.Get(0).(func(context.Context, *Container, RemoveOpts) error); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -394,17 +394,14 @@ type MockClient_RemoveContainer_Call struct {
 // RemoveContainer is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 *Container
-//   - _a2 bool
-//   - _a3 bool
-//   - _a4 bool
-//   - _a5 bool
-func (_e *MockClient_Expecter) RemoveContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}) *MockClient_RemoveContainer_Call {
-	return &MockClient_RemoveContainer_Call{Call: _e.mock.On("RemoveContainer", _a0, _a1, _a2, _a3, _a4, _a5)}
+//   - _a2 RemoveOpts
+func (_e *MockClient_Expecter) RemoveContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *MockClient_RemoveContainer_Call {
+	return &MockClient_RemoveContainer_Call{Call: _e.mock.On("RemoveContainer", _a0, _a1, _a2)}
 }
 
-func (_c *MockClient_RemoveContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 bool, _a3 bool, _a4 bool, _a5 bool)) *MockClient_RemoveContainer_Call {
+func (_c *MockClient_RemoveContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 RemoveOpts)) *MockClient_RemoveContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].(bool), args[3].(bool), args[4].(bool), args[5].(bool))
+		run(args[0].(context.Context), args[1].(*Container), args[2].(RemoveOpts))
 	})
 	return _c
 }
@@ -414,7 +411,7 @@ func (_c *MockClient_RemoveContainer_Call) Return(_a0 error) *MockClient_RemoveC
 	return _c
 }
 
-func (_c *MockClient_RemoveContainer_Call) RunAndReturn(run func(context.Context, *Container, bool, bool, bool, bool) error) *MockClient_RemoveContainer_Call {
+func (_c *MockClient_RemoveContainer_Call) RunAndReturn(run func(context.Context, *Container, RemoveOpts) error) *MockClient_RemoveContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -708,50 +705,34 @@ func (_c *MockClient_StopNetemContainer_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
-// StressContainer provides a mock function with given fields: _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7
-func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool, _a7 bool) (string, <-chan string, <-chan error, error) {
-	ret := _m.Called(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
+// StressContainer provides a mock function with given fields: _a0, _a1
+func (_m *MockClient) StressContainer(_a0 context.Context, _a1 *StressRequest) (*StressResult, error) {
+	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StressContainer")
 	}
 
-	var r0 string
-	var r1 <-chan string
-	var r2 <-chan error
-	var r3 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) (string, <-chan string, <-chan error, error)); ok {
-		return rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
+	var r0 *StressResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *StressRequest) (*StressResult, error)); ok {
+		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) string); ok {
-		r0 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
+	if rf, ok := ret.Get(0).(func(context.Context, *StressRequest) *StressResult); ok {
+		r0 = rf(_a0, _a1)
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) <-chan string); ok {
-		r1 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(<-chan string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*StressResult)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) <-chan error); ok {
-		r2 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
+	if rf, ok := ret.Get(1).(func(context.Context, *StressRequest) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
-		if ret.Get(2) != nil {
-			r2 = ret.Get(2).(<-chan error)
-		}
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(3).(func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) error); ok {
-		r3 = rf(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)
-	} else {
-		r3 = ret.Error(3)
-	}
-
-	return r0, r1, r2, r3
+	return r0, r1
 }
 
 // MockClient_StressContainer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StressContainer'
@@ -761,30 +742,24 @@ type MockClient_StressContainer_Call struct {
 
 // StressContainer is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *Container
-//   - _a2 []string
-//   - _a3 string
-//   - _a4 bool
-//   - _a5 time.Duration
-//   - _a6 bool
-//   - _a7 bool
-func (_e *MockClient_Expecter) StressContainer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}, _a4 interface{}, _a5 interface{}, _a6 interface{}, _a7 interface{}) *MockClient_StressContainer_Call {
-	return &MockClient_StressContainer_Call{Call: _e.mock.On("StressContainer", _a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7)}
+//   - _a1 *StressRequest
+func (_e *MockClient_Expecter) StressContainer(_a0 interface{}, _a1 interface{}) *MockClient_StressContainer_Call {
+	return &MockClient_StressContainer_Call{Call: _e.mock.On("StressContainer", _a0, _a1)}
 }
 
-func (_c *MockClient_StressContainer_Call) Run(run func(_a0 context.Context, _a1 *Container, _a2 []string, _a3 string, _a4 bool, _a5 time.Duration, _a6 bool, _a7 bool)) *MockClient_StressContainer_Call {
+func (_c *MockClient_StressContainer_Call) Run(run func(_a0 context.Context, _a1 *StressRequest)) *MockClient_StressContainer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*Container), args[2].([]string), args[3].(string), args[4].(bool), args[5].(time.Duration), args[6].(bool), args[7].(bool))
+		run(args[0].(context.Context), args[1].(*StressRequest))
 	})
 	return _c
 }
 
-func (_c *MockClient_StressContainer_Call) Return(_a0 string, _a1 <-chan string, _a2 <-chan error, _a3 error) *MockClient_StressContainer_Call {
-	_c.Call.Return(_a0, _a1, _a2, _a3)
+func (_c *MockClient_StressContainer_Call) Return(_a0 *StressResult, _a1 error) *MockClient_StressContainer_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockClient_StressContainer_Call) RunAndReturn(run func(context.Context, *Container, []string, string, bool, time.Duration, bool, bool) (string, <-chan string, <-chan error, error)) *MockClient_StressContainer_Call {
+func (_c *MockClient_StressContainer_Call) RunAndReturn(run func(context.Context, *StressRequest) (*StressResult, error)) *MockClient_StressContainer_Call {
 	_c.Call.Return(run)
 	return _c
 }

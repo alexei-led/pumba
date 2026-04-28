@@ -23,7 +23,7 @@ teardown() {
     run pumba --log-level debug kill $full_id
     assert_success
     
-    wait_for 5 "! docker inspect $full_id >/dev/null 2>&1" "container to be removed"
+    wait_for 10 "! docker inspect $full_id >/dev/null 2>&1 || docker inspect -f '{{.State.Status}}' $full_id | grep -Eq '^(exited|dead)$'" "container to be killed"
 }
 
 @test "Should restart running container via containerd runtime using ID" {

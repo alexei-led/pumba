@@ -22,7 +22,7 @@ teardown() {
 
 @test "Should apply iptables packet loss via containerd runtime" {
     # Run pumba in background with long duration
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --probability 1.0 test-ipt-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --pull-image=false --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -46,7 +46,7 @@ teardown() {
 }
 
 @test "Should apply iptables loss with nth mode via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 30s loss --mode nth --every 3 test-ipt-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --pull-image=false --duration 30s loss --mode nth --every 3 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -69,12 +69,12 @@ teardown() {
 
 @test "Should handle iptables on non-existent container via containerd runtime" {
     # Pumba should handle gracefully — exit 0 (no matching containers found)
-    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --duration 2s loss --probability 1.0 nonexistent_container_12345
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --pull-image=false --duration 2s loss --probability 1.0 nonexistent_container_12345
     assert_success
 }
 
 @test "Should apply iptables loss with destination IP filter via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --destination 10.0.0.0/8 --duration 30s loss --probability 1.0 test-ipt-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --destination 10.0.0.0/8 --pull-image=false --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -96,7 +96,7 @@ teardown() {
 }
 
 @test "Should apply iptables loss with port filters via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --protocol tcp --dst-port 80 --duration 30s loss --probability 1.0 test-ipt-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --protocol tcp --dst-port 80 --pull-image=false --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 
@@ -119,7 +119,7 @@ teardown() {
 }
 
 @test "Should apply iptables loss with source IP filter via containerd runtime" {
-    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --source 10.0.0.0/8 --duration 30s loss --probability 1.0 test-ipt-ctr &
+    sudo pumba --runtime containerd --containerd-namespace moby --log-level debug iptables --interface lo --source 10.0.0.0/8 --pull-image=false --duration 30s loss --probability 1.0 test-ipt-ctr &
     PUMBA_PID=$!
     sleep 2
 

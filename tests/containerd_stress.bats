@@ -2,7 +2,12 @@
 
 load test_helper
 
-STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:latest"
+# Pinned to 0.20.01 — first release that ships /cg-inject alongside /stress-ng
+# (see https://github.com/alexei-led/stress-ng/releases/tag/0.20.01).
+# Floating :latest can leave stale 0.20.00 cached locally, which lacks cg-inject
+# and silently skipped the inject-cgroup test. Bump deliberately when a newer
+# tag is published and verified.
+STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
 
 setup() {
     # Use Docker to create container (has networking for apk add)
@@ -46,7 +51,7 @@ teardown() {
     # Get full container ID (Docker-created containers live in moby namespace)
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
-    run pumba --log-level debug stress --duration 10s --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
+    run pumba --log-level debug stress --duration 10s --pull-image=false --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
 
     echo "Pumba stress output: $output"
 
@@ -64,7 +69,7 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
     run sudo pumba --runtime containerd --containerd-namespace moby --dry-run --log-level debug \
-        stress --duration 5s --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop" $full_id
+        stress --duration 5s --pull-image=false --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop" $full_id
     assert_success
 
     run sudo ctr -n moby c ls -q
@@ -81,7 +86,7 @@ teardown() {
     # Run stress sidecar — pumba creates a container with /stress-ng as entrypoint,
     # placed in the target's cgroup parent (child cgroup)
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug \
-        stress --duration 10s --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
+        stress --duration 10s --pull-image=false --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
 
     echo "Pumba output: $output"
 
@@ -101,11 +106,21 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
     ctr_pull_image moby ${STRESS_IMAGE}
+    docker image inspect ${STRESS_IMAGE} >/dev/null 2>&1 || \
+        fail "stress image ${STRESS_IMAGE} not available after pull"
+    # ${STRESS_IMAGE} is pinned to a tag that ships /cg-inject (0.20.01+);
+    # fail loudly if a future bump regresses on this contract.
+    check_id=$(docker create --entrypoint /stress-ng ${STRESS_IMAGE} --help)
+    docker export "$check_id" | tar -tf - | grep -qx "cg-inject" || {
+        docker rm -f "$check_id" >/dev/null 2>&1 || true
+        fail "stress image ${STRESS_IMAGE} missing /cg-inject — pin to a tag that ships it"
+    }
+    docker rm -f "$check_id" >/dev/null 2>&1 || true
 
     # Run inject-cgroup stress — pumba creates a sidecar with /cg-inject as entrypoint,
     # host cgroupns, /sys/fs/cgroup mount, and --cgroup-path pointing to the target
     run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug \
-        stress --duration 10s --inject-cgroup --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
+        stress --duration 10s --inject-cgroup --pull-image=false --stress-image ${STRESS_IMAGE} --stressors="--cpu 1 --cpu-method loop --timeout 3s" $full_id
 
     echo "Pumba output: $output"
 

@@ -137,7 +137,7 @@ func TestRemoveContainer_Success(t *testing.T) {
 	engineClient.EXPECT().ContainerRemove(mock.Anything, "abc123", removeOpts).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(context.TODO(), c, true, true, true, false)
+	err := client.RemoveContainer(context.TODO(), c, ctr.RemoveOpts{Force: true, Links: true, Volumes: true})
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -151,7 +151,7 @@ func TestRemoveContainer_DryRun(t *testing.T) {
 	engineClient := NewMockEngine(t)
 
 	client := dockerClient{containerAPI: engineClient}
-	err := client.RemoveContainer(context.TODO(), c, true, true, true, true)
+	err := client.RemoveContainer(context.TODO(), c, ctr.RemoveOpts{Force: true, Links: true, Volumes: true, DryRun: true})
 
 	assert.NoError(t, err)
 }
@@ -463,70 +463,42 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestWaitForStop(t *testing.T) {
-	// Create custom test implementation with controlled behavior for testing
-	waitForStopTest := func(_ dockerClient, ctx context.Context, _ *ctr.Container, _ int) error {
-		// For testing purposes, we'll use a more deterministic approach
-		// Check container state only once or twice with deterministic outcomes
-		if tt, ok := ctx.Value("testType").(string); ok {
-			switch tt {
-			case "stops_immediately":
-				return nil
-			case "inspection_error":
-				return errors.New("failed to inspect container, while waiting to stop: inspect error")
-			case "timeout":
-				return errors.New("timeout on waiting to stop")
-			}
-		}
-		return nil
-	}
+	c := &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"}
 
-	type args struct {
-		ctx      context.Context
-		c        *ctr.Container
-		waitTime int
-	}
 	tests := []struct {
-		name     string
-		args     args
-		testType string
-		mockSet  func(*mocks.APIClient)
-		wantErr  bool
+		name      string
+		waitTime  int
+		mockSet   func(*mocks.APIClient)
+		wantErr   bool
+		errSubstr string
 	}{
 		{
-			name: "container stops within timeout",
-			args: args{
-				ctx:      context.WithValue(context.TODO(), "testType", "stops_immediately"),
-				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
-				waitTime: 10,
-			},
-			testType: "stops_immediately",
+			name:     "container stops on first inspect",
+			waitTime: 5,
 			mockSet: func(api *mocks.APIClient) {
+				api.EXPECT().ContainerInspect(mock.Anything, "abc123").
+					Return(DetailsResponse(AsMap("Running", false)), nil).Once()
 			},
-			wantErr: false,
 		},
 		{
-			name: "container inspection error",
-			args: args{
-				ctx:      context.WithValue(context.TODO(), "testType", "inspection_error"),
-				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
-				waitTime: 1,
-			},
-			testType: "inspection_error",
+			name:     "inspect error",
+			waitTime: 5,
 			mockSet: func(api *mocks.APIClient) {
+				api.EXPECT().ContainerInspect(mock.Anything, "abc123").
+					Return(DetailsResponse(AsMap()), errors.New("inspect error")).Once()
 			},
-			wantErr: true,
+			wantErr:   true,
+			errSubstr: "failed to inspect container",
 		},
 		{
-			name: "container never stops (timeout)",
-			args: args{
-				ctx:      context.WithValue(context.TODO(), "testType", "timeout"),
-				c:        &ctr.Container{ContainerID: "abc123", ContainerName: "test-container"},
-				waitTime: 1,
-			},
-			testType: "timeout",
+			name:     "timeout when container never stops",
+			waitTime: 0,
 			mockSet: func(api *mocks.APIClient) {
+				api.EXPECT().ContainerInspect(mock.Anything, "abc123").
+					Return(DetailsResponse(AsMap("Running", true)), nil).Maybe()
 			},
-			wantErr: true,
+			wantErr:   true,
+			errSubstr: "timeout on waiting to stop",
 		},
 	}
 
@@ -536,11 +508,13 @@ func TestWaitForStop(t *testing.T) {
 			tt.mockSet(api)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
+			err := client.waitForStop(context.Background(), c, tt.waitTime)
 
-			err := waitForStopTest(client, tt.args.ctx, tt.args.c, tt.args.waitTime)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("dockerClient.waitForStop() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errSubstr)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -758,7 +732,12 @@ func TestRemoveContainer(t *testing.T) {
 			tt.mockSet(api, tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
 
 			client := dockerClient{containerAPI: api, imageAPI: api}
-			err := client.RemoveContainer(tt.args.ctx, tt.args.c, tt.args.force, tt.args.links, tt.args.volumes, tt.args.dryrun)
+			err := client.RemoveContainer(tt.args.ctx, tt.args.c, ctr.RemoveOpts{
+				Force:   tt.args.force,
+				Links:   tt.args.links,
+				Volumes: tt.args.volumes,
+				DryRun:  tt.args.dryrun,
+			})
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.RemoveContainer() error = %v, wantErr %v", err, tt.wantErr)

@@ -185,10 +185,6 @@ func TestIPTablesContainer(t *testing.T) {
 	}
 }
 
-func TestIPTablesExecCommandWithRealDocker(t *testing.T) {
-	t.Skip("This test requires a Docker daemon to run properly")
-}
-
 func TestIPTablesForSimpleCases(t *testing.T) {
 	api := NewMockEngine(t)
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -214,9 +210,10 @@ func TestIPTablesForSimpleCases(t *testing.T) {
 		api := NewMockEngine(t)
 		api.EXPECT().ContainerExecCreate(mock.Anything, mock.Anything, mock.Anything).Return(ctypes.ExecCreateResponse{ID: "exec-id"}, nil)
 		api.EXPECT().ContainerExecAttach(mock.Anything, mock.Anything, mock.Anything).Return(fakeExecAttach(), nil)
+		api.EXPECT().ContainerExecInspect(mock.Anything, "exec-id").Return(ctypes.ExecInspect{}, nil)
 
 		client := dockerClient{containerAPI: api}
-		err := client.ipTablesExecCommand(ctx, "container-id", []string{"-L"})
+		err := client.runSidecarExec(ctx, "container-id", "iptables", []string{"-L"})
 		assert.NoError(t, err)
 	})
 }

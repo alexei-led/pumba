@@ -8,6 +8,7 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
+	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,6 +80,7 @@ func netemFlags() []cli.Flag {
 		cli.StringFlag{Name: "ingress-port, ingressPort"},
 		cli.StringFlag{Name: "tc-image", Value: "ghcr.io/alexei-led/pumba-alpine-nettools:latest"},
 		cli.BoolTFlag{Name: "pull-image"},
+		cli.IntFlag{Name: "limit"},
 	}
 }
 
@@ -114,8 +116,8 @@ func TestParseDelayParams(t *testing.T) {
 	assert.Equal(t, 20, got.Jitter)
 	assert.InDelta(t, 30.0, got.Correlation, 0.001)
 	assert.Equal(t, "normal", got.Distribution)
-	require.NotNil(t, got.Netem)
-	assert.Equal(t, "eth0", got.Netem.Iface)
+	require.NotNil(t, got.Base)
+	assert.Equal(t, "eth0", got.Base.Interface)
 }
 
 func TestParseDelayParams_BadNetemErrors(t *testing.T) {
@@ -343,10 +345,10 @@ func TestRuntimeAcceptsNil(t *testing.T) {
 	assert.NotNil(t, NewCorruptCLICommand(context.Background(), rt))
 }
 
-// TestParseNetemParamsRejectsBadInterval double-checks interval enforcement on
+// TestParseRequestBaseRejectsBadInterval double-checks interval enforcement on
 // the shared netem parser still trips the duration<interval invariant.
-func TestParseNetemParamsRejectsBadInterval(t *testing.T) {
+func TestParseRequestBaseRejectsBadInterval(t *testing.T) {
 	c := newTestCLIContext(t, netemFlags(), []string{"--duration", "5s"})
-	_, err := parseNetemParams(cliflags.NewV1(c), 5*time.Second)
+	_, _, err := netem.ParseRequestBase(cliflags.NewV1(c), &chaos.GlobalParams{Interval: 5 * time.Second})
 	assert.ErrorContains(t, err, "duration must be shorter than interval")
 }

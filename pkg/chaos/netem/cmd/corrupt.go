@@ -15,7 +15,8 @@ import (
 
 // CorruptParams holds the per-command parameters for the netem corrupt subcommand.
 type CorruptParams struct {
-	Netem       *netem.Params
+	Base        *container.NetemRequest
+	Limit       int
 	Percent     float64
 	Correlation float64
 }
@@ -45,17 +46,18 @@ func NewCorruptCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comma
 }
 
 func parseCorruptParams(c cliflags.Flags, gp *chaos.GlobalParams) (CorruptParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return CorruptParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return CorruptParams{
-		Netem:       netemParams,
+		Base:        base,
+		Limit:       limit,
 		Percent:     c.Float64("percent"),
 		Correlation: c.Float64("correlation"),
 	}, nil
 }
 
 func buildCorruptCommand(client container.Client, gp *chaos.GlobalParams, p CorruptParams) (chaos.Command, error) {
-	return netem.NewCorruptCommand(client, gp, p.Netem, p.Percent, p.Correlation)
+	return netem.NewCorruptCommand(client, gp, p.Base, p.Limit, p.Percent, p.Correlation)
 }

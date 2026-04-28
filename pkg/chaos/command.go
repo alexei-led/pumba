@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 )
 
 const (
@@ -53,52 +53,46 @@ func splitLabels(raw []string) []string {
 	return result
 }
 
-// ParseGlobalParams parse global parameters
-func ParseGlobalParams(c *cli.Context) (*GlobalParams, error) {
-	// get random flag
-	random := c.GlobalBool("random")
-	// get labels; support both --label k=v --label k2=v2 and --label k=v,k2=v2
-	labels := splitLabels(c.GlobalStringSlice("label"))
-	// get dry-run mode
-	dryRun := c.GlobalBool("dry-run")
-	// get skip error flag
-	skipError := c.GlobalBool("skip-error")
-	// get names or pattern
+// ParseGlobalParams parses application-level flags from any cliflags.Flags
+// implementation. Reads global flags via c.Global() so the caller may pass the
+// subcommand-level Flags directly.
+func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
+	g := c.Global()
 	names, pattern := getNamesOrPattern(c)
-	// get global chaos interval
-	interval := c.GlobalDuration("interval")
 	return &GlobalParams{
-		Random:     random,
-		Labels:     labels,
+		Random:     g.Bool("random"),
+		Labels:     splitLabels(g.StringSlice("label")),
 		Pattern:    pattern,
 		Names:      names,
-		DryRun:     dryRun,
-		SkipErrors: skipError,
-		Interval:   interval,
-	}, nil
+		DryRun:     g.Bool("dry-run"),
+		SkipErrors: g.Bool("skip-error"),
+		Interval:   g.Duration("interval"),
+	}
 }
 
 // get names list of filter pattern from command line
-func getNamesOrPattern(c *cli.Context) ([]string, string) {
+func getNamesOrPattern(c cliflags.Flags) ([]string, string) {
 	var names []string
 	pattern := ""
-	// get container names or pattern: no Args means ALL containers
-	if c.Args().Present() {
-		// more than one argument, assume that this a list of names
-		if len(c.Args()) > 1 {
-			names = c.Args()
-			log.WithField("names", names).Debug("using names")
-		} else {
-			first := c.Args().First()
-			if rest, found := strings.CutPrefix(first, Re2Prefix); found {
-				pattern = rest
-				log.WithField("pattern", pattern).Debug("using pattern")
-			} else {
-				names = append(names, first)
-				log.WithField("names", names).Debug("using names")
-			}
-		}
+	args := c.Args()
+	// no Args means ALL containers
+	if len(args) == 0 {
+		return names, pattern
 	}
+	// more than one argument, assume that this a list of names
+	if len(args) > 1 {
+		names = args
+		log.WithField("names", names).Debug("using names")
+		return names, pattern
+	}
+	first := args[0]
+	if rest, found := strings.CutPrefix(first, Re2Prefix); found {
+		pattern = rest
+		log.WithField("pattern", pattern).Debug("using pattern")
+		return names, pattern
+	}
+	names = append(names, first)
+	log.WithField("names", names).Debug("using names")
 	return names, pattern
 }
 

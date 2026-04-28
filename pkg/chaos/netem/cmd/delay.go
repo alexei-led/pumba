@@ -15,7 +15,8 @@ import (
 
 // DelayParams holds the per-command parameters for the netem delay subcommand.
 type DelayParams struct {
-	Netem        *netem.Params
+	Base         *container.NetemRequest
+	Limit        int
 	Time         int
 	Jitter       int
 	Correlation  float64
@@ -57,12 +58,13 @@ func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command
 }
 
 func parseDelayParams(c cliflags.Flags, gp *chaos.GlobalParams) (DelayParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return DelayParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return DelayParams{
-		Netem:        netemParams,
+		Base:         base,
+		Limit:        limit,
 		Time:         c.Int("time"),
 		Jitter:       c.Int("jitter"),
 		Correlation:  c.Float64("correlation"),
@@ -71,5 +73,5 @@ func parseDelayParams(c cliflags.Flags, gp *chaos.GlobalParams) (DelayParams, er
 }
 
 func buildDelayCommand(client container.Client, gp *chaos.GlobalParams, p DelayParams) (chaos.Command, error) {
-	return netem.NewDelayCommand(client, gp, p.Netem, p.Time, p.Jitter, p.Correlation, p.Distribution)
+	return netem.NewDelayCommand(client, gp, p.Base, p.Limit, p.Time, p.Jitter, p.Correlation, p.Distribution)
 }

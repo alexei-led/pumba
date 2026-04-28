@@ -34,8 +34,11 @@ func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 				Usage: "stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
 			},
 			cli.StringFlag{
-				Name:  "stress-image",
-				Usage: "Docker image with stress-ng tool",
+				Name: "stress-image",
+				// :latest floats forward; --inject-cgroup needs /cg-inject which
+				// first shipped in 0.20.01. Pin to ":0.20.01" or newer if local
+				// cache predates that.
+				Usage: "Docker image with stress-ng tool (must include /cg-inject for --inject-cgroup; first available in 0.20.01)",
 				Value: "ghcr.io/alexei-led/stress-ng:latest",
 			},
 			cli.BoolTFlag{

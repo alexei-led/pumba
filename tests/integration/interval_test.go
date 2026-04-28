@@ -13,38 +13,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func intervalMarkerCount(t *testing.T, id string) int {
+	t.Helper()
+	out := execInContainer(t, id, []string{"sh", "-c", "cat /tmp/pumba_interval 2>/dev/null || true"})
+	return strings.Count(out, "x")
+}
+
 func TestInterval_KillThreeCycles(t *testing.T) {
 	t.Parallel()
 
 	name := uniqueName(t, "interval")
 	id := startContainerWithOpts(t, ContainerOpts{
-		Name:    name,
-		Image:   defaultImage,
-		Cmd:     []string{"top"},
-		Restart: "always",
+		Name:  name,
+		Image: defaultImage,
+		Cmd:   []string{"top"},
 	})
 
-	pp := runPumbaBackground(t, "--interval", "5s", "kill", name)
+	pp := runPumbaBackground(t, "--interval", "2s",
+		"exec", "--command", "sh", "--args", "-c", "--args", "printf x >> /tmp/pumba_interval", name)
 
-	// Track 3 kill cycles via RestartCount (restart=always brings it back each time)
 	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		info, err := dockerCli.ContainerInspect(ctx, id)
-		if err != nil {
-			return false
-		}
-		return info.RestartCount >= 3 //nolint:mnd
-	}, 25*time.Second, 500*time.Millisecond, "expected at least 3 kill cycles within 25s")
+		return intervalMarkerCount(t, id) >= 3 //nolint:mnd
+	}, 8*time.Second, 300*time.Millisecond, "expected at least 3 interval cycles")
 
 	pp.Stop()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	info, err := dockerCli.ContainerInspect(ctx, id)
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, info.RestartCount, 3, //nolint:mnd
-		"expected at least 3 restarts, got %d", info.RestartCount)
+	assert.GreaterOrEqual(t, intervalMarkerCount(t, id), 3) //nolint:mnd
 }
 
 func TestInterval_TimingAccuracy(t *testing.T) {
@@ -53,30 +46,23 @@ func TestInterval_TimingAccuracy(t *testing.T) {
 	const (
 		cycles    = 5
 		tolerance = 2 * time.Second
-		expected  = time.Duration(cycles) * 2 * time.Second // 5 cycles * 2s interval
+		expected  = time.Duration(cycles-1) * 2 * time.Second
 	)
 
 	name := uniqueName(t, "interval")
-	_ = startContainerWithOpts(t, ContainerOpts{
-		Name:    name,
-		Image:   defaultImage,
-		Cmd:     []string{"top"},
-		Restart: "always",
+	id := startContainerWithOpts(t, ContainerOpts{
+		Name:  name,
+		Image: defaultImage,
+		Cmd:   []string{"top"},
 	})
 
 	start := time.Now()
-	pp := runPumbaBackground(t, "--interval", "2s", "kill", name)
+	pp := runPumbaBackground(t, "--interval", "2s",
+		"exec", "--command", "sh", "--args", "-c", "--args", "printf x >> /tmp/pumba_interval", name)
 
-	// Wait for N restarts to measure timing
 	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		info, err := dockerCli.ContainerInspect(ctx, name)
-		if err != nil {
-			return false
-		}
-		return info.RestartCount >= cycles
-	}, expected+10*time.Second, 300*time.Millisecond, "expected %d restarts", cycles)
+		return intervalMarkerCount(t, id) >= cycles
+	}, expected+6*time.Second, 300*time.Millisecond, "expected %d interval cycles", cycles)
 
 	elapsed := time.Since(start)
 	pp.Stop()

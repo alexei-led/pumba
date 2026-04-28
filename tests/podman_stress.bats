@@ -20,8 +20,8 @@
 #   * rootful podman — cgroup writes and CAP_SYS_ADMIN for cg-inject require
 #     root. Rootless failure is covered by tests/podman_error_handling.bats.
 #   * `bats`, `podman`, `pumba` on PATH
-#   * ghcr.io/alexei-led/stress-ng:latest image (provides both /stress-ng and
-#     /cg-inject binaries)
+#   * ghcr.io/alexei-led/stress-ng:0.20.01 image (provides both /stress-ng and
+#     /cg-inject binaries — earlier 0.20.00 ships /stress-ng only)
 #
 # Run locally:
 #   * macOS: podman machine ssh sudo bats tests/podman_stress.bats
@@ -29,7 +29,9 @@
 
 load test_helper
 
-STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:latest"
+# Pinned to 0.20.01 — first release that ships /cg-inject. See
+# tests/containerd_stress.bats for the full rationale.
+STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
 
 setup() {
     require_podman
@@ -62,7 +64,7 @@ teardown() {
 @test "Should run stress in dry-run mode via podman runtime" {
     full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
 
-    run pumba --runtime podman --dry-run --log-level debug stress --duration 5s --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --timeout 2s" "$full_id"
+    run pumba --runtime podman --dry-run --log-level debug stress --duration 5s --pull-image=false --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --timeout 2s" "$full_id"
     assert_success
 
     [ "$(podman inspect -f '{{.State.Status}}' pdm_stress_victim)" = "running" ]
@@ -76,7 +78,7 @@ teardown() {
     full_id=$(podman inspect --format="{{.Id}}" pdm_stress_victim)
 
     run pumba --runtime podman --log-level debug \
-        stress --duration 10s --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
+        stress --duration 10s --pull-image=false --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" "$full_id"
 
     echo "Pumba output: $output"
     assert_success

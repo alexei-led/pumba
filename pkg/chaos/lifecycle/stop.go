@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -54,7 +55,6 @@ func NewStopCommand(client stopClient, params *chaos.GlobalParams, restart bool,
 
 // Run stop command
 func (s *stopCommand) Run(ctx context.Context, random bool) error {
-	log.Debug("stopping all matching containers")
 	log.WithFields(log.Fields{
 		"names":    s.names,
 		"pattern":  s.pattern,
@@ -63,56 +63,38 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 		"waitTime": s.waitTime,
 		"limit":    s.limit,
 		"random":   random,
-	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, s.client, s.names, s.pattern, s.labels, s.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers to stop")
-		return nil
-	}
-
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// keep stopped containers
-	stoppedContainers := make([]*container.Container, 0, len(containers))
-	// pause containers
-	for _, container := range containers {
-		log.WithFields(log.Fields{
-			"container": container,
-			"waitTime":  s.waitTime,
-		}).Debug("stopping container")
-		c := container
-		err = s.client.StopContainer(ctx, c, s.waitTime, s.dryRun)
-		if err != nil {
-			log.WithError(err).Warn("failed to stop container")
-			break
-		}
-		stoppedContainers = append(stoppedContainers, container)
-	}
+	}).Debug("stopping all matching containers")
+	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	stoppedContainers := make([]*container.Container, 0)
+	err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, false,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": c, "waitTime": s.waitTime}).Debug("stopping container")
+			if sErr := s.client.StopContainer(ctx, c, s.waitTime, s.dryRun); sErr != nil {
+				log.WithError(sErr).Warn("failed to stop container")
+				return sErr
+			}
+			stoppedContainers = append(stoppedContainers, c)
+			return nil
+		})
 
 	// if there are stopped containers and want to (re)start ...
 	if len(stoppedContainers) > 0 && s.restart {
 		// wait for specified duration and then start containers or start on ctx.Done()
 		durationTimer := time.NewTimer(s.duration)
 		defer durationTimer.Stop()
+		var restartErr error
 		select {
 		case <-ctx.Done():
 			log.Debug("start stopped containers by stop event")
 			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
 			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.duration)
 			defer cancel()
-			err = s.startStoppedContainers(cleanupCtx, stoppedContainers)
+			restartErr = s.startStoppedContainers(cleanupCtx, stoppedContainers)
 		case <-durationTimer.C:
 			log.WithField("duration", s.duration).Debug("start stopped containers after duration")
-			err = s.startStoppedContainers(ctx, stoppedContainers)
+			restartErr = s.startStoppedContainers(ctx, stoppedContainers)
 		}
+		err = errors.Join(err, restartErr)
 	}
 	return err
 }
@@ -124,8 +106,8 @@ func (s *stopCommand) startStoppedContainers(ctx context.Context, containers []*
 		c := container
 		log.WithField("container", c).Debug("start stopped container")
 		if e := s.client.StartContainer(ctx, c, s.dryRun); e != nil {
-			err = fmt.Errorf("failed to start stopped container: %w", e)
+			err = errors.Join(err, fmt.Errorf("failed to start stopped container: %w", e))
 		}
 	}
-	return err // last non nil error
+	return err
 }

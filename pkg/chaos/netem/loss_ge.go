@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -14,17 +13,21 @@ import (
 
 // netem loss gemodel` (Gilbert-Elliot model) command
 type lossGECommand struct {
-	netemCommand
-	pg   float64
-	pb   float64
-	oneH float64
-	oneK float64
+	client netemClient
+	gp     *chaos.GlobalParams
+	req    *container.NetemRequest
+	limit  int
+	pg     float64
+	pb     float64
+	oneH   float64
+	oneK   float64
 }
 
 // NewLossGECommand create new netem loss gemodel (Gilbert-Elliot) command
 func NewLossGECommand(client netemClient,
-	globalParams *chaos.GlobalParams,
-	netemParams *Params,
+	gp *chaos.GlobalParams,
+	req *container.NetemRequest,
+	limit int,
 	pg, // Good State transition probability
 	pb, // Bad State transition probability
 	oneH, // loss probability in Bad state
@@ -48,88 +51,51 @@ func NewLossGECommand(client netemClient,
 	}
 
 	return &lossGECommand{
-		netemCommand: newNetemCommand(client, globalParams, netemParams),
-		pg:           pg,
-		pb:           pb,
-		oneH:         oneH,
-		oneK:         oneK,
+		client: client,
+		gp:     gp,
+		req:    req,
+		limit:  limit,
+		pg:     pg,
+		pb:     pb,
+		oneH:   oneH,
+		oneK:   oneK,
 	}, nil
 }
 
 // Run netem loss state command
+//
+//nolint:dupl
 func (n *lossGECommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according Gilbert-Elliot model to all matching containers")
 	log.WithFields(log.Fields{
-		"names":   n.names,
-		"pattern": n.pattern,
-		"labels":  n.labels,
+		"names":   n.gp.Names,
+		"pattern": n.gp.Pattern,
+		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	containers, err := container.ListNContainers(ctx, n.client, n.names, n.pattern, n.labels, n.limit)
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-	if len(containers) == 0 {
-		log.Warning("no containers found")
-		return nil
-	}
+	netemCmd := n.buildNetemCmd()
+	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
+		func(ctx context.Context, c *container.Container) error {
+			log.WithFields(log.Fields{"container": c}).Debug("adding network random packet loss for container")
+			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
+			defer cancel()
+			req := *n.req
+			req.Container = c
+			req.Command = netemCmd
+			if err := runNetem(netemCtx, n.client, &req); err != nil {
+				log.WithError(err).Warn("failed to set packet loss for container")
+				return fmt.Errorf("failed to add packet loss (Gilbert-Elliot model) for one or more containers: %w", err)
+			}
+			return nil
+		})
+}
 
-	// select single random container from matching container and replace list with selected item
-	if random {
-		if c := container.RandomContainer(containers); c != nil {
-			containers = []*container.Container{c}
-		}
-	}
-
-	// prepare netem loss gemodel command
-	netemCmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)}
-	netemCmd = append(netemCmd,
+func (n *lossGECommand) buildNetemCmd() []string {
+	cmd := []string{"loss", "gemodel", strconv.FormatFloat(n.pg, 'f', 2, 64)}
+	cmd = append(cmd,
 		strconv.FormatFloat(n.pb, 'f', 2, 64),
 		strconv.FormatFloat(n.oneH, 'f', 2, 64),
 		strconv.FormatFloat(n.oneK, 'f', 2, 64))
-
-	// run netem loss command for selected containers
-	var wg sync.WaitGroup
-	errs := make([]error, len(containers))
-
-	//nolint:dupl
-	for i, c := range containers {
-		log.WithFields(log.Fields{
-			"container": c,
-		}).Debug("adding network random packet loss for container")
-		wg.Add(1)
-		go func(i int, c *container.Container) {
-			defer wg.Done()
-			netemCtx, cancel := context.WithTimeout(ctx, n.duration)
-			defer cancel()
-			errs[i] = runNetem(netemCtx, n.client, &container.NetemRequest{
-				Container: c,
-				Interface: n.iface,
-				Command:   netemCmd,
-				IPs:       n.ips,
-				SPorts:    n.sports,
-				DPorts:    n.dports,
-				Duration:  n.duration,
-				Sidecar:   container.SidecarSpec{Image: n.image, Pull: n.pull},
-				DryRun:    n.dryRun,
-			})
-			if errs[i] != nil {
-				log.WithError(errs[i]).Warn("failed to set packet loss for container")
-			}
-		}(i, c)
-	}
-
-	// Wait for all netem delay commands to complete
-	wg.Wait()
-
-	// scan through all errors in goroutines
-	for _, err := range errs {
-		// take first found error
-		if err != nil {
-			return fmt.Errorf("failed to add packet loss (Gilbert-Elliot model) for one or more containers: %w", err)
-		}
-	}
-
-	return nil
+	return cmd
 }

@@ -133,22 +133,22 @@ func (client dockerClient) StartContainer(ctx context.Context, c *ctr.Container,
 }
 
 // RemoveContainer removes a container
-func (client dockerClient) RemoveContainer(ctx context.Context, c *ctr.Container, force, links, volumes, dryrun bool) error {
+func (client dockerClient) RemoveContainer(ctx context.Context, c *ctr.Container, opts ctr.RemoveOpts) error {
 	log.WithFields(log.Fields{
 		"name":    c.Name(),
 		"id":      c.ID(),
-		"force":   force,
-		"links":   links,
-		"volumes": volumes,
-		"dryrun":  dryrun,
+		"force":   opts.Force,
+		"links":   opts.Links,
+		"volumes": opts.Volumes,
+		"dryrun":  opts.DryRun,
 	}).Info("removing container")
-	if dryrun {
+	if opts.DryRun {
 		return nil
 	}
 	removeOpts := ctypes.RemoveOptions{
-		RemoveVolumes: volumes,
-		RemoveLinks:   links,
-		Force:         force,
+		RemoveVolumes: opts.Volumes,
+		RemoveLinks:   opts.Links,
+		Force:         opts.Force,
 	}
 	err := client.containerAPI.ContainerRemove(ctx, c.ID(), removeOpts)
 	if err != nil {

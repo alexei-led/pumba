@@ -3,8 +3,10 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -98,22 +100,25 @@ func TestRemoveCommand_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := container.NewMockClient(t)
+			opts := container.RemoveOpts{
+				Force:   tt.fields.force,
+				Links:   tt.fields.links,
+				Volumes: tt.fields.volumes,
+				DryRun:  tt.fields.dryRun,
+			}
 			k := &removeCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
 				pattern: tt.fields.pattern,
-				force:   tt.fields.force,
-				links:   tt.fields.links,
-				volumes: tt.fields.volumes,
+				opts:    opts,
 				limit:   tt.fields.limit,
-				dryRun:  tt.fields.dryRun,
 			}
 			if tt.errs.listError {
 				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(nil, errors.New("ERROR"))
 			} else {
 				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(tt.expected, nil)
 				if tt.expected != nil {
-					removeCall := mockClient.EXPECT().RemoveContainer(mock.Anything, mock.AnythingOfType("*container.Container"), tt.fields.force, tt.fields.links, tt.fields.volumes, tt.fields.dryRun)
+					removeCall := mockClient.EXPECT().RemoveContainer(mock.Anything, mock.AnythingOfType("*container.Container"), opts)
 					if tt.errs.removeError {
 						removeCall.Return(errors.New("ERROR")).Once()
 					} else if tt.args.random {
@@ -133,6 +138,52 @@ func TestRemoveCommand_Run(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestNewRemoveCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  *chaos.GlobalParams
+		force   bool
+		links   bool
+		volumes bool
+		limit   int
+		want    *removeCommand
+	}{
+		{
+			name:    "all opts true",
+			params:  &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			force:   true,
+			links:   true,
+			volumes: true,
+			limit:   5,
+			want: &removeCommand{
+				names:   []string{"c1"},
+				pattern: "^c",
+				labels:  []string{"k=v"},
+				opts:    container.RemoveOpts{Force: true, Links: true, Volumes: true, DryRun: true},
+				limit:   5,
+			},
+		},
+		{
+			name:   "all opts false",
+			params: &chaos.GlobalParams{Names: []string{"c1"}},
+			want: &removeCommand{
+				names: []string{"c1"},
+				opts:  container.RemoveOpts{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			got := NewRemoveCommand(mockClient, tt.params, tt.force, tt.links, tt.volumes, tt.limit)
+			cmd, ok := got.(*removeCommand)
+			require.True(t, ok)
+			tt.want.client = mockClient
+			assert.True(t, reflect.DeepEqual(tt.want, cmd))
 		})
 	}
 }

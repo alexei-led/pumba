@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modularity Review</title>
+<style>
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+    --max-width: 820px;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-tertiary: #eef1f5;
+    --text: #1a1a1a;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --border: #e2e8f0;
+    --accent: #2b6cb0;
+    --accent-light: #ebf4ff;
+    --severity-critical: #c53030;
+    --severity-critical-bg: #fff5f5;
+    --severity-significant: #c05621;
+    --severity-significant-bg: #fffaf0;
+    --severity-minor: #2b6cb0;
+    --severity-minor-bg: #ebf8ff;
+    --table-stripe: #f7fafc;
+    --link: #2b6cb0;
+    --link-hover: #1a4971;
+    --shadow: rgba(0, 0, 0, 0.06);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1a1a;
+    --bg-secondary: #242424;
+    --bg-tertiary: #2e2e2e;
+    --text: #e2e2e2;
+    --text-secondary: #a0a0a0;
+    --text-muted: #717171;
+    --border: #333333;
+    --accent: #b0b0b0;
+    --accent-light: #2a2a2a;
+    --severity-critical: #fc8181;
+    --severity-critical-bg: #2d1b1b;
+    --severity-significant: #f6ad55;
+    --severity-significant-bg: #2d2415;
+    --severity-minor: #a0a0a0;
+    --severity-minor-bg: #282828;
+    --table-stripe: #222222;
+    --link: #e0c97f;
+    --link-hover: #f0dca0;
+    --shadow: rgba(0, 0, 0, 0.2);
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    margin: 0;
+    padding: 2rem 1.5rem;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+  }
+
+  /* Theme toggle */
+  .theme-toggle {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--text);
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    z-index: 100;
+  }
+
+  .theme-toggle:hover {
+    background: var(--bg-tertiary);
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem 0;
+    color: var(--text);
+  }
+
+  h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 2.5rem 0 1rem 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1.8rem 0 0.6rem 0;
+    color: var(--text);
+  }
+
+  p {
+    margin: 0 0 1rem 0;
+    color: var(--text-secondary);
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+
+  a:hover {
+    color: var(--link-hover);
+    border-bottom-color: var(--link-hover);
+  }
+
+  /* Metadata */
+  .meta {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .meta strong {
+    color: var(--text-secondary);
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  td {
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  tr:nth-child(even) td {
+    background: var(--table-stripe);
+  }
+
+  /* Severity badges */
+  .severity {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .severity-critical {
+    color: var(--severity-critical);
+    background: var(--severity-critical-bg);
+  }
+
+  .severity-significant {
+    color: var(--severity-significant);
+    background: var(--severity-significant-bg);
+  }
+
+  .severity-minor {
+    color: var(--severity-minor);
+    background: var(--severity-minor-bg);
+  }
+
+  /* Issue cards */
+  .issue {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+
+  .issue h2 {
+    margin-top: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .issue h3 {
+    font-size: 1rem;
+  }
+
+  .issue-meta {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  /* Lists */
+  ul, ol {
+    padding-left: 1.5rem;
+    color: var(--text-secondary);
+  }
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+
+  /* Code */
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  pre {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--bg-tertiary);
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+  }
+
+  /* Horizontal rule */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 3rem 0 1.5rem 0;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .footer a {
+    color: var(--text-muted);
+    border-bottom-color: var(--border);
+  }
+
+  .footer a:hover {
+    color: var(--link);
+  }
+
+  /* Print */
+  @media print {
+    .theme-toggle { display: none; }
+    body { padding: 0; }
+    .issue { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+  <span id="theme-icon"></span>
+</button>
+
+<div class="container">
+  <h1>Modularity Review &mdash; Post-Refactor Final Baseline</h1>
+
+  <div class="meta">
+    <p><strong>Scope</strong>: Pumba codebase &mdash; <code>cmd/</code> + <code>pkg/</code> (~10.1k LOC Go production files; mocks and bats integration tests excluded).<br>
+    <strong>Date</strong>: 2026-04-27 (afternoon &mdash; re-runs the morning's mid-refactor review on post-refactor HEAD)<br>
+    <strong>Branch</strong>: <code>modularity-refactor</code> @ <code>d244261</code><br>
+    <strong>Goal stated by reviewer</strong>: improve <a href="https://coupling.dev/posts/core-concepts/modularity/">modularity</a> so AI agents can change Pumba with smaller context windows, narrower mocks, and predictable change blast radius.<br>
+    <strong>Compares against</strong>: <code>docs/modularity-review/2026-04-25/modularity-review.md</code> (baseline 7.4 / 10) and the mid-refactor <code>docs/modularity-review/2026-04-27/</code> AM snapshot (8.5 / 10) &mdash; the mid-refactor flagged 5 issues that have all since landed.</p>
+  </div>
+
+  <h2>Executive Summary</h2>
+
+  <p>The 8-task modularity refactor (<code>docs/plans/completed/20260427-modularity-refactor.md</code>) is fully merged. Every issue flagged in both prior reviews is now resolved:</p>
+
+  <ul>
+    <li>Mutable global <code>chaos.DockerClient</code> &rarr; explicit <code>chaos.Runtime func() container.Client</code> factory closure threaded through every CLI builder.</li>
+    <li>1,289-LOC <code>pkg/runtime/docker/docker.go</code> monolith &rarr; 11 per-concern files (max 219 LOC).</li>
+    <li>437-LOC <code>pkg/runtime/containerd/sidecar.go</code> &rarr; 5 per-concern files (max 222 LOC).</li>
+    <li><code>Netem</code> / <code>IPTables</code> / <code>Stressor</code> interfaces all take <code>*NetemRequest</code> / <code>*IPTablesRequest</code> / <code>*StressRequest</code> value objects.</li>
+    <li><code>Lifecycle.RemoveContainer</code> takes <code>RemoveOpts</code> instead of four naked booleans.</li>
+    <li>17 CLI builders share the generic <code>NewAction[P]</code> shape.</li>
+    <li><code>urfave/cli</code> v1 wrapped behind <code>pkg/chaos/cliflags.Flags</code> for value reads.</li>
+    <li><code>Params</code> &harr; <code>*Request</code> parallel data shapes inside chaos action packages: collapsed &mdash; <code>ParseRequestBase</code> in netem and iptables now constructs <code>*NetemRequest</code> / <code>*IPTablesRequest</code> directly; the per-action commands carry the request struct.</li>
+  </ul>
+
+  <p>The codebase lands at <strong>~9.0 / 10</strong> for the <a href="https://coupling.dev/posts/core-concepts/balance/">Balanced Coupling</a> lens. Five secondary findings remain &mdash; none critical, none <a href="https://coupling.dev/posts/core-concepts/balance/">tightly coupled</a> by the balance rule. The most AI-agent-relevant remaining drag is <strong><code>Run()</code>-body <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">duplicated business logic</a> across 15 chaos actions</strong> (Issue 1) &mdash; a list-then-fanout-then-collect-errors algorithm copy-pasted into every action file. Volatility is moderate (new chaos action = new copy) and <a href="https://coupling.dev/posts/dimensions-of-coupling/distance/">distance</a> is not zero (15 files across 4 packages), so this is the single most impactful follow-up for AI-agent maintainability.</p>
+
+  <h2>AI-Agent Maintainability Lens</h2>
+
+  <p>The dimensions below are the same set used in the 2026-04-25 baseline so per-dimension delta is directly comparable, but the meaning is grounded in what slows AI agents down on this codebase specifically:</p>
+
+  <table>
+    <thead>
+      <tr><th>Dimension</th><th>Why an AI agent cares</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Module size</strong></td><td>Smaller files = smaller context window per change. 10 = &le; 200 LOC; 5 = ~500; 0 = 2k+.</td></tr>
+      <tr><td><strong>Interface narrowness</strong></td><td>Per-consumer sub-interfaces shrink mock surface area. 10 = consumer-side; 0 = fat <code>Client</code>.</td></tr>
+      <tr><td><strong>DI / inversion</strong></td><td>Constructor injection reveals deps in the signature. 10 = explicit; 0 = singletons / globals.</td></tr>
+      <tr><td><strong>Abstraction leakage</strong></td><td>Domain vocabulary at boundaries. 10 = clean; 0 = runtime types ripple through every layer.</td></tr>
+      <tr><td><strong>Testability</strong></td><td>Pure-Go unit tests with mockery only. 10 = no socket needed; 0 = needs a real runtime.</td></tr>
+      <tr><td><strong>Cohesion</strong></td><td>One reason to change per file/package. 10 = single concern; 0 = grab-bag.</td></tr>
+      <tr><td><strong>No globals</strong></td><td>Mutable package-level state read across packages. 10 = none; 0 = pervasive.</td></tr>
+      <tr><td><strong>DRY</strong></td><td>Shared algorithm extracted, no <code>//nolint:dupl</code>. 10 = extracted; 0 = copy-paste everywhere.</td></tr>
+      <tr><td><strong>Boundary clarity</strong></td><td>Package name predicts contract. 10 = self-evident; 0 = misleading (e.g. old <code>pkg/chaos/docker</code>).</td></tr>
+      <tr><td><strong>Doc density</strong></td><td>Godoc on exported symbols + non-obvious <strong>why</strong> comments at invariants.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Modularity Score Table (0&ndash;10)</h2>
+
+  <p><strong>&Delta;</strong> column shows change vs the 2026-04-25 baseline.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Module size</th>
+        <th>Iface narrow</th>
+        <th>DI</th>
+        <th>Abstr leak</th>
+        <th>Testability</th>
+        <th>Cohesion</th>
+        <th>No globals</th>
+        <th>DRY</th>
+        <th>Boundary</th>
+        <th>Doc</th>
+        <th><strong>Avg</strong></th>
+        <th><strong>&Delta;</strong></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>pkg/container</code> (model + 6 narrow ifaces + request value objects)</td><td>10</td><td>10</td><td>10</td><td>9</td><td>10</td><td>10</td><td>10</td><td>10</td><td>9</td><td>9</td><td><strong>9.7</strong></td><td><strong>+0.6</strong></td></tr>
+      <tr><td><code>pkg/chaos</code> (Command + scheduler + Runtime closure)</td><td>10</td><td>9</td><td>10</td><td>9</td><td>10</td><td>9</td><td>10</td><td>9</td><td>9</td><td>9</td><td><strong>9.4</strong></td><td><strong>+3.0</strong></td></tr>
+      <tr><td><code>pkg/chaos/cliflags</code> (urfave/cli v1 adapter)</td><td>10</td><td>9</td><td>10</td><td>9</td><td>10</td><td>10</td><td>10</td><td>10</td><td>10</td><td>9</td><td><strong>9.7</strong></td><td><strong>new</strong></td></tr>
+      <tr><td><code>pkg/chaos/cmd</code> (generic <code>NewAction[P]</code> builder)</td><td>10</td><td>9</td><td>10</td><td>8</td><td>9</td><td>10</td><td>10</td><td>10</td><td>9</td><td>9</td><td><strong>9.4</strong></td><td><strong>new</strong></td></tr>
+      <tr><td><code>pkg/chaos/lifecycle</code> (was <code>pkg/chaos/docker</code>)</td><td>9</td><td>9</td><td>10</td><td>8</td><td>9</td><td>9</td><td>10</td><td>6</td><td>10</td><td>8</td><td><strong>8.8</strong></td><td><strong>+0.6</strong></td></tr>
+      <tr><td><code>pkg/chaos/{netem,iptables,stress}</code> (action logic)</td><td>8</td><td>9</td><td>10</td><td>8</td><td>9</td><td>7</td><td>10</td><td>6</td><td>9</td><td>8</td><td><strong>8.4</strong></td><td><strong>+0.2</strong></td></tr>
+      <tr><td><code>pkg/chaos/{lifecycle,netem,iptables,stress}/cmd</code> (CLI builders)</td><td>9</td><td>9</td><td>10</td><td>8</td><td>9</td><td>9</td><td>10</td><td>8</td><td>9</td><td>8</td><td><strong>8.9</strong></td><td><strong>+3.4</strong></td></tr>
+      <tr><td><code>pkg/runtime/docker</code> (11 per-concern files, max 219 LOC)</td><td>9</td><td>9</td><td>9</td><td>8</td><td>9</td><td>9</td><td>10</td><td>9</td><td>9</td><td>8</td><td><strong>8.9</strong></td><td><strong>+2.4</strong></td></tr>
+      <tr><td><code>pkg/runtime/containerd</code> (split into 9 files, max 222 LOC)</td><td>9</td><td>9</td><td>9</td><td>8</td><td>9</td><td>9</td><td>10</td><td>8</td><td>9</td><td>8</td><td><strong>8.8</strong></td><td><strong>+1.0</strong></td></tr>
+      <tr><td><code>pkg/runtime/podman</code> (embed Docker delegate + override divergent paths)</td><td>9</td><td>9</td><td>9</td><td>7</td><td>9</td><td>9</td><td>9</td><td>9</td><td>9</td><td>9</td><td><strong>8.8</strong></td><td><strong>+0.4</strong></td></tr>
+      <tr><td><code>cmd/main.go</code> (CLI entry, runtime select, TLS)</td><td>6</td><td>n/a</td><td>9</td><td>7</td><td>7</td><td>6</td><td>7</td><td>8</td><td>7</td><td>7</td><td><strong>7.1</strong></td><td><strong>+0.2</strong></td></tr>
+      <tr><td><code>pkg/util</code> (CIDR + port parsing)</td><td>10</td><td>n/a</td><td>10</td><td>10</td><td>10</td><td>10</td><td>10</td><td>10</td><td>10</td><td>8</td><td><strong>9.8</strong></td><td><strong>n/a</strong></td></tr>
+      <tr><td><strong>Project weighted average</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td><strong>9.0</strong></td><td><strong>+1.6</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Per-dimension project totals</h3>
+
+  <table>
+    <thead>
+      <tr><th>Dimension</th><th>2026-04-25</th><th>2026-04-27 PM</th><th>&Delta;</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Module size</td><td>7.0</td><td>9.1</td><td>+2.1</td></tr>
+      <tr><td>Interface narrowness</td><td>7.7</td><td>9.1</td><td>+1.4</td></tr>
+      <tr><td>DI / inversion</td><td>7.4</td><td>9.6</td><td>+2.2</td></tr>
+      <tr><td>Abstraction leakage</td><td>7.0</td><td>8.2</td><td>+1.2</td></tr>
+      <tr><td>Testability</td><td>7.7</td><td>9.2</td><td>+1.5</td></tr>
+      <tr><td>Cohesion</td><td>7.1</td><td>8.9</td><td>+1.8</td></tr>
+      <tr><td>No globals</td><td>7.4</td><td>9.6</td><td>+2.2</td></tr>
+      <tr><td>DRY</td><td>7.6</td><td>8.6</td><td>+1.0</td></tr>
+      <tr><td>Boundary clarity</td><td>7.4</td><td>9.0</td><td>+1.6</td></tr>
+      <tr><td>Doc density</td><td>7.4</td><td>8.4</td><td>+1.0</td></tr>
+    </tbody>
+  </table>
+
+  <p>Largest movements: <strong>DI/inversion (+2.2)</strong> and <strong>No globals (+2.2)</strong> &mdash; directly attributable to killing <code>chaos.DockerClient</code> and routing the runtime through a <code>chaos.Runtime</code> closure. <strong>Module size (+2.1)</strong> reflects two monolith splits (<code>docker.go</code> and <code>containerd/sidecar.go</code>). <strong>Cohesion (+1.8)</strong> and <strong>Boundary clarity (+1.6)</strong> reflect both the per-concern file splits and the <code>pkg/chaos/docker</code> &rarr; <code>pkg/chaos/lifecycle</code> rename. <strong>DRY (+1.0)</strong> is the smallest gain &mdash; see Issue 1.</p>
+
+  <h3>Reading-list cost for common AI-agent tasks (post-refactor)</h3>
+
+  <p>What an agent must load to safely make a change:</p>
+
+  <table>
+    <thead>
+      <tr><th>Task</th><th>Files to load</th><th>LOC budget</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Add a new netem action</td><td><code>netem/{netem,parse}.go</code> + 1 example action + matching <code>cmd/&lt;action&gt;.go</code></td><td>~350</td></tr>
+      <tr><td>Add a new iptables action</td><td><code>iptables/{iptables,parse}.go</code> + <code>iptables/loss.go</code> + <code>iptables/cmd/loss.go</code></td><td>~430</td></tr>
+      <tr><td>Add a new lifecycle action</td><td>one existing <code>lifecycle/&lt;action&gt;.go</code> + <code>cmd/&lt;action&gt;.go</code> + <code>chaos/command.go</code></td><td>~330</td></tr>
+      <tr><td>Add a field to <code>NetemRequest</code></td><td><code>pkg/container/requests.go</code> + grep callsites in <code>pkg/runtime/{docker,podman}</code></td><td>~250</td></tr>
+      <tr><td>Add a new container runtime</td><td><code>pkg/container/{client,requests}.go</code> + <code>pkg/runtime/podman/*</code> (template)</td><td>~1100</td></tr>
+      <tr><td>Add a global CLI flag</td><td><code>cmd/main.go::globalFlags</code> + <code>chaos/command.go::ParseGlobalParams</code></td><td>~150</td></tr>
+      <tr><td>Edit Docker netem behavior</td><td><code>pkg/runtime/docker/{netem,sidecar}.go</code> only</td><td>~350</td></tr>
+      <tr><td>Edit Podman cgroup resolution</td><td><code>pkg/runtime/podman/{stress,cgroup}.go</code> only</td><td>~470</td></tr>
+    </tbody>
+  </table>
+
+  <p>Pre-refactor, the equivalent of the first three rows was ~700&ndash;900 LOC because the whole netem package shared one <code>Params</code> struct and the cmd builders carried duplicate boilerplate. The reading-list compression is the headline AI-agent win.</p>
+
+  <h2>Coupling Overview Table</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Integration</th>
+        <th><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Strength</a></th>
+        <th><a href="https://coupling.dev/posts/dimensions-of-coupling/distance/">Distance</a></th>
+        <th><a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">Volatility</a></th>
+        <th><a href="https://coupling.dev/posts/core-concepts/balance/">Balanced?</a></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>pkg/chaos/*/cmd</code> &rarr; <code>chaos.Runtime</code> factory closure</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a></td><td>Same module, sync</td><td>Low</td><td><strong>Yes</strong></td></tr>
+      <tr><td>Chaos action &rarr; <code>container.{Netem,IPTables,Stressor,Lifecycle}</code> request-typed interfaces</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a></td><td>Same module, sync</td><td>Medium</td><td><strong>Yes</strong></td></tr>
+      <tr><td>Chaos action <code>Run()</code> body algorithm (list &rarr; optional random &rarr; fanout &rarr; collect errors)</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (duplicated across 15 files)</td><td>4 packages, 15 files</td><td>Medium (recurring on every new action)</td><td><strong>No &mdash; Issue 1</strong></td></tr>
+      <tr><td><code>pkg/runtime/podman</code> &harr; <code>pkg/runtime/docker</code> (Go struct embedding)</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Intrusive</a> (override-by-shadow)</td><td>Same module, sync</td><td>Medium-high</td><td>Tolerable &mdash; Issue 2</td></tr>
+      <tr><td><code>pkg/runtime/{docker,podman}</code> &harr; Docker SDK types</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Model</a></td><td>Library boundary, semver</td><td>Medium (28.5.2 currently; SDK has bumped repeatedly)</td><td>Tolerable &mdash; Issue 3</td></tr>
+      <tr><td><code>pkg/runtime/containerd</code> &harr; containerd v2 SDK</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Model</a></td><td>Library boundary, semver</td><td>Medium</td><td><strong>Yes</strong> (concentrated inside <code>pkg/runtime/containerd</code>)</td></tr>
+      <tr><td><code>cmd/main.go</code> &harr; <code>urfave/cli</code> v1 (global flag reads)</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (bypasses cliflags adapter)</td><td>Same package</td><td>Provider: high (v3 migration on roadmap). Functional: low</td><td>Tolerable &mdash; Issue 4</td></tr>
+      <tr><td><code>pkg/chaos/{netem,iptables}/parse.go</code> &harr; <code>reInterface</code> regex</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (identical regex constant in two packages)</td><td>2 sibling packages</td><td>Low</td><td>Tolerable &mdash; Issue 5</td></tr>
+      <tr><td><code>pkg/chaos</code> (<code>Re2Prefix</code>) &harr; all 17 CLI builders (<code>ArgsUsage</code> strings)</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a> (one read-only constant)</td><td>Same module, sync</td><td>Low</td><td><strong>Yes</strong> (constant has no better home)</td></tr>
+      <tr><td>Public CLI &harr; <code>urfave/cli</code> v1 (value reads via <code>cliflags.Flags</code>)</td><td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a></td><td>Library, but adapter-isolated</td><td>Provider: high. Functional: low</td><td><strong>Yes</strong> &mdash; adapter isolates v3 migration to one file</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Issues</h2>
+
+  <div class="issue">
+    <h2>Issue 1: <code>Run()</code> body algorithm duplicated across 15 chaos action commands</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: every <code>*Command.Run(ctx, random)</code> in <code>pkg/chaos/{netem,iptables,lifecycle,stress}</code> (15 files)<br>
+      <strong>Severity</strong>: <span class="severity severity-significant">Significant</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+
+    <p>Every chaos action's <code>Run</code> method follows the same shape (~30&ndash;50 lines):</p>
+
+<pre><code>func (n *delayCommand) Run(ctx context.Context, random bool) error {
+    log.Debug(...)
+    log.WithFields(...).Debug("listing matching containers")
+    containers, err := container.ListNContainers(ctx, n.client, n.gp.Names, n.gp.Pattern, n.gp.Labels, n.limit)
+    if err != nil { return fmt.Errorf("error listing containers: %w", err) }
+    if len(containers) == 0 { log.Warning("no containers found"); return nil }
+    if random {
+        if c := container.RandomContainer(containers); c != nil {
+            containers = []*container.Container{c}
+        }
+    }
+    // ... per-action logic (build command, fanout, collect errors)
+}</code></pre>
+
+    <p>The pattern is verified to repeat (verbatim or near-verbatim) in:<br>
+    <code>pkg/chaos/netem/{corrupt,delay,duplicate,loss,loss_ge,loss_state,rate}.go</code>,<br>
+    <code>pkg/chaos/iptables/loss.go</code>,<br>
+    <code>pkg/chaos/lifecycle/{exec,kill,pause,remove,restart,stop}.go</code>,<br>
+    <code>pkg/chaos/stress/stress.go</code>.</p>
+
+    <p>This is <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">implicit functional coupling</a>: the same business algorithm &mdash; "list matching containers, optionally pick one at random, apply the action with fanout, collect first error" &mdash; exists in 15 places. There is no shared helper. Drift is already visible: some actions use <code>errgroup</code> (stress), some use <code>sync.WaitGroup</code> + <code>errs []error</code> slice (netem/iptables), some use a sequential <code>for</code> loop (lifecycle).</p>
+
+    <h3>Complexity Impact</h3>
+
+    <p>For an AI agent:</p>
+    <ul>
+      <li><strong>Reading</strong>: understanding any one action means re-parsing 30 lines of boilerplate alongside the 5 lines of actual action logic. Signal-to-noise ratio is poor.</li>
+      <li><strong>Writing a new action</strong>: copy-paste a similar action and edit the per-action lines. Each copy is a fresh chance to drop a goroutine bug, swap <code>n.client</code> for <code>s.client</code>, forget to capture <code>i, c</code> in the closure, or forget the <code>if len(containers) == 0</code> guard.</li>
+      <li><strong>Changing the algorithm itself</strong> (e.g., adding a per-container timeout, parallelism cap, structured error reporting): touches 15 files, each in a slightly different shape. The existing fanout-style divergence (errgroup vs WaitGroup vs sequential) means no single edit pattern works.</li>
+    </ul>
+
+    <p>This exceeds working-memory capacity (&approx; 4 &plusmn; 1 chunks) &mdash; an AI must hold 15 file shapes in mind to confidently make an algorithm change without dropping one.</p>
+
+    <h3>Cascading Changes</h3>
+    <ul>
+      <li>A new chaos action (e.g. <code>netem reorder</code>) means a new copy of the boilerplate. There have been ~15 such copies; the next one is the same pattern.</li>
+      <li>A bug in one variant (e.g. the netem <code>for _, err = range errs</code> reusing a loop variable) often re-emerges in a sibling because each was hand-written.</li>
+      <li>Adding cross-cutting concerns (metrics, structured logging fields, per-container timeout) requires 15 edits.</li>
+    </ul>
+
+    <h3>Recommended Improvement</h3>
+
+    <p>Extract the loop body into a single helper in <code>pkg/chaos</code>:</p>
+
+<pre><code>// pkg/chaos/runner.go
+type ContainerAction func(ctx context.Context, c *container.Container) error
+
+func RunOnContainers(
+    ctx context.Context,
+    lister container.Lister,
+    gp *GlobalParams,
+    limit int,
+    random bool,
+    parallel bool,
+    action ContainerAction,
+) error {
+    containers, err := container.ListNContainers(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit)
+    if err != nil { return fmt.Errorf("listing: %w", err) }
+    if len(containers) == 0 { log.Warning("no containers found"); return nil }
+    if random {
+        if c := container.RandomContainer(containers); c != nil {
+            containers = []*container.Container{c}
+        }
+    }
+    if !parallel {
+        for _, c := range containers {
+            if err := action(ctx, c); err != nil { return err }
+        }
+        return nil
+    }
+    var eg errgroup.Group
+    for _, c := range containers {
+        eg.Go(func() error { return action(ctx, c) })
+    }
+    return eg.Wait()
+}</code></pre>
+
+    <p>Each per-action <code>Run</code> then collapses to ~10 lines:</p>
+
+<pre><code>func (n *delayCommand) Run(ctx context.Context, random bool) error {
+    netemCmd := n.buildNetemCmd()
+    return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
+        func(ctx context.Context, c *container.Container) error {
+            req := *n.req
+            req.Container = c
+            req.Command = netemCmd
+            return runNetem(ctx, n.client, &amp;req)
+        })
+}</code></pre>
+
+    <p><strong>Wins</strong>: 15 files lose ~25 LOC each (~375 LOC removed total); algorithm changes land in one place; <code>errgroup</code> becomes the single fanout pattern; new actions become genuinely small.</p>
+
+    <p><strong>Trade-offs</strong>: introduces a closure-passing pattern that's idiomatic Go but adds one layer of indirection. The closure's variable capture of <code>i</code> and <code>c</code> (currently a hand-rolled gotcha in netem files) becomes the runner's responsibility. Acceptable.</p>
+
+    <p><strong>Effort</strong>: ~1 day across 15 files plus their tests. Mechanical &mdash; tests that verify NoContainers / DryRun / WithRandom paths already exist for each action and can be retargeted at the runner.</p>
+
+    <p>This is the <strong>single most impactful follow-up for AI-agent maintainability</strong>: it removes the largest remaining repeated-boilerplate footprint and reduces the per-action reading surface from ~120 LOC to ~70 LOC.</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue 2: <code>pkg/runtime/podman</code> embeds <code>pkg/runtime/docker</code> delegate</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>pkg/runtime/podman.podmanClient</code> embeds <code>ctr.Client</code> returned by <code>docker.NewFromAPI</code><br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span> (tolerable, but document the invariant)
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+
+    <p><code>pkg/runtime/podman/client.go:56</code> declares:</p>
+
+<pre><code>type podmanClient struct {
+    ctr.Client      // delegate from docker.NewFromAPI(api)
+    api       apiBackend
+    rootless  bool
+    socketURI string
+}</code></pre>
+
+    <p>Methods are inherited from the docker delegate unless explicitly overridden (<code>NetemContainer</code>, <code>StopNetemContainer</code>, <code>IPTablesContainer</code>, <code>StopIPTablesContainer</code>, <code>Close</code>, <code>StressContainer</code>). This is <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">intrusive coupling</a> by Go-language semantics: Podman silently picks up every Docker method, every Docker bug fix, and every Docker behavior change.</p>
+
+    <h3>Complexity Impact</h3>
+
+    <p>For an AI agent reading <code>podmanClient.StopContainer(...)</code>:</p>
+    <ul>
+      <li>The method exists on <code>podmanClient</code> only via embedding. The agent must check the override list to confirm it's not overridden, then read <code>pkg/runtime/docker/lifecycle.go</code> to know what runs.</li>
+      <li>A bug fix to <code>dockerClient.StopContainer</code> is silently inherited. Sometimes that's correct (Docker-compat socket genuinely accepts the same call). Sometimes it's not (Podman 4.9.x's <code>&lt;scope&gt;/container</code> race; rootless socket constraints; <code>StopSignal</code> defaults). The agent has to track which.</li>
+      <li>Mock generation (<code>mockery</code>) generates one mock per interface, not per concrete type &mdash; but tests that exercise Podman's overrides still need the Docker mock under the hood. The test setup is harder to reason about than separate clients.</li>
+    </ul>
+
+    <p>Distance is low (same module, sibling package), so the <a href="https://coupling.dev/posts/core-concepts/balance/">balance rule</a> keeps this tolerable: high strength + low distance = high cohesion. They're meant to evolve together.</p>
+
+    <h3>Cascading Changes</h3>
+    <ul>
+      <li>A Docker SDK upgrade may silently change Podman's behavior on a method Podman doesn't override.</li>
+      <li>Adding a new method to <code>ctr.Client</code> (e.g. a future <code>Snapshot</code> capability) automatically applies the Docker implementation to Podman &mdash; which may or may not be correct.</li>
+    </ul>
+
+    <h3>Recommended Improvement</h3>
+
+    <p><strong>Don't decompose</strong>. The alternative (explicit per-method forwarding from <code>podmanClient</code> to <code>dockerClient</code>) is more verbose with no concrete bug to fix, and it loses the embedding pattern's natural defaulting. The current shape is well-suited to "Podman is Docker-compat with three divergent paths."</p>
+
+    <p>What to do instead:</p>
+    <ul>
+      <li><strong>Add an invariant comment</strong> at the top of <code>pkg/runtime/podman/client.go</code> listing which methods are explicitly overridden and why. Make the inheritance intentional rather than accidental.</li>
+      <li><strong>When adding a method to <code>ctr.Client</code></strong>, add a Podman test that verifies the inherited Docker behavior is correct on Podman's compat socket &mdash; or override defensively. This is a process gate, not a code gate.</li>
+    </ul>
+
+    <p><strong>Effort</strong>: ~30 minutes (one godoc block).</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue 3: Docker SDK types vocabulary in <code>pkg/runtime/podman</code></h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>pkg/runtime/podman</code> directly imports <code>github.com/docker/docker/api/types/{container,image,network,system}</code><br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+
+    <p><code>pkg/runtime/podman/stress.go</code> and <code>pkg/runtime/podman/client.go</code> use Docker SDK types as their working vocabulary:</p>
+
+<pre><code>// pkg/runtime/podman/client.go:24
+type apiBackend interface {
+    Info(ctx context.Context) (system.Info, error)
+    ContainerInspect(ctx context.Context, containerID string) (ctypes.InspectResponse, error)
+    ImagePull(ctx context.Context, refStr string, options imagetypes.PullOptions) (io.ReadCloser, error)
+    // ... 5 more Docker-SDK-shaped methods
+}</code></pre>
+
+<pre><code>// pkg/runtime/podman/stress.go:200
+func buildStressConfig(image string, ...) (ctypes.Config, ctypes.HostConfig) { ... }</code></pre>
+
+    <p>This is <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">model coupling</a> &mdash; Docker's data model is Podman's working model. There is no anti-corruption layer. This is <em>structurally correct</em> &mdash; Podman exposes a Docker-compatible API socket precisely so it can be programmed as Docker. But the coupling is invisible from the package boundary: nothing in <code>pkg/runtime/podman</code>'s name signals "depends on Docker SDK types."</p>
+
+    <p>Volatility is moderate: the Docker SDK has bumped major versions repeatedly (currently 28.5.2). Every bump can change Podman's compile surface even though no Podman semantics changed.</p>
+
+    <h3>Complexity Impact</h3>
+    <ul>
+      <li>A Docker SDK type rename (e.g. the <code>types/container.Config</code> history) requires synchronous edits in <code>pkg/runtime/{docker,podman}</code> plus the Podman test fakes.</li>
+      <li>An AI agent doing a Docker SDK migration must know &mdash; without the package name hinting at it &mdash; that Podman is part of the blast radius.</li>
+    </ul>
+
+    <h3>Cascading Changes</h3>
+    <ul>
+      <li>Docker SDK 30.x &rarr; adjustments in 2 packages plus mocks.</li>
+      <li>Podman ever migrating to a native libpod SDK &rarr; requires either an <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">anti-corruption layer</a> (significant work) or full duplication of the runtime.</li>
+    </ul>
+
+    <h3>Recommended Improvement</h3>
+
+    <p><strong>Don't introduce an anti-corruption layer pre-emptively</strong> &mdash; Podman is committed to Docker-compat for the foreseeable future and the duplication cost is real. Two cheap mitigations:</p>
+    <ol>
+      <li><strong>Add a package-level godoc</strong> at <code>pkg/runtime/podman/doc.go</code> that names the Docker SDK as the working vocabulary and explains why (Podman exposes a Docker-compat socket).</li>
+      <li><strong>Re-export the relevant Docker types as type aliases inside <code>pkg/runtime/podman</code></strong> &mdash; e.g. <code>type ContainerConfig = ctypes.Config</code>. This lets the rest of the package use a Podman-namespaced vocabulary without runtime cost. AI agents reading Podman code see Podman names; the Docker dependency is concentrated in one alias file.</li>
+    </ol>
+
+    <p><strong>Effort</strong>: ~&frac12; day for the alias indirection if desired; ~30 minutes for just the doc note.</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue 4: <code>cmd/main.go</code> bypasses the <code>cliflags</code> adapter</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>cmd/main.go</code> reads <code>*cli.Context</code> directly via <code>c.GlobalString(...)</code> / <code>c.GlobalBool(...)</code><br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+
+    <p>The <code>cliflags.Flags</code> adapter (<code>pkg/chaos/cliflags/</code>) wraps <code>urfave/cli</code> v1's <code>*cli.Context</code> so that chaos cmd builders read flag values through an interface. A v3 migration becomes a one-file swap on the value-read side.</p>
+
+    <p>But <code>cmd/main.go</code> itself bypasses the adapter: <code>before(c *cli.Context)</code>, <code>createRuntimeClient(c *cli.Context)</code>, and <code>globalFlags(rootCertPath)</code> all use <code>c.GlobalString</code>, <code>c.GlobalBool</code>, and <code>cli.StringFlag{}</code> declarations directly. The flag <em>declarations</em> likewise live on <code>cli.Flag</code> types throughout the chaos cmd builders &mdash; the adapter intentionally covers only value-read.</p>
+
+    <p>This is a partial migration. v3 day will require edits in <code>cmd/main.go::before</code>, <code>cmd/main.go::createRuntimeClient</code>, every <code>Spec.Flags</code> list across 17 builder files, plus a new <code>cliflags.NewV3</code> adapter.</p>
+
+    <h3>Complexity Impact</h3>
+    <ul>
+      <li>A v3 migration agent has three discrete edit zones (declarations across 17 files, value-reads in main.go, adapter swap) instead of one.</li>
+      <li>Reading <code>cmd/main.go</code> requires the agent to know <code>c.GlobalString</code> is v1-specific.</li>
+    </ul>
+
+    <h3>Recommended Improvement</h3>
+
+    <p>Defer until v3 migration is on the table. When it is:</p>
+    <ol>
+      <li>Extend <code>cliflags.Flags</code> with the global-flag reads <code>cmd/main.go</code> needs (<code>Runtime</code>, <code>LogLevel</code>, <code>JSON</code>, <code>Slackhook</code>, <code>Slackchannel</code>, <code>DockerCertPath</code>, <code>Host</code>, <code>TLS*</code>).</li>
+      <li>Pass an adapter into <code>before</code> instead of <code>*cli.Context</code>.</li>
+      <li>Add <code>cliflags.NewV3</code> alongside <code>NewV1</code>; wire the v3 root in <code>main()</code>.</li>
+    </ol>
+
+    <p><strong>Effort</strong>: ~&frac12; day, mechanical.</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue 5: <code>reInterface</code> regex duplicated across <code>netem</code> and <code>iptables</code></h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: identical <code>regexp.MustCompile</code> constant in <code>pkg/chaos/netem/parse.go:16</code> and <code>pkg/chaos/iptables/parse.go:17</code><br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span>
+    </div>
+
+    <p>Pre-existing functional duplication; the two packages compile the same shell-injection-defense regex separately. Volatility is low (the regex hasn't changed). <a href="https://coupling.dev/posts/core-concepts/balance/">Balance</a> tolerates this &mdash; same module, low strength, low volatility &mdash; but the duplication is worth eliminating opportunistically.</p>
+
+    <h3>Recommended Improvement</h3>
+
+    <p>Move to <code>pkg/util/util.go</code> as <code>ValidateInterfaceName(name string) error</code>. Both parsers call it. ~5 minutes plus tests.</p>
+  </div>
+
+  <h2>Notes on what's already strong</h2>
+
+  <p>These are the structural wins that are now load-bearing for AI-agent maintainability:</p>
+
+  <ul>
+    <li><strong><code>pkg/container/client.go</code> decomposes <code>Client</code> into six narrow sub-interfaces</strong> (<code>Lister</code>, <code>Lifecycle</code>, <code>Executor</code>, <code>Netem</code>, <code>IPTables</code>, <code>Stressor</code>). Every chaos action declares its own <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">contract-coupled</a> consumer-side interface alias (<code>netemClient</code>, <code>killClient</code>, <code>stressClient</code>), composing only the methods it needs. Mock surface is minimal.</li>
+    <li><strong>Request value objects</strong> (<code>pkg/container/requests.go</code>): <code>NetemRequest</code>, <code>IPTablesRequest</code>, <code>StressRequest</code>, <code>StressResult</code>, <code>RemoveOpts</code>, <code>SidecarSpec</code>. Position-mistake risk eliminated; new fields land in one place.</li>
+    <li><strong><code>chaos.Runtime</code> factory closure</strong> (<code>pkg/chaos/command.go:23</code>). Every CLI builder takes <code>runtime chaos.Runtime</code> as an explicit constructor parameter. Dependencies are visible at every call boundary.</li>
+    <li><strong>Generic <code>NewAction[P]</code> builder</strong> (<code>pkg/chaos/cmd/builder.go</code>). 17 cmd files share one shape: flag list + typed <code>ParamParser[P]</code> + <code>CommandFactory[P]</code>. Each cmd file is 50&ndash;80 LOC.</li>
+    <li><strong><code>cliflags.Flags</code> adapter</strong> (<code>pkg/chaos/cliflags/</code>). <code>urfave/cli</code> v3 migration is a one-file swap on the value-read side of the chaos cmd builders.</li>
+    <li><strong><code>ParseRequestBase</code> shared parser</strong> in netem (<code>pkg/chaos/netem/parse.go</code>) and iptables (<code>pkg/chaos/iptables/parse.go</code>). Per-action parsers consume it; no duplicate flag-reading logic.</li>
+    <li><strong><code>runSidecar</code> consolidation</strong> (<code>pkg/runtime/docker/sidecar.go</code>). The previously-duplicated tc and iptables sidecar code is one helper. The exit-code check on <code>runSidecarExec:142</code> closed a silent-failure bug.</li>
+    <li><strong>File-per-concern docker runtime</strong>. 11 production files, max 219 LOC.</li>
+    <li><strong>File-per-concern containerd runtime</strong>. 9 production files, max 222 LOC. The 437-LOC <code>sidecar.go</code> monolith is gone.</li>
+    <li><strong>Podman embeds Docker delegate, overrides only divergent methods.</strong> The <code>apiBackend</code> test seam keeps unit tests off real sockets.</li>
+    <li><strong><code>context.WithoutCancel</code> cleanup discipline</strong> propagated to both runtimes' sidecar reap paths and to chaos action cleanup. SIGTERM races on the netem/iptables/stress paths are bounded.</li>
+  </ul>
+
+  <h2>Recommended order of execution</h2>
+
+  <p>If repaired in this order:</p>
+
+  <ol>
+    <li><strong>Issue 1</strong> (<code>chaos.RunOnContainers</code> helper). ~1 day. The single most AI-agent-impactful follow-up &mdash; eliminates the largest remaining repeated-boilerplate footprint and makes future chaos actions genuinely small.</li>
+    <li><strong>Issue 5</strong> (move <code>reInterface</code> to <code>pkg/util</code>). ~5 minutes. Bundle with anything else.</li>
+    <li><strong>Issue 2</strong> (Podman embedding invariant doc). ~30 minutes. Process gate, not refactor.</li>
+    <li><strong>Issue 3</strong> (Podman Docker-SDK aliasing OR doc). ~30 minutes (doc) or ~&frac12; day (aliases). Defer until next Docker SDK bump.</li>
+    <li><strong>Issue 4</strong> (extend cliflags to global flags). Defer to the v3 migration window.</li>
+  </ol>
+
+  <p>Estimated total to push to <strong>~9.5 / 10</strong>: ~1.5 days, dominated by Issue 1.</p>
+
+  <p>The bones are now genuinely strong: a focused chaos-layer change rarely loads more than 350 LOC of context, every CLI builder declares its dependency in its constructor signature, every interface method takes a request value object, no mutable globals leak across packages, and the file-per-concern runtime split keeps any single edit under 250 LOC.</p>
+
+  <div class="footer">
+    <p><em>This analysis was performed using the <a href="https://coupling.dev">Balanced Coupling</a> model by <a href="https://vladikk.com">Vlad Khononov</a>.</em></p>
+    <p><em>Compares against <code>docs/modularity-review/2026-04-25/modularity-review.md</code> (baseline 7.4 / 10) and the morning's mid-refactor <code>docs/modularity-review/2026-04-27/</code> snapshot (8.5 / 10). The five issues that snapshot flagged have all since landed: <code>StressRequest</code>/<code>StressResult</code> value objects, <code>Params</code>-struct collapse in netem/iptables, <code>containerd/sidecar.go</code> per-concern split, docker <code>netem</code>/<code>iptables</code> internal helpers taking request structs, <code>RemoveOpts</code> for <code>RemoveContainer</code>.</em></p>
+  </div>
+</div>
+
+<script>
+  function getDefaultTheme() {
+    const hour = new Date().getHours();
+    return (hour >= 7 && hour < 19) ? 'light' : 'dark';
+  }
+
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('modularity-review-theme', theme);
+    document.getElementById('theme-icon').textContent = theme === 'light' ? '☾' : '☀';
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    setTheme(current === 'light' ? 'dark' : 'light');
+  }
+
+  const saved = localStorage.getItem('modularity-review-theme');
+  setTheme(saved || getDefaultTheme());
+</script>
+</body>
+</html>

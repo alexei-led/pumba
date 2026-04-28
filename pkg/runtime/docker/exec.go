@@ -80,42 +80,6 @@ func (client dockerClient) runExecAttached(ctx context.Context, execID string) e
 	return nil
 }
 
-//nolint:dupl
-func (client dockerClient) tcExecCommand(ctx context.Context, execID string, args []string) error {
-	execConfig := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          append([]string{"tc"}, args...),
-	}
-	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create tc-container exec: %w", err)
-	}
-	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
-		return fmt.Errorf("failed to start tc-container exec: %w", err)
-	}
-	log.WithField("args", strings.Join(args, " ")).Debug("run command on tc-container")
-	return nil
-}
-
-//nolint:dupl
-func (client dockerClient) ipTablesExecCommand(ctx context.Context, execID string, args []string) error {
-	execConfig := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          append([]string{"iptables"}, args...),
-	}
-	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, execID, execConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create iptables-container exec: %w", err)
-	}
-	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
-		return fmt.Errorf("failed to start iptables-container exec: %w", err)
-	}
-	log.WithField("args", strings.Join(args, " ")).Debug("run command on iptables-container")
-	return nil
-}
-
 // execute command on container
 func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container, execCmd string, execArgs []string, privileged bool) error {
 	log.WithFields(log.Fields{

@@ -15,7 +15,8 @@ import (
 
 // LossParams holds the per-command parameters for the netem loss subcommand.
 type LossParams struct {
-	Netem       *netem.Params
+	Base        *container.NetemRequest
+	Limit       int
 	Percent     float64
 	Correlation float64
 }
@@ -45,17 +46,18 @@ func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 }
 
 func parseLossParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return LossParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return LossParams{
-		Netem:       netemParams,
+		Base:        base,
+		Limit:       limit,
 		Percent:     c.Float64("percent"),
 		Correlation: c.Float64("correlation"),
 	}, nil
 }
 
 func buildLossCommand(client container.Client, gp *chaos.GlobalParams, p LossParams) (chaos.Command, error) {
-	return netem.NewLossCommand(client, gp, p.Netem, p.Percent, p.Correlation)
+	return netem.NewLossCommand(client, gp, p.Base, p.Limit, p.Percent, p.Correlation)
 }

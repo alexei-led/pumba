@@ -102,12 +102,14 @@ func ctrRemove(t *testing.T, namespace, name string) {
 // ctrPullImage ensures an image is available in the given containerd namespace.
 func ctrPullImage(t *testing.T, namespace, image string) {
 	t.Helper()
-	// Check if already present
-	err := exec.Command("sudo", "ctr", "-n", namespace, "i", "check", image).Run()
-	if err == nil {
-		return
+	out, err := exec.Command("sudo", "ctr", "-n", namespace, "i", "ls", "-q").CombinedOutput()
+	require.NoError(t, err, "ctr list images: %s", string(out))
+	for _, ref := range strings.Fields(string(out)) {
+		if ref == image {
+			return
+		}
 	}
-	out, err := exec.Command("sudo", "ctr", "-n", namespace, "i", "pull", image).CombinedOutput()
+	out, err = exec.Command("sudo", "ctr", "-n", namespace, "i", "pull", image).CombinedOutput()
 	require.NoError(t, err, "ctr pull %s: %s", image, string(out))
 }
 
@@ -213,6 +215,8 @@ func TestContainerd_NetemWithSidecarCleanup(t *testing.T) {
 		"--containerd-namespace", containerdNamespace,
 		"--log-level", "debug",
 		"netem",
+		"--tc-image", nettoolsImg,
+		"--pull-image=false",
 		"--interface", "dummy0",
 		"--duration", "5s",
 		"delay", "--time", "100",

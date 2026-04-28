@@ -14,7 +14,8 @@ import (
 
 // LossStateParams holds the per-command parameters for the netem loss-state subcommand.
 type LossStateParams struct {
-	Netem *netem.Params
+	Base  *container.NetemRequest
+	Limit int
 	P13   float64
 	P31   float64
 	P32   float64
@@ -69,12 +70,13 @@ func NewLossStateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Com
 }
 
 func parseLossStateParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossStateParams, error) {
-	netemParams, err := parseNetemParams(c.Parent(), gp.Interval)
+	base, limit, err := netem.ParseRequestBase(c.Parent(), gp)
 	if err != nil {
 		return LossStateParams{}, fmt.Errorf("error parsing netem parameters: %w", err)
 	}
 	return LossStateParams{
-		Netem: netemParams,
+		Base:  base,
+		Limit: limit,
 		P13:   c.Float64("p13"),
 		P31:   c.Float64("p31"),
 		P32:   c.Float64("p32"),
@@ -84,5 +86,5 @@ func parseLossStateParams(c cliflags.Flags, gp *chaos.GlobalParams) (LossStatePa
 }
 
 func buildLossStateCommand(client container.Client, gp *chaos.GlobalParams, p LossStateParams) (chaos.Command, error) {
-	return netem.NewLossStateCommand(client, gp, p.Netem, p.P13, p.P31, p.P32, p.P23, p.P14)
+	return netem.NewLossStateCommand(client, gp, p.Base, p.Limit, p.P13, p.P31, p.P32, p.P23, p.P14)
 }

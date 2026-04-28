@@ -3,9 +3,11 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -143,6 +145,48 @@ func TestRestartCommand_Run(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestNewRestartCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  *chaos.GlobalParams
+		timeout time.Duration
+		limit   int
+		want    *restartCommand
+	}{
+		{
+			name:    "fields propagated",
+			params:  &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			timeout: 5 * time.Second,
+			limit:   2,
+			want: &restartCommand{
+				names:   []string{"c1"},
+				pattern: "^c",
+				labels:  []string{"k=v"},
+				timeout: 5 * time.Second,
+				limit:   2,
+				dryRun:  true,
+			},
+		},
+		{
+			name:   "zero timeout",
+			params: &chaos.GlobalParams{Names: []string{"c1"}},
+			want: &restartCommand{
+				names: []string{"c1"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			got := NewRestartCommand(mockClient, tt.params, tt.timeout, tt.limit)
+			cmd, ok := got.(*restartCommand)
+			require.True(t, ok)
+			tt.want.client = mockClient
+			assert.True(t, reflect.DeepEqual(tt.want, cmd))
 		})
 	}
 }

@@ -106,6 +106,8 @@ pumba stress --duration 30s \
 
 Pumba uses [`ghcr.io/alexei-led/stress-ng:latest`](https://github.com/alexei-led/stress-ng/pkgs/container/stress-ng) by default. This is a minimal `scratch` image containing both the statically linked `stress-ng` binary and the `cg-inject` binary (required for `--inject-cgroup` mode). The image is built and maintained in [alexei-led/stress-ng](https://github.com/alexei-led/stress-ng).
 
+> **Minimum tag:** `0.20.01` (released 2026-02-27) is the first release that ships `/cg-inject` alongside `/stress-ng`. Older tags (`0.20.00` and earlier) only contain `/stress-ng` and cannot drive `--inject-cgroup` mode. If a stale `:latest` is cached locally from before that release, run `docker pull ghcr.io/alexei-led/stress-ng:latest` (or pin `--stress-image=ghcr.io/alexei-led/stress-ng:0.20.01`).
+
 If you provide a custom image with `--stress-image`, it must have the `stress-ng` binary at `/stress-ng` (absolute path). For `--inject-cgroup` mode, it must also include `/cg-inject`. No shell, Docker CLI, or cgroup tools are required.
 
 ## Same-Cgroup Injection Mode
