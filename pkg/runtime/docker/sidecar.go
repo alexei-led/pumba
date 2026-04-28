@@ -110,7 +110,7 @@ func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container
 	log.WithField("img", config.Image).Debugf("creating %s-container", tool)
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	if err != nil {
-		return fmt.Errorf("failed to create %s-container from %s-img: %w", tool, tool, err)
+		return fmt.Errorf("failed to create %s-container from image %q: %w", tool, img, err)
 	}
 	log.WithField("id", createResponse.ID).Debugf("%s container created, starting it", tool)
 	if err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{}); err != nil {
