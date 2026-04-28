@@ -54,6 +54,11 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 					Name:  "pull-image",
 					Usage: "force pull tc-image",
 				},
+				cli.IntFlag{
+					Name:  "limit",
+					Usage: "limit number of matching containers (0: target all)",
+					Value: 0,
+				},
 			},
 			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
@@ -109,6 +114,11 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 				cli.BoolTFlag{
 					Name:  "pull-image",
 					Usage: "force pull iptables-image",
+				},
+				cli.IntFlag{
+					Name:  "limit",
+					Usage: "limit number of matching containers (0: target all)",
+					Value: 0,
 				},
 			},
 			Usage:       "apply IPv4 packet filter on incoming IP packets",
