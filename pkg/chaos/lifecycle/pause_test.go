@@ -3,8 +3,11 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -141,4 +144,80 @@ func TestPauseCommand_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewPauseCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   *chaos.GlobalParams
+		duration time.Duration
+		limit    int
+		want     *pauseCommand
+	}{
+		{
+			name:     "fields propagated",
+			params:   &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			duration: 3 * time.Second,
+			limit:    2,
+			want: &pauseCommand{
+				names:    []string{"c1"},
+				pattern:  "^c",
+				labels:   []string{"k=v"},
+				duration: 3 * time.Second,
+				limit:    2,
+				dryRun:   true,
+			},
+		},
+		{
+			name:     "zero duration and no limit",
+			params:   &chaos.GlobalParams{Names: []string{"c1"}},
+			duration: 0,
+			limit:    0,
+			want: &pauseCommand{
+				names: []string{"c1"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			got := NewPauseCommand(mockClient, tt.params, tt.duration, tt.limit)
+			cmd, ok := got.(*pauseCommand)
+			require.True(t, ok)
+			tt.want.client = mockClient
+			assert.True(t, reflect.DeepEqual(tt.want, cmd))
+		})
+	}
+}
+
+func TestPauseCommand_Run_CtxCancelUnpausesContainers(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	containers := container.CreateTestContainers(2)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p := &pauseCommand{
+		client:   mockClient,
+		names:    []string{"c1", "c2"},
+		duration: 10 * time.Second, // long — timer must not fire
+	}
+
+	mockClient.EXPECT().
+		ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts")).
+		Return(containers, nil)
+	mockClient.EXPECT().
+		PauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), false).
+		Return(nil).Times(2)
+	// UnpauseContainer must still be called even after ctx cancellation.
+	mockClient.EXPECT().
+		UnpauseContainer(mock.Anything, mock.AnythingOfType("*container.Container"), false).
+		Return(nil).Times(2)
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	err := p.Run(ctx, false)
+	assert.NoError(t, err)
 }
