@@ -151,7 +151,7 @@ jobs:
           docker pull alpine:latest &
           docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
           docker pull docker.io/nicolaka/netshoot:latest &
-          docker pull ghcr.io/alexei-led/stress-ng:latest &
+          docker pull ghcr.io/alexei-led/stress-ng:0.20.01 &
           wait
       - name: Run Containerd Integration Tests
         if: matrix.runtime == 'containerd'
@@ -169,7 +169,7 @@ jobs:
           sudo podman info
           sudo podman pull docker.io/library/alpine:latest &
           sudo podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
-          sudo podman pull ghcr.io/alexei-led/stress-ng:latest &
+          sudo podman pull ghcr.io/alexei-led/stress-ng:0.20.01 &
           sudo podman pull docker.io/nicolaka/netshoot:latest &
           wait
       - name: Run Podman Integration Tests

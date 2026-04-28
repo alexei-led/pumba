@@ -12,14 +12,16 @@
 # Prerequisites:
 #   * Podman 5.x (rootful) — `podman machine` on macOS, Fedora CoreOS / RHEL 9+
 #     rootful podman on Linux
-#   * ghcr.io/alexei-led/stress-ng:latest image (provides /cg-inject + /stress-ng)
+#   * ghcr.io/alexei-led/stress-ng:0.20.01 image (first tag that ships
+#     /cg-inject + /stress-ng)
 #
 # Run locally (macOS):
 #   podman machine ssh sudo bats tests/skip_ci/podman_stress_inject_cgroup.bats
 
 load ../test_helper
 
-STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:latest"
+# Pinned to 0.20.01 — see tests/containerd_stress.bats for full rationale.
+STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
 
 setup() {
     require_podman

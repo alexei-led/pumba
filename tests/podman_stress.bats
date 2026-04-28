@@ -20,8 +20,8 @@
 #   * rootful podman — cgroup writes and CAP_SYS_ADMIN for cg-inject require
 #     root. Rootless failure is covered by tests/podman_error_handling.bats.
 #   * `bats`, `podman`, `pumba` on PATH
-#   * ghcr.io/alexei-led/stress-ng:latest image (provides both /stress-ng and
-#     /cg-inject binaries)
+#   * ghcr.io/alexei-led/stress-ng:0.20.01 image (provides both /stress-ng and
+#     /cg-inject binaries — earlier 0.20.00 ships /stress-ng only)
 #
 # Run locally:
 #   * macOS: podman machine ssh sudo bats tests/podman_stress.bats
@@ -29,7 +29,9 @@
 
 load test_helper
 
-STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:latest"
+# Pinned to 0.20.01 — first release that ships /cg-inject. See
+# tests/containerd_stress.bats for the full rationale.
+STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
 
 setup() {
     require_podman

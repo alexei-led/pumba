@@ -2,7 +2,12 @@
 
 load test_helper
 
-STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:latest"
+# Pinned to 0.20.01 — first release that ships /cg-inject alongside /stress-ng
+# (see https://github.com/alexei-led/stress-ng/releases/tag/0.20.01).
+# Floating :latest can leave stale 0.20.00 cached locally, which lacks cg-inject
+# and silently skipped the inject-cgroup test. Bump deliberately when a newer
+# tag is published and verified.
+STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
 
 setup() {
     # Use Docker to create container (has networking for apk add)
@@ -101,14 +106,15 @@ teardown() {
     full_id=$(docker inspect --format="{{.Id}}" stress_victim)
 
     ctr_pull_image moby ${STRESS_IMAGE}
-    if ! docker image inspect ${STRESS_IMAGE} >/dev/null 2>&1; then
-        skip "stress image not available"
-    fi
+    docker image inspect ${STRESS_IMAGE} >/dev/null 2>&1 || \
+        fail "stress image ${STRESS_IMAGE} not available after pull"
+    # ${STRESS_IMAGE} is pinned to a tag that ships /cg-inject (0.20.01+);
+    # fail loudly if a future bump regresses on this contract.
     check_id=$(docker create --entrypoint /stress-ng ${STRESS_IMAGE} --help)
-    if ! docker export "$check_id" | tar -tf - | grep -qx "cg-inject"; then
+    docker export "$check_id" | tar -tf - | grep -qx "cg-inject" || {
         docker rm -f "$check_id" >/dev/null 2>&1 || true
-        skip "stress image does not contain /cg-inject"
-    fi
+        fail "stress image ${STRESS_IMAGE} missing /cg-inject — pin to a tag that ships it"
+    }
     docker rm -f "$check_id" >/dev/null 2>&1 || true
 
     # Run inject-cgroup stress — pumba creates a sidecar with /cg-inject as entrypoint,
