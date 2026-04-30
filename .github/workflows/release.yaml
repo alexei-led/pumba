@@ -196,6 +196,7 @@ jobs:
           generateReleaseNotes: true
           prerelease: false
           artifacts: ${{ github.workspace }}/.bin/*
-          allowUpdates: false
+          allowUpdates: true
+          artifactErrorsFailBuild: true
           commit: ${{ github.sha }}
           draft: false
