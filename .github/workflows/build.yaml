@@ -6,10 +6,16 @@ on:
       - deploy/**
       - examples/**
       - '*.md'
+# Cancel superseded runs on the same PR — pushing a new commit invalidates
+# the previous build's signal.
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     name: Lint and Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       checks: write
       pull-requests: write
@@ -19,6 +25,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Setup Go Environment
         uses: actions/setup-go@v6
         with:
@@ -66,6 +73,7 @@ jobs:
     name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }})
     needs: test
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -90,6 +98,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Setup Go Environment
         uses: actions/setup-go@v6
         with:

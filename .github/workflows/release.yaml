@@ -3,10 +3,17 @@ on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+# Serialize concurrent runs of the same tag (e.g. on re-run) to avoid
+# racing release-asset uploads. Never cancel — releases are idempotent
+# under allowUpdates: true and we want both attempts to complete.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   # Build and test Go binaries
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -14,6 +21,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
@@ -29,6 +37,7 @@ jobs:
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
       - name: Build Release Binaries
         env:
           GOPROXY: https://proxy.golang.org
@@ -39,12 +48,17 @@ jobs:
         with:
           name: pumba-binaries
           path: .bin/*
-          retention-days: 7
+          # Long retention: artifact is the recovery source if create-release
+          # is skipped (e.g. concurrent run, registry outage, manual rollback).
+          retention-days: 30
           compression-level: 6
           include-hidden-files: true
   # Build Docker images natively per architecture (no QEMU)
   docker-build:
+    timeout-minutes: 30
     strategy:
+      # Independent platforms — one arch flake must not cancel the other.
+      fail-fast: false
       matrix:
         include:
           - platform: linux/amd64
@@ -60,11 +74,15 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Get Short SHA
         id: short_sha
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+        with:
+          # buildkit defaults: enable network mode for downloading content
+          buildkitd-flags: --debug
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -76,8 +94,29 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
+      # GHCR push: required. Two attempts cover transient registry errors
+      # (blob upload unknown, 5xx, connection reset).
       - name: Build and push by digest (GHCR)
         id: build-ghcr
+        uses: docker/build-push-action@v7
+        continue-on-error: true
+        with:
+          file: docker/Dockerfile
+          context: .
+          build-args: |
+            BRANCH=${{ github.ref_name }}
+            COMMIT=${{ steps.short_sha.outputs.sha }}
+            SKIP_TESTS=true
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          provenance: true
+          sbom: true
+          pull: true
+      - name: Retry GHCR push
+        id: build-ghcr-retry
+        if: steps.build-ghcr.outcome == 'failure'
         uses: docker/build-push-action@v7
         with:
           file: docker/Dockerfile
@@ -92,9 +131,14 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           provenance: true
           sbom: true
+          pull: true
+      # Docker Hub push: best-effort. Failure here must not orphan the GHCR
+      # digest. Both attempts use continue-on-error so the job continues to
+      # export the GHCR digest for the merge job.
       - name: Build and push by digest (Docker Hub)
         id: build-hub
         uses: docker/build-push-action@v7
+        continue-on-error: true
         with:
           file: docker/Dockerfile
           context: .
@@ -107,13 +151,49 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           provenance: true
           sbom: true
+          pull: true
+      - name: Retry Docker Hub push
+        id: build-hub-retry
+        if: steps.build-hub.outcome == 'failure'
+        uses: docker/build-push-action@v7
+        continue-on-error: true
+        with:
+          file: docker/Dockerfile
+          context: .
+          build-args: |
+            BRANCH=${{ github.ref_name }}
+            COMMIT=${{ steps.short_sha.outputs.sha }}
+            SKIP_TESTS=true
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ secrets.DOCKER_ORG }}/pumba,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          provenance: true
+          sbom: true
+          pull: true
       - name: Export digests
+        env:
+          GHCR_DIGEST_PRIMARY: ${{ steps.build-ghcr.outputs.digest }}
+          GHCR_DIGEST_RETRY: ${{ steps.build-ghcr-retry.outputs.digest }}
+          HUB_DIGEST_PRIMARY: ${{ steps.build-hub.outputs.digest }}
+          HUB_DIGEST_RETRY: ${{ steps.build-hub-retry.outputs.digest }}
         run: |
+          set -euo pipefail
           mkdir -p /tmp/digests/ghcr /tmp/digests/hub
-          ghcr_digest="${{ steps.build-ghcr.outputs.digest }}"
-          hub_digest="${{ steps.build-hub.outputs.digest }}"
-          touch "/tmp/digests/ghcr/${ghcr_digest#sha256:}"
-          touch "/tmp/digests/hub/${hub_digest#sha256:}"
+          ghcr_digest="${GHCR_DIGEST_RETRY:-$GHCR_DIGEST_PRIMARY}"
+          hub_digest="${HUB_DIGEST_RETRY:-$HUB_DIGEST_PRIMARY}"
+          if [ -n "$ghcr_digest" ]; then
+            touch "/tmp/digests/ghcr/${ghcr_digest#sha256:}"
+            echo "GHCR digest captured: $ghcr_digest"
+          else
+            echo "::error::GHCR push failed both attempts on ${{ matrix.platform }}"
+            exit 1
+          fi
+          if [ -n "$hub_digest" ]; then
+            touch "/tmp/digests/hub/${hub_digest#sha256:}"
+            echo "Docker Hub digest captured: $hub_digest"
+          else
+            echo "::warning::Docker Hub push failed both attempts on ${{ matrix.platform }} — GHCR manifest will still be published, Hub manifest will be skipped"
+          fi
       - name: Upload digests
         uses: actions/upload-artifact@v7
         with:
@@ -124,6 +204,7 @@ jobs:
   # Merge multi-arch manifests
   docker-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: docker-build
     permissions:
       contents: read
@@ -149,32 +230,62 @@ jobs:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Create and push manifest (GHCR)
-        working-directory: /tmp/digests/ghcr
-        run: |
-          printf 'ghcr.io/${{ github.repository }}@sha256:%s\n' * > /tmp/ghcr-sources.txt
-          readarray -t sources < /tmp/ghcr-sources.txt
-          docker buildx imagetools create \
-            -t "ghcr.io/${{ github.repository }}:${{ github.ref_name }}" \
-            -t "ghcr.io/${{ github.repository }}:latest" \
-            "${sources[@]}"
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 15
+          command: |
+            cd /tmp/digests/ghcr
+            shopt -s nullglob
+            digests=( * )
+            if [ ${#digests[@]} -eq 0 ]; then
+              echo "::error::No GHCR digests to merge"
+              exit 1
+            fi
+            printf 'ghcr.io/${{ github.repository }}@sha256:%s\n' "${digests[@]}" > /tmp/ghcr-sources.txt
+            readarray -t sources < /tmp/ghcr-sources.txt
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ github.repository }}:${{ github.ref_name }}" \
+              -t "ghcr.io/${{ github.repository }}:latest" \
+              "${sources[@]}"
       - name: Create and push manifest (Docker Hub)
-        working-directory: /tmp/digests/hub
-        run: |
-          printf '${{ secrets.DOCKER_ORG }}/pumba@sha256:%s\n' * > /tmp/hub-sources.txt
-          readarray -t sources < /tmp/hub-sources.txt
-          docker buildx imagetools create \
-            -t "${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}" \
-            -t "${{ secrets.DOCKER_ORG }}/pumba:latest" \
-            "${sources[@]}"
+        id: merge-hub
+        continue-on-error: true
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 15
+          command: |
+            cd /tmp/digests/hub
+            shopt -s nullglob
+            digests=( * )
+            if [ ${#digests[@]} -eq 0 ]; then
+              echo "::warning::No Docker Hub digests — skipping Hub manifest (some platform pushes failed)"
+              exit 0
+            fi
+            printf '${{ secrets.DOCKER_ORG }}/pumba@sha256:%s\n' "${digests[@]}" > /tmp/hub-sources.txt
+            readarray -t sources < /tmp/hub-sources.txt
+            docker buildx imagetools create \
+              -t "${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}" \
+              -t "${{ secrets.DOCKER_ORG }}/pumba:latest" \
+              "${sources[@]}"
       - name: Inspect GHCR image
         run: docker buildx imagetools inspect "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
-  # Create GitHub Release
+      - name: Inspect Docker Hub image
+        if: steps.merge-hub.outcome == 'success'
+        run: docker buildx imagetools inspect "${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}"
+  # Create GitHub Release.
+  # Decoupled from docker-merge: a Docker registry flake (e.g. Docker Hub
+  # blob-upload errors) must not block binary publishing. The Docker pipeline
+  # can be re-run from the GitHub UI to recover image artifacts independently.
   create-release:
     name: Create GitHub Release
     needs:
       - build
-      - docker-merge
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -182,11 +293,14 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Download Artifacts
         uses: actions/download-artifact@v8
         with:
           name: pumba-binaries
           path: ${{ github.workspace }}/.bin/
+      - name: List Downloaded Artifacts
+        run: ls -la "${{ github.workspace }}/.bin/"
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
@@ -196,7 +310,13 @@ jobs:
           generateReleaseNotes: true
           prerelease: false
           artifacts: ${{ github.workspace }}/.bin/*
+          # Update existing release if user pre-created with `gh release create`.
           allowUpdates: true
+          # Fail loudly on upload errors instead of silently skipping (the
+          # original 1.1.3 failure mode that produced an empty asset list).
           artifactErrorsFailBuild: true
+          # Do not blow away release notes on update.
+          omitBodyDuringUpdate: true
+          replacesArtifacts: true
           commit: ${{ github.sha }}
           draft: false
