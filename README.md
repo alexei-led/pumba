@@ -47,6 +47,18 @@ graph LR
 | containerd | `/run/containerd/containerd.sock`   | Requires root (overlayfs mounts for sidecar)  | Namespaces: `k8s.io` (Kubernetes), `moby` (Docker-managed), `default` (pure containerd).      |
 | Podman     | `/run/podman/podman.sock` (rootful) | Requires **rootful** Podman (fails fast else) | Uses Podman's Docker-compat API; on macOS pumba runs **inside `podman machine`** (see below). |
 
+### Supported platforms
+
+Pumba targets **Linux containers** — every chaos action depends on Linux primitives (netns, cgroups v2, iptables, tc qdiscs, container runtime sockets). Released binaries:
+
+| OS      | amd64 | arm64 | Notes                                                                                                          |
+| ------- | :---: | :---: | -------------------------------------------------------------------------------------------------------------- |
+| Linux   |  ✅   |  ✅   | Primary target. Run pumba on the same kernel as the targeted containers.                                       |
+| macOS   |  ✅   |  ✅   | Developer ergonomics only. Use it to drive a remote Docker/Podman/containerd VM (e.g. Colima, podman machine). |
+| Windows |  ❌   |  ❌   | **Not supported and not planned.** See below.                                                                  |
+
+**Windows is intentionally not built.** The chaos primitives — Linux netns/cgroup writes, tc/iptables sidecar injection, POSIX signal forwarding (`SIGCONT`/`SIGSTOP`/`SIGUSR1`/`SIGUSR2` used by the containerd runtime) — have no Windows equivalent. There is no plausible Windows use case even with Docker Desktop's WSL2 backend, so no Windows binary is published. PRs adding Windows support will not be accepted; please run pumba on Linux (native, container, or VM).
+
 ## Features
 
 | Category            | Commands                                  | Description                                                                   |

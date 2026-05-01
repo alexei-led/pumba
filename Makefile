@@ -31,7 +31,12 @@ LOCAL_TARGETARCH ?= $(shell uname -m | sed -e 's/aarch64/arm64/' -e 's/x86_64/am
 LOCAL_PODMAN_MACHINE ?= pumba-podman
 
 # platforms and architectures for release
-PLATFORMS     = darwin linux windows
+# Pumba is a Linux-container chaos tool. The CLI talks to Linux container
+# runtime sockets (Docker/containerd/Podman) and injects sidecars into
+# Linux netns/cgroups. Windows is intentionally not built and not supported.
+# darwin binaries are provided for developer ergonomics (talking to Linux
+# containers in a remote VM).
+PLATFORMS     = darwin linux
 ARCHITECTURES = amd64 arm64
 
 V = 0
@@ -58,15 +63,21 @@ build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Bui
 		-o $(BIN)/$(basename $(MODULE)) ./cmd
 
 .PHONY: release
-release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for paltforms and os
-	$(foreach GOOS, $(PLATFORMS),\
-		$(foreach GOARCH, $(ARCHITECTURES), \
-			$(shell \
-				GOPROXY=$(GOPROXY) CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
-				$(GO) build \
-				-tags release \
-				-ldflags "$(LDFLAGS_VERSION)" \
-				-o $(BIN)/pumba_$(GOOS)_$(GOARCH) ./cmd)))
+# Recipe-side bash loop with `set -euo pipefail`: any per-platform `go build`
+# failure aborts the recipe loudly. The previous `$(foreach $(shell ...))`
+# pattern evaluated at make-parse time and silently swallowed exit codes,
+# leaving missing binaries undetectable until release-time.
+release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for platforms and architectures
+	@set -euo pipefail; \
+	for goos in $(PLATFORMS); do \
+	  for goarch in $(ARCHITECTURES); do \
+	    out="$(BIN)/pumba_$${goos}_$${goarch}"; \
+	    echo "  building $${goos}/$${goarch} -> $${out}"; \
+	    GOPROXY=$(GOPROXY) CGO_ENABLED=$(CGO_ENABLED) GOOS=$$goos GOARCH=$$goarch \
+	      $(GO) build -tags release -ldflags "$(LDFLAGS_VERSION)" \
+	      -o "$$out" ./cmd || { echo "::error::build failed: $${goos}/$${goarch}"; exit 1; }; \
+	  done; \
+	done
 
 # Tools
 
