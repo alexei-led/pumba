@@ -20,7 +20,6 @@ func HTTPClient(daemonURL string, tlsConfig *tls.Config) (*http.Client, error) {
 	}
 	if u.Scheme == "" || u.Scheme == "tcp" {
 		if tlsConfig == nil {
-			//nolint:goconst
 			u.Scheme = "http"
 		} else {
 			u.Scheme = "https"

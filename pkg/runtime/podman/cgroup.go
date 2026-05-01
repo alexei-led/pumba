@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -195,8 +196,7 @@ func truncateToContainerScope(p string) string {
 // ends with suffix. When skipInitScope is true, segments exactly equal to
 // "init.scope" are treated as sub-cgroup noise and ignored during the scan.
 func lastIndexEndingIn(segments []string, suffix string, skipInitScope bool) int {
-	for i := len(segments) - 1; i >= 0; i-- {
-		seg := segments[i]
+	for i, seg := range slices.Backward(segments) {
 		if seg == "" {
 			continue
 		}

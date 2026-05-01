@@ -3,7 +3,7 @@ GO       := go
 DOCKER   := docker
 MOCK     := mockery
 BATS     := bats
-LINT     := golangci-lint
+LINT     := $(shell go env GOPATH)/bin/golangci-lint
 GOCOV    := gocov
 GOCOVXML := gocov-xml
 GOUNIT   := go-junit-report
@@ -73,7 +73,7 @@ release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Bui
 setup-tools: setup-lint setup-gocov setup-gocov-xml setup-go-junit-report
 
 setup-lint:
-	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.0
 setup-gocov:
 	$(GO) install github.com/axw/gocov/gocov@v1.1.0
 setup-gocov-xml:
