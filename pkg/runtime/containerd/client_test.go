@@ -1419,20 +1419,35 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 			require.NoError(t, err)
 			assert.Contains(t, id, "pumba-stress-")
 
-			select {
-			case out := <-outCh:
-				if tc.wantErrMsg != "" {
-					t.Fatalf("expected error, got success: %s", out)
+			timer := time.NewTimer(5 * time.Second)
+			defer timer.Stop()
+			for outCh != nil || errCh != nil {
+				select {
+				case out, ok := <-outCh:
+					if !ok {
+						outCh = nil
+						continue
+					}
+					if tc.wantErrMsg != "" {
+						t.Fatalf("expected error, got success: %s", out)
+					}
+					assert.Equal(t, id, out)
+					return
+				case e, ok := <-errCh:
+					if !ok {
+						errCh = nil
+						continue
+					}
+					if tc.wantErrMsg == "" {
+						t.Fatalf("unexpected error: %v", e)
+					}
+					assert.Contains(t, e.Error(), tc.wantErrMsg)
+					return
+				case <-timer.C:
+					t.Fatal("timeout")
 				}
-				assert.Equal(t, id, out)
-			case e := <-errCh:
-				if tc.wantErrMsg == "" {
-					t.Fatalf("unexpected error: %v", e)
-				}
-				assert.Contains(t, e.Error(), tc.wantErrMsg)
-			case <-time.After(5 * time.Second):
-				t.Fatal("timeout")
 			}
+			t.Fatal("stress sidecar completed without output or error")
 		})
 	}
 }
