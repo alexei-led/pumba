@@ -1,4 +1,4 @@
-package util
+package util //nolint:revive // legacy package name is part of the public import path
 
 import (
 	"fmt"
