@@ -46,6 +46,59 @@ func stressIDOutErr(result *ctr.StressResult, err error) (string, <-chan string,
 	return result.SidecarID, result.Output, result.Errors, err
 }
 
+func requireStressOutput(t *testing.T, outCh <-chan string, errCh <-chan error, timeout time.Duration) string {
+	t.Helper()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for outCh != nil || errCh != nil {
+		select {
+		case out, ok := <-outCh:
+			if !ok {
+				outCh = nil
+				continue
+			}
+			return out
+		case err, ok := <-errCh:
+			if !ok {
+				errCh = nil
+				continue
+			}
+			t.Fatalf("unexpected stress error: %v", err)
+		case <-timer.C:
+			t.Fatal("timeout waiting for stress output")
+		}
+	}
+	t.Fatal("stress result channels closed without output")
+	return ""
+}
+
+func requireStressError(t *testing.T, outCh <-chan string, errCh <-chan error, timeout time.Duration) error {
+	t.Helper()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for outCh != nil || errCh != nil {
+		select {
+		case out, ok := <-outCh:
+			if !ok {
+				outCh = nil
+				continue
+			}
+			t.Fatalf("expected stress error, got output: %s", out)
+		case err, ok := <-errCh:
+			if !ok {
+				errCh = nil
+				continue
+			}
+			require.Error(t, err)
+			return err
+		case <-timer.C:
+			t.Fatal("timeout waiting for stress error")
+		}
+	}
+	t.Fatal("stress result channels closed without error")
+	return nil
+}
+
 type stubImage struct{ containerd.Image }
 
 type mockProcess struct {
@@ -1036,14 +1089,8 @@ func TestStressContainer_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "c1", id)
 
-	select {
-	case out := <-outCh:
-		assert.Equal(t, "c1", out)
-	case e := <-errCh:
-		t.Fatalf("unexpected error: %v", e)
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout waiting for stress result")
-	}
+	out := requireStressOutput(t, outCh, errCh, 5*time.Second)
+	assert.Equal(t, "c1", out)
 }
 
 func TestStressContainer_ExecError(t *testing.T) {
@@ -1060,14 +1107,7 @@ func TestStressContainer_ExecError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "c1", id)
 
-	select {
-	case e := <-errCh:
-		assert.Error(t, e)
-	case <-outCh:
-		t.Fatal("expected error, got success")
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout waiting for stress error")
-	}
+	requireStressError(t, outCh, errCh, 5*time.Second)
 }
 
 func newRunningTaskWithPID(pid uint32) *mockTask {
@@ -1419,20 +1459,13 @@ func TestStressContainer_SidecarExitCodes(t *testing.T) { //nolint:paralleltest 
 			require.NoError(t, err)
 			assert.Contains(t, id, "pumba-stress-")
 
-			select {
-			case out := <-outCh:
-				if tc.wantErrMsg != "" {
-					t.Fatalf("expected error, got success: %s", out)
-				}
+			if tc.wantErrMsg == "" {
+				out := requireStressOutput(t, outCh, errCh, 5*time.Second)
 				assert.Equal(t, id, out)
-			case e := <-errCh:
-				if tc.wantErrMsg == "" {
-					t.Fatalf("unexpected error: %v", e)
-				}
-				assert.Contains(t, e.Error(), tc.wantErrMsg)
-			case <-time.After(5 * time.Second):
-				t.Fatal("timeout")
+				return
 			}
+			err = requireStressError(t, outCh, errCh, 5*time.Second)
+			assert.Contains(t, err.Error(), tc.wantErrMsg)
 		})
 	}
 }
@@ -1464,13 +1497,8 @@ func TestStressContainer_SidecarContextCanceled(t *testing.T) { //nolint:paralle
 
 	cancel()
 
-	select {
-	case e := <-errCh:
-		require.Error(t, e)
-		assert.Contains(t, e.Error(), "exited with code 137")
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout waiting for stress sidecar to handle context cancellation")
-	}
+	err = requireStressError(t, nil, errCh, 5*time.Second)
+	assert.Contains(t, err.Error(), "exited with code 137")
 }
 
 func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
@@ -1495,13 +1523,8 @@ func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:parallelte
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 
-	select {
-	case e := <-errCh:
-		require.Error(t, e)
-		assert.Contains(t, e.Error(), "wait channel closed unexpectedly")
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout waiting for closed-channel error")
-	}
+	err = requireStressError(t, nil, errCh, 5*time.Second)
+	assert.Contains(t, err.Error(), "wait channel closed unexpectedly")
 }
 
 func TestStressContainer_SidecarPullImageError(t *testing.T) {
