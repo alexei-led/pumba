@@ -86,6 +86,32 @@ func stressIDOutErr(result *ctr.StressResult, err error) (string, <-chan string,
 	return result.SidecarID, result.Output, result.Errors, err
 }
 
+func requireStressOutput(t *testing.T, outCh <-chan string, errCh <-chan error, timeout time.Duration) string {
+	t.Helper()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for outCh != nil || errCh != nil {
+		select {
+		case out, ok := <-outCh:
+			if !ok {
+				outCh = nil
+				continue
+			}
+			return out
+		case err, ok := <-errCh:
+			if !ok {
+				errCh = nil
+				continue
+			}
+			t.Fatalf("unexpected stress error: %v", err)
+		case <-timer.C:
+			t.Fatal("timeout waiting for stress output")
+		}
+	}
+	t.Fatal("stress result channels closed without output")
+	return ""
+}
+
 // fakeConn implements net.Conn with Close-only behavior; sufficient for the
 // attach.Close() path in drainStressOutput.
 type fakeConn struct{ net.Conn }
@@ -331,14 +357,8 @@ func TestStressContainer_Success_FullFlow(t *testing.T) {
 	require.NotNil(t, outCh)
 	require.NotNil(t, errCh)
 
-	select {
-	case out := <-outCh:
-		require.Contains(t, out, "stress-ng done")
-	case err := <-errCh:
-		t.Fatalf("unexpected error from drain goroutine: %v", err)
-	case <-time.After(time.Second):
-		t.Fatal("drain goroutine did not complete")
-	}
+	out := requireStressOutput(t, outCh, errCh, time.Second)
+	require.Contains(t, out, "stress-ng done")
 	// outerr closes once output is delivered; a receive returns zero+false.
 	select {
 	case _, ok := <-errCh:
