@@ -20,7 +20,7 @@ type restartClient interface {
 type restartCommand struct {
 	client  restartClient
 	names   []string
-	pattern string
+	patterns []string
 	labels  []string
 	timeout time.Duration
 	limit   int
@@ -32,7 +32,7 @@ func NewRestartCommand(client restartClient, params *chaos.GlobalParams, timeout
 	return &restartCommand{
 		client:  client,
 		names:   params.Names,
-		pattern: params.Pattern,
+		patterns: params.Patterns,
 		labels:  params.Labels,
 		timeout: timeout,
 		limit:   limit,
@@ -45,12 +45,12 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("restarting all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
-		"pattern": k.pattern,
+		"patterns": k.patterns,
 		"labels":  k.labels,
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels}
+	gp := &chaos.GlobalParams{Names: k.names, Patterns: k.patterns, Labels: k.labels}
 	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{"container": c, "timeout": k.timeout}).Debug("restarting container")

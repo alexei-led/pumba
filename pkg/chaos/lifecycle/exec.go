@@ -19,7 +19,7 @@ type execClient interface {
 type execCommand struct {
 	client  execClient
 	names   []string
-	pattern string
+	patterns []string
 	labels  []string
 	command string
 	args    []string
@@ -32,7 +32,7 @@ func NewExecCommand(client execClient, params *chaos.GlobalParams, command strin
 	exec := &execCommand{
 		client:  client,
 		names:   params.Names,
-		pattern: params.Pattern,
+		patterns: params.Patterns,
 		labels:  params.Labels,
 		command: command,
 		args:    args,
@@ -50,12 +50,12 @@ func (k *execCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("execing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   k.names,
-		"pattern": k.pattern,
+		"patterns": k.patterns,
 		"labels":  k.labels,
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels}
+	gp := &chaos.GlobalParams{Names: k.names, Patterns: k.patterns, Labels: k.labels}
 	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{"c": *c, "command": k.command, "args": k.args}).Debug("execing c")

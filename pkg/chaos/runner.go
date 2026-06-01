@@ -68,7 +68,7 @@ func runOnContainers(
 	all, random, parallel bool,
 	fn ContainerAction,
 ) error {
-	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit, all)
+	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Patterns, gp.Labels, limit, all)
 	if err != nil {
 		return fmt.Errorf("listing containers: %w", err)
 	}

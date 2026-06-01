@@ -185,7 +185,7 @@ func TestRunOnContainers_PassesLabelsAndPatternToLister(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	gp := &chaos.GlobalParams{
 		Names:   nil,
-		Pattern: "web-.*",
+		Patterns: []string{"web-.*"},
 		Labels:  []string{"role=api"},
 	}
 	cs := makeContainers("web-1")

@@ -69,7 +69,7 @@ func (n *lossGECommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according Gilbert-Elliot model to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.gp.Names,
-		"pattern": n.gp.Pattern,
+		"patterns": n.gp.Patterns,
 		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,

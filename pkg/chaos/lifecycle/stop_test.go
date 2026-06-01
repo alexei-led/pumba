@@ -22,7 +22,7 @@ func TestStopCommand_Run(t *testing.T) {
 	}
 	type fields struct {
 		names    []string
-		pattern  string
+		patterns []string
 		restart  bool
 		waitTime int
 		limit    int
@@ -62,7 +62,7 @@ func TestStopCommand_Run(t *testing.T) {
 		{
 			name: "stop matching containers by filter with limit",
 			fields: fields{
-				pattern:  "^c?",
+				patterns:  []string{"^c?"},
 				waitTime: 20,
 				limit:    2,
 			},
@@ -136,7 +136,7 @@ func TestStopCommand_Run(t *testing.T) {
 			s := &stopCommand{
 				client:   mockClient,
 				names:    tt.fields.names,
-				pattern:  tt.fields.pattern,
+				patterns:  tt.fields.patterns,
 				restart:  tt.fields.restart,
 				waitTime: tt.fields.waitTime,
 				limit:    tt.fields.limit,
@@ -194,14 +194,14 @@ func TestNewStopCommand(t *testing.T) {
 	}{
 		{
 			name:     "fields propagated",
-			params:   &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			params:   &chaos.GlobalParams{Names: []string{"c1"}, Patterns: []string{"^c"}, Labels: []string{"k=v"}, DryRun: true},
 			restart:  true,
 			duration: 5 * time.Second,
 			waitTime: 10,
 			limit:    3,
 			want: &stopCommand{
 				names:    []string{"c1"},
-				pattern:  "^c",
+				patterns:  []string{"^c"},
 				labels:   []string{"k=v"},
 				restart:  true,
 				duration: 5 * time.Second,

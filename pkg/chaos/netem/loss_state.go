@@ -76,7 +76,7 @@ func (n *lossStateCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network packet loss according 4-state Markov model to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.gp.Names,
-		"pattern": n.gp.Pattern,
+		"patterns": n.gp.Patterns,
 		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,

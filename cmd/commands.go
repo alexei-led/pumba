@@ -61,7 +61,7 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 				},
 			},
 			Usage:       "emulate the properties of wide area networks",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q; multiple allowed)", re2Prefix),
 			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
 			Subcommands: []cli.Command{
 				*netemCmd.NewDelayCLICommand(topContext, runtime),
@@ -122,7 +122,7 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 				},
 			},
 			Usage:       "apply IPv4 packet filter on incoming IP packets",
-			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q", re2Prefix),
+			ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q; multiple allowed)", re2Prefix),
 			Description: "emulate loss of incoming packets, all ports and address arguments will result in separate rules",
 			Subcommands: []cli.Command{
 				*ipTablesCmd.NewLossCLICommand(topContext, runtime),

@@ -65,7 +65,7 @@ func TestExecCommand_Run(t *testing.T) {
 			name: "exec matching containers by filter with limit",
 			fields: fields{
 				params: &chaos.GlobalParams{
-					Pattern: "^c?",
+					Patterns: []string{"^c?"},
 				},
 				command: "kill",
 				args:    []string{"-STOP", "1"},
@@ -131,7 +131,7 @@ func TestExecCommand_Run(t *testing.T) {
 			k := &execCommand{
 				client:  mockClient,
 				names:   tt.fields.params.Names,
-				pattern: tt.fields.params.Pattern,
+				patterns: tt.fields.params.Patterns,
 				labels:  tt.fields.params.Labels,
 				command: tt.fields.command,
 				args:    tt.fields.args,
@@ -179,13 +179,13 @@ func TestNewExecCommand(t *testing.T) {
 	}{
 		{
 			name:    "fields propagated",
-			params:  &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			params:  &chaos.GlobalParams{Names: []string{"c1"}, Patterns: []string{"^c?"}, Labels: []string{"k=v"}, DryRun: true},
 			command: "ls",
 			args:    []string{"-la"},
 			limit:   3,
 			want: &execCommand{
 				names:   []string{"c1"},
-				pattern: "^c",
+patterns:  []string{"^c?"},
 				labels:  []string{"k=v"},
 				command: "ls",
 				args:    []string{"-la"},

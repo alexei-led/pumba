@@ -20,7 +20,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 	}
 	type fields struct {
 		names   []string
-		pattern string
+		patterns []string
 		force   bool
 		links   bool
 		volumes bool
@@ -51,7 +51,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 		{
 			name: "remove matching containers by filter with limit",
 			fields: fields{
-				pattern: "^c?",
+				patterns:  []string{"^c?"},
 				force:   true,
 				links:   true,
 				limit:   2,
@@ -109,7 +109,7 @@ func TestRemoveCommand_Run(t *testing.T) {
 			k := &removeCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
+				patterns: tt.fields.patterns,
 				opts:    opts,
 				limit:   tt.fields.limit,
 			}
@@ -154,14 +154,14 @@ func TestNewRemoveCommand(t *testing.T) {
 	}{
 		{
 			name:    "all opts true",
-			params:  &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			params:  &chaos.GlobalParams{Names: []string{"c1"}, Patterns: []string{"^c"}, Labels: []string{"k=v"}, DryRun: true},
 			force:   true,
 			links:   true,
 			volumes: true,
 			limit:   5,
 			want: &removeCommand{
 				names:   []string{"c1"},
-				pattern: "^c",
+				patterns:  []string{"^c"},
 				labels:  []string{"k=v"},
 				opts:    container.RemoveOpts{Force: true, Links: true, Volumes: true, DryRun: true},
 				limit:   5,

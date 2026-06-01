@@ -31,7 +31,7 @@ type Command interface {
 type GlobalParams struct {
 	Random     bool
 	Labels     []string
-	Pattern    string
+	Patterns   []string
 	Names      []string
 	Interval   time.Duration
 	DryRun     bool
@@ -58,11 +58,11 @@ func splitLabels(raw []string) []string {
 // subcommand-level Flags directly.
 func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
 	g := c.Global()
-	names, pattern := getNamesOrPattern(c)
+	names, patterns := getNamesOrPattern(c)
 	return &GlobalParams{
 		Random:     g.Bool("random"),
 		Labels:     splitLabels(g.StringSlice("label")),
-		Pattern:    pattern,
+		Patterns:   patterns,
 		Names:      names,
 		DryRun:     g.Bool("dry-run"),
 		SkipErrors: g.Bool("skip-error"),
@@ -70,30 +70,31 @@ func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
 	}
 }
 
-// get names list of filter pattern from command line
-func getNamesOrPattern(c cliflags.Flags) ([]string, string) {
+// getNamesOrPattern splits CLI arguments into names and regex patterns.
+// Arguments prefixed with "re2:" are treated as regex patterns; the rest are
+// exact container names. Multiple patterns and names may be mixed freely.
+func getNamesOrPattern(c cliflags.Flags) ([]string, []string) {
 	var names []string
-	pattern := ""
+	var patterns []string
 	args := c.Args()
 	// no Args means ALL containers
 	if len(args) == 0 {
-		return names, pattern
+		return names, patterns
 	}
-	// more than one argument, assume that this a list of names
-	if len(args) > 1 {
-		names = args
+	for _, arg := range args {
+		if rest, found := strings.CutPrefix(arg, Re2Prefix); found {
+			patterns = append(patterns, rest)
+		} else {
+			names = append(names, arg)
+		}
+	}
+	if len(patterns) > 0 {
+		log.WithField("patterns", patterns).Debug("using patterns")
+	}
+	if len(names) > 0 {
 		log.WithField("names", names).Debug("using names")
-		return names, pattern
 	}
-	first := args[0]
-	if rest, found := strings.CutPrefix(first, Re2Prefix); found {
-		pattern = rest
-		log.WithField("pattern", pattern).Debug("using pattern")
-		return names, pattern
-	}
-	names = append(names, first)
-	log.WithField("names", names).Debug("using names")
-	return names, pattern
+	return names, patterns
 }
 
 // RunChaosCommand run chaos command in go routine

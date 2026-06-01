@@ -58,7 +58,7 @@ type killClient interface {
 type killCommand struct {
 	client  killClient
 	names   []string
-	pattern string
+	patterns []string
 	labels  []string
 	signal  string
 	limit   int
@@ -70,7 +70,7 @@ func NewKillCommand(client killClient, params *chaos.GlobalParams, signal string
 	kill := &killCommand{
 		client:  client,
 		names:   params.Names,
-		pattern: params.Pattern,
+		patterns: params.Patterns,
 		labels:  params.Labels,
 		signal:  signal,
 		limit:   limit,
@@ -89,13 +89,13 @@ func NewKillCommand(client killClient, params *chaos.GlobalParams, signal string
 func (k *killCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":   k.names,
-		"pattern": k.pattern,
+		"patterns": k.patterns,
 		"labels":  k.labels,
 		"signal":  k.signal,
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("killing all matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels}
+	gp := &chaos.GlobalParams{Names: k.names, Patterns: k.patterns, Labels: k.labels}
 	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{"ctr": c, "signal": k.signal}).Debug("killing ctr")

@@ -22,7 +22,7 @@ type pauseClient interface {
 type pauseCommand struct {
 	client   pauseClient
 	names    []string
-	pattern  string
+	patterns []string
 	labels   []string
 	duration time.Duration
 	limit    int
@@ -34,7 +34,7 @@ func NewPauseCommand(client pauseClient, params *chaos.GlobalParams, duration ti
 	return &pauseCommand{
 		client:   client,
 		names:    params.Names,
-		pattern:  params.Pattern,
+		patterns: params.Patterns,
 		labels:   params.Labels,
 		duration: duration,
 		limit:    limit,
@@ -46,13 +46,13 @@ func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("pausing all matching containers")
 	log.WithFields(log.Fields{
 		"names":    p.names,
-		"pattern":  p.pattern,
+		"patterns":  p.patterns,
 		"labels":   p.labels,
 		"duration": p.duration,
 		"limit":    p.limit,
 		"random":   random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: p.names, Pattern: p.pattern, Labels: p.labels}
+	gp := &chaos.GlobalParams{Names: p.names, Patterns: p.patterns, Labels: p.labels}
 	pausedContainers := make([]*container.Container, 0)
 	err := chaos.RunOnContainers(ctx, p.client, gp, p.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {

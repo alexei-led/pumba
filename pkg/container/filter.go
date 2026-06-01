@@ -20,18 +20,22 @@ func matchNames(names []string, containerName, containerID string) bool {
 	return false
 }
 
-// matchPattern checks if containerName matches the given regex pattern.
+// matchPatterns checks if containerName matches any of the given regex patterns.
 // Container names may start with a forward slash when using inspect function.
-func matchPattern(pattern, containerName string) bool {
-	matched, err := regexp.MatchString(pattern, containerName)
-	if err != nil {
-		return false
+func matchPatterns(patterns []string, containerName string) bool {
+	for _, pattern := range patterns {
+		matched, err := regexp.MatchString(pattern, containerName)
+		if err != nil {
+			continue
+		}
+		if !matched && strings.HasPrefix(containerName, "/") {
+			matched, _ = regexp.MatchString(pattern, containerName[1:])
+		}
+		if matched {
+			return true
+		}
 	}
-	if !matched && strings.HasPrefix(containerName, "/") {
-		// pattern already compiled once above without error; ignore err here
-		matched, _ = regexp.MatchString(pattern, containerName[1:])
-	}
-	return matched
+	return false
 }
 
 // applyContainerFilter creates a FilterFunc from a filter config.
@@ -45,6 +49,6 @@ func applyContainerFilter(flt filter) FilterFunc {
 		if len(flt.Names) > 0 {
 			return matchNames(flt.Names, c.ContainerName, c.ContainerID)
 		}
-		return matchPattern(flt.Pattern, c.ContainerName)
+		return matchPatterns(flt.Patterns, c.ContainerName)
 	}
 }

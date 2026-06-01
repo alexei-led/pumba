@@ -20,7 +20,7 @@ func TestKillCommand_Run(t *testing.T) {
 	}
 	type fields struct {
 		names   []string
-		pattern string
+		patterns []string
 		labels  []string
 		signal  string
 		limit   int
@@ -60,7 +60,7 @@ func TestKillCommand_Run(t *testing.T) {
 		{
 			name: "kill matching containers by filter with limit",
 			fields: fields{
-				pattern: "^c?",
+				patterns:  []string{"^c?"},
 				signal:  "SIGSTOP",
 				limit:   2,
 			},
@@ -112,7 +112,7 @@ func TestKillCommand_Run(t *testing.T) {
 			k := &killCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
+				patterns: tt.fields.patterns,
 				labels:  tt.fields.labels,
 				signal:  tt.fields.signal,
 				limit:   tt.fields.limit,

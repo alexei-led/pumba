@@ -19,7 +19,7 @@ type removeClient interface {
 type removeCommand struct {
 	client  removeClient
 	names   []string
-	pattern string
+	patterns []string
 	labels  []string
 	opts    container.RemoveOpts
 	limit   int
@@ -30,7 +30,7 @@ func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, li
 	remove := &removeCommand{
 		client:  client,
 		names:   params.Names,
-		pattern: params.Pattern,
+		patterns: params.Patterns,
 		labels:  params.Labels,
 		opts: container.RemoveOpts{
 			Force:   force,
@@ -48,12 +48,12 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("removing all matching containers")
 	log.WithFields(log.Fields{
 		"names":   r.names,
-		"pattern": r.pattern,
+		"patterns": r.patterns,
 		"labels":  r.labels,
 		"limit":   r.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: r.names, Pattern: r.pattern, Labels: r.labels}
+	gp := &chaos.GlobalParams{Names: r.names, Patterns: r.patterns, Labels: r.labels}
 	return chaos.RunOnContainersAll(ctx, r.client, gp, r.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{

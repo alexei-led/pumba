@@ -21,7 +21,7 @@ func TestRestartCommand_Run(t *testing.T) {
 	}
 	type fields struct {
 		names   []string
-		pattern string
+		patterns []string
 		labels  []string
 		timeout time.Duration
 		limit   int
@@ -61,7 +61,7 @@ func TestRestartCommand_Run(t *testing.T) {
 		{
 			name: "restart matching containers by filter with limit",
 			fields: fields{
-				pattern: "^c?",
+				patterns:  []string{"^c?"},
 				timeout: 1 * time.Second,
 				limit:   2,
 			},
@@ -113,7 +113,7 @@ func TestRestartCommand_Run(t *testing.T) {
 			k := &restartCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
+				patterns: tt.fields.patterns,
 				labels:  tt.fields.labels,
 				timeout: 1 * time.Second,
 				limit:   tt.fields.limit,
@@ -159,12 +159,12 @@ func TestNewRestartCommand(t *testing.T) {
 	}{
 		{
 			name:    "fields propagated",
-			params:  &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			params:  &chaos.GlobalParams{Names: []string{"c1"}, Patterns: []string{"^c"}, Labels: []string{"k=v"}, DryRun: true},
 			timeout: 5 * time.Second,
 			limit:   2,
 			want: &restartCommand{
 				names:   []string{"c1"},
-				pattern: "^c",
+				patterns:  []string{"^c"},
 				labels:  []string{"k=v"},
 				timeout: 5 * time.Second,
 				limit:   2,

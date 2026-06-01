@@ -144,45 +144,57 @@ func TestGetNamesOrPattern(t *testing.T) {
 		name        string
 		args        []string
 		wantNames   []string
-		wantPattern string
+		wantPatterns []string
 	}{
 		{
-			name:        "no args — target all containers",
-			args:        nil,
-			wantNames:   nil,
-			wantPattern: "",
+			name:         "no args — target all containers",
+			args:         nil,
+			wantNames:    nil,
+			wantPatterns: nil,
 		},
 		{
-			name:        "single plain name",
-			args:        []string{"web"},
-			wantNames:   []string{"web"},
-			wantPattern: "",
+			name:         "single plain name",
+			args:         []string{"web"},
+			wantNames:    []string{"web"},
+			wantPatterns: nil,
 		},
 		{
-			name:        "multiple names",
-			args:        []string{"web", "db", "cache"},
-			wantNames:   []string{"web", "db", "cache"},
-			wantPattern: "",
+			name:         "multiple names",
+			args:         []string{"web", "db", "cache"},
+			wantNames:    []string{"web", "db", "cache"},
+			wantPatterns: nil,
 		},
 		{
-			name:        "re2 prefix yields pattern",
-			args:        []string{"re2:^app-"},
-			wantNames:   nil,
-			wantPattern: "^app-",
+			name:         "re2 prefix yields pattern",
+			args:         []string{"re2:^app-"},
+			wantNames:    nil,
+			wantPatterns: []string{"^app-"},
 		},
 		{
-			name:        "re2 prefix with empty pattern",
-			args:        []string{"re2:"},
-			wantNames:   nil,
-			wantPattern: "",
+			name:         "re2 prefix with empty pattern",
+			args:         []string{"re2:"},
+			wantNames:    nil,
+			wantPatterns: []string{""},
+		},
+		{
+			name:         "multiple re2 patterns",
+			args:         []string{"re2:^web-", "re2:^api-"},
+			wantNames:    nil,
+			wantPatterns: []string{"^web-", "^api-"},
+		},
+		{
+			name:         "mixed names and patterns",
+			args:         []string{"re2:^web-", "nginx", "re2:^api-"},
+			wantNames:    []string{"nginx"},
+			wantPatterns: []string{"^web-", "^api-"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := buildFlags(t, nil, nil, nil, tt.args)
-			names, pattern := getNamesOrPattern(f)
+			names, patterns := getNamesOrPattern(f)
 			assert.Equal(t, tt.wantNames, names)
-			assert.Equal(t, tt.wantPattern, pattern)
+			assert.Equal(t, tt.wantPatterns, patterns)
 		})
 	}
 }
@@ -213,7 +225,7 @@ func TestParseGlobalParams(t *testing.T) {
 				Interval:   0,
 				Labels:     nil,
 				Names:      nil,
-				Pattern:    "",
+				Patterns:   nil,
 			},
 		},
 		{
@@ -263,7 +275,7 @@ func TestParseGlobalParams(t *testing.T) {
 			globalArgs: nil,
 			childArgs:  []string{"re2:^app-"},
 			want: &GlobalParams{
-				Pattern: "^app-",
+				Patterns: []string{"^app-"},
 			},
 		},
 	}
@@ -290,8 +302,8 @@ func TestParseGlobalParams(t *testing.T) {
 			if tt.want.Names != nil {
 				assert.Equal(t, tt.want.Names, got.Names)
 			}
-			if tt.want.Pattern != "" {
-				assert.Equal(t, tt.want.Pattern, got.Pattern)
+			if tt.want.Patterns != nil {
+				assert.Equal(t, tt.want.Patterns, got.Patterns)
 			}
 		})
 	}

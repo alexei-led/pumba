@@ -74,7 +74,7 @@ func main() {
 	}
 	app.EnableBashCompletion = true
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
-	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", re2Prefix)
+	app.ArgsUsage = fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q; multiple allowed)", re2Prefix)
 	app.Before = before
 	app.After = func(_ *cli.Context) error {
 		if runtimeClient != nil {

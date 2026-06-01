@@ -28,7 +28,7 @@ func TestListNContainers(t *testing.T) {
 				return expected
 			},
 			call: func(ctx context.Context, m *MockClient) ([]*Container, error) {
-				return ListNContainersAll(ctx, m, []string{"c0", "c1"}, "", nil, 0, true)
+				return ListNContainersAll(ctx, m, []string{"c0", "c1"}, nil, nil, 0, true)
 			},
 			wantLen: 2,
 		},
@@ -42,7 +42,7 @@ func TestListNContainers(t *testing.T) {
 				return expected
 			},
 			call: func(ctx context.Context, m *MockClient) ([]*Container, error) {
-				return ListNContainers(ctx, m, []string{"c0", "c1"}, "", nil, 0)
+				return ListNContainers(ctx, m, []string{"c0", "c1"}, nil, nil, 0)
 			},
 			wantLen: 2,
 		},
@@ -54,7 +54,7 @@ func TestListNContainers(t *testing.T) {
 				return nil
 			},
 			call: func(ctx context.Context, m *MockClient) ([]*Container, error) {
-				return ListNContainersAll(ctx, m, []string{"c0"}, "", nil, 0, true)
+				return ListNContainersAll(ctx, m, []string{"c0"}, nil, nil, 0, true)
 			},
 			wantErr: true,
 		},
@@ -67,7 +67,7 @@ func TestListNContainers(t *testing.T) {
 				return expected
 			},
 			call: func(ctx context.Context, m *MockClient) ([]*Container, error) {
-				return ListNContainersAll(ctx, m, []string{"c0", "c1", "c2", "c3", "c4"}, "", nil, 2, true)
+				return ListNContainersAll(ctx, m, []string{"c0", "c1", "c2", "c3", "c4"}, nil, nil, 2, true)
 			},
 			wantLen: 2,
 		},
@@ -80,7 +80,7 @@ func TestListNContainers(t *testing.T) {
 				return expected
 			},
 			call: func(ctx context.Context, m *MockClient) ([]*Container, error) {
-				return ListNContainersAll(ctx, m, []string{"c0", "c1", "c2"}, "", nil, 3, false)
+				return ListNContainersAll(ctx, m, []string{"c0", "c1", "c2"}, nil, nil, 3, false)
 			},
 			wantLen: 3,
 		},
@@ -95,7 +95,7 @@ func TestListNContainers(t *testing.T) {
 				return expected
 			},
 			call: func(ctx context.Context, m *MockClient) ([]*Container, error) {
-				return ListNContainers(ctx, m, []string{"c0"}, "", []string{"env=prod", "tier=web"}, 0)
+				return ListNContainers(ctx, m, []string{"c0"}, nil, []string{"env=prod", "tier=web"}, 0)
 			},
 			wantLen: 1,
 		},

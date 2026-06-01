@@ -22,7 +22,7 @@ func TestPauseCommand_Run(t *testing.T) {
 	}
 	type fields struct {
 		names   []string
-		pattern string
+	patterns []string
 		limit   int
 		dryRun  bool
 	}
@@ -49,7 +49,7 @@ func TestPauseCommand_Run(t *testing.T) {
 		{
 			name: "pause matching containers by filter with limit",
 			fields: fields{
-				pattern: "^c?",
+				patterns:  []string{"^c?"},
 				limit:   2,
 			},
 			args:     args{ctx: context.TODO()},
@@ -106,7 +106,7 @@ func TestPauseCommand_Run(t *testing.T) {
 			s := &pauseCommand{
 				client:  mockClient,
 				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
+				patterns:  tt.fields.patterns,
 				limit:   tt.fields.limit,
 				dryRun:  tt.fields.dryRun,
 			}
@@ -156,12 +156,12 @@ func TestNewPauseCommand(t *testing.T) {
 	}{
 		{
 			name:     "fields propagated",
-			params:   &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+			params:   &chaos.GlobalParams{Names: []string{"c1"}, Patterns: []string{"^c"}, Labels: []string{"k=v"}, DryRun: true},
 			duration: 3 * time.Second,
 			limit:    2,
 			want: &pauseCommand{
 				names:    []string{"c1"},
-				pattern:  "^c",
+				patterns:  []string{"^c"},
 				labels:   []string{"k=v"},
 				duration: 3 * time.Second,
 				limit:    2,

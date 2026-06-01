@@ -58,7 +58,7 @@ func (n *duplicateCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("adding network random packet duplicates to all matching containers")
 	log.WithFields(log.Fields{
 		"names":   n.gp.Names,
-		"pattern": n.gp.Pattern,
+		"patterns": n.gp.Patterns,
 		"labels":  n.gp.Labels,
 		"limit":   n.limit,
 		"random":  random,

@@ -22,7 +22,7 @@ type stressClient interface {
 type stressCommand struct {
 	client       stressClient
 	names        []string
-	pattern      string
+	patterns     []string
 	labels       []string
 	image        string
 	pull         bool
@@ -42,7 +42,7 @@ func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, ima
 	stress := &stressCommand{
 		client:       client,
 		names:        globalParams.Names,
-		pattern:      globalParams.Pattern,
+		patterns:     globalParams.Patterns,
 		labels:       globalParams.Labels,
 		image:        image,
 		pull:         pull,
@@ -59,14 +59,14 @@ func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, ima
 func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":     s.names,
-		"pattern":   s.pattern,
+		"patterns":   s.patterns,
 		"labels":    s.labels,
 		"duration":  s.duration,
 		"stressors": s.stressors,
 		"limit":     s.limit,
 		"random":    random,
 	}).Debug("stress testing all matching containers")
-	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	gp := &chaos.GlobalParams{Names: s.names, Patterns: s.patterns, Labels: s.labels}
 	if err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, true, s.stressContainer); err != nil {
 		return fmt.Errorf("one or more stress test failed: %w", err)
 	}

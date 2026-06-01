@@ -27,7 +27,7 @@ type stopClient interface {
 type stopCommand struct {
 	client   stopClient
 	names    []string
-	pattern  string
+	patterns []string
 	labels   []string
 	restart  bool
 	duration time.Duration
@@ -44,7 +44,7 @@ func NewStopCommand(client stopClient, params *chaos.GlobalParams, restart bool,
 	return &stopCommand{
 		client:   client,
 		names:    params.Names,
-		pattern:  params.Pattern,
+		patterns: params.Patterns,
 		labels:   params.Labels,
 		dryRun:   params.DryRun,
 		restart:  restart,
@@ -57,14 +57,14 @@ func NewStopCommand(client stopClient, params *chaos.GlobalParams, restart bool,
 func (s *stopCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
 		"names":    s.names,
-		"pattern":  s.pattern,
+		"patterns":  s.patterns,
 		"labels":   s.labels,
 		"duration": s.duration,
 		"waitTime": s.waitTime,
 		"limit":    s.limit,
 		"random":   random,
 	}).Debug("stopping all matching containers")
-	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	gp := &chaos.GlobalParams{Names: s.names, Patterns: s.patterns, Labels: s.labels}
 	stoppedContainers := make([]*container.Container, 0)
 	err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {

@@ -14,15 +14,15 @@ type ListOpts struct {
 
 // list filter
 type filter struct {
-	Names   []string
-	Pattern string
-	Opts    ListOpts
+	Names    []string
+	Patterns []string
+	Opts     ListOpts
 }
 
-func listContainers(ctx context.Context, client Lister, names []string, pattern string, labels []string, all bool) ([]*Container, error) {
+func listContainers(ctx context.Context, client Lister, names []string, patterns []string, labels []string, all bool) ([]*Container, error) {
 	f := filter{
-		Names:   names,
-		Pattern: pattern,
+		Names:    names,
+		Patterns: patterns,
 		Opts: ListOpts{
 			All:    all,
 			Labels: labels,
@@ -44,13 +44,13 @@ func RandomContainer(containers []*Container) *Container {
 }
 
 // ListNContainers list containers up to specified limit
-func ListNContainers(ctx context.Context, client Lister, names []string, pattern string, labels []string, limit int) ([]*Container, error) {
-	return ListNContainersAll(ctx, client, names, pattern, labels, limit, false)
+func ListNContainers(ctx context.Context, client Lister, names []string, patterns []string, labels []string, limit int) ([]*Container, error) {
+	return ListNContainersAll(ctx, client, names, patterns, labels, limit, false)
 }
 
 // ListNContainersAll list containers up to specified limit, optionally including stopped containers
-func ListNContainersAll(ctx context.Context, client Lister, names []string, pattern string, labels []string, limit int, all bool) ([]*Container, error) {
-	containers, err := listContainers(ctx, client, names, pattern, labels, all)
+func ListNContainersAll(ctx context.Context, client Lister, names []string, patterns []string, labels []string, limit int, all bool) ([]*Container, error) {
+	containers, err := listContainers(ctx, client, names, patterns, labels, all)
 	if err != nil {
 		return nil, err
 	}

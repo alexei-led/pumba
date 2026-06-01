@@ -71,43 +71,43 @@ func TestMatchNames(t *testing.T) {
 func TestMatchPattern(t *testing.T) {
 	tests := []struct {
 		name          string
-		pattern       string
+		patterns      []string
 		containerName string
 		expected      bool
 	}{
 		{
 			name:          "empty container name",
-			pattern:       "container[0-9]",
+			patterns:      []string{"container[0-9]"},
 			containerName: "",
 			expected:      false,
 		},
 		{
 			name:          "exact match",
-			pattern:       "container1",
+			patterns:      []string{"container1"},
 			containerName: "container1",
 			expected:      true,
 		},
 		{
 			name:          "regex match",
-			pattern:       "container[0-9]",
+			patterns:      []string{"container[0-9]"},
 			containerName: "container1",
 			expected:      true,
 		},
 		{
 			name:          "no match",
-			pattern:       "container[0-9]",
+			patterns:      []string{"container[0-9]"},
 			containerName: "containerX",
 			expected:      false,
 		},
 		{
 			name:          "match with leading slash",
-			pattern:       "container[0-9]",
+			patterns:      []string{"container[0-9]"},
 			containerName: "/container1",
 			expected:      true,
 		},
 		{
 			name:          "invalid regex pattern",
-			pattern:       "container[",
+			patterns:      []string{"container["},
 			containerName: "container1",
 			expected:      false,
 		},
@@ -115,7 +115,7 @@ func TestMatchPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := matchPattern(tt.pattern, tt.containerName)
+			result := matchPatterns(tt.patterns, tt.containerName)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -185,7 +185,7 @@ func TestApplyContainerFilter(t *testing.T) {
 				Labels:        map[string]string{},
 				Networks:      map[string]NetworkLink{},
 			},
-			filter:   filter{Pattern: "^app-", Opts: ListOpts{All: true}},
+			filter:   filter{Patterns: []string{"^app-"}, Opts: ListOpts{All: true}},
 			expected: true,
 		},
 		{
@@ -195,7 +195,7 @@ func TestApplyContainerFilter(t *testing.T) {
 				Labels:        map[string]string{},
 				Networks:      map[string]NetworkLink{},
 			},
-			filter:   filter{Pattern: "^app-", Opts: ListOpts{All: true}},
+			filter:   filter{Patterns: []string{"^app-"}, Opts: ListOpts{All: true}},
 			expected: false,
 		},
 		{
@@ -205,7 +205,7 @@ func TestApplyContainerFilter(t *testing.T) {
 				Labels:        map[string]string{},
 				Networks:      map[string]NetworkLink{},
 			},
-			filter:   filter{Pattern: "^app-", Opts: ListOpts{All: false}},
+			filter:   filter{Patterns: []string{"^app-"}, Opts: ListOpts{All: false}},
 			expected: true,
 		},
 	}
