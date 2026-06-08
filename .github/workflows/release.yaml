@@ -33,7 +33,7 @@ jobs:
           make lint
           make test-coverage
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
