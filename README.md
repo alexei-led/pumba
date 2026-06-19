@@ -156,19 +156,41 @@ podman machine ssh sudo pumba --runtime podman --log-level debug ps
 podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time 200 <container-id>
 ```
 
-| Flag                     | Default                           | Description                                                                              |
-| ------------------------ | --------------------------------- | ---------------------------------------------------------------------------------------- |
-| `--runtime`              | `docker`                          | Container runtime (`docker`, `containerd`, or `podman`)                                  |
-| `--containerd-socket`    | `/run/containerd/containerd.sock` | containerd socket path                                                                   |
-| `--containerd-namespace` | `k8s.io`                          | containerd namespace (`k8s.io` for Kubernetes, `moby` for Docker)                        |
-| `--podman-socket`        | _(auto-detected)_                 | Podman socket URI (e.g. `unix:///run/podman/podman.sock`); empty triggers auto-detection |
-
 > **Tip:** For network chaos on containers without `tc`/`iptables`, use `--tc-image` to spawn a sidecar:
 >
 > ```bash
 > pumba --runtime containerd netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
 >   --duration 5m delay --time 3000 <container-id>
 > ```
+
+### Global flags
+
+| Flag | Default | Environment variable | Description |
+| ---- | ------- | -------------------- | ----------- |
+| `--host`, `-H` | `unix:///var/run/docker.sock` | `DOCKER_HOST` | Daemon socket to connect to |
+| `--runtime` | `docker` | — | Container runtime: `docker`, `containerd`, or `podman` |
+| `--containerd-socket` | `/run/containerd/containerd.sock` | — | containerd socket location |
+| `--containerd-namespace` | `k8s.io` | — | containerd namespace |
+| `--podman-socket` | Empty (auto-detected) | — | Podman socket URI; see [Podman Runtime](#podman-runtime) for discovery |
+| `--tls` | `false` | — | Use TLS; implied by `--tlsverify` |
+| `--tlsverify` | `false` | `DOCKER_TLS_VERIFY` | Use TLS and verify the remote |
+| `--tlscacert` | `/etc/ssl/docker/ca.pem` | — | Trust certificates signed only by this CA |
+| `--tlscert` | `/etc/ssl/docker/cert.pem` | — | Client certificate for TLS authentication |
+| `--tlskey` | `/etc/ssl/docker/key.pem` | — | Client key for TLS authentication |
+| `--log-level`, `-l` | `warning` | `LOG_LEVEL` | Log level: `debug`, `info`, `warning`, `error`, `fatal`, `panic` |
+| `--json`, `-j` | `false` | `LOG_JSON` | JSON log output (Logstash/Splunk-friendly) |
+| `--slackhook` | Empty | — | Slack incoming webhook URL for log events |
+| `--slackchannel` | `#pumba` | — | Slack channel for log events |
+| `--interval`, `-i` | `0s` (single run) | — | Recurring interval; accepts `ms`, `s`, `m`, or `h` |
+| `--label` | Empty list | — | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic) |
+| `--random`, `-r` | `false` | — | Pick one matching container at random |
+| `--dry-run` | `false` | `DRY-RUN` | Log planned chaos actions without executing them |
+| `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
+| `--help`, `-h` | `false` | — | Show help (built-in) |
+| `--version`, `-v` | `false` | — | Print the version (built-in) |
+
+TLS certificate defaults use `DOCKER_CERT_PATH` instead of `/etc/ssl/docker` when set.
+`--interval=0` runs once. Use `--skip-error` with intervals to continue after transient failures.
 
 ### Run with Docker
 
