@@ -166,6 +166,28 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 >   --duration 5m delay --time 3000 <container-id>
 > ```
 
+### Global flags
+
+| Flag                     | Default                           | Description                                                                              |
+| ------------------------ | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| `--host, -H`             | `unix:///var/run/docker.sock`     | Daemon socket to connect to (`$DOCKER_HOST`)                                             |
+| `--log-level, -l`        | `warning`                         | Log level: `debug`, `info`, `warning`, `error`, `fatal`, `panic` (`$LOG_LEVEL`)          |
+| `--json, -j`             | `false`                           | JSON log output (Logstash/Splunk-friendly) (`$LOG_JSON`)                                 |
+| `--interval, -i`         | _(none -- single run)_             | Recurring interval between chaos actions (e.g. `30s`, `5m`, `1h`)                        |
+| `--random, -r`           | `false`                           | Pick one matching container at random from the target list                               |
+| `--label`                | _(none)_                          | Filter containers by label (`--label key=val` or `--label k1=v1,k2=v2`, AND logic)       |
+| `--dry-run`              | `false`                           | Log planned chaos actions without executing them (`$DRY-RUN`)                            |
+| `--skip-error`           | `false`                           | Continue on error; retry on the next interval tick                                       |
+| `--slackhook`            | _(none)_                          | Slack webhook URL for event notifications                                                |
+| `--slackchannel`         | `#pumba`                          | Slack channel for notifications                                                          |
+| `--tls`                  | `false`                           | Use TLS (implied by `--tlsverify`)                                                       |
+| `--tlsverify`            | `false`                           | Use TLS and verify the remote (`$DOCKER_TLS_VERIFY`)                                     |
+| `--tlscacert`            | `/etc/ssl/docker/ca.pem`          | CA certificate for TLS                                                                   |
+| `--tlscert`              | `/etc/ssl/docker/cert.pem`        | Client certificate for TLS                                                               |
+| `--tlskey`               | `/etc/ssl/docker/key.pem`         | Client key for TLS                                                                       |
+
+> `--interval=0` triggers a single run (no recurring schedule). Use `--skip-error` with intervals to keep pumba alive through transient failures.
+
 ### Run with Docker
 
 ```bash
