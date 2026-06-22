@@ -22,7 +22,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -65,7 +65,7 @@ jobs:
           files: .cover/tests.xml
           commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -95,7 +95,7 @@ jobs:
       BATS_LOG: /tmp/bats-${{ matrix.runtime }}.log
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
