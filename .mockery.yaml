@@ -47,3 +47,15 @@ packages:
       filename: "mock_{{.InterfaceName}}.go"
     interfaces:
       apiClient:
+
+  github.com/containerd/containerd/v2/client:
+    config:
+      dir: "{{.ConfigDir}}/pkg/runtime/containerd"
+      outpkg: containerd
+      mockname: "Mock{{.InterfaceName}}"
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      Container:
+      Task:
+      Process:
+      Image:
