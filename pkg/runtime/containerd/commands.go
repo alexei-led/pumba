@@ -29,7 +29,9 @@ func buildNetemCommands(netInterface string, netemCmd []string, ips []*net.IPNet
 	netemArgs = append(netemArgs, netemCmd...)
 
 	commands := [][]string{
-		{"qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"},
+		// 'replace' (not 'add') so this is idempotent if a previous run's teardown
+		// left this same root qdisc in place - see buildStopNetemCommands.
+		{"qdisc", "replace", "dev", netInterface, "root", "handle", "1:", "prio"},
 		{"qdisc", "add", "dev", netInterface, "parent", "1:1", "handle", "10:", "sfq"},
 		{"qdisc", "add", "dev", netInterface, "parent", "1:2", "handle", "20:", "sfq"},
 		netemArgs,
@@ -58,16 +60,36 @@ func buildNetemCommands(netInterface string, netemCmd []string, ips []*net.IPNet
 }
 
 // buildStopNetemCommands constructs tc commands to remove network emulation.
-// When filters were used, removes the priority qdisc hierarchy; otherwise just deletes root netem.
+// When filters were used, removes the classifier and per-band qdiscs that made the
+// disruption IP/port-scoped; otherwise just deletes root netem.
+//
+// The root 'prio' qdisc is deliberately left in place in the filtered case: deleting
+// or replacing a ROOT qdisc routes through the kernel's qdisc_graft() parent==NULL
+// path (net/sched/sch_api.c), which wraps the swap in dev_deactivate()/dev_activate().
+// dev_deactivate() installs noop_qdisc on every tx queue of the device for the
+// duration of the swap, and noop_qdisc drops every packet handed to it - not just
+// packets that matched our u32 filter - because by that point the whole
+// prio+filter+netem tree that implemented the IP scoping has already been unlinked.
+// That is the actual cause of "all IPs lose traffic during teardown": deleting the
+// 'parent 1:1/1:2/1:3' child qdiscs above does NOT have this effect, because those
+// go through prio's classful cops->graft() (sch_prio.c), which atomically substitutes
+// a default pfifo qdisc under sch_tree_lock and never touches dev_queue->qdisc.
+// Deleting the filter first (before any qdisc teardown) also means matched traffic
+// falls back to the loss-free default bands 1:1/1:2 immediately, before anything else
+// happens. buildNetemCommands uses 'qdisc replace' for the root so a later netem run
+// on the same container remains idempotent against this intentionally-left-behind
+// qdisc.
 func buildStopNetemCommands(netInterface string, hasFilters bool) [][]string {
 	if !hasFilters {
 		return [][]string{{"qdisc", "del", "dev", netInterface, "root"}}
 	}
 	return [][]string{
+		// A filter delete without a specific handle removes every filter registered
+		// under that parent, which matches every filter buildNetemCommands ever adds.
+		{"filter", "del", "dev", netInterface, "parent", "1:0"},
 		{"qdisc", "del", "dev", netInterface, "parent", "1:1", "handle", "10:"},
 		{"qdisc", "del", "dev", netInterface, "parent", "1:2", "handle", "20:"},
 		{"qdisc", "del", "dev", netInterface, "parent", "1:3", "handle", "30:"},
-		{"qdisc", "del", "dev", netInterface, "root", "handle", "1:", "prio"},
 	}
 }
 

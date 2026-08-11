@@ -1568,7 +1568,7 @@ func TestBuildNetemCommands(t *testing.T) {
 			cmds:  []string{"delay", "100ms"},
 			ips:   func() []*net.IPNet { _, n, _ := net.ParseCIDR("10.0.0.0/8"); return []*net.IPNet{n} }(),
 			wantCmds: [][]string{
-				{"qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"},
+				{"qdisc", "replace", "dev", "eth0", "root", "handle", "1:", "prio"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
@@ -1581,7 +1581,7 @@ func TestBuildNetemCommands(t *testing.T) {
 			cmds:   []string{"delay", "100ms"},
 			sports: []string{"80"},
 			wantCmds: [][]string{
-				{"qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"},
+				{"qdisc", "replace", "dev", "eth0", "root", "handle", "1:", "prio"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
@@ -1594,7 +1594,7 @@ func TestBuildNetemCommands(t *testing.T) {
 			cmds:   []string{"delay", "100ms"},
 			dports: []string{"443"},
 			wantCmds: [][]string{
-				{"qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"},
+				{"qdisc", "replace", "dev", "eth0", "root", "handle", "1:", "prio"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:1", "handle", "10:", "sfq"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:2", "handle", "20:", "sfq"},
 				{"qdisc", "add", "dev", "eth0", "parent", "1:3", "handle", "30:", "netem", "delay", "100ms"},
@@ -1624,9 +1624,15 @@ func TestBuildStopNetemCommands(t *testing.T) {
 	t.Run("with_filters", func(t *testing.T) {
 		t.Parallel()
 		cmds := buildStopNetemCommands("eth0", true)
-		assert.Len(t, cmds, 4)
-		assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "parent", "1:1", "handle", "10:"}, cmds[0])
-		assert.Equal(t, []string{"qdisc", "del", "dev", "eth0", "root", "handle", "1:", "prio"}, cmds[3])
+		// The root prio qdisc is intentionally left in place - see the comment on
+		// buildStopNetemCommands - so only the classifier and the three per-band
+		// child qdiscs are removed.
+		assert.Equal(t, [][]string{
+			{"filter", "del", "dev", "eth0", "parent", "1:0"},
+			{"qdisc", "del", "dev", "eth0", "parent", "1:1", "handle", "10:"},
+			{"qdisc", "del", "dev", "eth0", "parent", "1:2", "handle", "20:"},
+			{"qdisc", "del", "dev", "eth0", "parent", "1:3", "handle", "30:"},
+		}, cmds)
 	})
 }
 

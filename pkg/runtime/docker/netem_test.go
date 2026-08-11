@@ -110,7 +110,7 @@ func TestNetemContainerIPFilter_Success(t *testing.T) {
 	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "replace", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config1).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
 	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
@@ -162,7 +162,7 @@ func TestNetemContainerSportFilter_Success(t *testing.T) {
 	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "replace", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config1).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
 	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
@@ -214,7 +214,7 @@ func TestNetemContainerDportFilter_Success(t *testing.T) {
 	engineClient.EXPECT().ContainerExecAttach(ctx, "checkID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "checkID").Return(ctypes.ExecInspect{}, nil)
 
-	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "add", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
+	config1 := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "qdisc", "replace", "dev", "eth0", "root", "handle", "1:", "prio"}, Privileged: true}
 	engineClient.EXPECT().ContainerExecCreate(ctx, "abc123", config1).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
 	engineClient.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "cmd1").Return(ctypes.ExecInspect{}, nil)
@@ -415,7 +415,7 @@ func TestNetemContainer(t *testing.T) {
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{
 					AttachStdout: true,
 					AttachStderr: true,
-					Cmd:          []string{"tc", "qdisc", "add", "dev", netInterface, "root", "handle", "1:", "prio"},
+					Cmd:          []string{"tc", "qdisc", "replace", "dev", netInterface, "root", "handle", "1:", "prio"},
 					Privileged:   true,
 				}).Return(ctypes.ExecCreateResponse{ID: "cmd1"}, nil)
 				api.EXPECT().ContainerExecAttach(ctx, "cmd1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
@@ -579,7 +579,13 @@ func TestStopNetemIPTables(t *testing.T) {
 				api.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 
-				// Need to remove child qdiscs first
+				// Remove the classifier first, then the per-band child qdiscs. The root
+				// prio qdisc is intentionally left in place (see stopNetemContainer).
+				tcCmd0 := []string{"filter", "del", "dev", netInterface, "parent", "1:0"}
+				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd0...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID0"}, nil)
+				api.EXPECT().ContainerExecAttach(ctx, "execID0", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				api.EXPECT().ContainerExecInspect(ctx, "execID0").Return(ctypes.ExecInspect{}, nil)
+
 				tcCmd1 := []string{"qdisc", "del", "dev", netInterface, "parent", "1:1", "handle", "10:"}
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd1...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
 				api.EXPECT().ContainerExecAttach(ctx, "execID1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
@@ -594,12 +600,6 @@ func TestStopNetemIPTables(t *testing.T) {
 				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd3...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID3"}, nil)
 				api.EXPECT().ContainerExecAttach(ctx, "execID3", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				api.EXPECT().ContainerExecInspect(ctx, "execID3").Return(ctypes.ExecInspect{}, nil)
-
-				// Finally remove the root qdisc
-				tcCmd4 := []string{"qdisc", "del", "dev", netInterface, "root", "handle", "1:", "prio"}
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"tc"}, tcCmd4...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID4"}, nil)
-				api.EXPECT().ContainerExecAttach(ctx, "execID4", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
-				api.EXPECT().ContainerExecInspect(ctx, "execID4").Return(ctypes.ExecInspect{}, nil)
 			},
 			wantErr: false,
 		},
