@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+	"net"
+	"sort"
 	"strings"
 )
 
@@ -17,9 +19,13 @@ const (
 	StateExited = "exited"
 )
 
-// NetworkLink represents a link from one container network endpoint.
+// NetworkLink represents a container's attachment to one network: the
+// legacy container links defined on that network, plus the IPv4 address
+// the runtime assigned the container on it (empty when the runtime doesn't
+// expose one, e.g. host networking or an unsupported runtime).
 type NetworkLink struct {
-	Links []string
+	Links       []string
+	IPv4Address string
 }
 
 // Container represents a running container, decoupled from any specific runtime.
@@ -68,6 +74,35 @@ func (c *Container) Links() []string {
 	}
 
 	return links
+}
+
+// IPs returns every distinct IPv4 address the container has across all of
+// its attached networks, sorted for a deterministic result. A container
+// connected to more than one Docker/Podman network (or with no network
+// address at all, e.g. host networking or a runtime that doesn't report
+// one) is expected and handled by callers explicitly rather than silently
+// picking a single "the" address.
+func (c *Container) IPs() []net.IP {
+	seen := make(map[string]struct{}, len(c.Networks))
+	var addrs []string
+	for _, n := range c.Networks {
+		if n.IPv4Address == "" {
+			continue
+		}
+		if _, ok := seen[n.IPv4Address]; ok {
+			continue
+		}
+		seen[n.IPv4Address] = struct{}{}
+		addrs = append(addrs, n.IPv4Address)
+	}
+	sort.Strings(addrs)
+	ips := make([]net.IP, 0, len(addrs))
+	for _, a := range addrs {
+		if ip := net.ParseIP(a); ip != nil {
+			ips = append(ips, ip)
+		}
+	}
+	return ips
 }
 
 // IsPumba returns a boolean flag indicating whether or not the current

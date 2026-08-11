@@ -33,6 +33,7 @@ func DetailsResponse(params map[string]any) ctypes.InspectResponse {
 	Labels := lookupWithDefault(params, "Labels", map[string]string{}).(map[string]string)
 	Links := lookupWithDefault(params, "Links", []string{}).([]string)
 	CgroupParent := lookupWithDefault(params, "CgroupParent", "").(string)
+	IPAddress := lookupWithDefault(params, "IPAddress", "").(string)
 
 	resp := ctypes.InspectResponse{
 		ContainerJSONBase: &ctypes.ContainerJSONBase{
@@ -52,7 +53,7 @@ func DetailsResponse(params map[string]any) ctypes.InspectResponse {
 		},
 		NetworkSettings: &ctypes.NetworkSettings{
 			Networks: map[string]*networktypes.EndpointSettings{
-				"default": {Links: Links},
+				"default": {Links: Links, IPAddress: IPAddress},
 			},
 		},
 	}
