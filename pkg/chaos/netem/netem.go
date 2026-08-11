@@ -23,6 +23,16 @@ const cleanupTimeout = 30 * time.Second
 
 // run network emulation command, stop netem on timeout or abort
 func runNetem(ctx context.Context, client netemClient, req *container.NetemRequest) error {
+	// Each per-action Run already resolves --target container names/IDs
+	// once, before matched containers are enumerated (see e.g. delay.go).
+	// This call is a no-op then, since TargetNames is already empty; it
+	// only does real work if runNetem is ever called directly with an
+	// unresolved request, so req.IPs is always complete by the time it's
+	// handed to the runtime client below.
+	if err := resolveTargetNames(ctx, client, req); err != nil {
+		return fmt.Errorf("failed to resolve --target: %w", err)
+	}
+
 	logger := log.WithFields(log.Fields{
 		"id":       req.Container.ID(),
 		"name":     req.Container.Name(),
