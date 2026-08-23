@@ -116,7 +116,7 @@ func scopedStopScript(r *NetemRequest) string {
 	fmt.Fprintf(&script, "filters=$(tc filter show dev %s parent %s)\n", iface, PumbaRootHandle)
 	script.WriteString("filter_count=$(printf '%s\\n' \"$filters\" | grep -c 'flowid 504d:3' || true)\n")
 	fmt.Fprintf(&script, "[ \"$filter_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", expectedFilters)
-	for i := 0; i < expectedFilters; i++ {
+	for i := range expectedFilters {
 		fmt.Fprintf(&script, "printf '%%s\\n' \"$filters\" | grep -Eq '(^| )fh %s( |$)' || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", filterHandle(i))
 	}
 	// Deleting the verified root removes the complete Pumba-owned hierarchy
