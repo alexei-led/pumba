@@ -81,7 +81,7 @@ func TestCombinedCommandRunBuildsOneNetemCommand(t *testing.T) {
 			"loss", "10.00", "5.00",
 			"duplicate", "3.00",
 			"corrupt", "1.00",
-			"rate", "100kbit",
+			"rate", "100kbit", "0", "53",
 		},
 		Duration: time.Millisecond,
 		DryRun:   true,
@@ -94,7 +94,7 @@ func TestCombinedCommandRunBuildsOneNetemCommand(t *testing.T) {
 		Loss:      &LossEffect{Percent: 10, Correlation: 5},
 		Duplicate: &DuplicateEffect{Percent: 3},
 		Corrupt:   &CorruptEffect{Percent: 1},
-		Rate:      &RateEffect{Rate: "100kbit"},
+		Rate:      &RateEffect{Rate: "100kbit", CellSize: 53},
 	})
 	require.NoError(t, err)
 

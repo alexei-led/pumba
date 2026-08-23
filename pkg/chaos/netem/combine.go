@@ -81,7 +81,7 @@ func (s CombinedSpec) validate() error {
 		}
 	}
 	if s.Rate != nil {
-		if err := validateRateParams(s.Rate.Rate, s.Rate.CellSize); err != nil {
+		if err := validateRateParams(s.Rate.Rate, s.Rate.CellSize, s.Rate.CellOverhead); err != nil {
 			return err
 		}
 	}

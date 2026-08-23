@@ -47,7 +47,7 @@ func validateDelay(delay, jitter int, correlation float64, distribution string) 
 
 func delayArgs(delay, jitter int, correlation float64, distribution string) []string {
 	cmd := []string{"delay", strconv.Itoa(delay) + "ms"}
-	if jitter > 0 {
+	if jitter > 0 || correlation > 0 || distribution != "" {
 		cmd = append(cmd, strconv.Itoa(jitter)+"ms")
 	}
 	if correlation > 0 {

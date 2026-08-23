@@ -38,6 +38,17 @@ func TestParseRate(t *testing.T) {
 	}
 }
 
+func TestRateArgsPreservesCellSizePositionWithoutPacketOverhead(t *testing.T) {
+	assert.Equal(t, []string{"rate", "100kbit", "0", "53"}, rateArgs("100kbit", 0, 53, 0))
+}
+
+func TestNewRateCommandRejectsCellOverheadWithoutCellSize(t *testing.T) {
+	cmd, err := NewRateCommand(nil, &chaos.GlobalParams{}, &container.NetemRequest{}, 0, "100kbit", 0, 0, 5)
+
+	require.ErrorContains(t, err, "cell overhead requires a positive cell size")
+	assert.Nil(t, cmd)
+}
+
 func TestRateCommand_Run_NoContainers(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}

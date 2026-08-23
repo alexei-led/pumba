@@ -22,7 +22,7 @@ func parseRate(rate string) (string, error) {
 	return rate, nil
 }
 
-func validateRateParams(rate string, cellSize int) error {
+func validateRateParams(rate string, cellSize, cellOverhead int) error {
 	if rate == "" {
 		return errors.New("undefined rate limit")
 	}
@@ -32,12 +32,15 @@ func validateRateParams(rate string, cellSize int) error {
 	if cellSize < 0 {
 		return errors.New("invalid cell size: must be a non-negative integer")
 	}
+	if cellOverhead != 0 && cellSize == 0 {
+		return errors.New("cell overhead requires a positive cell size")
+	}
 	return nil
 }
 
 func rateArgs(rate string, packetOverhead, cellSize, cellOverhead int) []string {
 	cmd := []string{"rate", rate}
-	if packetOverhead != 0 {
+	if packetOverhead != 0 || cellSize > 0 {
 		cmd = append(cmd, strconv.Itoa(packetOverhead))
 	}
 	if cellSize > 0 {
@@ -71,7 +74,7 @@ func NewRateCommand(client netemClient,
 	cellSize, // cell size of the simulated link layer scheme
 	cellOverhead int, // per cell overhead; in bytes
 ) (chaos.Command, error) {
-	if err := validateRateParams(rate, cellSize); err != nil {
+	if err := validateRateParams(rate, cellSize, cellOverhead); err != nil {
 		return nil, err
 	}
 	return &rateCommand{
