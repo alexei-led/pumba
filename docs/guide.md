@@ -165,6 +165,9 @@ pumba kill "re2:^test"
 
 # All containers with "api" in the name
 pumba kill "re2:api"
+
+# Combine multiple regexes and exact names (all selectors use OR logic)
+pumba kill "re2:^web-" database "re2:^api-"
 ```
 
 ### By Labels

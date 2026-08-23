@@ -176,6 +176,18 @@ func TestGetNamesOrPattern(t *testing.T) {
 			wantNames:   nil,
 			wantPattern: "",
 		},
+		{
+			name:        "multiple re2 patterns preserve selector boundaries",
+			args:        []string{"re2:^web$", "re2:^api$"},
+			wantNames:   nil,
+			wantPattern: "(^web$)|(^api$)",
+		},
+		{
+			name:        "mixed exact names and re2 patterns",
+			args:        []string{"re2:^web-", "database", "re2:^api-"},
+			wantNames:   []string{"database"},
+			wantPattern: "(^web-)|(^api-)",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

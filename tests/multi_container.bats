@@ -51,6 +51,25 @@ teardown() {
 }
 
 
+@test "Should combine exact names and multiple regex selectors" {
+    create_test_container "multi_test_web_1"
+    create_test_container "multi_test_api_1"
+    create_test_container "multi_test_exact"
+    create_test_container "multi_test_other_1"
+
+    run pumba stop "re2:^multi_test_web_" multi_test_exact "re2:^multi_test_api_"
+    assert_success
+
+    for name in multi_test_web_1 multi_test_api_1 multi_test_exact; do
+        run docker inspect -f {{.State.Status}} "$name"
+        assert_output "exited"
+    done
+
+    run docker inspect -f {{.State.Status}} multi_test_other_1
+    assert_output "running"
+}
+
+
 @test "Should only affect containers with matching labels" {
     # Given multiple containers with different labels
     # Create containers with label test=true
