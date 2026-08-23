@@ -134,5 +134,6 @@ linters:
           - noctx
 formatters:
   enable:
+    - gci
     - gofmt
     - goimports
