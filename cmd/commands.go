@@ -47,7 +47,7 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
-					Usage: "nettools image with sh, grep, tail, sleep, tc (iproute2), and iptables",
+					Usage: "nettools image with sh, grep, which, tail, sleep, tc, and iptables",
 					Value: "ghcr.io/alexei-led/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
