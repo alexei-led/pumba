@@ -140,13 +140,13 @@ examples/              — Demo scripts
 
 ## Generating Mocks
 
-Test mocks are generated using [mockery](https://github.com/vektra/mockery):
+Test mocks are generated using [mockery v3](https://vektra.github.io/mockery/v3.7/) at the version pinned by `make setup-mockery`:
 
 ```sh
 make mocks
 ```
 
-Mock files live in `mocks/` and `pkg/container/`. Do not edit generated mock files by hand.
+Mock files live in `mocks/`, `pkg/container/`, and `pkg/runtime/containerd/`. Mocks for external containerd SDK interfaces use `_test.go` filenames so they are never compiled into production binaries. Do not edit generated mock files by hand.
 
 ## How to Contribute
 

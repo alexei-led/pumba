@@ -1,24 +1,26 @@
-with-expecter: true
-issue-845-fix: true
-resolve-type-alias: false
-disable-version-string: true
 log-level: warn
+template: testify
+template-data:
+  unroll-variadic: true
 
 packages:
   github.com/alexei-led/pumba/pkg/chaos:
     config:
       dir: "{{.ConfigDir}}/mocks"
-      outpkg: mocks
-      mockname: "{{.InterfaceName}}"
       filename: "ChaosCommand.go"
+      pkgname: mocks
+      structname: "{{.InterfaceName}}"
     interfaces:
       Command:
 
+  # Mockery v3 does not generate named function types. The existing
+  # mock_FilterFunc.go remains for source compatibility but is not regenerated.
   github.com/alexei-led/pumba/pkg/container:
     config:
       dir: "{{.ConfigDir}}/pkg/container"
-      inpackage: true
       filename: "mock_{{.InterfaceName}}.go"
+      pkgname: container
+      structname: "Mock{{.InterfaceName}}"
     interfaces:
       Client:
       Lister:
@@ -27,14 +29,13 @@ packages:
       Netem:
       IPTables:
       Stressor:
-      FilterFunc:
 
   github.com/docker/docker/client:
     config:
       dir: "{{.ConfigDir}}/mocks"
-      outpkg: mocks
-      mockname: "{{.InterfaceName}}"
       filename: "{{.InterfaceName}}.go"
+      pkgname: mocks
+      structname: "{{.InterfaceName}}"
     interfaces:
       ContainerAPIClient:
       ImageAPIClient:
@@ -43,7 +44,20 @@ packages:
   github.com/alexei-led/pumba/pkg/runtime/containerd:
     config:
       dir: "{{.ConfigDir}}/pkg/runtime/containerd"
-      inpackage: true
       filename: "mock_{{.InterfaceName}}.go"
+      pkgname: containerd
+      structname: "Mock{{.InterfaceName}}"
     interfaces:
       apiClient:
+
+  github.com/containerd/containerd/v2/client:
+    config:
+      dir: "{{.ConfigDir}}/pkg/runtime/containerd"
+      filename: "mock_{{.InterfaceName}}_test.go"
+      pkgname: containerd
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      Container:
+      Task:
+      Process:
+      Image:
