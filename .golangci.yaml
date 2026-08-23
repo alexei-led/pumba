@@ -85,7 +85,7 @@ linters:
       threshold: 100
     misspell:
       locale: US
-      ignore-words:
+      ignore-rules:
         - cancelled
     gocritic:
       enabled-tags:
