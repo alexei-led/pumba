@@ -202,40 +202,40 @@ func buildStressConfig(image string, stressors []string, driver, fullPath, paren
 	if injectCgroup {
 		cmd := append([]string{"--cgroup-path", procsPath, "--", "/stress-ng"}, stressors...)
 		return ctypes.Config{
-				Image:      image,
-				Labels:     labels,
-				Entrypoint: []string{"/cg-inject"},
-				Cmd:        cmd,
-			}, ctypes.HostConfig{
-				AutoRemove:   true,
-				CgroupnsMode: "host",
-				// CAP_SYS_ADMIN is required for cgroup v2 `cgroup.procs` writes
-				// outside the sidecar's own cgroup subtree. Without it Podman
-				// returns EACCES on open(...) from /cg-inject.
-				CapAdd: []string{"SYS_ADMIN"},
-				// Disable SELinux labeling so the sidecar's container_t domain
-				// can open cgroup files under another container's scope. On
-				// SELinux-enforcing hosts (Fedora CoreOS / RHEL) the default
-				// type forbids cross-scope cgroup writes even with SYS_ADMIN.
-				SecurityOpt: []string{"label=disable"},
-				Binds:       []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
-			}
+			Image:      image,
+			Labels:     labels,
+			Entrypoint: []string{"/cg-inject"},
+			Cmd:        cmd,
+		}, ctypes.HostConfig{
+			AutoRemove:   true,
+			CgroupnsMode: "host",
+			// CAP_SYS_ADMIN is required for cgroup v2 `cgroup.procs` writes
+			// outside the sidecar's own cgroup subtree. Without it Podman
+			// returns EACCES on open(...) from /cg-inject.
+			CapAdd: []string{"SYS_ADMIN"},
+			// Disable SELinux labeling so the sidecar's container_t domain
+			// can open cgroup files under another container's scope. On
+			// SELinux-enforcing hosts (Fedora CoreOS / RHEL) the default
+			// type forbids cross-scope cgroup writes even with SYS_ADMIN.
+			SecurityOpt: []string{"label=disable"},
+			Binds:       []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
+		}
 	}
 	cgroupParent := parent
 	if driver == driverCgroupfs {
 		cgroupParent = fullPath
 	}
 	return ctypes.Config{
-			Image:      image,
-			Labels:     labels,
-			Entrypoint: []string{"/stress-ng"},
-			Cmd:        stressors,
-		}, ctypes.HostConfig{
-			AutoRemove: true,
-			Resources: ctypes.Resources{
-				CgroupParent: cgroupParent,
-			},
-		}
+		Image:      image,
+		Labels:     labels,
+		Entrypoint: []string{"/stress-ng"},
+		Cmd:        stressors,
+	}, ctypes.HostConfig{
+		AutoRemove: true,
+		Resources: ctypes.Resources{
+			CgroupParent: cgroupParent,
+		},
+	}
 }
 
 // pullStressImage pulls img and drains the progress stream to completion so

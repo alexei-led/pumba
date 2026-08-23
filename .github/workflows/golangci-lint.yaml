@@ -1,0 +1,45 @@
+name: golangci-lint
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - docs/**
+      - deploy/**
+      - examples/**
+      - '*.md'
+  pull_request:
+    paths-ignore:
+      - docs/**
+      - deploy/**
+      - examples/**
+      - '*.md'
+  workflow_dispatch:
+
+concurrency:
+  group: golangci-lint-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  golangci:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Go Environment
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: "1.26"
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@db9de0fc1a667e1a49d2291a1a042dff081d78f6 # v9
+        with:
+          version: v2.12.0

@@ -51,29 +51,29 @@ func stressContainerConfig(targetID string, stressors []string, img, driver, cgr
 			}).Debug("using inject-cgroup mode with driver-based path")
 		}
 		return ctypes.Config{
-				Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-				Image:      img,
-				Entrypoint: []string{"/cg-inject"},
-				Cmd:        cmd,
-			}, ctypes.HostConfig{
-				AutoRemove:   true,
-				CgroupnsMode: "host",
-				Binds:        []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
-			}
+			Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+			Image:      img,
+			Entrypoint: []string{"/cg-inject"},
+			Cmd:        cmd,
+		}, ctypes.HostConfig{
+			AutoRemove:   true,
+			CgroupnsMode: "host",
+			Binds:        []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
+		}
 	}
 	// default child-cgroup mode: use --cgroup-parent with the resolved path
 	log.WithField("cgroup-parent", cgroupParent).Debug("resolved cgroup parent")
 	return ctypes.Config{
-			Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
-			Image:      img,
-			Entrypoint: []string{"/stress-ng"},
-			Cmd:        stressors,
-		}, ctypes.HostConfig{
-			AutoRemove: true,
-			Resources: ctypes.Resources{
-				CgroupParent: cgroupParent,
-			},
-		}
+		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Image:      img,
+		Entrypoint: []string{"/stress-ng"},
+		Cmd:        stressors,
+	}, ctypes.HostConfig{
+		AutoRemove: true,
+		Resources: ctypes.Resources{
+			CgroupParent: cgroupParent,
+		},
+	}
 }
 
 // stressContainerCommand executes a stress-ng command in a stress-ng Docker container

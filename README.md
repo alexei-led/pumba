@@ -8,7 +8,7 @@
   <a href="https://github.com/alexei-led/pumba/releases"><img src="https://img.shields.io/github/v/release/alexei-led/pumba" alt="GitHub Release"></a>
   <a href="https://github.com/alexei-led/pumba/actions/workflows/release.yaml"><img src="https://github.com/alexei-led/pumba/actions/workflows/release.yaml/badge.svg" alt="Release"></a>
   <a href="https://github.com/alexei-led/pumba/actions/workflows/build.yaml"><img src="https://github.com/alexei-led/pumba/actions/workflows/build.yaml/badge.svg" alt="Build and Test"></a>
-  <a href="https://goreportcard.com/report/github.com/alexei-led/pumba"><img src="https://goreportcard.com/badge/github.com/alexei-led/pumba" alt="Go Report Card"></a>
+  <a href="https://github.com/alexei-led/pumba/actions/workflows/golangci-lint.yaml"><img src="https://github.com/alexei-led/pumba/actions/workflows/golangci-lint.yaml/badge.svg?branch=master&amp;event=push" alt="golangci-lint"></a>
   <a href="https://codecov.io/gh/alexei-led/pumba"><img src="https://codecov.io/gh/alexei-led/pumba/branch/master/graph/badge.svg" alt="Codecov"></a>
   <a href="https://github.com/alexei-led/pumba/blob/master/LICENSE"><img src="https://img.shields.io/github/license/alexei-led/pumba" alt="License"></a>
 </p>
