@@ -41,10 +41,12 @@ func applyContainerFilter(flt filter) FilterFunc {
 		if c.IsPumba() || c.IsPumbaSkip() {
 			return false
 		}
-		// match names
-		if len(flt.Names) > 0 {
-			return matchNames(flt.Names, c.ContainerName, c.ContainerID)
+		// Exact names and RE2 patterns are alternative selectors. Evaluating both
+		// allows mixed positional arguments to use the same selection path.
+		if len(flt.Names) == 0 {
+			return matchPattern(flt.Pattern, c.ContainerName)
 		}
-		return matchPattern(flt.Pattern, c.ContainerName)
+		return matchNames(flt.Names, c.ContainerName, c.ContainerID) ||
+			(flt.Pattern != "" && matchPattern(flt.Pattern, c.ContainerName))
 	}
 }

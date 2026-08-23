@@ -169,6 +169,36 @@ func TestApplyContainerFilter(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "matches exact selector when patterns are also present",
+			container: &Container{
+				ContainerName: "database",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"database"}, Pattern: "(^web$)|(^api$)"},
+			expected: true,
+		},
+		{
+			name: "matches regex selector when exact names are also present",
+			container: &Container{
+				ContainerName: "api",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"database"}, Pattern: "(^web$)|(^api$)"},
+			expected: true,
+		},
+		{
+			name: "preserves regex selector boundaries",
+			container: &Container{
+				ContainerName: "web-1",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"database"}, Pattern: "(^web$)|(^api$)"},
+			expected: false,
+		},
+		{
 			name: "excludes non-target with all flag",
 			container: &Container{
 				ContainerName: "other",

@@ -70,30 +70,41 @@ func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
 	}
 }
 
-// get names list of filter pattern from command line
+// getNamesOrPattern splits CLI arguments into exact names and RE2 patterns.
+// Multiple patterns and names may be mixed. Patterns are joined into one RE2
+// expression so GlobalParams.Pattern remains the canonical, compatible
+// selection path for all chaos commands.
 func getNamesOrPattern(c cliflags.Flags) ([]string, string) {
-	var names []string
-	pattern := ""
-	args := c.Args()
-	// no Args means ALL containers
-	if len(args) == 0 {
-		return names, pattern
+	var names, patterns []string
+	for _, arg := range c.Args() {
+		if pattern, found := strings.CutPrefix(arg, Re2Prefix); found {
+			patterns = append(patterns, pattern)
+			continue
+		}
+		names = append(names, arg)
 	}
-	// more than one argument, assume that this a list of names
-	if len(args) > 1 {
-		names = args
+
+	pattern := joinPatterns(patterns)
+	if len(names) > 0 {
 		log.WithField("names", names).Debug("using names")
-		return names, pattern
 	}
-	first := args[0]
-	if rest, found := strings.CutPrefix(first, Re2Prefix); found {
-		pattern = rest
+	if pattern != "" {
 		log.WithField("pattern", pattern).Debug("using pattern")
-		return names, pattern
 	}
-	names = append(names, first)
-	log.WithField("names", names).Debug("using names")
 	return names, pattern
+}
+
+// joinPatterns creates a regular-expression union while preserving each
+// selector's boundaries. A single pattern is left untouched for compatibility.
+func joinPatterns(patterns []string) string {
+	switch len(patterns) {
+	case 0:
+		return ""
+	case 1:
+		return patterns[0]
+	default:
+		return "(" + strings.Join(patterns, ")|(") + ")"
+	}
 }
 
 // RunChaosCommand run chaos command in go routine
