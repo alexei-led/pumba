@@ -189,6 +189,16 @@ func TestApplyContainerFilter(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "empty regex selector matches all eligible containers with exact names",
+			container: &Container{
+				ContainerName: "other",
+				Labels:        map[string]string{},
+				Networks:      map[string]NetworkLink{},
+			},
+			filter:   filter{Names: []string{"database"}, Pattern: "()"},
+			expected: true,
+		},
+		{
 			name: "preserves regex selector boundaries",
 			container: &Container{
 				ContainerName: "web-1",

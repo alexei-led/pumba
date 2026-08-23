@@ -85,6 +85,11 @@ func getNamesOrPattern(c cliflags.Flags) ([]string, string) {
 	}
 
 	pattern := joinPatterns(patterns)
+	if len(names) > 0 && len(patterns) == 1 && patterns[0] == "" {
+		// Preserve the empty RE2 selector's match-all semantics when it is mixed
+		// with exact names. An empty Pattern means "no pattern" to the filter.
+		pattern = "()"
+	}
 	if len(names) > 0 {
 		log.WithField("names", names).Debug("using names")
 	}
