@@ -1,0 +1,136 @@
+# Archfit config — reviewed 2026-08-23 against the current configuration reference.
+version: 1
+
+# Minimum severity for BC coupling advisories: low|medium|high|critical
+coupling:
+  min_severity: medium
+  duplicated_knowledge: score
+  volatility_cascade: true
+
+# LLM provider for off-gate enrich/explain/review (key from env: ANTHROPIC_API_KEY).
+ai:
+  provider: anthropic
+  model: claude-opus-4-8
+
+languages:
+  go:
+    enabled: true
+  python:
+    enabled: false
+  typescript:
+    enabled: false
+
+analyzers:
+  syntax:
+    enabled: true
+  # SCIP semantic graph (scip-go). Enables risk_hub and functional_candidates.
+  scip:
+    enabled: true
+  # Clone detection (jscpd). Flags cross-module code duplication; can upgrade
+  # edge strength to symmetric (S=9) where clones exist.
+  clones:
+    enabled: true
+
+layers:
+  - core
+  - cmd
+
+modules:
+  cmd:
+    owner: alexei-led
+    paths:
+      - "cmd/**"
+    public:
+      - "cmd"
+    layer: cmd
+    role: composition_root
+    subdomain: supporting
+    volatility: low
+  mocks:
+    owner: alexei-led
+    paths:
+      - "mocks/**"
+    public:
+      - "mocks"
+    layer: core
+    role: generated
+    subdomain: supporting
+    volatility: low
+  pkg_chaos:
+    owner: alexei-led
+    paths:
+      - "pkg/chaos/**"
+    public:
+      - "pkg/chaos"
+    layer: core
+    subdomain: core
+    volatility: high
+  pkg_container:
+    owner: alexei-led
+    paths:
+      - "pkg/container/**"
+    public:
+      - "pkg/container"
+    layer: core
+    subdomain: core
+    volatility: medium
+  pkg_runtime:
+    owner: alexei-led
+    paths:
+      - "pkg/runtime/**"
+    public:
+      - "pkg/runtime"
+    layer: core
+    subdomain: core
+    volatility: high
+  pkg_util:
+    owner: alexei-led
+    paths:
+      - "pkg/util/**"
+    public:
+      - "pkg/util"
+    layer: core
+    subdomain: supporting
+    volatility: low
+
+  pkg_tc:
+    owner: alexei-led
+    paths:
+      - "pkg/tc/**"
+    public:
+      - "pkg/tc"
+    layer: core
+    subdomain: core
+    volatility: high
+
+rules:
+  # Domain model (pkg/container) must not import chaos behavior.
+  # pkg/container is the domain model; it is a dependency of chaos, not a consumer of it.
+  - id: no-container-to-chaos
+    type: forbidden_dependency
+    from: pkg/container/**
+    to: pkg/chaos/**
+    gate: fail
+
+  # Chaos behavior (pkg/chaos) must not import runtime adapters (pkg/runtime).
+  # Chaos defines *what* to do; runtime adapters implement *how* to do it via the
+  # container.Client interface. Direct runtime imports would bypass the abstraction.
+  - id: no-chaos-to-runtime
+    type: forbidden_dependency
+    from: pkg/chaos/**
+    to: pkg/runtime/**
+    gate: fail
+
+  # Generic utilities (pkg/util) must not import domain packages.
+  # Utility packages must stay domain-agnostic so they remain reusable.
+  - id: no-util-to-domain
+    type: forbidden_dependency
+    from: pkg/util/**
+    to: pkg/chaos/**
+    gate: fail
+
+  # Inner layers (core) must not import the composition root (cmd).
+  # Fires when fromRank < toRank: any pkg/** or mocks/** importing cmd/** is forbidden.
+  - id: layer-inversion
+    type: forbidden_layer_direction
+    gate: fail

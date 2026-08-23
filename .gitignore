@@ -19,6 +19,7 @@ coverage*.out
 
 # AI tools
 .aider*
+.archfit-cache/
 .ralphex/
 .claude/settings.local.json
 progress*.txt
