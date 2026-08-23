@@ -21,7 +21,6 @@ func TestStartScopedInstallsOnlyPumbaTopology(t *testing.T) {
 	assert.Contains(t, script, "tc qdisc show dev 'eth0'")
 	assert.Contains(t, script, "root handle 504d: prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1")
 	assert.Contains(t, script, "parent 504d:3 handle 5050: netem 'delay' '100ms'")
-	assert.Contains(t, script, "handle 504d1: prio 1 u32")
 	assert.Contains(t, script, "flowid 504d:3")
 	assert.NotContains(t, script, "qdisc replace")
 }
@@ -34,6 +33,13 @@ func TestStartUnscopedBuildsOneRootCommand(t *testing.T) {
 
 	assert.Contains(t, script, "tc qdisc add dev 'eth0' root handle 504d: netem 'loss' '50.00'")
 	assert.NotContains(t, script, "tc qdisc add dev 'eth0' root handle 504d: netem\ntc qdisc add")
+}
+
+func TestStartAllowsFQDefaultRoot(t *testing.T) {
+	log, err := runScript(t, Start(&NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}}), "qdisc fq 0: root refcnt 2")
+
+	require.NoError(t, err)
+	assert.Contains(t, log, "qdisc add dev eth0 root handle 504d: netem delay 100ms")
 }
 
 func TestStartRejectsForeignRootBeforeMutation(t *testing.T) {
@@ -91,17 +97,30 @@ func TestStopScopedVerifiesAndDeletesCompleteRoot(t *testing.T) {
 	assert.NotContains(t, log, "parent 504d:")
 }
 
-func TestStopScopedRejectsUnownedFilterHandle(t *testing.T) {
+func TestStopScopedRejectsChangedFilterPredicate(t *testing.T) {
 	state := strings.Join([]string{
 		"qdisc prio 504d: root refcnt 2 bands 3 priomap",
 		"qdisc sfq 504e: parent 504d:1 limit 127p",
 		"qdisc sfq 504f: parent 504d:2 limit 127p",
 		"qdisc netem 5050: parent 504d:3 limit 1000",
-	}, "\\n")
-	log, err := runScriptWithFailureAndFilter(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state, "", "800:")
+	}, "\n")
+	log, err := runScriptWithFailureAndFilter(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state, "", "match 0a000002/ffffffff at 16")
 
 	require.Error(t, err)
 	assert.Empty(t, log)
+}
+
+func TestStopScopedVerifiesRequestedPredicates(t *testing.T) {
+	script := Stop(&NetemRequest{
+		Interface: "eth0",
+		IPs:       []string{"10.0.0.0/24"},
+		SPorts:    []string{"80"},
+		DPorts:    []string{"443"},
+	})[1]
+
+	assert.Contains(t, script, "match 0a000000/ffffff00 at 16")
+	assert.Contains(t, script, "match 00500000/ffff0000 at 20")
+	assert.Contains(t, script, "match 000001bb/0000ffff at 20")
 }
 
 func TestStopScopedRejectsIncompleteTopology(t *testing.T) {
@@ -143,10 +162,10 @@ func runScript(t *testing.T, args []string, state string) (string, error) {
 }
 
 func runScriptWithFailure(t *testing.T, args []string, state, failContains string) (string, error) {
-	return runScriptWithFailureAndFilter(t, args, state, failContains, "504d1:")
+	return runScriptWithFailureAndFilter(t, args, state, failContains, "match 0a000001/ffffffff at 16")
 }
 
-func runScriptWithFailureAndFilter(t *testing.T, args []string, state, failContains, filterHandle string) (string, error) {
+func runScriptWithFailureAndFilter(t *testing.T, args []string, state, failContains, filterPredicate string) (string, error) {
 	t.Helper()
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "commands")
@@ -157,7 +176,8 @@ if [ "$1" = "qdisc" ] && [ "$2" = "show" ]; then
   exit 0
 fi
 if [ "$1" = "filter" ] && [ "$2" = "show" ]; then
-  printf '%s\n' 'filter protocol ip pref 1 u32 chain 0 fh 504d1: ht divisor 1 flowid 504d:3'
+  printf '%s\n' 'filter protocol ip pref 1 u32 chain 0 fh 800::800 order 2048 key ht 800 bkt 0 flowid 504d:3'
+  printf '%s\n' '  match 0a000001/ffffffff at 16'
   exit 0
 fi
 printf '%s\n' "$*" >> "$TC_LOG"
@@ -165,7 +185,7 @@ if [ -n "$TC_FAIL_CONTAINS" ] && printf '%s\n' "$*" | grep -q "$TC_FAIL_CONTAINS
   exit 1
 fi
 `
-	script = strings.Replace(script, "fh 504d1:", "fh "+filterHandle, 1)
+	script = strings.Replace(script, "match 0a000001/ffffffff at 16", filterPredicate, 1)
 	require.NoError(t, os.WriteFile(tcPath, []byte(script), 0o755))
 
 	cmd := []string{"sh"}

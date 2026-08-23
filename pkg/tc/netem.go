@@ -3,6 +3,9 @@ package tc
 
 import (
 	"fmt"
+	"net/netip"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +17,8 @@ const (
 	firstBandHandle  = "504e:"
 	secondBandHandle = "504f:"
 	netemBandHandle  = "5050:"
+	ipv4Bits         = 32
+	portBits         = 16
 )
 
 // NetemRequest contains the tc-specific portion of a netem request.
@@ -59,18 +64,14 @@ func scopedStartScript(r *NetemRequest) string {
 	fmt.Fprintf(&netem, "tc qdisc add dev %s parent %s3 handle %s netem", iface, PumbaRootHandle, netemBandHandle)
 	writeQuotedArgs(&netem, r.Command)
 	writeRollbackCommand(&script, netem.String())
-	filterIndex := 0
 	for _, ip := range r.IPs {
-		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s handle %s prio 1 u32 match ip dst %s flowid %s3", iface, PumbaRootHandle, filterHandle(filterIndex), shellQuote(ip), PumbaRootHandle))
-		filterIndex++
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dst %s flowid %s3", iface, PumbaRootHandle, shellQuote(ip), PumbaRootHandle))
 	}
 	for _, sport := range r.SPorts {
-		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s handle %s prio 1 u32 match ip sport %s 0xffff flowid %s3", iface, PumbaRootHandle, filterHandle(filterIndex), shellQuote(sport), PumbaRootHandle))
-		filterIndex++
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip sport %s 0xffff flowid %s3", iface, PumbaRootHandle, shellQuote(sport), PumbaRootHandle))
 	}
 	for _, dport := range r.DPorts {
-		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s handle %s prio 1 u32 match ip dport %s 0xffff flowid %s3", iface, PumbaRootHandle, filterHandle(filterIndex), shellQuote(dport), PumbaRootHandle))
-		filterIndex++
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dport %s 0xffff flowid %s3", iface, PumbaRootHandle, shellQuote(dport), PumbaRootHandle))
 	}
 	return script.String()
 }
@@ -84,7 +85,7 @@ func unscopedStartScript(r *NetemRequest) string {
 
 func writeRootInspection(script *strings.Builder, iface, kind string, command ...[]string) {
 	fmt.Fprintf(script, "state=$(tc qdisc show dev %s)\n", iface)
-	script.WriteString("if printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then\n")
+	script.WriteString("if printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq|fq_codel|pfifo_fast) 0: root'; then\n")
 	if kind == "prio" {
 		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1\n", iface, PumbaRootHandle)
 	} else {
@@ -102,7 +103,7 @@ func scopedStopScript(r *NetemRequest) string {
 	expectedFilters := len(r.IPs) + len(r.SPorts) + len(r.DPorts)
 	var script strings.Builder
 	fmt.Fprintf(&script, "state=$(tc qdisc show dev %s)\n", iface)
-	script.WriteString("if [ -z \"$state\" ] || printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then\n  exit 0\nfi\n")
+	script.WriteString("if [ -z \"$state\" ] || printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq|fq_codel|pfifo_fast) 0: root'; then\n  exit 0\nfi\n")
 	for _, topology := range []string{
 		"^qdisc prio 504d: root",
 		"^qdisc sfq 504e: parent 504d:1",
@@ -116,8 +117,21 @@ func scopedStopScript(r *NetemRequest) string {
 	fmt.Fprintf(&script, "filters=$(tc filter show dev %s parent %s)\n", iface, PumbaRootHandle)
 	script.WriteString("filter_count=$(printf '%s\\n' \"$filters\" | grep -c 'flowid 504d:3' || true)\n")
 	fmt.Fprintf(&script, "[ \"$filter_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", expectedFilters)
-	for i := range expectedFilters {
-		fmt.Fprintf(&script, "printf '%%s\\n' \"$filters\" | grep -Eq '(^| )fh %s( |$)' || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", filterHandle(i))
+	predicates, valid := filterPredicates(r)
+	if !valid {
+		script.WriteString("echo 'refusing to remove filters with invalid predicates' >&2\nexit 1\n")
+		return script.String()
+	}
+	script.WriteString("predicate_count=$(printf '%s\\n' \"$filters\" | grep -c '^[[:space:]]*match ' || true)\n")
+	fmt.Fprintf(&script, "[ \"$predicate_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", expectedFilters)
+	matches := make([]string, 0, len(predicates))
+	for match := range predicates {
+		matches = append(matches, match)
+	}
+	sort.Strings(matches)
+	for _, match := range matches {
+		fmt.Fprintf(&script, "match_count=$(printf '%%s\\n' \"$filters\" | grep -F -c %s || true)\n", shellQuote(match))
+		fmt.Fprintf(&script, "[ \"$match_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filter predicates' >&2; exit 1; }\n", predicates[match])
 	}
 	// Deleting the verified root removes the complete Pumba-owned hierarchy
 	// atomically: the filters and child qdiscs are never removed individually.
@@ -125,14 +139,39 @@ func scopedStopScript(r *NetemRequest) string {
 	return script.String()
 }
 
-func filterHandle(index int) string {
-	return fmt.Sprintf("504d%x:", index+1)
+func filterPredicates(r *NetemRequest) (map[string]int, bool) {
+	predicates := make(map[string]int, len(r.IPs)+len(r.SPorts)+len(r.DPorts))
+	for _, value := range r.IPs {
+		prefix, err := netip.ParsePrefix(value)
+		if err != nil || !prefix.Addr().Is4() {
+			return nil, false
+		}
+		address := prefix.Masked().Addr().As4()
+		ip := uint32(address[0])<<24 | uint32(address[1])<<16 | uint32(address[2])<<8 | uint32(address[3])
+		mask := ^uint32(0) << (ipv4Bits - prefix.Bits())
+		predicates[fmt.Sprintf("match %08x/%08x at 16", ip, mask)]++
+	}
+	for _, value := range r.SPorts {
+		port, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			return nil, false
+		}
+		predicates[fmt.Sprintf("match %08x/ffff0000 at 20", uint32(port)<<portBits)]++
+	}
+	for _, value := range r.DPorts {
+		port, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			return nil, false
+		}
+		predicates[fmt.Sprintf("match %08x/0000ffff at 20", port)]++
+	}
+	return predicates, true
 }
 
 func unscopedStopScript(netInterface string) string {
 	iface := shellQuote(netInterface)
 	return fmt.Sprintf(`state=$(tc qdisc show dev %s)
-if [ -z "$state" ] || printf '%%s\n' "$state" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then
+if [ -z "$state" ] || printf '%%s\n' "$state" | grep -Eq '^qdisc (noqueue|fq|fq_codel|pfifo_fast) 0: root'; then
   exit 0
 fi
 printf '%%s\n' "$state" | grep -Eq '^qdisc netem 504d: root' || { echo 'refusing to remove a foreign root qdisc' >&2; exit 1; }
