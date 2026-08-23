@@ -6,8 +6,11 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
 )
 
 func TestNewCombineCLICommandContract(t *testing.T) {
@@ -16,6 +19,24 @@ func TestNewCombineCLICommandContract(t *testing.T) {
 
 	assertConstructorContract(t, cmd, "combine")
 	assert.Equal(t, 0, *calls)
+}
+
+func TestCombineCLIActionParsesContainerAfterSeparator(t *testing.T) {
+	runtime, client, calls := fakeRuntime(t)
+	cmd := NewCombineCLICommand(context.Background(), runtime)
+	parent := netemContext(t, nil)
+	ctx := childContext(t, parent, cmd.Flags, []string{
+		"--delay", "--delay-time", "100",
+		"--loss", "--loss-percent", "10",
+		"--", "target",
+	})
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: false}).
+		Return(nil, nil)
+
+	action, ok := cmd.Action.(func(*cli.Context) error)
+	require.True(t, ok)
+	require.NoError(t, action(ctx))
+	assert.Equal(t, 1, *calls)
 }
 
 func TestParseCombineParams(t *testing.T) {
