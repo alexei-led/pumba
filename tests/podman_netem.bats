@@ -25,6 +25,7 @@ setup() {
         skip "podman is rootless — netem requires rootful mode"
     fi
     podman_rm_force pdm-netem-ctr
+    podman_rm_force pdm-netem-peer
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
     podman run -d --privileged --name pdm-netem-ctr docker.io/nicolaka/netshoot:latest \
@@ -36,6 +37,7 @@ teardown() {
     sudo pkill -f "pumba.*netem.*pdm-netem-ctr" 2>/dev/null || true
     kill %1 2>/dev/null || true
     podman_rm_force pdm-netem-ctr
+    podman_rm_force pdm-netem-peer
     # Reap any lingering sidecar containers (identified by pumba skip label)
     for sc in $(podman ps -q --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
         podman rm -f "$sc" >/dev/null 2>&1 || true
@@ -62,6 +64,17 @@ teardown() {
     run podman exec pdm-netem-ctr tc qdisc show dev dummy0
     echo "TC after cleanup: $output"
     refute_output --partial "netem"
+}
+
+@test "Should resolve a target container name via podman runtime" {
+    podman run -d --name pdm-netem-peer docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
+    wait_for_running podman pdm-netem-peer
+
+    run pumba --runtime podman --log-level debug netem --interface dummy0 --pull-image=false --target pdm-netem-peer --duration 2s delay --time 100 pdm-netem-ctr
+    assert_success
+
+    run podman exec pdm-netem-ctr tc qdisc show dev dummy0
+    refute_output --partial "504d:"
 }
 
 @test "Should apply packet loss via podman runtime" {

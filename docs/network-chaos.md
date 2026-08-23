@@ -81,13 +81,30 @@ Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic
 | ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
 | `--duration`, `-d`              | Emulation duration (must be shorter than `--interval`) | required                                          |
 | `--interface`, `-i`             | Network interface to apply rules on                    | `eth0`                                            |
-| `--target`, `-t`                | Target IP filter (repeatable); supports CIDR notation  | all                                               |
+| `--target`, `-t`                | Target filter (repeatable); IPv4, CIDR, or container name/ID | all                                          |
 | `--egress-port`, `egressPort`   | Egress (source) port filter (comma-separated)          | all                                               |
 | `--ingress-port`, `ingressPort` | Ingress (destination) port filter (comma-separated)    | all                                               |
 | `--tc-image`                    | Docker image with `tc` tool                            | `ghcr.io/alexei-led/pumba-alpine-nettools:latest` |
 | `--pull-image`                  | Force pull the tc-image                                | `true`                                            |
 
 Run `pumba netem --help` for the full list of options.
+
+`--target` accepts an IPv4 address, CIDR block, or a running container's name
+or ID — mix and match, and repeat the flag for multiple values. A container
+name/ID is resolved on every command run, including each interval run. If the
+container is attached to more than one network, every IPv4 address is added as
+a separate filter, so traffic to/from any of them is affected. IPv6 targets
+fail explicitly because netem's current filter planner emits IPv4 rules only.
+Resolution requires an unambiguous match — a name or ID prefix
+that matches more than one running container is a hard error rather than an
+arbitrary pick — and a value that is neither a valid IP/CIDR nor a
+resolvable container name/ID also fails with a clear error instead of
+silently matching nothing.
+
+```bash
+# Delay only traffic to/from container "service-b" (resolved to its IP)
+pumba netem --duration 10m --target service-b delay --time 1000 service-a
+```
 
 ### delay
 
@@ -287,8 +304,9 @@ Test how services handle degraded inter-service communication:
 
 ```bash
 # High latency between service-a and service-b
+# --target accepts an IP/CIDR or, as here, a container name/ID to resolve
 pumba netem --tc-image ghcr.io/alexei-led/pumba-alpine-nettools:latest \
-    --target service-b-ip --duration 10m \
+    --target service-b --duration 10m \
     delay --time 1000 --jitter 200 service-a &
 
 # Packet loss from service-c to service-b

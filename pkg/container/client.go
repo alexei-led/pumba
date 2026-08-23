@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"net"
 	"time"
 )
 
@@ -14,6 +15,11 @@ type FilterFunc func(*Container) bool
 // Lister lists containers matching a filter.
 type Lister interface {
 	ListContainers(context.Context, FilterFunc, ListOpts) ([]*Container, error)
+}
+
+// AddressResolver returns the current network addresses of a container.
+type AddressResolver interface {
+	ContainerAddresses(context.Context, *Container) ([]net.IP, error)
 }
 
 // Lifecycle manages container lifecycle (stop, kill, start, restart, remove, pause).
@@ -58,6 +64,7 @@ type Stressor interface {
 // Client is the full container runtime interface, combining all focused interfaces.
 type Client interface {
 	Lister
+	AddressResolver
 	Lifecycle
 	Executor
 	Netem

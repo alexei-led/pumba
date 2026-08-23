@@ -73,12 +73,6 @@ func TestParseRequestBase(t *testing.T) {
 			wantErr: "bad network interface name",
 		},
 		{
-			name:    "invalid CIDR rejected",
-			args:    []string{"--duration", "1s", "--interface", "eth0", "--target", "not-a-cidr"},
-			gp:      &chaos.GlobalParams{},
-			wantErr: "failed to parse ip",
-		},
-		{
 			name:    "invalid egress port rejected",
 			args:    []string{"--duration", "1s", "--interface", "eth0", "--egress-port", "abc"},
 			gp:      &chaos.GlobalParams{},
@@ -129,6 +123,52 @@ func TestParseRequestBase_PortsAndIPsParsed(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, req.IPs, 1)
 	assert.Equal(t, "10.0.0.0/24", req.IPs[0].String())
+	assert.Empty(t, req.TargetNames)
 	assert.Equal(t, []string{"80", "443"}, req.SPorts)
 	assert.Equal(t, []string{"8080"}, req.DPorts)
+}
+
+func TestParseRequestBase_DeduplicatesEquivalentIPv4Targets(t *testing.T) {
+	c := cliflags.NewV1(parentCtx(t, []string{
+		"--duration", "1s", "--interface", "eth0",
+		"--target", "10.0.0.1",
+		"--target", "10.0.0.1/32",
+	}))
+
+	req, _, err := ParseRequestBase(c, &chaos.GlobalParams{})
+
+	require.NoError(t, err)
+	require.Len(t, req.IPs, 1)
+	assert.Equal(t, "10.0.0.1/32", req.IPs[0].String())
+}
+
+func TestParseRequestBase_RejectsIPv6Target(t *testing.T) {
+	c := cliflags.NewV1(parentCtx(t, []string{
+		"--duration", "1s", "--interface", "eth0",
+		"--target", "fd00::5",
+	}))
+
+	_, _, err := ParseRequestBase(c, &chaos.GlobalParams{})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "IPv6")
+	assert.Contains(t, err.Error(), "not supported")
+}
+
+func TestParseRequestBase_TargetContainerNamesDeferred(t *testing.T) {
+	// Values that aren't valid IP/CIDR literals are not rejected at parse
+	// time — no runtime client is available yet to check whether they name
+	// a real container. They're kept as candidates in TargetNames and
+	// resolved later, once a client exists (see resolveTargetNames).
+	c := cliflags.NewV1(parentCtx(t, []string{
+		"--duration", "1s", "--interface", "eth0",
+		"--target", "10.0.0.5",
+		"--target", "web-1",
+		"--target", "db",
+	}))
+	req, _, err := ParseRequestBase(c, &chaos.GlobalParams{})
+	require.NoError(t, err)
+	require.Len(t, req.IPs, 1)
+	assert.Equal(t, "10.0.0.5/32", req.IPs[0].String())
+	assert.Equal(t, []string{"web-1", "db"}, req.TargetNames)
 }

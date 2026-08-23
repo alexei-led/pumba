@@ -22,11 +22,20 @@ type NetemRequest struct {
 	Interface string
 	Command   []string
 	IPs       []*net.IPNet
-	SPorts    []string
-	DPorts    []string
-	Duration  time.Duration
-	Sidecar   SidecarSpec
-	DryRun    bool
+	// TargetNames holds --target values that were not valid IP/CIDR
+	// literals at parse time (no runtime client is available yet then).
+	// They are candidate container names or IDs. Each command invocation
+	// resolves them into IPs on a request copy, so interval runs do not cache
+	// addresses across container restarts. Empty for the common IP/CIDR-only
+	// case, so existing callers see no behavior change. Runtime adapters
+	// (pkg/runtime/*) never need to look at this field: by the time a
+	// request reaches them it has already been resolved.
+	TargetNames []string
+	SPorts      []string
+	DPorts      []string
+	Duration    time.Duration
+	Sidecar     SidecarSpec
+	DryRun      bool
 }
 
 // IPTablesRequest carries every parameter required to apply or stop an

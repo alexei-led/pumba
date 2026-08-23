@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestID(t *testing.T) {
@@ -164,6 +165,52 @@ func TestLinks_NetworkWithNoLinks(t *testing.T) {
 		},
 	}
 	assert.Nil(t, c.Links())
+}
+
+func TestIPs_SingleNetwork(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"bridge": {IPv4Address: "172.17.0.5"},
+		},
+	}
+	ips := c.IPs()
+	require.Len(t, ips, 1)
+	assert.Equal(t, "172.17.0.5", ips[0].String())
+}
+
+func TestIPs_MultipleNetworks_SortedAndDeduped(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"backend":  {IPv4Address: "10.0.2.5", IPv6Address: "fd00::5"},
+			"frontend": {IPv4Address: "10.0.1.5"},
+			"dup":      {IPv4Address: "10.0.1.5", IPv6Address: "fd00::5"},
+		},
+	}
+	ips := c.IPs()
+	require.Len(t, ips, 3)
+	assert.Equal(t, "10.0.1.5", ips[0].String())
+	assert.Equal(t, "10.0.2.5", ips[1].String())
+	assert.Equal(t, "fd00::5", ips[2].String())
+}
+
+func TestIPs_NoAddress(t *testing.T) {
+	c := Container{
+		Labels: map[string]string{},
+		Networks: map[string]NetworkLink{
+			"host": {},
+		},
+	}
+	assert.Empty(t, c.IPs())
+}
+
+func TestIPs_EmptyNetworks(t *testing.T) {
+	c := Container{
+		Labels:   map[string]string{},
+		Networks: map[string]NetworkLink{},
+	}
+	assert.Empty(t, c.IPs())
 }
 
 func TestIsPumbaSkip_WrongValue(t *testing.T) {

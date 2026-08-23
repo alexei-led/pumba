@@ -35,7 +35,11 @@ func dockerInspectToContainer(info ctypes.InspectResponse, img *imagetypes.Inspe
 	}
 	if info.NetworkSettings != nil {
 		for name, ep := range info.NetworkSettings.Networks {
-			c.Networks[name] = ctr.NetworkLink{Links: ep.Links}
+			c.Networks[name] = ctr.NetworkLink{
+				Links:       ep.Links,
+				IPv4Address: ep.IPAddress,
+				IPv6Address: ep.GlobalIPv6Address,
+			}
 		}
 	}
 	return c

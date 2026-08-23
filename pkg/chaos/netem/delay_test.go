@@ -149,6 +149,77 @@ func TestDelayCommand_Run_WithRandom(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestDelayCommand_Run_TargetContainerNameResolvedOnce(t *testing.T) {
+	// gp.Names matches two containers, so the netem delay loop below runs
+	// twice — but --target names a third container to resolve, and that
+	// resolution must happen exactly once per command invocation, not once
+	// per matched container.
+	mockClient := container.NewMockClient(t)
+	peer := &container.Container{
+		ContainerID:   "peerid",
+		ContainerName: "/peer",
+		Networks:      map[string]container.NetworkLink{"bridge": {IPv4Address: "10.5.0.9"}},
+	}
+	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1", Networks: map[string]container.NetworkLink{}}
+	c2 := &container.Container{ContainerID: "id2", ContainerName: "c2", Networks: map[string]container.NetworkLink{}}
+
+	gparams := &chaos.GlobalParams{Names: []string{"c1", "c2"}, DryRun: true}
+	nparams := &container.NetemRequest{
+		Interface:   "eth0",
+		Duration:    100 * time.Millisecond,
+		Sidecar:     container.SidecarSpec{Image: "tc"},
+		DryRun:      true,
+		TargetNames: []string{"peer"},
+	}
+
+	// First call: resolveTargetNames looking up "peer".
+	mockClient.EXPECT().ListContainers(mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{peer}, nil).Once()
+	// Second call: chaos.RunOnContainers listing containers matching gp.Names.
+	mockClient.EXPECT().ListContainers(mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{c1, c2}, nil).Once()
+
+	resolvedRequest := mock.MatchedBy(func(req *container.NetemRequest) bool {
+		return len(req.IPs) == 1 && req.IPs[0].String() == "10.5.0.9/32" && len(req.TargetNames) == 0
+	})
+	mockClient.EXPECT().NetemContainer(mock.Anything, resolvedRequest).Return(nil).Twice()
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Twice()
+
+	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, 100, 0, 0, "")
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), false)
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
+	assert.Equal(t, []string{"peer"}, nparams.TargetNames, "the next interval must resolve the target again")
+	assert.Empty(t, nparams.IPs)
+}
+
+func TestDelayCommand_Run_TargetContainerNameNotFound(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	gparams := &chaos.GlobalParams{Names: []string{"c1"}, DryRun: true}
+	nparams := &container.NetemRequest{
+		Interface:   "eth0",
+		Duration:    100 * time.Millisecond,
+		DryRun:      true,
+		TargetNames: []string{"ghost"},
+	}
+
+	mockClient.EXPECT().ListContainers(mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{}, nil)
+
+	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, 100, 0, 0, "")
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ghost")
+	mockClient.AssertExpectations(t)
+}
+
 func TestDelayCommand_Run_DryRun(t *testing.T) {
 	tests := []struct {
 		name        string

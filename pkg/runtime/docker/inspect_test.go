@@ -148,6 +148,39 @@ func TestDockerInspectToContainer(t *testing.T) {
 			},
 		},
 		{
+			name: "container with IP addresses on multiple networks",
+			info: ctypes.InspectResponse{
+				ContainerJSONBase: &ctypes.ContainerJSONBase{
+					ID:    "abc123",
+					Name:  "/multi-net",
+					Image: "nginx:1.25",
+					State: &ctypes.State{Running: true},
+				},
+				Config: &ctypes.Config{Labels: map[string]string{}},
+				NetworkSettings: &ctypes.NetworkSettings{
+					Networks: map[string]*network.EndpointSettings{
+						"frontend": {Links: []string{"db:db"}, IPAddress: "172.18.0.2"},
+						"backend":  {IPAddress: "172.19.0.3", GlobalIPv6Address: "fd00::3"},
+						"host":     {IPAddress: ""},
+					},
+				},
+			},
+			img: &imagetypes.InspectResponse{ID: "sha256:img123"},
+			expected: &ctr.Container{
+				ContainerID:   "abc123",
+				ContainerName: "/multi-net",
+				Image:         "nginx:1.25",
+				ImageID:       "sha256:img123",
+				State:         ctr.StateRunning,
+				Labels:        map[string]string{},
+				Networks: map[string]ctr.NetworkLink{
+					"frontend": {Links: []string{"db:db"}, IPv4Address: "172.18.0.2"},
+					"backend":  {IPv4Address: "172.19.0.3", IPv6Address: "fd00::3"},
+					"host":     {IPv4Address: ""},
+				},
+			},
+		},
+		{
 			name: "exited container",
 			info: ctypes.InspectResponse{
 				ContainerJSONBase: &ctypes.ContainerJSONBase{

@@ -6,6 +6,7 @@ package container
 
 import (
 	"context"
+	"net"
 	"time"
 
 	mock "github.com/stretchr/testify/mock"
@@ -78,6 +79,74 @@ func (_c *MockClient_Close_Call) Return(err error) *MockClient_Close_Call {
 }
 
 func (_c *MockClient_Close_Call) RunAndReturn(run func() error) *MockClient_Close_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ContainerAddresses provides a mock function for the type MockClient
+func (_mock *MockClient) ContainerAddresses(context1 context.Context, container *Container) ([]net.IP, error) {
+	ret := _mock.Called(context1, container)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ContainerAddresses")
+	}
+
+	var r0 []net.IP
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *Container) ([]net.IP, error)); ok {
+		return returnFunc(context1, container)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *Container) []net.IP); ok {
+		r0 = returnFunc(context1, container)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]net.IP)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *Container) error); ok {
+		r1 = returnFunc(context1, container)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClient_ContainerAddresses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ContainerAddresses'
+type MockClient_ContainerAddresses_Call struct {
+	*mock.Call
+}
+
+// ContainerAddresses is a helper method to define mock.On call
+//   - context1 context.Context
+//   - container *Container
+func (_e *MockClient_Expecter) ContainerAddresses(context1 any, container any) *MockClient_ContainerAddresses_Call {
+	return &MockClient_ContainerAddresses_Call{Call: _e.mock.On("ContainerAddresses", context1, container)}
+}
+
+func (_c *MockClient_ContainerAddresses_Call) Run(run func(context1 context.Context, container *Container)) *MockClient_ContainerAddresses_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *Container
+		if args[1] != nil {
+			arg1 = args[1].(*Container)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_ContainerAddresses_Call) Return(iPs []net.IP, err error) *MockClient_ContainerAddresses_Call {
+	_c.Call.Return(iPs, err)
+	return _c
+}
+
+func (_c *MockClient_ContainerAddresses_Call) RunAndReturn(run func(context1 context.Context, container *Container) ([]net.IP, error)) *MockClient_ContainerAddresses_Call {
 	_c.Call.Return(run)
 	return _c
 }

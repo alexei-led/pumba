@@ -58,13 +58,20 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 		"limit":   n.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
+	// Resolve --target container names/IDs once per command invocation,
+	// before containers are enumerated, rather than once per matched
+	// container inside the loop below.
+	resolvedReq, err := resolveRequestTargets(ctx, n.client, n.req)
+	if err != nil {
+		return fmt.Errorf("failed to resolve --target: %w", err)
+	}
 	netemCmd := n.buildNetemCmd()
 	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{"container": *c}).Debug("adding network random packet loss for container")
 			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
-			req := *n.req
+			req := *resolvedReq
 			req.Container = c
 			req.Command = netemCmd
 			if err := runNetem(netemCtx, n.client, &req); err != nil {
