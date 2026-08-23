@@ -1,4 +1,3 @@
-//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -31,7 +30,7 @@ func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 			cli.StringFlag{
 				Name:  "rate, r",
 				Usage: "delay outgoing packets; in common units",
-				Value: "100kbit",
+				Value: defaultRate,
 			},
 			cli.IntFlag{
 				Name:  "packetoverhead, p",

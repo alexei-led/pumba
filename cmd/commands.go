@@ -62,8 +62,9 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 			},
 			Usage:       "emulate the properties of wide area networks",
 			ArgsUsage:   fmt.Sprintf("containers (names and RE2 regexes prefixed with %q; may be mixed)", re2Prefix),
-			Description: "delay, loss, duplicate and re-order (run 'netem') packets, and limit the bandwidth, to emulate different network problems",
+			Description: "delay, loss, duplicate and re-order packets, limit bandwidth, or combine effects in one netem qdisc",
 			Subcommands: []cli.Command{
+				*netemCmd.NewCombineCLICommand(topContext, runtime),
 				*netemCmd.NewDelayCLICommand(topContext, runtime),
 				*netemCmd.NewLossCLICommand(topContext, runtime),
 				*netemCmd.NewLossStateCLICommand(topContext, runtime),

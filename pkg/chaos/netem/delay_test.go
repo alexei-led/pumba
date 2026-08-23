@@ -102,6 +102,10 @@ func TestNewDelayCommand_Validation(t *testing.T) {
 	}
 }
 
+func TestDelayArgsPreservesCorrelationPositionWithoutJitter(t *testing.T) {
+	assert.Equal(t, []string{"delay", "100ms", "0ms", "50.00"}, delayArgs(100, 0, 50, ""))
+}
+
 func TestDelayCommand_Run_NoContainers(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	gparams := &chaos.GlobalParams{Names: []string{"nonexistent"}}

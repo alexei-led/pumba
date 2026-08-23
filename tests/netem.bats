@@ -117,6 +117,29 @@ teardown() {
     assert_netem_cleaned "pingtest"
 }
 
+@test "Should combine delay and loss in one netem qdisc" {
+    create_test_container "pingtest" "alpine" "sleep infinity"
+    ensure_nettools_image
+
+    pumba netem --duration 5s --tc-image "${NETTOOLS_IMAGE}" --pull-image=false combine \
+        --delay --delay-time 100 --loss --loss-percent 10 -- pingtest &
+    PUMBA_PID=$!
+
+    wait_for 5 "nsenter -t \$(docker inspect -f '{{.State.Pid}}' pingtest) -n tc qdisc show dev eth0 2>/dev/null | grep -q 'delay.*loss'" "combined netem effects to be applied"
+
+    local pid
+    pid=$(docker inspect -f '{{.State.Pid}}' pingtest)
+    run nsenter -t "$pid" -n tc qdisc show dev eth0
+    assert_output --partial "delay"
+    assert_output --partial "loss"
+
+    wait "$PUMBA_PID"
+    local pumba_exit=$?
+    [ "$pumba_exit" -eq 0 ]
+    assert_netem_cleaned "pingtest"
+    assert_sidecar_cleaned
+}
+
 @test "Should validate packet loss command syntax" {
     # Given a running container to target
     create_test_container "netem_target" "alpine" "sleep infinity"

@@ -202,6 +202,42 @@ pumba netem --duration 10m rate --rate 1mbit --packetoverhead 20 mydb
 
 Options: `--rate` (e.g., `100kbit`, `1mbit`), `--packetoverhead` (bytes), `--cellsize` (bytes), `--celloverhead` (bytes).
 
+### combine
+
+Apply two or more effects in one owned netem qdisc. Enable each effect with its
+switch, then set its namespaced options. Put `--` before container selectors so
+they cannot be confused with effect flags.
+
+```bash
+# 100ms delay with 20% packet loss
+pumba netem --duration 5m combine \
+  --delay --delay-time 100 \
+  --loss --loss-percent 20 \
+  -- mydb
+
+# Delay, corruption, duplication, and a 1mbit rate limit
+pumba netem --duration 10m combine \
+  --delay --delay-time 100 --delay-jitter 20 \
+  --corrupt --corrupt-percent 5 \
+  --duplicate --duplicate-percent 2 \
+  --rate --rate-value 1mbit \
+  -- myapp
+```
+
+Supported switches and option prefixes:
+
+| Switch        | Options                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| `--delay`     | `--delay-time`, `--delay-jitter`, `--delay-correlation`, `--delay-distribution`           |
+| `--loss`      | `--loss-percent`, `--loss-correlation`                                                     |
+| `--corrupt`   | `--corrupt-percent`, `--corrupt-correlation`                                               |
+| `--duplicate` | `--duplicate-percent`, `--duplicate-correlation`                                           |
+| `--rate`      | `--rate-value`, `--rate-packet-overhead`, `--rate-cell-size`, `--rate-cell-overhead`       |
+
+`combine` requires at least two effect switches. Existing single-effect commands
+remain unchanged. Stateful loss models (`loss-state` and `loss-gemodel`) are not
+part of `combine`; use them as standalone commands.
+
 ## IPTables Commands
 
 The `iptables` command manipulates **incoming** traffic by adding packet filtering rules. All iptables commands support these common options:

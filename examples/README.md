@@ -39,6 +39,17 @@
 1. On the right bottom screen, run Pod in interactive mode: `./k8s_delay_demo.sh` - Pod pings `1.1.1.1`
 1. On the top screen, deploy `pumba` DaemonSet with two commands running `pause` and `delay`
 
+## Combined netem effects
+
+Use `netem combine` when several egress effects must share one qdisc:
+
+```bash
+pumba netem --duration 5m combine \
+  --delay --delay-time 100 \
+  --loss --loss-percent 20 \
+  -- combined-client
+```
+
 ## Combined tc and iptables demo: Asymmetric network degradation
 
 This demo shows how to create a more realistic network chaos scenario by combining both outgoing and incoming traffic manipulation:

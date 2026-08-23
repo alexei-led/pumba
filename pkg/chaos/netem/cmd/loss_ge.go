@@ -1,4 +1,3 @@
-//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (

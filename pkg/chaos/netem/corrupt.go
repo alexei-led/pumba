@@ -21,6 +21,24 @@ type corruptCommand struct {
 	correlation float64
 }
 
+func validateCorrupt(percent, correlation float64) error {
+	if percent < 0.0 || percent > 100.0 {
+		return errors.New("invalid corrupt percent: must be between 0.0 and 100.0")
+	}
+	if correlation < 0.0 || correlation > 100.0 {
+		return errors.New("invalid corrupt correlation: must be between 0.0 and 100.0")
+	}
+	return nil
+}
+
+func corruptArgs(percent, correlation float64) []string {
+	cmd := []string{"corrupt", strconv.FormatFloat(percent, 'f', 2, 64)}
+	if correlation > 0 {
+		cmd = append(cmd, strconv.FormatFloat(correlation, 'f', 2, 64))
+	}
+	return cmd
+}
+
 // NewCorruptCommand create new netem corrupt command
 func NewCorruptCommand(client netemClient,
 	gp *chaos.GlobalParams,
@@ -29,13 +47,8 @@ func NewCorruptCommand(client netemClient,
 	percent, // corrupt percent
 	correlation float64, // corrupt correlation
 ) (chaos.Command, error) {
-	// get netem corrupt percent
-	if percent < 0.0 || percent > 100.0 {
-		return nil, errors.New("invalid corrupt percent: must be between 0.0 and 100.0")
-	}
-	// get netem corrupt variation
-	if correlation < 0.0 || correlation > 100.0 {
-		return nil, errors.New("invalid corrupt correlation: must be between 0.0 and 100.0")
+	if err := validateCorrupt(percent, correlation); err != nil {
+		return nil, err
 	}
 	return &corruptCommand{
 		client:      client,
@@ -84,9 +97,5 @@ func (n *corruptCommand) Run(ctx context.Context, random bool) error {
 }
 
 func (n *corruptCommand) buildNetemCmd() []string {
-	cmd := []string{"corrupt", strconv.FormatFloat(n.percent, 'f', 2, 64)}
-	if n.correlation > 0 {
-		cmd = append(cmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
-	}
-	return cmd
+	return corruptArgs(n.percent, n.correlation)
 }

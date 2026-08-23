@@ -21,6 +21,24 @@ type lossCommand struct {
 	correlation float64
 }
 
+func validateLoss(percent, correlation float64) error {
+	if percent < 0.0 || percent > 100.0 {
+		return errors.New("invalid loss percent: must be between 0.0 and 100.0")
+	}
+	if correlation < 0.0 || correlation > 100.0 {
+		return errors.New("invalid loss correlation: must be between 0.0 and 100.0")
+	}
+	return nil
+}
+
+func lossArgs(percent, correlation float64) []string {
+	cmd := []string{"loss", strconv.FormatFloat(percent, 'f', 2, 64)}
+	if correlation > 0 {
+		cmd = append(cmd, strconv.FormatFloat(correlation, 'f', 2, 64))
+	}
+	return cmd
+}
+
 // NewLossCommand create new netem loss command
 func NewLossCommand(client netemClient,
 	gp *chaos.GlobalParams,
@@ -29,15 +47,9 @@ func NewLossCommand(client netemClient,
 	percent, // loss percent
 	correlation float64, // loss correlation
 ) (chaos.Command, error) {
-	// get netem loss percent
-	if percent < 0.0 || percent > 100.0 {
-		return nil, errors.New("invalid loss percent: must be between 0.0 and 100.0")
+	if err := validateLoss(percent, correlation); err != nil {
+		return nil, err
 	}
-	// get netem loss variation
-	if correlation < 0.0 || correlation > 100.0 {
-		return nil, errors.New("invalid loss correlation: must be between 0.0 and 100.0")
-	}
-
 	return &lossCommand{
 		client:      client,
 		gp:          gp,
@@ -83,9 +95,5 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 }
 
 func (n *lossCommand) buildNetemCmd() []string {
-	cmd := []string{"loss", strconv.FormatFloat(n.percent, 'f', 2, 64)}
-	if n.correlation > 0 {
-		cmd = append(cmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
-	}
-	return cmd
+	return lossArgs(n.percent, n.correlation)
 }

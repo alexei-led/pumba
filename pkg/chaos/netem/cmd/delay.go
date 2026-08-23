@@ -1,4 +1,3 @@
-//nolint:dupl // Generic NewAction[P] enforces a uniform per-command shape; the residual similarity is intentional, not copy-paste.
 package cmd
 
 import (
@@ -31,17 +30,17 @@ func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command
 			cli.IntFlag{
 				Name:  "time, t",
 				Usage: "delay time; in milliseconds",
-				Value: 100, //nolint:mnd
+				Value: defaultDelayTime,
 			},
 			cli.IntFlag{
 				Name:  "jitter, j",
 				Usage: "random delay variation (jitter); in milliseconds; example: 100ms ± 10ms",
-				Value: 10, //nolint:mnd
+				Value: defaultDelayJitter,
 			},
 			cli.Float64Flag{
 				Name:  "correlation, c",
 				Usage: "delay correlation; in percentage",
-				Value: 20, //nolint:mnd
+				Value: defaultDelayCorrelation,
 			},
 			cli.StringFlag{
 				Name:  "distribution, d",
