@@ -36,14 +36,14 @@ The helper container is created with the `NET_ADMIN` capability and attached to 
 Pumba needs `tc` (from `iproute2`) and/or `iptables` to be available. Netem also uses a POSIX `sh` to inspect, apply, verify, and roll back its owned qdisc. You have two options:
 
 1. Install a POSIX shell, `iproute2`, and `iptables` inside the target container
-2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `tc`, `tail` for Docker/Podman, and `sleep` for containerd.
+2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `grep`, `tc`, `tail` for Docker/Podman, and `sleep` for containerd.
 
 ### Recommended Images
 
 | Image                                             | Base   | Includes                   |
 | ------------------------------------------------- | ------ | -------------------------- |
-| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + tail + sleep + tc + iptables |
-| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + tail + sleep + tc + iptables |
+| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + grep + tail + sleep + tc + iptables |
+| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + grep + tail + sleep + tc + iptables |
 
 Both images are multi-architecture (`amd64` and `arm64`). Docker automatically pulls the correct image for your platform.
 
