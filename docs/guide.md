@@ -54,7 +54,7 @@ When using `re2:` regex patterns with the containerd runtime, Kubernetes contain
 
 **Sidecar container for network chaos:**
 
-By default, Pumba executes `tc`/`iptables` commands directly inside the target container. Netem requires both a POSIX `sh` and `tc` for ownership-safe qdisc changes. If the target doesn't have these tools, use `--tc-image` to spawn a sidecar container that shares the target's network namespace. Custom netem sidecar images must include `sh`, `tail`, and `tc`:
+By default, Pumba executes `tc`/`iptables` commands directly inside the target container. Netem requires both a POSIX `sh` and `tc` for ownership-safe qdisc changes. If the target doesn't have these tools, use `--tc-image` to spawn a sidecar container that shares the target's network namespace. Custom netem sidecar images must include `sh`, `tc`, `tail` for Docker/Podman, and `sleep` for containerd:
 
 ```bash
 # Sidecar mode — works even if the target has no tc tools
