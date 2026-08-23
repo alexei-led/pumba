@@ -188,6 +188,12 @@ func TestGetNamesOrPattern(t *testing.T) {
 			wantNames:   []string{"database"},
 			wantPattern: "(^web-)|(^api-)",
 		},
+		{
+			name:        "empty re2 preserves match-all when mixed with exact name",
+			args:        []string{"re2:", "database"},
+			wantNames:   []string{"database"},
+			wantPattern: "()",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

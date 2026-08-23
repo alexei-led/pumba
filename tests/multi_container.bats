@@ -70,6 +70,20 @@ teardown() {
 }
 
 
+@test "Should preserve empty regex match-all with an exact selector" {
+    create_test_container "multi_test_exact_empty_re2"
+    create_test_container "multi_test_other_empty_re2"
+
+    run pumba stop "re2:" multi_test_exact_empty_re2
+    assert_success
+
+    for name in multi_test_exact_empty_re2 multi_test_other_empty_re2; do
+        run docker inspect -f {{.State.Status}} "$name"
+        assert_output "exited"
+    done
+}
+
+
 @test "Should only affect containers with matching labels" {
     # Given multiple containers with different labels
     # Create containers with label test=true
