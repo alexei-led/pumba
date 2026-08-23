@@ -181,7 +181,10 @@ func TestDelayCommand_Run_TargetContainerNameResolvedOnce(t *testing.T) {
 		mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil).Once()
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Twice()
+	resolvedRequest := mock.MatchedBy(func(req *container.NetemRequest) bool {
+		return len(req.IPs) == 1 && req.IPs[0].String() == "10.5.0.9/32" && len(req.TargetNames) == 0
+	})
+	mockClient.EXPECT().NetemContainer(mock.Anything, resolvedRequest).Return(nil).Twice()
 	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Twice()
 
 	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, 100, 0, 0, "")
@@ -190,9 +193,8 @@ func TestDelayCommand_Run_TargetContainerNameResolvedOnce(t *testing.T) {
 	err = cmd.Run(context.Background(), false)
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
-	assert.Empty(t, nparams.TargetNames, "TargetNames must be resolved and cleared")
-	require.Len(t, nparams.IPs, 1)
-	assert.Equal(t, "10.5.0.9/32", nparams.IPs[0].String())
+	assert.Equal(t, []string{"peer"}, nparams.TargetNames, "the next interval must resolve the target again")
+	assert.Empty(t, nparams.IPs)
 }
 
 func TestDelayCommand_Run_TargetContainerNameNotFound(t *testing.T) {

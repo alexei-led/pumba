@@ -24,10 +24,10 @@ type NetemRequest struct {
 	IPs       []*net.IPNet
 	// TargetNames holds --target values that were not valid IP/CIDR
 	// literals at parse time (no runtime client is available yet then).
-	// They are candidate container names or IDs, resolved to IPs — and
-	// folded into IPs — the first time a command runs, once a runtime
-	// client is available. Empty for the common IP/CIDR-only case, so
-	// existing callers see no behavior change. Runtime adapters
+	// They are candidate container names or IDs. Each command invocation
+	// resolves them into IPs on a request copy, so interval runs do not cache
+	// addresses across container restarts. Empty for the common IP/CIDR-only
+	// case, so existing callers see no behavior change. Runtime adapters
 	// (pkg/runtime/*) never need to look at this field: by the time a
 	// request reaches them it has already been resolved.
 	TargetNames []string

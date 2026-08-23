@@ -8,6 +8,7 @@ setup() {
     # Clean any leftover containers from previous test runs
     cleanup_containers "pingtest"
     cleanup_containers "netem_target"
+    cleanup_containers "netem_peer"
     cleanup_containers "rate_limit_target"
 
     # Also cleanup any nettools containers that might be left running
@@ -21,6 +22,7 @@ teardown() {
     # Clean up containers after each test
     cleanup_containers "pingtest"
     cleanup_containers "netem_target"
+    cleanup_containers "netem_peer"
     cleanup_containers "rate_limit_target"
     
     # Also cleanup any nettools containers that might be left running
@@ -97,6 +99,22 @@ teardown() {
     # Verify cleanup
     assert_netem_cleaned "pingtest"
     assert_sidecar_cleaned
+}
+
+@test "Should resolve a target container name for netem filtering" {
+    create_test_container "pingtest" "alpine" "sleep infinity"
+    create_test_container "netem_peer" "alpine" "sleep infinity"
+    ensure_nettools_image
+
+    pumba netem --duration 5s --tc-image "${NETTOOLS_IMAGE}" --pull-image=false --target netem_peer delay --time 100 pingtest &
+    PUMBA_PID=$!
+
+    wait_for 5 "nsenter -t \$(docker inspect -f '{{.State.Pid}}' pingtest) -n tc filter show dev eth0 parent 504d: 2>/dev/null | grep -q 'flowid 504d:3'" "resolved target filter to be applied"
+
+    wait "$PUMBA_PID"
+    local pumba_exit=$?
+    [ "$pumba_exit" -eq 0 ]
+    assert_netem_cleaned "pingtest"
 }
 
 @test "Should validate packet loss command syntax" {

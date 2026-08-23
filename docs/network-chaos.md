@@ -81,7 +81,7 @@ Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic
 | ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
 | `--duration`, `-d`              | Emulation duration (must be shorter than `--interval`) | required                                          |
 | `--interface`, `-i`             | Network interface to apply rules on                    | `eth0`                                            |
-| `--target`, `-t`                | Target filter (repeatable); IP, CIDR, or container name/ID | all                                           |
+| `--target`, `-t`                | Target filter (repeatable); IPv4, CIDR, or container name/ID | all                                          |
 | `--egress-port`, `egressPort`   | Egress (source) port filter (comma-separated)          | all                                               |
 | `--ingress-port`, `ingressPort` | Ingress (destination) port filter (comma-separated)    | all                                               |
 | `--tc-image`                    | Docker image with `tc` tool                            | `ghcr.io/alexei-led/pumba-alpine-nettools:latest` |
@@ -89,12 +89,13 @@ Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic
 
 Run `pumba netem --help` for the full list of options.
 
-`--target` accepts an IP address, CIDR block, or a running container's name
+`--target` accepts an IPv4 address, CIDR block, or a running container's name
 or ID — mix and match, and repeat the flag for multiple values. A container
-name/ID is resolved to that container's IP address(es) when the command
-runs: if the container is attached to more than one network, every address
-it has is added as a separate filter, so traffic to/from any of them is
-affected. Resolution requires an unambiguous match — a name or ID prefix
+name/ID is resolved on every command run, including each interval run. If the
+container is attached to more than one network, every IPv4 address is added as
+a separate filter, so traffic to/from any of them is affected. IPv6 targets
+fail explicitly because netem's current filter planner emits IPv4 rules only.
+Resolution requires an unambiguous match — a name or ID prefix
 that matches more than one running container is a hard error rather than an
 arbitrary pick — and a value that is neither a valid IP/CIDR nor a
 resolvable container name/ID also fails with a clear error instead of

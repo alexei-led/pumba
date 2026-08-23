@@ -22,6 +22,33 @@ func webContainer() *container.Container {
 	}
 }
 
+func TestResolveRequestTargetsDoesNotCacheResolvedAddresses(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	first := &container.Container{
+		ContainerID: "peer-id", ContainerName: "peer",
+		Networks: map[string]container.NetworkLink{"bridge": {IPv4Address: "10.0.0.1"}},
+	}
+	second := &container.Container{
+		ContainerID: "peer-id", ContainerName: "peer",
+		Networks: map[string]container.NetworkLink{"bridge": {IPv4Address: "10.0.0.2"}},
+	}
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
+		Return([]*container.Container{first}, nil).Once()
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
+		Return([]*container.Container{second}, nil).Once()
+	original := &container.NetemRequest{TargetNames: []string{"peer"}}
+
+	firstRequest, err := resolveRequestTargets(context.Background(), mockClient, original)
+	require.NoError(t, err)
+	secondRequest, err := resolveRequestTargets(context.Background(), mockClient, original)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"peer"}, original.TargetNames)
+	assert.Empty(t, original.IPs)
+	assert.Equal(t, "10.0.0.1/32", firstRequest.IPs[0].String())
+	assert.Equal(t, "10.0.0.2/32", secondRequest.IPs[0].String())
+}
+
 func TestResolveTargetNames_NoOpWhenEmpty(t *testing.T) {
 	// No ListContainers expectation is set up: if resolveTargetNames made a
 	// runtime call for the plain IP/CIDR case, this mock would panic on the
@@ -49,6 +76,22 @@ func TestResolveTargetNames_ByName(t *testing.T) {
 	require.Len(t, req.IPs, 1)
 	assert.Equal(t, "172.17.0.5/32", req.IPs[0].String())
 	assert.Empty(t, req.TargetNames, "TargetNames must be cleared once resolved")
+}
+
+func TestResolveTargetNames_DeduplicatesRepeatedContainer(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	c := &container.Container{ContainerID: "peer-id", ContainerName: "peer", Networks: map[string]container.NetworkLink{}}
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
+		Return([]*container.Container{c}, nil)
+	mockClient.EXPECT().ContainerAddresses(mock.Anything, c).
+		Return([]net.IP{net.ParseIP("10.0.0.5")}, nil).Once()
+	req := &container.NetemRequest{TargetNames: []string{"peer", "peer"}}
+
+	err := resolveTargetNames(context.Background(), mockClient, req)
+
+	require.NoError(t, err)
+	require.Len(t, req.IPs, 1)
+	assert.Equal(t, "10.0.0.5/32", req.IPs[0].String())
 }
 
 func TestResolveTargetNames_MixedIPAndName(t *testing.T) {
@@ -137,6 +180,20 @@ func TestResolveTargetNames_AmbiguousName(t *testing.T) {
 	assert.Contains(t, err.Error(), "ambiguous")
 }
 
+func TestResolveTargetNames_AmbiguousAcrossExactNameAndID(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	byName := &container.Container{ContainerID: "id-1", ContainerName: "shared", Networks: map[string]container.NetworkLink{}}
+	byID := &container.Container{ContainerID: "shared", ContainerName: "other", Networks: map[string]container.NetworkLink{}}
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
+		Return([]*container.Container{byName, byID}, nil)
+
+	req := &container.NetemRequest{TargetNames: []string{"shared"}}
+	err := resolveTargetNames(context.Background(), mockClient, req)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+}
+
 func TestResolveTargetNames_AmbiguousIDPrefix(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	c1 := &container.Container{ContainerID: "abcdef123456", ContainerName: "c1", Networks: map[string]container.NetworkLink{"n": {IPv4Address: "10.1.1.1"}}}
@@ -150,11 +207,43 @@ func TestResolveTargetNames_AmbiguousIDPrefix(t *testing.T) {
 	assert.Contains(t, err.Error(), "ambiguous")
 }
 
+func TestResolveTargetNames_RejectsIPv6(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	c := &container.Container{ContainerID: "id1", ContainerName: "web-1", Networks: map[string]container.NetworkLink{}}
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
+		Return([]*container.Container{c}, nil)
+	mockClient.EXPECT().ContainerAddresses(mock.Anything, c).
+		Return([]net.IP{net.ParseIP("fd00::5")}, nil)
+
+	req := &container.NetemRequest{TargetNames: []string{"web-1"}}
+	err := resolveTargetNames(context.Background(), mockClient, req)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "IPv6")
+	assert.Contains(t, err.Error(), "not supported")
+}
+
+func TestResolveTargetNames_AddressResolutionError(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	c := &container.Container{ContainerID: "id1", ContainerName: "web-1", Networks: map[string]container.NetworkLink{}}
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
+		Return([]*container.Container{c}, nil)
+	mockClient.EXPECT().ContainerAddresses(mock.Anything, c).
+		Return(nil, errors.New("network namespace unavailable"))
+
+	req := &container.NetemRequest{TargetNames: []string{"web-1"}}
+	err := resolveTargetNames(context.Background(), mockClient, req)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "network namespace unavailable")
+}
+
 func TestResolveTargetNames_ContainerWithNoIP(t *testing.T) {
 	mockClient := container.NewMockClient(t)
 	c := &container.Container{ContainerID: "id1", ContainerName: "headless", Networks: map[string]container.NetworkLink{"host": {}}}
 	mockClient.EXPECT().ListContainers(mock.Anything, mock.Anything, container.ListOpts{All: false}).
 		Return([]*container.Container{c}, nil)
+	mockClient.EXPECT().ContainerAddresses(mock.Anything, c).Return(nil, nil)
 
 	req := &container.NetemRequest{TargetNames: []string{"headless"}}
 	err := resolveTargetNames(context.Background(), mockClient, req)

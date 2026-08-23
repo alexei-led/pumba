@@ -23,8 +23,10 @@ const (
 
 // containerdClient implements ctr.Client for the containerd runtime.
 type containerdClient struct {
-	client    apiClient
-	namespace string
+	client               apiClient
+	namespace            string
+	readProcessFile      func(string) ([]byte, error)
+	sameNetworkNamespace func(uint32) (bool, error)
 }
 
 // NewClient creates a new containerd client connected to the given socket.

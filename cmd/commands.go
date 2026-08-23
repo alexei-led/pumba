@@ -35,7 +35,7 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 				},
 				cli.StringSliceFlag{
 					Name:  "target, t",
-					Usage: "target filter; supports multiple values; accepts IPs, CIDR notation, or a running container name/ID (resolved to its IP address(es) at run time)",
+					Usage: "target filter; repeatable IPv4/CIDR or running container name/ID; IPv6 is not supported",
 				},
 				cli.StringFlag{
 					Name:  "egress-port, egressPort",

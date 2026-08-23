@@ -83,7 +83,8 @@ func (n *rateCommand) Run(ctx context.Context, random bool) error {
 	// Resolve --target container names/IDs once per command invocation,
 	// before containers are enumerated, rather than once per matched
 	// container inside the loop below.
-	if err := resolveTargetNames(ctx, n.client, n.req); err != nil {
+	resolvedReq, err := resolveRequestTargets(ctx, n.client, n.req)
+	if err != nil {
 		return fmt.Errorf("failed to resolve --target: %w", err)
 	}
 	netemCmd := n.buildNetemCmd()
@@ -95,7 +96,7 @@ func (n *rateCommand) Run(ctx context.Context, random bool) error {
 			}).Debug("setting network rate for container")
 			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
-			req := *n.req
+			req := *resolvedReq
 			req.Container = c
 			req.Command = netemCmd
 			if err := runNetem(netemCtx, n.client, &req); err != nil {

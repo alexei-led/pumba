@@ -183,15 +183,16 @@ func TestIPs_MultipleNetworks_SortedAndDeduped(t *testing.T) {
 	c := Container{
 		Labels: map[string]string{},
 		Networks: map[string]NetworkLink{
-			"backend":  {IPv4Address: "10.0.2.5"},
+			"backend":  {IPv4Address: "10.0.2.5", IPv6Address: "fd00::5"},
 			"frontend": {IPv4Address: "10.0.1.5"},
-			"dup":      {IPv4Address: "10.0.1.5"}, // same address on another network: deduped
+			"dup":      {IPv4Address: "10.0.1.5", IPv6Address: "fd00::5"},
 		},
 	}
 	ips := c.IPs()
-	require.Len(t, ips, 2)
+	require.Len(t, ips, 3)
 	assert.Equal(t, "10.0.1.5", ips[0].String())
 	assert.Equal(t, "10.0.2.5", ips[1].String())
+	assert.Equal(t, "fd00::5", ips[2].String())
 }
 
 func TestIPs_NoAddress(t *testing.T) {

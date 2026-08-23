@@ -160,7 +160,7 @@ func TestDockerInspectToContainer(t *testing.T) {
 				NetworkSettings: &ctypes.NetworkSettings{
 					Networks: map[string]*network.EndpointSettings{
 						"frontend": {Links: []string{"db:db"}, IPAddress: "172.18.0.2"},
-						"backend":  {IPAddress: "172.19.0.3"},
+						"backend":  {IPAddress: "172.19.0.3", GlobalIPv6Address: "fd00::3"},
 						"host":     {IPAddress: ""},
 					},
 				},
@@ -175,7 +175,7 @@ func TestDockerInspectToContainer(t *testing.T) {
 				Labels:        map[string]string{},
 				Networks: map[string]ctr.NetworkLink{
 					"frontend": {Links: []string{"db:db"}, IPv4Address: "172.18.0.2"},
-					"backend":  {IPv4Address: "172.19.0.3"},
+					"backend":  {IPv4Address: "172.19.0.3", IPv6Address: "fd00::3"},
 					"host":     {IPv4Address: ""},
 				},
 			},

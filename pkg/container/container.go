@@ -20,12 +20,13 @@ const (
 )
 
 // NetworkLink represents a container's attachment to one network: the
-// legacy container links defined on that network, plus the IPv4 address
-// the runtime assigned the container on it (empty when the runtime doesn't
-// expose one, e.g. host networking or an unsupported runtime).
+// legacy container links defined on that network, plus the IP addresses
+// the runtime assigned the container on it. Addresses are empty when the
+// runtime doesn't expose them, such as host networking.
 type NetworkLink struct {
 	Links       []string
 	IPv4Address string
+	IPv6Address string
 }
 
 // Container represents a running container, decoupled from any specific runtime.
@@ -76,31 +77,36 @@ func (c *Container) Links() []string {
 	return links
 }
 
-// IPs returns every distinct IPv4 address the container has across all of
+// IPs returns every distinct IP address the container has across all of
 // its attached networks, sorted for a deterministic result. A container
-// connected to more than one Docker/Podman network (or with no network
-// address at all, e.g. host networking or a runtime that doesn't report
-// one) is expected and handled by callers explicitly rather than silently
-// picking a single "the" address.
+// connected to more than one network, or with no reported address, is
+// handled by callers explicitly rather than by picking one address.
 func (c *Container) IPs() []net.IP {
 	seen := make(map[string]struct{}, len(c.Networks))
 	var addrs []string
 	for _, n := range c.Networks {
-		if n.IPv4Address == "" {
-			continue
+		for _, address := range []string{n.IPv4Address, n.IPv6Address} {
+			if address == "" {
+				continue
+			}
+			if _, ok := seen[address]; ok {
+				continue
+			}
+			seen[address] = struct{}{}
+			addrs = append(addrs, address)
 		}
-		if _, ok := seen[n.IPv4Address]; ok {
-			continue
-		}
-		seen[n.IPv4Address] = struct{}{}
-		addrs = append(addrs, n.IPv4Address)
 	}
 	sort.Strings(addrs)
 	ips := make([]net.IP, 0, len(addrs))
-	for _, a := range addrs {
-		if ip := net.ParseIP(a); ip != nil {
-			ips = append(ips, ip)
+	for _, address := range addrs {
+		ip := net.ParseIP(address)
+		if ip == nil {
+			continue
 		}
+		if ipv4 := ip.To4(); ipv4 != nil {
+			ip = ipv4
+		}
+		ips = append(ips, ip)
 	}
 	return ips
 }

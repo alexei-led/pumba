@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/alexei-led/pumba/pkg/container"
@@ -22,11 +23,9 @@ const minIDPrefixLen = 6
 // no-op — no runtime call at all — when TargetNames is empty, so plain
 // IP/CIDR --target usage, the overwhelming common case, costs nothing extra.
 //
-// Each name/ID is matched against currently running containers, in order:
-//  1. exact container name (Docker/Podman report names with a leading "/",
-//     which is trimmed before comparing);
-//  2. exact container ID;
-//  3. a unique container-ID prefix of at least minIDPrefixLen characters.
+// Each name/ID is matched against currently running containers by exact
+// container name or ID first, then by a unique container-ID prefix of at least
+// minIDPrefixLen characters. Docker/Podman's leading name slash is ignored.
 //
 // A target that matches more than one container at the same priority level
 // is a hard error rather than an arbitrary pick: silently applying a network
@@ -35,45 +34,80 @@ const minIDPrefixLen = 6
 // attached network (e.g. host networking, or a runtime that doesn't report
 // one), is also a hard error — never a silent no-op.
 //
-// A resolved container contributes every IPv4 address found across all of
-// its attached networks: a container connected to more than one network is
-// reachable on each of those addresses, and tc needs a filter per address to
-// actually scope traffic to all of them rather than just one arbitrarily
-// chosen network.
-func resolveTargetNames(ctx context.Context, lister container.Lister, req *container.NetemRequest) error {
+// A resolved container contributes every IPv4 address reported by its
+// runtime. IPv6 targets fail explicitly because the current tc filter planner
+// only emits protocol-ip rules.
+type targetResolver interface {
+	container.Lister
+	container.AddressResolver
+}
+
+func resolveRequestTargets(ctx context.Context, resolver targetResolver, source *container.NetemRequest) (*container.NetemRequest, error) {
+	req := *source
+	req.IPs = slices.Clone(source.IPs)
+	req.TargetNames = slices.Clone(source.TargetNames)
+	if err := resolveTargetNames(ctx, resolver, &req); err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func resolveTargetNames(ctx context.Context, resolver targetResolver, req *container.NetemRequest) error {
 	if len(req.TargetNames) == 0 {
 		return nil
 	}
-	candidates, err := lister.ListContainers(ctx, func(*container.Container) bool { return true }, container.ListOpts{All: false})
+	candidates, err := resolver.ListContainers(ctx, func(*container.Container) bool { return true }, container.ListOpts{All: false})
 	if err != nil {
 		return fmt.Errorf("failed to list containers while resolving --target: %w", err)
 	}
+	seen := make(map[string]struct{}, len(req.IPs))
+	for _, ip := range req.IPs {
+		seen[ip.String()] = struct{}{}
+	}
+	resolved := make([]*net.IPNet, 0, len(req.TargetNames))
+	addressCache := make(map[string][]net.IP)
 	for _, name := range req.TargetNames {
 		c, err := matchTargetContainer(name, candidates)
 		if err != nil {
 			return err
 		}
-		ips := c.IPs()
-		if len(ips) == 0 {
+		addresses, ok := addressCache[c.ID()]
+		if !ok {
+			addresses = c.IPs()
+			if len(addresses) == 0 {
+				addresses, err = resolver.ContainerAddresses(ctx, c)
+				if err != nil {
+					return fmt.Errorf("failed to resolve addresses for --target %q container %q (%s): %w", name, c.Name(), c.ID(), err)
+				}
+			}
+			addressCache[c.ID()] = addresses
+		}
+		if len(addresses) == 0 {
 			return fmt.Errorf("--target %q resolved to container %q (%s) but it has no IP address on any attached network",
 				name, c.Name(), c.ID())
 		}
-		for _, ip := range ips {
-			req.IPs = append(req.IPs, hostCIDR(ip))
+		for _, address := range addresses {
+			ipv4 := address.To4()
+			if ipv4 == nil {
+				return fmt.Errorf("--target %q resolved to unsupported IPv6 address %s; IPv6 netem filters are not supported", name, address)
+			}
+			cidr := hostCIDR(ipv4)
+			if _, ok := seen[cidr.String()]; ok {
+				continue
+			}
+			seen[cidr.String()] = struct{}{}
+			resolved = append(resolved, cidr)
 		}
 	}
+	req.IPs = append(req.IPs, resolved...)
 	req.TargetNames = nil
 	return nil
 }
 
-// hostCIDR wraps a single resolved address as a host route (/32 for IPv4,
-// /128 for IPv6), matching how util.ParseCIDR treats a bare IP given
-// directly on --target.
+// hostCIDR wraps a resolved IPv4 address as a host route, matching how
+// util.ParseCIDR treats a bare IP passed directly to --target.
 func hostCIDR(ip net.IP) *net.IPNet {
-	if v4 := ip.To4(); v4 != nil {
-		return &net.IPNet{IP: v4, Mask: net.CIDRMask(32, 32)} //nolint:mnd
-	}
-	return &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)} //nolint:mnd
+	return &net.IPNet{IP: ip.To4(), Mask: net.CIDRMask(32, 32)} //nolint:mnd
 }
 
 // matchTargetContainer resolves a single --target value against the
@@ -85,26 +119,27 @@ func matchTargetContainer(target string, candidates []*container.Container) (*co
 		return nil, fmt.Errorf("--target %q is not a valid IP/CIDR or container name/ID", target)
 	}
 
-	var byName, byID, byIDPrefix []*container.Container
+	exact := make(map[*container.Container]struct{})
+	var byIDPrefix []*container.Container
 	for _, c := range candidates {
-		if strings.TrimPrefix(c.Name(), "/") == trimmedTarget {
-			byName = append(byName, c)
+		if strings.TrimPrefix(c.Name(), "/") == trimmedTarget || c.ID() == target {
+			exact[c] = struct{}{}
+			continue
 		}
-		switch {
-		case c.ID() == target:
-			byID = append(byID, c)
-		case len(target) >= minIDPrefixLen && strings.HasPrefix(c.ID(), target):
+		if len(target) >= minIDPrefixLen && strings.HasPrefix(c.ID(), target) {
 			byIDPrefix = append(byIDPrefix, c)
 		}
 	}
 
 	switch {
-	case len(byName) == 1:
-		return byName[0], nil
-	case len(byName) > 1:
-		return nil, fmt.Errorf("--target %q is ambiguous: matches %d container names", target, len(byName))
-	case len(byID) == 1:
-		return byID[0], nil
+	case len(exact) == 1:
+		var match *container.Container
+		for c := range exact {
+			match = c
+		}
+		return match, nil
+	case len(exact) > 1:
+		return nil, fmt.Errorf("--target %q is ambiguous: matches %d exact container names or IDs", target, len(exact))
 	case len(byIDPrefix) == 1:
 		return byIDPrefix[0], nil
 	case len(byIDPrefix) > 1:

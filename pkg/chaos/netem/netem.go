@@ -13,6 +13,7 @@ import (
 // netemClient is the narrow interface needed by all netem commands.
 type netemClient interface {
 	container.Lister
+	container.AddressResolver
 	container.Netem
 }
 

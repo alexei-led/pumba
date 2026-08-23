@@ -128,6 +128,19 @@ func TestParseRequestBase_PortsAndIPsParsed(t *testing.T) {
 	assert.Equal(t, []string{"8080"}, req.DPorts)
 }
 
+func TestParseRequestBase_RejectsIPv6Target(t *testing.T) {
+	c := cliflags.NewV1(parentCtx(t, []string{
+		"--duration", "1s", "--interface", "eth0",
+		"--target", "fd00::5",
+	}))
+
+	_, _, err := ParseRequestBase(c, &chaos.GlobalParams{})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "IPv6")
+	assert.Contains(t, err.Error(), "not supported")
+}
+
 func TestParseRequestBase_TargetContainerNamesDeferred(t *testing.T) {
 	// Values that aren't valid IP/CIDR literals are not rejected at parse
 	// time — no runtime client is available yet to check whether they name

@@ -21,8 +21,8 @@ import (
 // Each --target value is parsed as an IP or CIDR literal first; values that
 // aren't (e.g. a container name or ID) are kept as-is in TargetNames rather
 // than rejected here, since resolving them requires a runtime client that
-// isn't available during CLI flag parsing. runNetem resolves TargetNames
-// into IPs the first time the command actually runs — see netem.go.
+// isn't available during CLI flag parsing. Each command Run resolves
+// TargetNames into IPv4 filters before enumerating affected containers.
 //
 // c must be the netem parent context. Per-action parsers pass c.Parent().
 func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*container.NetemRequest, int, error) {
@@ -47,6 +47,9 @@ func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*container.Nete
 			// resolve later, once a runtime client is available.
 			targetNames = append(targetNames, s)
 			continue
+		}
+		if ip.IP.To4() == nil {
+			return nil, 0, fmt.Errorf("IPv6 --target %q is not supported", s)
 		}
 		ips = append(ips, ip)
 	}

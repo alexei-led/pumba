@@ -7,6 +7,8 @@ setup() {
     # Clean up any leftovers
     sudo ctr -n moby t kill -s SIGKILL test-netem-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-netem-ctr >/dev/null 2>&1 || true
+    sudo ctr -n moby t kill -s SIGKILL test-netem-peer >/dev/null 2>&1 || true
+    sudo ctr -n moby c rm test-netem-peer >/dev/null 2>&1 || true
     # Pull images: netshoot for the target container, nettools for pumba's sidecar
     ctr_pull_image moby docker.io/nicolaka/netshoot:latest
     ctr_pull_image moby ghcr.io/alexei-led/pumba-alpine-nettools:latest
@@ -22,6 +24,8 @@ teardown() {
     kill %1 2>/dev/null || true
     sudo ctr -n moby t kill -s SIGKILL test-netem-ctr >/dev/null 2>&1 || true
     sudo ctr -n moby c rm test-netem-ctr >/dev/null 2>&1 || true
+    sudo ctr -n moby t kill -s SIGKILL test-netem-peer >/dev/null 2>&1 || true
+    sudo ctr -n moby c rm test-netem-peer >/dev/null 2>&1 || true
     # Clean up any leftover sidecar containers
     for sc in $(sudo ctr -n moby c ls -q 2>/dev/null | grep pumba-sidecar); do
         sudo ctr -n moby t kill -s SIGKILL $sc >/dev/null 2>&1 || true
@@ -70,6 +74,18 @@ teardown() {
     run sudo ctr -n moby t exec --exec-id scoped-root-after test-netem-ctr tc qdisc show dev dummy0
     assert_success
     [ "$output" = "$root_before" ]
+    refute_output --partial "504d:"
+}
+
+@test "Should resolve a target container name via containerd runtime" {
+    sudo ctr -n moby run -d --privileged docker.io/nicolaka/netshoot:latest test-netem-peer \
+        sh -c "ip link add dummy0 type dummy && ip addr add 10.77.0.2/32 dev dummy0 && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
+    wait_for_ctr_running moby test-netem-peer
+
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --target test-netem-peer --duration 2s delay --time 100 test-netem-ctr
+    assert_success
+
+    run sudo ctr -n moby t exec --exec-id check-target-clean test-netem-ctr tc qdisc show dev dummy0
     refute_output --partial "504d:"
 }
 
