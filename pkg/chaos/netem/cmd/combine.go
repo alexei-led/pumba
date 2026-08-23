@@ -89,12 +89,17 @@ func validateCombineSwitches(c cliflags.Flags) error {
 			continue
 		}
 		for _, name := range check.flags {
-			if c.IsSet(name) {
+			if isFlagSet(c, name) {
 				return fmt.Errorf("--%s requires --%s", name, check.effect)
 			}
 		}
 	}
 	return nil
+}
+
+func isFlagSet(c cliflags.Flags, name string) bool {
+	tracker, ok := c.(interface{ IsSet(string) bool })
+	return ok && tracker.IsSet(name)
 }
 
 func combineFlags() []cli.Flag {
