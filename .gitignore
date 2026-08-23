@@ -21,7 +21,9 @@ coverage*.out
 .aider*
 .archfit-cache/
 .ralphex/
-.claude/settings.local.json
+.claude/
+.codegraph/
+.pi/
 progress*.txt
 
 # Git time tracking
