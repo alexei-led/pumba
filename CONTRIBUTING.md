@@ -140,7 +140,7 @@ examples/              — Demo scripts
 
 ## Generating Mocks
 
-Test mocks are generated using [mockery v3](https://vektra.github.io/mockery/latest/) at the version pinned by `make setup-mockery`:
+Test mocks are generated using [mockery v3](https://vektra.github.io/mockery/v3.7/) at the version pinned by `make setup-mockery`:
 
 ```sh
 make mocks
