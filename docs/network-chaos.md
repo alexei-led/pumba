@@ -75,7 +75,7 @@ make push-nettools-images
 
 ## Netem Commands
 
-Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). All netem commands require a `--duration` flag and support these common options:
+Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). Pumba first verifies that the interface has its default root qdisc (or a matching Pumba-owned qdisc) and refuses to alter a foreign root qdisc. All netem commands require a `--duration` flag and support these common options:
 
 | Flag                            | Description                                            | Default                                           |
 | ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
