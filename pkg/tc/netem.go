@@ -74,20 +74,21 @@ func scopedStartScript(r *NetemRequest) string {
 func unscopedStartScript(r *NetemRequest) string {
 	iface := shellQuote(r.Interface)
 	var script strings.Builder
-	writeRootInspection(&script, iface, "netem")
-	fmt.Fprintf(&script, "tc qdisc add dev %s root handle %s netem", iface, PumbaRootHandle)
-	writeQuotedArgs(&script, r.Command)
-	script.WriteByte('\n')
+	writeRootInspection(&script, iface, "netem", r.Command)
 	return script.String()
 }
 
-func writeRootInspection(script *strings.Builder, iface, kind string) {
+func writeRootInspection(script *strings.Builder, iface, kind string, command ...[]string) {
 	fmt.Fprintf(script, "state=$(tc qdisc show dev %s)\n", iface)
 	script.WriteString("if printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then\n")
 	if kind == "prio" {
 		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1\n", iface, PumbaRootHandle)
 	} else {
-		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s %s\n", iface, PumbaRootHandle, kind)
+		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s %s", iface, PumbaRootHandle, kind)
+		if len(command) > 0 {
+			writeQuotedArgs(script, command[0])
+		}
+		script.WriteString("\n")
 	}
 	script.WriteString("else\n  echo 'refusing to replace a foreign or stale root qdisc' >&2\n  exit 1\nfi\n")
 }

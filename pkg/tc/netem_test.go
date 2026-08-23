@@ -25,6 +25,16 @@ func TestStartScopedInstallsOnlyPumbaTopology(t *testing.T) {
 	assert.NotContains(t, script, "qdisc replace")
 }
 
+func TestStartUnscopedBuildsOneRootCommand(t *testing.T) {
+	script := Start(&NetemRequest{
+		Interface: "eth0",
+		Command:   []string{"loss", "50.00"},
+	})[1]
+
+	assert.Contains(t, script, "tc qdisc add dev 'eth0' root handle 504d: netem 'loss' '50.00'")
+	assert.NotContains(t, script, "tc qdisc add dev 'eth0' root handle 504d: netem\ntc qdisc add")
+}
+
 func TestStartRejectsForeignRootBeforeMutation(t *testing.T) {
 	log, err := runScript(t, Start(&NetemRequest{
 		Interface: "eth0",
