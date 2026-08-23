@@ -33,17 +33,17 @@ The helper container is created with the `NET_ADMIN` capability and attached to 
 
 ## Network Tools Images
 
-Pumba needs `tc` (from `iproute2`) and/or `iptables` to be available. You have two options:
+Pumba needs `tc` (from `iproute2`) and/or `iptables` to be available. Netem also uses a POSIX `sh` to inspect, apply, verify, and roll back its owned qdisc. You have two options:
 
-1. Install `iproute2` and `iptables` packages inside the target container
-2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended)
+1. Install a POSIX shell, `iproute2`, and `iptables` inside the target container
+2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `grep`, and `tc`; Docker/Podman also require `which` and `tail`, while containerd requires `sleep`.
 
 ### Recommended Images
 
-| Image                                             | Base   | Includes      |
-| ------------------------------------------------- | ------ | ------------- |
-| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | tc + iptables |
-| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | tc + iptables |
+| Image                                             | Base   | Includes                   |
+| ------------------------------------------------- | ------ | -------------------------- |
+| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + grep + which + tail + sleep + tc + iptables |
+| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + grep + which + tail + sleep + tc + iptables |
 
 Both images are multi-architecture (`amd64` and `arm64`). Docker automatically pulls the correct image for your platform.
 
@@ -75,7 +75,7 @@ make push-nettools-images
 
 ## Netem Commands
 
-Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). All netem commands require a `--duration` flag and support these common options:
+Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). Pumba first verifies that the interface has its default root qdisc and refuses to alter a foreign or stale qdisc. If Pumba is killed with `SIGKILL` after setup, it cannot run cleanup; inspect the interface and manually remove only the Pumba-owned `504d:` root qdisc. All netem commands require a `--duration` flag and support these common options:
 
 | Flag                            | Description                                            | Default                                           |
 | ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |

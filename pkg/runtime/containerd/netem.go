@@ -2,44 +2,47 @@ package containerd
 
 import (
 	"context"
-	"fmt"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	tcplan "github.com/alexei-led/pumba/pkg/tc"
 	log "github.com/sirupsen/logrus"
 )
 
-// NetemContainer applies network emulation to a container by executing tc commands.
+// NetemContainer applies ownership-safe network emulation to a container.
 func (c *containerdClient) NetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
 	log.WithFields(log.Fields{"id": req.Container.ID(), "interface": req.Interface, "tc-image": req.Sidecar.Image}).Debug("netem on containerd container")
 	if req.DryRun {
 		return nil
 	}
-	tcCommands := buildNetemCommands(req.Interface, req.Command, req.IPs, req.SPorts, req.DPorts)
-	if req.Sidecar.Image != "" {
-		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "tc", tcCommands)
-	}
-	return c.runTCCommands(c.nsCtx(ctx), req.Container.ID(), tcCommands)
+	return c.runNetemPlan(ctx, req, tcplan.Start(containerdNetemPlanRequest(req)))
 }
 
-// StopNetemContainer removes network emulation from a container.
+// StopNetemContainer removes only a verified Pumba-owned netem topology.
 func (c *containerdClient) StopNetemContainer(ctx context.Context, req *ctr.NetemRequest) error {
 	log.WithFields(log.Fields{"id": req.Container.ID(), "interface": req.Interface, "tc-image": req.Sidecar.Image}).Debug("stop netem on containerd container")
 	if req.DryRun {
 		return nil
 	}
-	hasFilters := len(req.IPs) > 0 || len(req.SPorts) > 0 || len(req.DPorts) > 0
-	tcCommands := buildStopNetemCommands(req.Interface, hasFilters)
-	if req.Sidecar.Image != "" {
-		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "tc", tcCommands)
-	}
-	return c.runTCCommands(c.nsCtx(ctx), req.Container.ID(), tcCommands)
+	return c.runNetemPlan(ctx, req, tcplan.Stop(containerdNetemPlanRequest(req)))
 }
 
-func (c *containerdClient) runTCCommands(ctx context.Context, containerID string, commands [][]string) error {
-	for _, args := range commands {
-		if err := c.execInContainer(ctx, containerID, "tc", args); err != nil {
-			return fmt.Errorf("failed to run tc command: %w", err)
-		}
+func (c *containerdClient) runNetemPlan(ctx context.Context, req *ctr.NetemRequest, args []string) error {
+	if req.Sidecar.Image != "" {
+		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "sh", [][]string{args})
 	}
-	return nil
+	return c.execInContainer(c.nsCtx(ctx), req.Container.ID(), "sh", args)
+}
+
+func containerdNetemPlanRequest(req *ctr.NetemRequest) *tcplan.NetemRequest {
+	ips := make([]string, 0, len(req.IPs))
+	for _, ip := range req.IPs {
+		ips = append(ips, ip.String())
+	}
+	return &tcplan.NetemRequest{
+		Interface: req.Interface,
+		Command:   req.Command,
+		IPs:       ips,
+		SPorts:    req.SPorts,
+		DPorts:    req.DPorts,
+	}
 }

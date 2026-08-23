@@ -150,14 +150,16 @@ teardown() {
     assert_container_running "pingtest"
     ensure_nettools_image
 
+    local pid root_before root_after
+    pid=$(docker inspect -f '{{.State.Pid}}' pingtest)
+    root_before=$(nsenter -t "$pid" -n tc qdisc show dev eth0 | grep ' root ')
+
     pumba netem --duration 10s --tc-image ${NETTOOLS_IMAGE} --pull-image=false --egress-port 80 delay --time 100 pingtest &
     PUMBA_PID=$!
 
     wait_for 5 "nsenter -t \$(docker inspect -f '{{.State.Pid}}' pingtest) -n tc qdisc show dev eth0 2>/dev/null | grep -qi netem" "netem to be applied"
 
     # Port filters use tc filter rules with prio qdisc
-    local pid
-    pid=$(docker inspect -f '{{.State.Pid}}' pingtest)
     run nsenter -t "$pid" -n tc qdisc show dev eth0
     assert_output --partial "netem"
 
@@ -166,6 +168,10 @@ teardown() {
     [ $pumba_exit -eq 0 ]
 
     assert_netem_cleaned "pingtest"
+    root_after=$(nsenter -t "$pid" -n tc qdisc show dev eth0 | grep ' root ')
+    [ "$root_after" = "$root_before" ]
+    run nsenter -t "$pid" -n tc qdisc show dev eth0
+    refute_output --partial "504d:"
     assert_sidecar_cleaned
 }
 

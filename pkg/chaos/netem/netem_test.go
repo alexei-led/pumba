@@ -9,6 +9,7 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_runNetem(t *testing.T) {
@@ -101,7 +102,7 @@ func Test_runNetem(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "netem warning on StopNetemContainer failure",
+			name: "netem timeout returns StopNetemContainer failure",
 			args: args{
 				container: &container.Container{
 					ContainerName: "c1",
@@ -115,7 +116,7 @@ func Test_runNetem(t *testing.T) {
 				tcimage:      "test/image",
 			},
 			errs:    errs{stopErr: true},
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -141,13 +142,11 @@ func Test_runNetem(t *testing.T) {
 			}
 			mockClient.EXPECT().NetemContainer(ctx, req).Return(startErr)
 
-			if !tt.errs.startErr {
-				stopErr := error(nil)
-				if tt.errs.stopErr {
-					stopErr = errors.New("test error")
-				}
-				mockClient.EXPECT().StopNetemContainer(mock.Anything, req).Return(stopErr)
+			stopErr := error(nil)
+			if tt.errs.stopErr {
+				stopErr = errors.New("test error")
 			}
+			mockClient.EXPECT().StopNetemContainer(mock.Anything, req).Return(stopErr)
 
 			// abort case: cancel ctx before runNetem so the ctx.Done() branch
 			// is exercised; otherwise the stopCtx timeout branch wins.
@@ -160,4 +159,69 @@ func Test_runNetem(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunNetemSetupFailureCleansUpAfterCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := &container.NetemRequest{
+		Container: &container.Container{ContainerID: "c1"},
+		Interface: "eth0",
+	}
+	startErr := errors.New("setup failed")
+	cleanupErr := errors.New("cleanup failed")
+	client := container.NewMockClient(t)
+	client.EXPECT().NetemContainer(ctx, req).Return(startErr)
+	client.EXPECT().StopNetemContainer(mock.Anything, req).
+		Run(func(cleanupCtx context.Context, _ *container.NetemRequest) {
+			require.NoError(t, cleanupCtx.Err(), "cleanup must outlive setup cancellation")
+		}).
+		Return(cleanupErr)
+
+	err := runNetem(ctx, client, req)
+	require.ErrorIs(t, err, startErr)
+	require.ErrorIs(t, err, cleanupErr)
+}
+
+func TestRunNetemTimeoutReturnsCleanupError(t *testing.T) {
+	req := &container.NetemRequest{
+		Container: &container.Container{ContainerID: "c1"},
+		Interface: "eth0",
+		Duration:  0,
+	}
+	stopErr := errors.New("cleanup failed")
+	client := container.NewMockClient(t)
+	client.EXPECT().NetemContainer(mock.Anything, req).Return(nil)
+	client.EXPECT().StopNetemContainer(mock.Anything, req).
+		Run(func(cleanupCtx context.Context, _ *container.NetemRequest) {
+			require.NoError(t, cleanupCtx.Err(), "cleanup timeout must be independent of the run timeout")
+		}).
+		Return(stopErr)
+
+	err := runNetem(context.Background(), client, req)
+	require.ErrorIs(t, err, stopErr)
+}
+
+func TestRunNetemCancellationReturnsCleanupErrorWithLiveContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := &container.NetemRequest{
+		Container: &container.Container{ContainerID: "c1"},
+		Interface: "eth0",
+		Duration:  time.Hour,
+	}
+	stopErr := errors.New("cleanup failed")
+	client := container.NewMockClient(t)
+	client.EXPECT().NetemContainer(ctx, req).Return(nil)
+	client.EXPECT().StopNetemContainer(mock.Anything, req).
+		Run(func(cleanupCtx context.Context, _ *container.NetemRequest) {
+			require.NoError(t, cleanupCtx.Err(), "cleanup must outlive parent cancellation")
+			deadline, ok := cleanupCtx.Deadline()
+			require.True(t, ok)
+			require.WithinDuration(t, time.Now().Add(cleanupTimeout), deadline, time.Second)
+		}).
+		Return(stopErr)
+
+	err := runNetem(ctx, client, req)
+	require.ErrorIs(t, err, stopErr)
 }
