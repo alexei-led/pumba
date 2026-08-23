@@ -62,7 +62,7 @@ pkg/
     cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context
     lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart)
     lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
-    netem/             — Network emulation (delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)
+    netem/             — Network emulation (combine, delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)
     netem/cmd/         — CLI command builders for netem
     iptables/          — iptables-based packet filtering
     iptables/cmd/      — CLI command builders for iptables
@@ -87,7 +87,7 @@ examples/              — Demo scripts
 - **Runtime factory injection** (`pkg/chaos/command.go`): `chaos.Runtime func() container.Client` is a closure-based factory. Every CLI builder constructor takes `runtime chaos.Runtime` explicitly — no `chaos.DockerClient` global, no service locator. `cmd/main.go::before` constructs the closure once after global flag parsing and propagates it through `initializeCLICommands`.
 - **Canonical chaos fanout** (`pkg/chaos/runner.go`): `RunOnContainers(ctx, lister, gp, limit, random, parallel, fn)` is the single helper every chaos action's `Run()` calls — it lists matching containers, optionally narrows to a random pick, and runs `fn` either via `errgroup` (parallel) or sequentially (serial). `RunOnContainersAll` variant lists stopped + running for lifecycle ops that target stopped containers. New chaos actions MUST use this helper instead of hand-rolling the list-then-fanout loop.
 - **Interface name validation** (`pkg/util/util.go::ValidateInterfaceName`): single source of truth for the `eth0`/`en0`/`lo`/`vlan.10` regex check; both `pkg/chaos/netem/parse.go` and `pkg/chaos/iptables/parse.go` call it. Never re-introduce a local `regexp.MustCompile` for interface names.
-- **Generic CLI builder** (`pkg/chaos/cmd/builder.go`): `NewAction[P]` collapses all 17 chaos cmd files into the same shape — flag list + typed `ParamParser[P]` + `CommandFactory[P]`. Parsers receive `cliflags.Flags`, never `*cli.Context` directly.
+- **Generic CLI builder** (`pkg/chaos/cmd/builder.go`): `NewAction[P]` keeps chaos action cmd files in the same shape — flag list + typed `ParamParser[P]` + `CommandFactory[P]`. Parsers receive `cliflags.Flags`, never `*cli.Context` directly.
 - **Shared cmd parsing** (`pkg/chaos/{netem,iptables}/parse.go::ParseRequestBase`): per-action cmd parsers (`delay.go`, `loss.go`, …) call `ParseRequestBase` first to read parent-level flags via `c.Parent()` and build the populated base request (`*NetemRequest` for netem; iptables returns a small `RequestBase` carrying `*IPTablesRequest` + iface/protocol/limit). Per-action parsers then fill only their action-specific fields. New netem/iptables subcommands MUST follow this pattern — never re-parse the parent flag set inline.
 - **CLI flags adapter** (`pkg/chaos/cliflags/`): `Flags` interface wraps `urfave/cli` v1 via `V1`. Future v3 migration is a one-file swap (`v3.go` + wiring change in `cmd/main.go`).
 - **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client; split per-concern across `client.go`, `http_client.go`, `inspect.go`, `lifecycle.go`, `exec.go`, `sidecar.go`, `netem.go`, `iptables.go`, `stress.go`, `cgroup.go`, `pull.go` (no monolith — every file < 350 LOC)

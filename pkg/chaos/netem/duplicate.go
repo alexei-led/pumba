@@ -25,6 +25,24 @@ type duplicateCommand struct {
 	correlation float64
 }
 
+func validateDuplicate(percent, correlation float64) error {
+	if percent < 0.0 || percent > 100.0 {
+		return errors.New("invalid duplicate percent: must be between 0.0 and 100.0")
+	}
+	if correlation < 0.0 || correlation > 100.0 {
+		return errors.New("invalid duplicate correlation: must be between 0.0 and 100.0")
+	}
+	return nil
+}
+
+func duplicateArgs(percent, correlation float64) []string {
+	cmd := []string{duplicateCmd, strconv.FormatFloat(percent, 'f', 2, 64)}
+	if correlation > 0 {
+		cmd = append(cmd, strconv.FormatFloat(correlation, 'f', 2, 64))
+	}
+	return cmd
+}
+
 // NewDuplicateCommand create new netem duplicate command
 func NewDuplicateCommand(client netemClient,
 	gp *chaos.GlobalParams,
@@ -33,13 +51,8 @@ func NewDuplicateCommand(client netemClient,
 	percent, // duplicate percent
 	correlation float64, // duplicate correlation
 ) (chaos.Command, error) {
-	// get netem duplicate percent
-	if percent < 0.0 || percent > 100.0 {
-		return nil, errors.New("invalid duplicate percent: must be between 0.0 and 100.0")
-	}
-	// get netem duplicate variation
-	if correlation < 0.0 || correlation > 100.0 {
-		return nil, errors.New("invalid duplicate correlation: must be between 0.0 and 100.0")
+	if err := validateDuplicate(percent, correlation); err != nil {
+		return nil, err
 	}
 	return &duplicateCommand{
 		client:      client,
@@ -88,9 +101,5 @@ func (n *duplicateCommand) Run(ctx context.Context, random bool) error {
 }
 
 func (n *duplicateCommand) buildNetemCmd() []string {
-	cmd := []string{duplicateCmd, strconv.FormatFloat(n.percent, 'f', 2, 64)}
-	if n.correlation > 0 {
-		cmd = append(cmd, strconv.FormatFloat(n.correlation, 'f', 2, 64))
-	}
-	return cmd
+	return duplicateArgs(n.percent, n.correlation)
 }

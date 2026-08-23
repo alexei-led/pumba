@@ -89,6 +89,15 @@ teardown() {
     refute_output --partial "504d:"
 }
 
+@test "Should combine netem effects via containerd runtime" {
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 2s combine \
+        --delay --delay-time 100 --loss --loss-percent 10 -- test-netem-ctr
+    assert_success
+
+    run sudo ctr -n moby t exec --exec-id check-combined-clean test-netem-ctr tc qdisc show dev dummy0
+    refute_output --partial "504d:"
+}
+
 @test "Should apply packet loss via containerd runtime" {
     # Run pumba in BACKGROUND with long duration
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s loss --percent 50 test-netem-ctr &

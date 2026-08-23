@@ -21,6 +21,7 @@ type Flags interface {
 	Int(name string) int
 	Float64(name string) float64
 	StringSlice(name string) []string
+	IsSet(name string) bool
 	Args() []string
 	// Parent returns the parent subcommand's flags, or nil at the root.
 	// Used by netem/iptables subcommand parsers to read flags declared on

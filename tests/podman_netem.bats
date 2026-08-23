@@ -77,6 +77,15 @@ teardown() {
     refute_output --partial "504d:"
 }
 
+@test "Should combine netem effects via podman runtime" {
+    run pumba --runtime podman --log-level debug netem --interface dummy0 --pull-image=false --duration 2s combine \
+        --delay --delay-time 100 --loss --loss-percent 10 -- pdm-netem-ctr
+    assert_success
+
+    run podman exec pdm-netem-ctr tc qdisc show dev dummy0
+    refute_output --partial "504d:"
+}
+
 @test "Should apply packet loss via podman runtime" {
     pumba --runtime podman --log-level debug netem --interface dummy0 --pull-image=false --duration 30s loss --percent 50 pdm-netem-ctr &
     PUMBA_PID=$!

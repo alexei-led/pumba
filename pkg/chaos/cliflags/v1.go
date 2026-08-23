@@ -47,6 +47,9 @@ func (f V1) Float64(name string) float64 { return f.Ctx.Float64(name) }
 // StringSlice returns the value of the named string-slice flag.
 func (f V1) StringSlice(name string) []string { return f.Ctx.StringSlice(name) }
 
+// IsSet reports whether the named flag was explicitly provided.
+func (f V1) IsSet(name string) bool { return f.Ctx.IsSet(name) }
+
 // Args returns positional arguments as a plain []string.
 func (f V1) Args() []string { return []string(f.Ctx.Args()) }
 

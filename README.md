@@ -68,6 +68,7 @@ Pumba targets **Linux containers** — every chaos action depends on Linux primi
 | **Network Delay**   | `netem delay`                             | Add latency to egress traffic                                                 |
 | **Packet Loss**     | `netem loss`, `iptables loss`             | Drop packets (egress and ingress)                                             |
 | **Network Effects** | `netem duplicate`, `corrupt`, `rate`      | Duplicate, corrupt, or rate-limit packets                                     |
+| **Combined Effects** | `netem combine`                           | Apply multiple effects in one owned netem qdisc                               |
 | **Stress Testing**  | `stress`                                  | CPU, memory, I/O stress via stress-ng (child cgroup or same-cgroup injection) |
 | **Targeting**       | names, regex (`re2:`), labels, `--random` | Flexible container selection                                                  |
 | **Scheduling**      | `--interval`                              | Recurring chaos at fixed intervals                                            |
@@ -95,6 +96,9 @@ pumba --interval=30s --random kill "re2:^test"
 
 # Add 3 seconds network delay to mydb for 5 minutes
 pumba netem --duration 5m delay --time 3000 mydb
+
+# Combine 100ms delay and 20% packet loss in one qdisc
+pumba netem --duration 5m combine --delay --delay-time 100 --loss --loss-percent 20 -- mydb
 
 # Drop 10% of incoming packets to myapp for 2 minutes
 pumba iptables --duration 2m loss --probability 0.1 myapp
