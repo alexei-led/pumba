@@ -21,6 +21,7 @@ func TestStartScopedInstallsOnlyPumbaTopology(t *testing.T) {
 	assert.Contains(t, script, "tc qdisc show dev 'eth0'")
 	assert.Contains(t, script, "root handle 504d: prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1")
 	assert.Contains(t, script, "parent 504d:3 handle 5050: netem 'delay' '100ms'")
+	assert.Contains(t, script, "handle 504d1: prio 1 u32")
 	assert.Contains(t, script, "flowid 504d:3")
 	assert.NotContains(t, script, "qdisc replace")
 }
@@ -90,6 +91,19 @@ func TestStopScopedVerifiesAndDeletesCompleteRoot(t *testing.T) {
 	assert.NotContains(t, log, "parent 504d:")
 }
 
+func TestStopScopedRejectsUnownedFilterHandle(t *testing.T) {
+	state := strings.Join([]string{
+		"qdisc prio 504d: root refcnt 2 bands 3 priomap",
+		"qdisc sfq 504e: parent 504d:1 limit 127p",
+		"qdisc sfq 504f: parent 504d:2 limit 127p",
+		"qdisc netem 5050: parent 504d:3 limit 1000",
+	}, "\\n")
+	log, err := runScriptWithFailureAndFilter(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state, "", "800:")
+
+	require.Error(t, err)
+	assert.Empty(t, log)
+}
+
 func TestStopScopedRejectsIncompleteTopology(t *testing.T) {
 	state := strings.Join([]string{
 		"qdisc prio 504d: root refcnt 2 bands 3 priomap",
@@ -129,6 +143,10 @@ func runScript(t *testing.T, args []string, state string) (string, error) {
 }
 
 func runScriptWithFailure(t *testing.T, args []string, state, failContains string) (string, error) {
+	return runScriptWithFailureAndFilter(t, args, state, failContains, "504d1:")
+}
+
+func runScriptWithFailureAndFilter(t *testing.T, args []string, state, failContains, filterHandle string) (string, error) {
 	t.Helper()
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "commands")
@@ -139,7 +157,7 @@ if [ "$1" = "qdisc" ] && [ "$2" = "show" ]; then
   exit 0
 fi
 if [ "$1" = "filter" ] && [ "$2" = "show" ]; then
-  printf '%s\n' 'filter protocol ip pref 1 u32 chain 0 fh 800: ht divisor 1 flowid 504d:3'
+  printf '%s\n' 'filter protocol ip pref 1 u32 chain 0 fh 504d1: ht divisor 1 flowid 504d:3'
   exit 0
 fi
 printf '%s\n' "$*" >> "$TC_LOG"
@@ -147,6 +165,7 @@ if [ -n "$TC_FAIL_CONTAINS" ] && printf '%s\n' "$*" | grep -q "$TC_FAIL_CONTAINS
   exit 1
 fi
 `
+	script = strings.Replace(script, "fh 504d1:", "fh "+filterHandle, 1)
 	require.NoError(t, os.WriteFile(tcPath, []byte(script), 0o755))
 
 	cmd := []string{"sh"}

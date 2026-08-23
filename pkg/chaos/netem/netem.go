@@ -2,6 +2,7 @@ package netem
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,6 +37,10 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	})
 	logger.Debug("running netem command")
 	if err := client.NetemContainer(ctx, req); err != nil {
+		cleanupErr := stopNetem(ctx, client, req)
+		if cleanupErr != nil {
+			return errors.Join(fmt.Errorf("netem failed: %w", err), fmt.Errorf("stopping netem after failure: %w", cleanupErr))
+		}
 		return fmt.Errorf("netem failed: %w", err)
 	}
 	logger.Debug("netem command started")

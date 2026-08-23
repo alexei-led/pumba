@@ -59,14 +59,18 @@ func scopedStartScript(r *NetemRequest) string {
 	fmt.Fprintf(&netem, "tc qdisc add dev %s parent %s3 handle %s netem", iface, PumbaRootHandle, netemBandHandle)
 	writeQuotedArgs(&netem, r.Command)
 	writeRollbackCommand(&script, netem.String())
+	filterIndex := 0
 	for _, ip := range r.IPs {
-		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dst %s flowid %s3", iface, PumbaRootHandle, shellQuote(ip), PumbaRootHandle))
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s handle %s prio 1 u32 match ip dst %s flowid %s3", iface, PumbaRootHandle, filterHandle(filterIndex), shellQuote(ip), PumbaRootHandle))
+		filterIndex++
 	}
 	for _, sport := range r.SPorts {
-		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip sport %s 0xffff flowid %s3", iface, PumbaRootHandle, shellQuote(sport), PumbaRootHandle))
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s handle %s prio 1 u32 match ip sport %s 0xffff flowid %s3", iface, PumbaRootHandle, filterHandle(filterIndex), shellQuote(sport), PumbaRootHandle))
+		filterIndex++
 	}
 	for _, dport := range r.DPorts {
-		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dport %s 0xffff flowid %s3", iface, PumbaRootHandle, shellQuote(dport), PumbaRootHandle))
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s handle %s prio 1 u32 match ip dport %s 0xffff flowid %s3", iface, PumbaRootHandle, filterHandle(filterIndex), shellQuote(dport), PumbaRootHandle))
+		filterIndex++
 	}
 	return script.String()
 }
@@ -112,10 +116,17 @@ func scopedStopScript(r *NetemRequest) string {
 	fmt.Fprintf(&script, "filters=$(tc filter show dev %s parent %s)\n", iface, PumbaRootHandle)
 	script.WriteString("filter_count=$(printf '%s\\n' \"$filters\" | grep -c 'flowid 504d:3' || true)\n")
 	fmt.Fprintf(&script, "[ \"$filter_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", expectedFilters)
+	for i := 0; i < expectedFilters; i++ {
+		fmt.Fprintf(&script, "printf '%%s\\n' \"$filters\" | grep -Eq '(^| )fh %s( |$)' || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", filterHandle(i))
+	}
 	// Deleting the verified root removes the complete Pumba-owned hierarchy
 	// atomically: the filters and child qdiscs are never removed individually.
 	fmt.Fprintf(&script, "tc qdisc del dev %s root handle %s\n", iface, PumbaRootHandle)
 	return script.String()
+}
+
+func filterHandle(index int) string {
+	return fmt.Sprintf("504d%x:", index+1)
 }
 
 func unscopedStopScript(netInterface string) string {
