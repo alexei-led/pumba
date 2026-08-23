@@ -35,7 +35,37 @@ func TestStartRejectsForeignRootBeforeMutation(t *testing.T) {
 	assert.Empty(t, log)
 }
 
-func TestStopScopedVerifiesAndRemovesOnlyChildren(t *testing.T) {
+func TestStartRejectsStalePumbaRootBeforeMutation(t *testing.T) {
+	log, err := runScript(t, Start(&NetemRequest{
+		Interface: "eth0",
+		Command:   []string{"delay", "100ms"},
+		IPs:       []string{"10.0.0.1/32"},
+	}), "qdisc prio 504d: root refcnt 2 bands 3 priomap")
+
+	require.Error(t, err)
+	assert.Empty(t, log)
+}
+
+func TestStartRejectsMultiqueueRootBeforeMutation(t *testing.T) {
+	log, err := runScript(t, Start(&NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}}), "qdisc mq 0: root")
+
+	require.Error(t, err)
+	assert.Empty(t, log)
+}
+
+func TestStartScopedRollsBackPartialTopology(t *testing.T) {
+	log, err := runScriptWithFailure(t, Start(&NetemRequest{
+		Interface: "eth0",
+		Command:   []string{"delay", "100ms"},
+		IPs:       []string{"10.0.0.1/32"},
+	}), "qdisc noqueue 0: root refcnt 2", "parent 504d:2")
+
+	require.Error(t, err)
+	assert.Contains(t, log, "qdisc add dev eth0 root handle 504d: prio")
+	assert.Contains(t, log, "qdisc del dev eth0 root handle 504d:")
+}
+
+func TestStopScopedVerifiesAndDeletesCompleteRoot(t *testing.T) {
 	state := strings.Join([]string{
 		"qdisc prio 504d: root refcnt 2 bands 3 priomap",
 		"qdisc sfq 504e: parent 504d:1 limit 127p",
@@ -45,10 +75,21 @@ func TestStopScopedVerifiesAndRemovesOnlyChildren(t *testing.T) {
 	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state)
 
 	require.NoError(t, err)
-	assert.Contains(t, log, "filter del dev eth0 parent 504d: protocol ip prio 1")
-	assert.Contains(t, log, "qdisc del dev eth0 parent 504d:1 handle 504e:")
-	assert.Contains(t, log, "qdisc del dev eth0 parent 504d:3 handle 5050:")
-	assert.NotContains(t, log, "qdisc del dev eth0 root")
+	assert.Equal(t, "qdisc del dev eth0 root handle 504d:\n", log)
+	assert.NotContains(t, log, "filter del")
+	assert.NotContains(t, log, "parent 504d:")
+}
+
+func TestStopScopedRejectsIncompleteTopology(t *testing.T) {
+	state := strings.Join([]string{
+		"qdisc prio 504d: root refcnt 2 bands 3 priomap",
+		"qdisc sfq 504e: parent 504d:1 limit 127p",
+		"qdisc netem 5050: parent 504d:3 limit 1000",
+	}, "\n")
+	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state)
+
+	require.Error(t, err)
+	assert.Empty(t, log)
 }
 
 func TestStopMissingStateIsSuccess(t *testing.T) {
@@ -74,6 +115,11 @@ func TestStopUnscopedRemovesVerifiedPumbaRoot(t *testing.T) {
 
 func runScript(t *testing.T, args []string, state string) (string, error) {
 	t.Helper()
+	return runScriptWithFailure(t, args, state, "")
+}
+
+func runScriptWithFailure(t *testing.T, args []string, state, failContains string) (string, error) {
+	t.Helper()
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "commands")
 	tcPath := filepath.Join(dir, "tc")
@@ -87,6 +133,9 @@ if [ "$1" = "filter" ] && [ "$2" = "show" ]; then
   exit 0
 fi
 printf '%s\n' "$*" >> "$TC_LOG"
+if [ -n "$TC_FAIL_CONTAINS" ] && printf '%s\n' "$*" | grep -q "$TC_FAIL_CONTAINS"; then
+  exit 1
+fi
 `
 	require.NoError(t, os.WriteFile(tcPath, []byte(script), 0o755))
 
@@ -95,6 +144,7 @@ printf '%s\n' "$*" >> "$TC_LOG"
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("TC_STATE", state)
 	t.Setenv("TC_LOG", logPath)
+	t.Setenv("TC_FAIL_CONTAINS", failContains)
 	process := exec.Command(cmd[0], cmd[1:]...)
 	err := process.Run()
 	output, readErr := os.ReadFile(logPath)

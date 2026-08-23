@@ -43,24 +43,23 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	// create new context with timeout for canceling
 	stopCtx, cancel := context.WithTimeout(context.Background(), req.Duration)
 	defer cancel()
-	// wait for specified duration and then stop netem (where it applied) or stop on ctx.Done()
-	// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
-	// or if it inherited a deadline that has elapsed alongside stopCtx.
+	// Wait for the requested duration or parent cancellation. Cleanup gets an
+	// independent bounded context, then its error is returned to the caller so
+	// ownership failures cannot be reported as a successful chaos run.
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping netem command on abort")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
-		defer cleanupCancel()
-		if err := client.StopNetemContainer(cleanupCtx, req); err != nil {
-			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
-		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping netem command on timeout")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
-		defer cleanupCancel()
-		if err := client.StopNetemContainer(cleanupCtx, req); err != nil {
-			logger.WithError(err).Warn("failed to stop netem container (container may have been removed)")
-		}
+	}
+	if err := stopNetem(ctx, client, req); err != nil {
+		return fmt.Errorf("stopping netem: %w", err)
 	}
 	return nil
+}
+
+func stopNetem(ctx context.Context, client netemClient, req *container.NetemRequest) error {
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
+	defer cleanupCancel()
+	return client.StopNetemContainer(cleanupCtx, req)
 }

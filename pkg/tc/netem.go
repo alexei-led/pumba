@@ -43,7 +43,7 @@ func Start(r *NetemRequest) []string {
 // cleanup. An absent/default qdisc has no Pumba state and succeeds.
 func Stop(r *NetemRequest) []string {
 	if r.HasFilters() {
-		return []string{"-ec", scopedStopScript(r.Interface)}
+		return []string{"-ec", scopedStopScript(r)}
 	}
 	return []string{"-ec", unscopedStopScript(r.Interface)}
 }
@@ -52,19 +52,21 @@ func scopedStartScript(r *NetemRequest) string {
 	iface := shellQuote(r.Interface)
 	var script strings.Builder
 	writeRootInspection(&script, iface, "prio")
-	fmt.Fprintf(&script, "tc qdisc add dev %s parent %s1 handle %s sfq\n", iface, PumbaRootHandle, firstBandHandle)
-	fmt.Fprintf(&script, "tc qdisc add dev %s parent %s2 handle %s sfq\n", iface, PumbaRootHandle, secondBandHandle)
-	fmt.Fprintf(&script, "tc qdisc add dev %s parent %s3 handle %s netem", iface, PumbaRootHandle, netemBandHandle)
-	writeQuotedArgs(&script, r.Command)
-	script.WriteByte('\n')
+	fmt.Fprintf(&script, "rollback() { tc qdisc del dev %s root handle %s >/dev/null 2>&1 || true; }\n", iface, PumbaRootHandle)
+	writeRollbackCommand(&script, fmt.Sprintf("tc qdisc add dev %s parent %s1 handle %s sfq", iface, PumbaRootHandle, firstBandHandle))
+	writeRollbackCommand(&script, fmt.Sprintf("tc qdisc add dev %s parent %s2 handle %s sfq", iface, PumbaRootHandle, secondBandHandle))
+	var netem strings.Builder
+	fmt.Fprintf(&netem, "tc qdisc add dev %s parent %s3 handle %s netem", iface, PumbaRootHandle, netemBandHandle)
+	writeQuotedArgs(&netem, r.Command)
+	writeRollbackCommand(&script, netem.String())
 	for _, ip := range r.IPs {
-		fmt.Fprintf(&script, "tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dst %s flowid %s3\n", iface, PumbaRootHandle, shellQuote(ip), PumbaRootHandle)
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dst %s flowid %s3", iface, PumbaRootHandle, shellQuote(ip), PumbaRootHandle))
 	}
 	for _, sport := range r.SPorts {
-		fmt.Fprintf(&script, "tc filter add dev %s protocol ip parent %s prio 1 u32 match ip sport %s 0xffff flowid %s3\n", iface, PumbaRootHandle, shellQuote(sport), PumbaRootHandle)
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip sport %s 0xffff flowid %s3", iface, PumbaRootHandle, shellQuote(sport), PumbaRootHandle))
 	}
 	for _, dport := range r.DPorts {
-		fmt.Fprintf(&script, "tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dport %s 0xffff flowid %s3\n", iface, PumbaRootHandle, shellQuote(dport), PumbaRootHandle)
+		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dport %s 0xffff flowid %s3", iface, PumbaRootHandle, shellQuote(dport), PumbaRootHandle))
 	}
 	return script.String()
 }
@@ -81,24 +83,21 @@ func unscopedStartScript(r *NetemRequest) string {
 
 func writeRootInspection(script *strings.Builder, iface, kind string) {
 	fmt.Fprintf(script, "state=$(tc qdisc show dev %s)\n", iface)
-	script.WriteString("if [ -z \"$state\" ] || printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast|mq) 0: root'; then\n")
+	script.WriteString("if printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then\n")
 	if kind == "prio" {
 		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1\n", iface, PumbaRootHandle)
 	} else {
 		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s %s\n", iface, PumbaRootHandle, kind)
 	}
-	script.WriteString("elif printf '%s\\n' \"$state\" | grep -Eq '^qdisc ")
-	script.WriteString(kind)
-	script.WriteString(" ")
-	script.WriteString(PumbaRootHandle)
-	script.WriteString(" root' && ! printf '%s\\n' \"$state\" | grep -Eq '^qdisc .* (504e:|504f:|5050:).* parent 504d:'; then\n  :\nelse\n  echo 'refusing to replace a foreign or active root qdisc' >&2\n  exit 1\nfi\n")
+	script.WriteString("else\n  echo 'refusing to replace a foreign or stale root qdisc' >&2\n  exit 1\nfi\n")
 }
 
-func scopedStopScript(netInterface string) string {
-	iface := shellQuote(netInterface)
+func scopedStopScript(r *NetemRequest) string {
+	iface := shellQuote(r.Interface)
+	expectedFilters := len(r.IPs) + len(r.SPorts) + len(r.DPorts)
 	var script strings.Builder
 	fmt.Fprintf(&script, "state=$(tc qdisc show dev %s)\n", iface)
-	script.WriteString("if [ -z \"$state\" ] || printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast|mq) 0: root'; then\n  exit 0\nfi\n")
+	script.WriteString("if [ -z \"$state\" ] || printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then\n  exit 0\nfi\n")
 	for _, topology := range []string{
 		"^qdisc prio 504d: root",
 		"^qdisc sfq 504e: parent 504d:1",
@@ -107,24 +106,31 @@ func scopedStopScript(netInterface string) string {
 	} {
 		fmt.Fprintf(&script, "printf '%%s\\n' \"$state\" | grep -Eq '%s' || { echo 'refusing to remove unverified Pumba qdisc topology' >&2; exit 1; }\n", topology)
 	}
+	script.WriteString("children=$(printf '%s\\n' \"$state\" | grep -Ec '^qdisc .* parent 504d:' || true)\n")
+	script.WriteString("[ \"$children\" -eq 3 ] || { echo 'refusing to remove unverified Pumba qdisc topology' >&2; exit 1; }\n")
 	fmt.Fprintf(&script, "filters=$(tc filter show dev %s parent %s)\n", iface, PumbaRootHandle)
-	script.WriteString("printf '%s\\n' \"$filters\" | grep -q 'flowid 504d:3' || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n")
-	fmt.Fprintf(&script, "tc filter del dev %s parent %s protocol ip prio 1\n", iface, PumbaRootHandle)
-	fmt.Fprintf(&script, "tc qdisc del dev %s parent %s1 handle %s\n", iface, PumbaRootHandle, firstBandHandle)
-	fmt.Fprintf(&script, "tc qdisc del dev %s parent %s2 handle %s\n", iface, PumbaRootHandle, secondBandHandle)
-	fmt.Fprintf(&script, "tc qdisc del dev %s parent %s3 handle %s\n", iface, PumbaRootHandle, netemBandHandle)
+	script.WriteString("filter_count=$(printf '%s\\n' \"$filters\" | grep -c 'flowid 504d:3' || true)\n")
+	fmt.Fprintf(&script, "[ \"$filter_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", expectedFilters)
+	// Deleting the verified root removes the complete Pumba-owned hierarchy
+	// atomically: the filters and child qdiscs are never removed individually.
+	fmt.Fprintf(&script, "tc qdisc del dev %s root handle %s\n", iface, PumbaRootHandle)
 	return script.String()
 }
 
 func unscopedStopScript(netInterface string) string {
 	iface := shellQuote(netInterface)
 	return fmt.Sprintf(`state=$(tc qdisc show dev %s)
-if [ -z "$state" ] || printf '%%s\n' "$state" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast|mq) 0: root'; then
+if [ -z "$state" ] || printf '%%s\n' "$state" | grep -Eq '^qdisc (noqueue|fq_codel|pfifo_fast) 0: root'; then
   exit 0
 fi
 printf '%%s\n' "$state" | grep -Eq '^qdisc netem 504d: root' || { echo 'refusing to remove a foreign root qdisc' >&2; exit 1; }
 tc qdisc del dev %s root handle 504d:
 `, iface, iface)
+}
+
+func writeRollbackCommand(script *strings.Builder, command string) {
+	script.WriteString(command)
+	script.WriteString(" || { rollback; exit 1; }\n")
 }
 
 func writeQuotedArgs(script *strings.Builder, args []string) {

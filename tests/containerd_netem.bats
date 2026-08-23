@@ -59,6 +59,20 @@ teardown() {
     refute_output --partial "netem"
 }
 
+@test "Should restore the default root after scoped netem cleanup" {
+    run sudo ctr -n moby t exec --exec-id scoped-root-before test-netem-ctr tc qdisc show dev dummy0
+    assert_success
+    local root_before="$output"
+
+    run sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --target 8.8.8.8 --duration 2s delay --time 100 test-netem-ctr
+    assert_success
+
+    run sudo ctr -n moby t exec --exec-id scoped-root-after test-netem-ctr tc qdisc show dev dummy0
+    assert_success
+    [ "$output" = "$root_before" ]
+    refute_output --partial "504d:"
+}
+
 @test "Should apply packet loss via containerd runtime" {
     # Run pumba in BACKGROUND with long duration
     sudo pumba --runtime containerd --containerd-namespace moby --log-level debug netem --interface dummy0 --pull-image=false --duration 30s loss --percent 50 test-netem-ctr &

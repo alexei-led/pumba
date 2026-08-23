@@ -34,7 +34,7 @@ func TestStopNetemContainerRunsVerifiedCleanupPlan(t *testing.T) {
 	}
 
 	require.NoError(t, client.StopNetemContainer(context.Background(), req))
-	assertNetemPlan(t, api, "target", "refusing to remove unverified Pumba qdisc topology", "qdisc del dev 'eth0' parent 504d:3 handle 5050:")
+	assertNetemPlan(t, api, "target", "refusing to remove unverified Pumba qdisc topology", "qdisc del dev 'eth0' root handle 504d:")
 }
 
 func TestNetemContainerPropagatesCleanupError(t *testing.T) {
