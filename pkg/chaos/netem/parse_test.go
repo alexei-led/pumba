@@ -128,6 +128,20 @@ func TestParseRequestBase_PortsAndIPsParsed(t *testing.T) {
 	assert.Equal(t, []string{"8080"}, req.DPorts)
 }
 
+func TestParseRequestBase_DeduplicatesEquivalentIPv4Targets(t *testing.T) {
+	c := cliflags.NewV1(parentCtx(t, []string{
+		"--duration", "1s", "--interface", "eth0",
+		"--target", "10.0.0.1",
+		"--target", "10.0.0.1/32",
+	}))
+
+	req, _, err := ParseRequestBase(c, &chaos.GlobalParams{})
+
+	require.NoError(t, err)
+	require.Len(t, req.IPs, 1)
+	assert.Equal(t, "10.0.0.1/32", req.IPs[0].String())
+}
+
 func TestParseRequestBase_RejectsIPv6Target(t *testing.T) {
 	c := cliflags.NewV1(parentCtx(t, []string{
 		"--duration", "1s", "--interface", "eth0",

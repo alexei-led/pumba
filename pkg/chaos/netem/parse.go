@@ -39,6 +39,7 @@ func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*container.Nete
 	}
 	targetList := c.StringSlice("target")
 	ips := make([]*net.IPNet, 0, len(targetList))
+	seenIPs := make(map[string]struct{}, len(targetList))
 	var targetNames []string
 	for _, s := range targetList {
 		ip, err := util.ParseCIDR(s)
@@ -51,6 +52,10 @@ func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*container.Nete
 		if ip.IP.To4() == nil {
 			return nil, 0, fmt.Errorf("IPv6 --target %q is not supported", s)
 		}
+		if _, ok := seenIPs[ip.String()]; ok {
+			continue
+		}
+		seenIPs[ip.String()] = struct{}{}
 		ips = append(ips, ip)
 	}
 	sports, err := util.GetPorts(c.String("egress-port"))
