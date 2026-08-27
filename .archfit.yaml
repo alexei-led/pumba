@@ -1,5 +1,5 @@
 # Archfit config — reviewed 2026-08-23 against the current configuration reference.
-version: 1
+version: 2
 
 # Minimum severity for BC coupling advisories: low|medium|high|critical
 coupling:
