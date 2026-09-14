@@ -27,7 +27,7 @@ import (
 // c must be the netem parent context. Per-action parsers pass c.Parent().
 func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*container.NetemRequest, int, error) {
 	duration := c.Duration("duration")
-	if duration == 0 {
+	if duration <= 0 {
 		return nil, 0, errors.New("unset or invalid duration value")
 	}
 	if gp.Interval != 0 && duration >= gp.Interval {
