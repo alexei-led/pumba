@@ -34,7 +34,7 @@ type RequestBase struct {
 // c must be the iptables parent context. Per-action parsers pass c.Parent().
 func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*RequestBase, error) {
 	duration := c.Duration("duration")
-	if duration == 0 {
+	if duration <= 0 {
 		return nil, errors.New("unset or invalid duration value")
 	}
 	if gp.Interval != 0 && duration >= gp.Interval {

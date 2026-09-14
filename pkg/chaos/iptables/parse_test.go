@@ -65,6 +65,12 @@ func TestParseRequestBase(t *testing.T) {
 			wantErr: "unset or invalid duration value",
 		},
 		{
+			name:    "negative duration rejected",
+			args:    []string{"--duration", "-1s"},
+			gp:      &chaos.GlobalParams{},
+			wantErr: "unset or invalid duration value",
+		},
+		{
 			name:    "duration not shorter than interval rejected",
 			args:    []string{"--duration", "5s", "--interface", "eth0"},
 			gp:      &chaos.GlobalParams{Interval: 5 * time.Second},
