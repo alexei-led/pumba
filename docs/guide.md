@@ -326,6 +326,13 @@ pumba --slackhook https://hooks.slack.com/services/T.../B.../xxx \
 - `--slackhook` - Slack incoming webhook URL
 - `--slackchannel` - Slack channel (default: `#pumba`)
 
+Delivery is best effort and asynchronous, with a 5-second HTTP timeout and at most
+16 concurrent requests. Events beyond that limit are dropped instead of delaying
+chaos. Normal shutdown waits up to 5 seconds for pending sends; abrupt exits can
+lose them. Delivery failures print one warning to stderr, without exposing the
+webhook URL or response body.
+
+
 ## TLS Configuration
 
 When connecting to a remote Docker daemon over TLS:

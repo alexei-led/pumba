@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
-	"github.com/johntdyer/slackrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,12 +28,6 @@ func setupLogging(f cliflags.Flags) {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
 	if f.String("slackhook") != "" {
-		log.AddHook(&slackrus.SlackrusHook{
-			HookURL:        f.String("slackhook"),
-			AcceptedLevels: slackrus.LevelThreshold(log.GetLevel()),
-			Channel:        f.String("slackchannel"),
-			IconEmoji:      ":boar:",
-			Username:       "pumba_bot",
-		})
+		log.AddHook(newSlackHook(f.String("slackhook"), f.String("slackchannel"), log.GetLevel()))
 	}
 }
