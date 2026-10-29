@@ -55,6 +55,7 @@ func ListNContainersAll(ctx context.Context, client Lister, names []string, patt
 		return nil, err
 	}
 	if limit > 0 && len(containers) > limit {
+		//nolint:gosec // non-cryptographic shuffle to pick random chaos targets
 		rand.Shuffle(len(containers), func(i, j int) {
 			containers[i], containers[j] = containers[j], containers[i]
 		})

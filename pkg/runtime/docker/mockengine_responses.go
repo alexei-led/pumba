@@ -43,9 +43,7 @@ func DetailsResponse(params map[string]any) ctypes.InspectResponse {
 			Image:   Image,
 			State:   &ctypes.State{Running: Running},
 			HostConfig: &ctypes.HostConfig{
-				Resources: ctypes.Resources{
-					CgroupParent: CgroupParent,
-				},
+				CgroupParent: CgroupParent,
 			},
 		},
 		Config: &ctypes.Config{

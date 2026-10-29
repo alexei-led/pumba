@@ -34,7 +34,7 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
 
 ## Technical Stack
 
-- **Go version:** 1.26 (see go.mod)
+- **Go version:** 1.27 (see go.mod)
 - **CLI framework:** `github.com/urfave/cli` (v1)
 - **Docker SDK:** `github.com/docker/docker` v28.5.2
 - **Containerd SDK:** `github.com/containerd/containerd/v2` (containerd runtime support)
