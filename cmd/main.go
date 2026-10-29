@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
@@ -98,7 +98,7 @@ func main() {
 
 func before(c *cli.Context) error {
 	if c.GlobalInt("max-targets") < 0 {
-		return errors.New("--max-targets must be non-negative")
+		return chaos.ErrNegativeMaxTargets
 	}
 	setupLogging(cliflags.NewV1FromApp(c))
 	client, err := createRuntimeClient(c)

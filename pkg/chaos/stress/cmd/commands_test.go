@@ -183,3 +183,14 @@ func TestStressCLI_ResourceNamesRemainTargets(t *testing.T) {
 		}
 	}
 }
+
+func TestParseStressParams_MemorySizeOverflow(t *testing.T) {
+	for _, size := range []string{"18446744073709551616", "18014398509481984K", "17592186044416m", "17179869185G"} {
+		t.Run(size, func(t *testing.T) {
+			cmd := NewStressCLICommand(context.Background(), nilRuntime())
+			c := newTestCLIContext(t, cmd.Flags, []string{"--duration", "1m", "--memory", "1", "--memory-bytes", size})
+			_, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
+			assert.ErrorContains(t, err, "invalid --memory-bytes")
+		})
+	}
+}
