@@ -372,7 +372,8 @@ N, before injecting any fault. The default is **unset** (`0`): there is no cap.
 Negative values are rejected. The count is evaluated after name, regex and label
 selection and after `--limit` and `--random` narrowing. With `--random`, only one
 container is counted. Dry-run also refuses over-cap selections. With `--interval`,
-the cap is checked again on every tick.
+the cap is checked again on every tick. A safety refusal exits non-zero even with
+`--skip-error`.
 
 ```bash
 pumba --max-targets 3 --dry-run kill 're2:^web-'

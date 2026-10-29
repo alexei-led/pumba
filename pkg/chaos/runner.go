@@ -104,6 +104,9 @@ func runOnContainers(
 	return eg.Wait()
 }
 
+// ErrMaxTargetsExceeded marks safety refusals, which --skip-error must not suppress.
+var ErrMaxTargetsExceeded = errors.New("refusing to run")
+
 // Keep refusal messages bounded even when a selector matches thousands of containers.
 const maxTargetNames = 10
 
@@ -115,5 +118,5 @@ func checkMaxTargets(containers []*container.Container, maxTargets int) error {
 	for _, c := range containers[:min(len(containers), maxTargetNames)] {
 		names = append(names, c.Name())
 	}
-	return fmt.Errorf("refusing to run: %d containers selected, --max-targets is %d (first %d: %s)", len(containers), maxTargets, len(names), strings.Join(names, ", "))
+	return fmt.Errorf("%w: %d containers selected, --max-targets is %d (first %d: %s)", ErrMaxTargetsExceeded, len(containers), maxTargets, len(names), strings.Join(names, ", "))
 }
