@@ -20,25 +20,27 @@ type pauseClient interface {
 
 // `docker pause` command
 type pauseCommand struct {
-	client   pauseClient
-	names    []string
-	pattern  string
-	labels   []string
-	duration time.Duration
-	limit    int
-	dryRun   bool
+	maxTargets int
+	client     pauseClient
+	names      []string
+	pattern    string
+	labels     []string
+	duration   time.Duration
+	limit      int
+	dryRun     bool
 }
 
 // NewPauseCommand create new Pause Command instance
 func NewPauseCommand(client pauseClient, params *chaos.GlobalParams, duration time.Duration, limit int) chaos.Command {
 	return &pauseCommand{
-		client:   client,
-		names:    params.Names,
-		pattern:  params.Pattern,
-		labels:   params.Labels,
-		duration: duration,
-		limit:    limit,
-		dryRun:   params.DryRun}
+		client:     client,
+		names:      params.Names,
+		pattern:    params.Pattern,
+		labels:     params.Labels,
+		maxTargets: params.MaxTargets,
+		duration:   duration,
+		limit:      limit,
+		dryRun:     params.DryRun}
 }
 
 // Run pause command
@@ -52,7 +54,7 @@ func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 		"limit":    p.limit,
 		"random":   random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: p.names, Pattern: p.pattern, Labels: p.labels}
+	gp := &chaos.GlobalParams{Names: p.names, Pattern: p.pattern, Labels: p.labels, MaxTargets: p.maxTargets}
 	pausedContainers := make([]*container.Container, 0)
 	err := chaos.RunOnContainers(ctx, p.client, gp, p.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {

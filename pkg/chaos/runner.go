@@ -3,6 +3,7 @@ package chaos
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
@@ -68,6 +69,9 @@ func runOnContainers(
 	all, random, parallel bool,
 	fn ContainerAction,
 ) error {
+	if gp.MaxTargets < 0 {
+		return fmt.Errorf("--max-targets must be non-negative")
+	}
 	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit, all)
 	if err != nil {
 		return fmt.Errorf("listing containers: %w", err)
@@ -80,6 +84,9 @@ func runOnContainers(
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []*container.Container{c}
 		}
+	}
+	if err := checkMaxTargets(containers, gp.MaxTargets); err != nil {
+		return err
 	}
 	if !parallel {
 		for _, c := range containers {
@@ -94,4 +101,18 @@ func runOnContainers(
 		eg.Go(func() error { return fn(ctx, c) })
 	}
 	return eg.Wait()
+}
+
+// Keep refusal messages bounded even when a selector matches thousands of containers.
+const maxTargetNames = 10
+
+func checkMaxTargets(containers []*container.Container, cap int) error {
+	if cap == 0 || len(containers) <= cap {
+		return nil
+	}
+	names := make([]string, 0, min(len(containers), maxTargetNames))
+	for _, c := range containers[:min(len(containers), maxTargetNames)] {
+		names = append(names, c.Name())
+	}
+	return fmt.Errorf("refusing to run: %d containers selected, --max-targets is %d (first %d: %s)", len(containers), cap, len(names), strings.Join(names, ", "))
 }

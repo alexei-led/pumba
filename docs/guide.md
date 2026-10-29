@@ -364,3 +364,16 @@ This is useful in recurring mode when target containers may temporarily not exis
 - [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress (includes `--inject-cgroup` for same-cgroup injection)
 - [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
 - [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba
+
+## Global safety options
+
+`--max-targets N` refuses to run when the number of selected containers exceeds
+N, before injecting any fault. The default is **unset** (`0`): there is no cap.
+Negative values are rejected. The count is evaluated after name, regex and label
+selection and after `--limit` and `--random` narrowing. With `--random`, only one
+container is counted. Dry-run also refuses over-cap selections. With `--interval`,
+the cap is checked again on every tick.
+
+```bash
+pumba --max-targets 3 --dry-run kill 're2:^web-'
+```

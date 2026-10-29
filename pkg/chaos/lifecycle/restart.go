@@ -18,25 +18,27 @@ type restartClient interface {
 
 // `docker restart` command
 type restartCommand struct {
-	client  restartClient
-	names   []string
-	pattern string
-	labels  []string
-	timeout time.Duration
-	limit   int
-	dryRun  bool
+	maxTargets int
+	client     restartClient
+	names      []string
+	pattern    string
+	labels     []string
+	timeout    time.Duration
+	limit      int
+	dryRun     bool
 }
 
 // NewRestartCommand create new Restart Command instance
 func NewRestartCommand(client restartClient, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
 	return &restartCommand{
-		client:  client,
-		names:   params.Names,
-		pattern: params.Pattern,
-		labels:  params.Labels,
-		timeout: timeout,
-		limit:   limit,
-		dryRun:  params.DryRun,
+		client:     client,
+		names:      params.Names,
+		pattern:    params.Pattern,
+		labels:     params.Labels,
+		maxTargets: params.MaxTargets,
+		timeout:    timeout,
+		limit:      limit,
+		dryRun:     params.DryRun,
 	}
 }
 
@@ -50,7 +52,7 @@ func (k *restartCommand) Run(ctx context.Context, random bool) error {
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels}
+	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels, MaxTargets: k.maxTargets}
 	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{"container": c, "timeout": k.timeout}).Debug("restarting container")

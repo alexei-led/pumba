@@ -25,15 +25,16 @@ type stopClient interface {
 
 // `docker stop` command
 type stopCommand struct {
-	client   stopClient
-	names    []string
-	pattern  string
-	labels   []string
-	restart  bool
-	duration time.Duration
-	waitTime int
-	limit    int
-	dryRun   bool
+	maxTargets int
+	client     stopClient
+	names      []string
+	pattern    string
+	labels     []string
+	restart    bool
+	duration   time.Duration
+	waitTime   int
+	limit      int
+	dryRun     bool
 }
 
 // NewStopCommand create new Stop Command instance
@@ -42,15 +43,16 @@ func NewStopCommand(client stopClient, params *chaos.GlobalParams, restart bool,
 		waitTime = DeafultWaitTime
 	}
 	return &stopCommand{
-		client:   client,
-		names:    params.Names,
-		pattern:  params.Pattern,
-		labels:   params.Labels,
-		dryRun:   params.DryRun,
-		restart:  restart,
-		duration: duration,
-		waitTime: waitTime,
-		limit:    limit}
+		client:     client,
+		names:      params.Names,
+		pattern:    params.Pattern,
+		labels:     params.Labels,
+		maxTargets: params.MaxTargets,
+		dryRun:     params.DryRun,
+		restart:    restart,
+		duration:   duration,
+		waitTime:   waitTime,
+		limit:      limit}
 }
 
 // Run stop command
@@ -64,7 +66,7 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 		"limit":    s.limit,
 		"random":   random,
 	}).Debug("stopping all matching containers")
-	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels, MaxTargets: s.maxTargets}
 	stoppedContainers := make([]*container.Container, 0)
 	err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
