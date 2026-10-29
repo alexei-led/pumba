@@ -28,7 +28,7 @@ type StressParams struct {
 func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
 	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[StressParams]{
 		Name: "stress",
-		Flags: []cli.Flag{
+		Flags: append(resourceFlags(), []cli.Flag{
 			cli.StringFlag{
 				Name:  "duration, d",
 				Usage: "stress duration: must be shorter than recurrent interval; use with optional unit suffix: 'ms/s/m/h'",
@@ -54,7 +54,7 @@ func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 				Name:  "inject-cgroup",
 				Usage: "Inject stress-ng into target container's cgroup (same cgroup, shared resource accounting). Requires stress image with cg-inject binary.",
 			},
-		},
+		}...),
 		Usage:       "stress test specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "stress test target container(s)",
@@ -68,10 +68,14 @@ func parseStressParams(c cliflags.Flags, _ *chaos.GlobalParams) (StressParams, e
 	if duration <= 0 {
 		return StressParams{}, errors.New("unset or invalid duration value")
 	}
+	stressors, err := parseStressors(c, duration)
+	if err != nil {
+		return StressParams{}, err
+	}
 	return StressParams{
 		Image:        c.String("stress-image"),
 		Pull:         c.BoolT("pull-image"),
-		Stressors:    c.String("stressors"),
+		Stressors:    stressors,
 		Duration:     duration,
 		Limit:        c.Int("limit"),
 		InjectCgroup: c.Bool("inject-cgroup"),

@@ -3,6 +3,7 @@ package chaos_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 
@@ -237,4 +238,57 @@ func TestRunOnContainersAll_EmptyList(t *testing.T) {
 		})
 	require.NoError(t, err)
 	assert.False(t, called, "fn must not run when no containers match")
+}
+
+func TestRunOnContainers_MaxTargets(t *testing.T) {
+	for _, all := range []bool{false, true} {
+		for _, parallel := range []bool{false, true} {
+			for _, tt := range []struct {
+				name           string
+				cap, limit     int
+				random, dryRun bool
+				want           int32
+				wantErr        bool
+			}{
+				{name: "unset", want: 3},
+				{name: "under", cap: 4, want: 3},
+				{name: "equal", cap: 3, want: 3},
+				{name: "over", cap: 2, wantErr: true},
+				{name: "dry run over", cap: 2, dryRun: true, wantErr: true},
+				{name: "random", cap: 1, random: true, want: 1},
+				{name: "limit", cap: 2, limit: 2, want: 2},
+				{name: "limit over", cap: 1, limit: 2, wantErr: true},
+				{name: "negative", cap: -1, wantErr: true},
+			} {
+				t.Run(fmt.Sprintf("%s/all=%t/parallel=%t", tt.name, all, parallel), func(t *testing.T) {
+					client := container.NewMockClient(t)
+					if tt.cap >= 0 {
+						client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: all}).Return(makeContainers("a", "b", "c"), nil).Once()
+					}
+					gp := &chaos.GlobalParams{MaxTargets: tt.cap, DryRun: tt.dryRun}
+					var calls atomic.Int32
+					run := chaos.RunOnContainers
+					if all {
+						run = chaos.RunOnContainersAll
+					}
+					err := run(context.Background(), client, gp, tt.limit, tt.random, parallel, func(context.Context, *container.Container) error { calls.Add(1); return nil })
+					if tt.wantErr {
+						require.Error(t, err)
+						if tt.cap < 0 {
+							assert.Contains(t, err.Error(), "--max-targets must be non-negative")
+						} else {
+							count := 3
+							if tt.limit > 0 {
+								count = tt.limit
+							}
+							assert.Contains(t, err.Error(), fmt.Sprintf("%d containers selected, --max-targets is %d", count, tt.cap))
+						}
+					} else {
+						require.NoError(t, err)
+					}
+					assert.Equal(t, tt.want, calls.Load())
+				})
+			}
+		}
+	}
 }

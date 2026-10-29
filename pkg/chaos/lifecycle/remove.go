@@ -17,21 +17,23 @@ type removeClient interface {
 
 // `docker rm` command
 type removeCommand struct {
-	client  removeClient
-	names   []string
-	pattern string
-	labels  []string
-	opts    container.RemoveOpts
-	limit   int
+	maxTargets int
+	client     removeClient
+	names      []string
+	pattern    string
+	labels     []string
+	opts       container.RemoveOpts
+	limit      int
 }
 
 // NewRemoveCommand create new Kill Command instance
 func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, links, volumes bool, limit int) chaos.Command {
 	remove := &removeCommand{
-		client:  client,
-		names:   params.Names,
-		pattern: params.Pattern,
-		labels:  params.Labels,
+		client:     client,
+		names:      params.Names,
+		pattern:    params.Pattern,
+		labels:     params.Labels,
+		maxTargets: params.MaxTargets,
 		opts: container.RemoveOpts{
 			Force:   force,
 			Links:   links,
@@ -53,7 +55,7 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 		"limit":   r.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: r.names, Pattern: r.pattern, Labels: r.labels}
+	gp := &chaos.GlobalParams{Names: r.names, Pattern: r.pattern, Labels: r.labels, MaxTargets: r.maxTargets}
 	return chaos.RunOnContainersAll(ctx, r.client, gp, r.limit, random, false,
 		func(ctx context.Context, c *container.Container) error {
 			log.WithFields(log.Fields{

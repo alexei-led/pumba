@@ -2,6 +2,7 @@ package chaos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ type Command interface {
 
 // GlobalParams global parameters passed through CLI flags
 type GlobalParams struct {
+	MaxTargets int
 	Random     bool
 	Labels     []string
 	Pattern    string
@@ -60,6 +62,7 @@ func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
 	g := c.Global()
 	names, pattern := getNamesOrPattern(c)
 	return &GlobalParams{
+		MaxTargets: g.Int("max-targets"),
 		Random:     g.Bool("random"),
 		Labels:     splitLabels(g.StringSlice("label")),
 		Pattern:    pattern,
@@ -134,7 +137,7 @@ func RunChaosCommand(topContext context.Context, command Command, params *Global
 	for {
 		// run chaos function
 		if err := command.Run(ctx, params.Random); err != nil {
-			if !params.SkipErrors {
+			if !params.SkipErrors || errors.Is(err, ErrMaxTargetsExceeded) {
 				return fmt.Errorf("error running chaos command: %w", err)
 			}
 			log.WithError(err).Warn("skipping error")

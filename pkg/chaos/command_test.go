@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"testing"
 	"time"
 
@@ -311,6 +312,15 @@ func TestParseGlobalParams(t *testing.T) {
 			if tt.want.Pattern != "" {
 				assert.Equal(t, tt.want.Pattern, got.Pattern)
 			}
+		})
+	}
+}
+
+func TestParseGlobalParams_MaxTargets(t *testing.T) {
+	for _, cap := range []int{0, 1, 3} {
+		t.Run(fmt.Sprint(cap), func(t *testing.T) {
+			f := buildFlags(t, []cli.Flag{cli.IntFlag{Name: "max-targets"}}, []string{"--max-targets", fmt.Sprint(cap)}, nil, []string{"target"})
+			assert.Equal(t, cap, ParseGlobalParams(f).MaxTargets)
 		})
 	}
 }

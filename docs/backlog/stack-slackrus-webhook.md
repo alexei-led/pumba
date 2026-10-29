@@ -1,12 +1,19 @@
-# Replace slackrus with generic --webhook
+# Generic --webhook events
 
 Tags: stack · Effort: S
 
-## Why
-`johntdyer/slackrus` is a 2023 pseudo-version, effectively unmaintained.
+## Status
+
+The slackrus dependency is gone. An internal Slack-compatible hook preserves the
+existing `--slackhook` and `--slackchannel` flags. Generic event delivery remains
+unimplemented.
 
 ## Approach
-Generic `--webhook URL` posting the JSON event from [agent-structured-output](agent-structured-output.md); Slack-compatible payload option. Keep `--slackhook` as deprecated alias for one release.
+
+Generic `--webhook URL` posting the JSON event from
+[agent-structured-output](agent-structured-output.md), with a Slack-compatible
+payload option. Keep `--slackhook` as a deprecated alias for one release.
 
 ## Open questions
-- Retry/timeout policy.
+
+- Retry/timeout policy for generic webhook delivery.

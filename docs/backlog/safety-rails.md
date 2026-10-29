@@ -1,12 +1,11 @@
-# Safety rails
+# Safety rails: confirmation decision
 
 Tags: safety · Effort: S
 
-## Approach
-- Global `--max-targets`.
-- Deny-list label (`pumba.skip=true`; sidecar skip label exists already).
-- `--duration` required for every reversible fault (already for netem/iptables/stress; see #360 for validation gaps).
-- `--confirm` prompt when matching more than N containers.
+## Not planned
 
-## Open questions
-- Defaults vs opt-in (compat with existing scripts).
+`--confirm` prompts were rejected: interactive confirmation is hostile to agents
+and automation. Use the opt-in target cap and protection labels documented in the
+[User Guide](../guide.md#protecting-containers), not an interactive prompt.
+
+Duration validation is complete; it is not an open backlog item.
