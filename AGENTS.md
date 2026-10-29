@@ -51,7 +51,8 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
 cmd/
   main.go              — CLI entry point: main(), init(), signal context, app construction
   runtime.go           — createRuntimeClient, tlsConfig, runtime factory vars (newDockerClient/newContainerdClient/newPodmanClient)
-  logging.go           — setupLogging: log-level switch + slackrus hook wiring
+  logging.go           — setupLogging: log-level switch + Slack hook wiring
+  slackhook.go         — Best-effort async Slack webhook logrus hook + shutdown drain
   flags.go             — globalFlags(rootCertPath) builder
   commands.go          — initializeCLICommands wiring chaos cmd builders into urfave/cli commands
 pkg/
@@ -126,7 +127,7 @@ Module boundaries are enforced by archfit; see [docs/architecture.md](docs/archi
 ## Unit Test Coverage Strategy
 
 - **Skip from unit tests** (covered by integration tests or untestable without real runtime):
-  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
+  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`) and `cmd/slackhook_test.go` (webhook payload, thresholds, failure handling, and shutdown drain), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
 - **Run() method variants:** Always add NoContainers + DryRun + WithRandom test cases
 - **Run unit tests in sandbox:** `CGO_ENABLED=0 go test ./...` (no CGO needed outside CI)
 
