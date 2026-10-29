@@ -89,6 +89,7 @@ Contributors and coding agents must not edit `.archfit.yaml`,
 
 The Archfit GitHub App runs the check in this repository's CI through
 `.github/workflows/archfit.yaml`. Source code never leaves GitHub Actions. The
-App posts the result on the pull request. Pull requests from forks get a
-`fork_unsupported` result; a maintainer can push the branch to this repository
-to run the check.
+App posts the result on the pull request as the `archfit/gate` check, which
+`master` requires. Pull requests from forks get a `fork_unsupported` result; a
+maintainer pushes the branch to this repository to run the check, or merges
+with the ruleset bypass.
