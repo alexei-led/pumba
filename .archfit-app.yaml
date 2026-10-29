@@ -2,6 +2,6 @@
 version: 1
 owners:
   - alexei-led
-gate: advisory
+gate: required
 workflow: .github/workflows/archfit.yaml
 data_mode: customer
