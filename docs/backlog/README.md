@@ -17,12 +17,15 @@ Deferred ideas, one file per item. Not commitments.
 | [fault-lifecycle-run-id.md](fault-lifecycle-run-id.md) | arch, agent, safety | Fault lifecycle, run ID, status/revert/verify-clean |
 | [host-chaos.md](host-chaos.md) | host, safety | Host chaos |
 | [k8s-integration.md](k8s-integration.md) | k8s | Kubernetes integration |
-| [network-atomic-and-selectors.md](network-atomic-and-selectors.md) | network, safety | Atomic selector install + AND-combined selectors |
+| [network-atomic-and-selectors.md](network-atomic-and-selectors.md) | network, safety | AND-combined selectors (`--match-all`) |
 | [network-dns-l7.md](network-dns-l7.md) | network, chaos | DNS and L7 (HTTP/gRPC) faults |
 | [network-ingress-partition-tcp.md](network-ingress-partition-tcp.md) | network | Ingress shaping, partitions, TCP faults, profiles |
-| [safety-rails.md](safety-rails.md) | safety | Interactive confirmation rejected; duration validation complete |
 | [stack-docker-sdk-moby.md](stack-docker-sdk-moby.md) | stack | Docker SDK to moby/moby client modules |
 | [stack-logrus-slog.md](stack-logrus-slog.md) | stack | logrus to log/slog |
 | [stack-slackrus-webhook.md](stack-slackrus-webhook.md) | stack | Generic --webhook events; slackrus dependency removed |
 | [stack-urfave-cli-v3.md](stack-urfave-cli-v3.md) | stack, arch | urfave/cli v1 to v3 |
 | [stress-first-class-cgroup.md](stress-first-class-cgroup.md) | stress | Stress: cgroup limits, PSI, stats, Podman 4.9 race |
+
+## Not planned
+
+- Interactive `--confirm` prompts: rejected, hostile to agents and automation. Use `--max-targets` and protection labels instead (see the [User Guide](../guide.md#protecting-containers)).
