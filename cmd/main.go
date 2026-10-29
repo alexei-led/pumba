@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -92,7 +93,7 @@ func main() {
 
 func before(c *cli.Context) error {
 	if c.GlobalInt("max-targets") < 0 {
-		return fmt.Errorf("--max-targets must be non-negative")
+		return errors.New("--max-targets must be non-negative")
 	}
 	setupLogging(cliflags.NewV1FromApp(c))
 	client, err := createRuntimeClient(c)
