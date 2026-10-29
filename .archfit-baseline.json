@@ -1,0 +1,93 @@
+{
+  "schema_version": "archfit.baseline.v3",
+  "accepted": [],
+  "metrics": {
+    "blast_radius": {
+      "value": 3,
+      "version": "blast_radius.v2"
+    },
+    "coverage": {
+      "value": 1,
+      "version": "coverage.v1"
+    },
+    "cycle": {
+      "value": 0,
+      "version": "cycle.v1"
+    },
+    "unbalanced_edge": {
+      "value": 0,
+      "version": "unbalanced_edge.v3"
+    }
+  },
+  "state": {
+    "config_hash": "31f9f70260ad6c11e841f51ed22f3fb02527003989409392e9165ab263fa0b57",
+    "classification_hash": "b960cc2884924420cb8e8e09969a77c4d93f686acb4564e4c268bb8d072f3882",
+    "model_hash": "744b9eeab95c252d6ad09caf96ec44fd7761fc008000ce6897e8ad91034c0c23",
+    "labels_hash": "",
+    "rubric_version": "bc_score.v7",
+    "measurement_profile": {
+      "version": "archfit.measurement.v2",
+      "settings_hash": "2fde02daee43a8821fc4fe8841253b65245766f7adb172ce48fbce42eeb132f1",
+      "producers": [
+        {
+          "tool": "ast-grep",
+          "semantics_version": "ast-grep.v1",
+          "status": "disabled"
+        },
+        {
+          "tool": "ast-grep/syntax",
+          "semantics_version": "ast-grep/syntax.v2",
+          "tool_version": "ast-grep 0.51.0",
+          "status": "ok"
+        },
+        {
+          "tool": "deploy-unit",
+          "semantics_version": "deploy-unit.v2",
+          "status": "ok"
+        },
+        {
+          "tool": "git-history",
+          "semantics_version": "git-history.recent500-full-fallback.v2",
+          "tool_version": "git version 2.39.5",
+          "status": "ok"
+        },
+        {
+          "tool": "go/packages",
+          "semantics_version": "go/packages.v2",
+          "tool_version": "go1.27.3",
+          "status": "ok"
+        },
+        {
+          "tool": "jscpd",
+          "semantics_version": "jscpd.v1",
+          "tool_version": "jscpd 5.4.2",
+          "status": "ok"
+        },
+        {
+          "tool": "loc",
+          "semantics_version": "loc.v1",
+          "status": "ok"
+        },
+        {
+          "tool": "scip",
+          "semantics_version": "scip.v3",
+          "tool_version": "scip-go 0.2.9",
+          "status": "ok"
+        },
+        {
+          "tool": "scip-symbols",
+          "semantics_version": "scip-symbols.v2",
+          "tool_version": "scip-go 0.2.9",
+          "status": "ok"
+        },
+        {
+          "tool": "supplied-coverage",
+          "semantics_version": "supplied-coverage.v1",
+          "status": "disabled"
+        }
+      ],
+      "unknowns": []
+    },
+    "qualifying_seam_ids": []
+  }
+}
