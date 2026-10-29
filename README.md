@@ -182,7 +182,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 | `--slackhook` | Empty | — | Slack incoming webhook URL for log events |
 | `--slackchannel` | `#pumba` | — | Slack channel for log events |
 | `--interval`, `-i` | `0s` (single run) | — | Recurring interval; accepts `ms`, `s`, `m`, or `h` |
-| `--label` | Empty list | — | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic) |
+| `--label` | Empty list | — | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic); unsupported for containerd |
 | `--random`, `-r` | `false` | — | Pick one matching container at random |
 | `--dry-run` | `false` | `DRY-RUN` | Log planned chaos actions without executing them |
 | `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
