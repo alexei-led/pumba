@@ -370,3 +370,32 @@ the cap is checked again on every tick.
 ```bash
 pumba --max-targets 3 --dry-run kill 're2:^web-'
 ```
+
+## Protecting containers
+
+Set the container label `com.gaiaadm.pumba.skip=true` to exclude a container from
+Pumba selection, including explicit names, regexes, and label selectors. The value
+must be the string `true`; merely adding the key is not enough.
+
+```bash
+docker run -d --name protected --label com.gaiaadm.pumba.skip=true alpine sleep 3600
+```
+
+For Kubernetes, a Pod template label can express the same protection intent:
+
+```yaml
+spec:
+  template:
+    metadata:
+      labels:
+        com.gaiaadm.pumba.skip: "true"
+```
+
+**Kubernetes limitation:** Pumba reads labels on the runtime container, not Pod
+metadata. A Pod label alone is not a guarantee of protection: verify that your
+runtime exposes `com.gaiaadm.pumba.skip=true` on each container. Otherwise use
+explicit target allow-lists; do not rely on this Pod label to exclude containers.
+Pumba does not translate Kubernetes labels into runtime labels.
+
+Use `--max-targets` as an additional opt-in safety cap, and `--dry-run` to inspect
+selection before injecting faults. The cap does not replace protection labels.
