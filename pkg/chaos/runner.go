@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	_ "github.com/alexei-led/pumba/pkg/runtime/docker" // DO NOT MERGE: archfit calibration
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
