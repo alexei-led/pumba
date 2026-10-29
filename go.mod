@@ -2,7 +2,7 @@ module github.com/alexei-led/pumba
 
 require (
 	github.com/containerd/containerd/api v1.11.1
-	github.com/containerd/containerd/v2 v2.3.5
+	github.com/containerd/containerd/v2 v2.3.6
 	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/containerd/typeurl/v2 v2.3.0
