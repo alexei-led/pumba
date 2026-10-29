@@ -43,3 +43,17 @@ func TestCommandsPreserveMaxTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestMaxTargetsRecheckedOnIntervalAndNotSkipped(t *testing.T) {
+	client := container.NewMockClient(t)
+	target := makeContainers("a")[0]
+	gp := &chaos.GlobalParams{MaxTargets: 1, Interval: time.Nanosecond, DryRun: true, SkipErrors: true}
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).Return([]*container.Container{target}, nil).Once()
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).Return(makeContainers("a", "b"), nil).Once()
+	client.EXPECT().KillContainer(mock.Anything, target, lifecycle.DefaultKillSignal, true).Return(nil).Once()
+	command, err := lifecycle.NewKillCommand(client, gp, "", 0)
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	assert.ErrorContains(t, chaos.RunChaosCommand(ctx, command, gp), "2 containers selected, --max-targets is 1")
+}
