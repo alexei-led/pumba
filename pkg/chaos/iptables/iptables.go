@@ -47,6 +47,12 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 	})
 	logger.Debug("running iptables command")
 	if err := client.IPTablesContainer(ctx, addReq); err != nil {
+		// rules before the failing one may already be installed; remove them. The
+		// failing rule was never installed, so its delete always errors: log it, do
+		// not return it, or every partial install reports a cleanup failure.
+		if cleanupErr := stopIPTables(ctx, client, delReq); cleanupErr != nil {
+			logger.WithError(cleanupErr).Warn("failed to stop iptables container after failure (expected for the rule that did not install)")
+		}
 		return fmt.Errorf("iptables failed: %w", err)
 	}
 	logger.Debug("iptables command started")
@@ -60,18 +66,22 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping iptables command on abort")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
-		defer cleanupCancel()
-		if err := client.StopIPTablesContainer(cleanupCtx, delReq); err != nil {
+		if err := stopIPTables(ctx, client, delReq); err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	case <-stopCtx.Done():
 		logger.Debug("stopping iptables command on timeout")
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
-		defer cleanupCancel()
-		if err := client.StopIPTablesContainer(cleanupCtx, delReq); err != nil {
+		if err := stopIPTables(ctx, client, delReq); err != nil {
 			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		}
 	}
 	return nil
+}
+
+// stopIPTables removes the rules via delReq. It runs on a context detached from
+// ctx so cleanup still runs after abort, bounded by cleanupTimeout.
+func stopIPTables(ctx context.Context, client iptablesClient, delReq *container.IPTablesRequest) error {
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
+	defer cleanupCancel()
+	return client.StopIPTablesContainer(cleanupCtx, delReq)
 }

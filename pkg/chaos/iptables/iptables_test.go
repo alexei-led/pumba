@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/container"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func Test_runIPTables(t *testing.T) {
 	type errs struct {
-		startErr bool
-		stopErr  bool
+		stopErr bool
 	}
 	type args struct {
 		container    *container.Container
@@ -91,24 +91,6 @@ func Test_runIPTables(t *testing.T) {
 			abort: true,
 		},
 		{
-			name: "iptables error in IPTablesContainer",
-			args: args{
-				container: &container.Container{
-					ContainerName: "c1",
-					Labels:        map[string]string{},
-					Networks:      map[string]container.NetworkLink{},
-				},
-				addCmdPrefix: []string{"-A", "INPUT"},
-				delCmdPrefix: []string{"-D", "INPUT"},
-				cmdSuffix:    []string{"-m", "statistic"},
-				dstIPs:       []*net.IPNet{{IP: net.IP{10, 10, 10, 10}}},
-				duration:     time.Microsecond * 10,
-				image:        "test/image",
-			},
-			errs:    errs{startErr: true},
-			wantErr: true,
-		},
-		{
 			name: "iptables error in StopIPTablesContainer",
 			args: args{
 				container: &container.Container{
@@ -133,10 +115,6 @@ func Test_runIPTables(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
-			startErr := error(nil)
-			if tt.errs.startErr {
-				startErr = errors.New("test error")
-			}
 			addReq := &container.IPTablesRequest{
 				Container: tt.args.container,
 				CmdPrefix: tt.args.addCmdPrefix,
@@ -161,15 +139,13 @@ func Test_runIPTables(t *testing.T) {
 				Sidecar:   container.SidecarSpec{Image: tt.args.image, Pull: tt.args.pull},
 				DryRun:    tt.args.dryRun,
 			}
-			mockClient.EXPECT().IPTablesContainer(ctx, addReq).Return(startErr)
+			mockClient.EXPECT().IPTablesContainer(ctx, addReq).Return(nil)
 
-			if !tt.errs.startErr {
-				stopErr := error(nil)
-				if tt.errs.stopErr {
-					stopErr = errors.New("test error")
-				}
-				mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(stopErr)
+			stopErr := error(nil)
+			if tt.errs.stopErr {
+				stopErr = errors.New("test error")
 			}
+			mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(stopErr)
 
 			// abort case: cancel ctx before runIPTables so the ctx.Done() branch
 			// is exercised; otherwise the stopCtx timeout branch wins.
@@ -180,6 +156,42 @@ func Test_runIPTables(t *testing.T) {
 			if err := runIPTables(ctx, mockClient, addReq, delReq); (err != nil) != tt.wantErr {
 				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func Test_runIPTables_rollsBackOnAddFailure(t *testing.T) {
+	addErr := errors.New("add rule failed")
+	tests := []struct {
+		name       string
+		cleanupErr error
+	}{
+		{name: "cleanup succeeds"},
+		{name: "cleanup fails", cleanupErr: errors.New("cleanup failed")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			ctr := &container.Container{ContainerName: "c1", Labels: map[string]string{}, Networks: map[string]container.NetworkLink{}}
+			addReq := &container.IPTablesRequest{
+				Container: ctr,
+				CmdPrefix: []string{"-I", "INPUT"},
+				CmdSuffix: []string{"-m", "statistic"},
+				SPorts:    []string{"49", "50"},
+				Duration:  time.Minute,
+			}
+			delReq := &container.IPTablesRequest{
+				Container: ctr,
+				CmdPrefix: []string{"-D", "INPUT"},
+				CmdSuffix: []string{"-m", "statistic"},
+				SPorts:    []string{"49", "50"},
+				Duration:  time.Minute,
+			}
+			mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(addErr).Once()
+			mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(tt.cleanupErr).Once()
+
+			err := runIPTables(context.Background(), mockClient, addReq, delReq)
+			assert.EqualError(t, err, "iptables failed: add rule failed")
 		})
 	}
 }
