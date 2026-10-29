@@ -85,8 +85,13 @@ func main() {
 	app.Commands = initializeCLICommands(func() ctr.Client { return runtimeClient })
 	app.Flags = globalFlags(rootCertPath)
 
-	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.StandardLogger().Log(log.FatalLevel, err)
+	}
+	flushSlackHooks()
+	if err != nil {
+		os.Exit(1)
 	}
 }
 
