@@ -183,6 +183,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 | `--slackchannel` | `#pumba` | — | Slack channel for log events |
 | `--interval`, `-i` | `0s` (single run) | — | Recurring interval; accepts `ms`, `s`, `m`, or `h` |
 | `--label` | Empty list | — | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic); unsupported for containerd |
+| `--max-targets` | `unset` | — | Refuse before any injection when targets exceed N after `--limit`/`--random`; `0` disables the cap; applies to dry-run and every interval tick |
 | `--random`, `-r` | `false` | — | Pick one matching container at random |
 | `--dry-run` | `false` | `DRY-RUN` | Log planned chaos actions without executing them |
 | `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
@@ -191,6 +192,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 
 TLS certificate defaults use `DOCKER_CERT_PATH` instead of `/etc/ssl/docker` when set.
 `--interval=0` runs once. Use `--skip-error` with intervals to continue after transient failures.
+Safety-cap refusals are never suppressed by `--skip-error`.
 
 ### Run with Docker
 
