@@ -69,7 +69,7 @@ func (c *Container) Links() []string {
 
 	for _, network := range c.Networks {
 		for _, link := range network.Links {
-			name := strings.Split(link, ":")[0]
+			name, _, _ := strings.Cut(link, ":")
 			links = append(links, name)
 		}
 	}
