@@ -1,11 +1,6 @@
 name: Build and Test
 on:
   pull_request:
-    paths-ignore:
-      - docs/**
-      - deploy/**
-      - examples/**
-      - '*.md'
 # Cancel superseded runs on the same PR — pushing a new commit invalidates
 # the previous build's signal.
 concurrency:
@@ -14,6 +9,8 @@ concurrency:
 jobs:
   test:
     name: Lint and Test
+    outputs:
+      docs_only: ${{ steps.changes.outputs.docs_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -26,18 +23,44 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Detect Docs-only Changes
+        id: changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs_only=false
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            # Include both paths of renames; preserve unusual filenames.
+            git diff --no-renames --name-only -z "$BASE_SHA" "$HEAD_SHA" -- > "$RUNNER_TEMP/changed-files"
+            docs_only=true
+            while IFS= read -r -d '' file; do
+              case "$file" in
+                docs/* | deploy/* | examples/*) ;;
+                */*) docs_only=false; break ;;
+                *.md) ;;
+                *) docs_only=false; break ;;
+              esac
+            done < "$RUNNER_TEMP/changed-files"
+          fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
       - name: Setup Go Environment
+        if: steps.changes.outputs.docs_only != 'true'
         uses: actions/setup-go@v7
         with:
           go-version: "1.27"
           cache: true
           cache-dependency-path: go.sum
       - name: Run Lint and Test Coverage
+        if: steps.changes.outputs.docs_only != 'true'
         shell: bash
         run: |
           make lint
           make test-coverage
       - name: Run govulncheck
+        if: steps.changes.outputs.docs_only != 'true'
         run: |
           set -euo pipefail
           go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -60,11 +83,12 @@ jobs:
           [ -n "$ids" ] && echo "::notice::Only pre-accepted vulnerabilities present:$ids"
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
+        if: always() && steps.changes.outputs.docs_only != 'true'
         with:
           files: .cover/tests.xml
           commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
+        if: steps.changes.outputs.docs_only != 'true'
         uses: codecov/codecov-action@v7
         with:
           files: .cover/coverage.xml
@@ -72,6 +96,7 @@ jobs:
   integration:
     name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }})
     needs: test
+    if: needs.test.outputs.docs_only != 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     strategy:
