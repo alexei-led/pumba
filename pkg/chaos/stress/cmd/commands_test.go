@@ -86,6 +86,13 @@ func TestParseStressParams_MissingDurationErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "duration")
 }
 
+func TestParseStressParams_NegativeDurationErrors(t *testing.T) {
+	cmd := NewStressCLICommand(context.Background(), nilRuntime())
+	c := newTestCLIContext(t, cmd.Flags, []string{"--duration", "-1s"})
+	_, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
+	assert.EqualError(t, err, "unset or invalid duration value")
+}
+
 func TestBuildStressCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	cmd := NewStressCLICommand(context.Background(), nilRuntime())
