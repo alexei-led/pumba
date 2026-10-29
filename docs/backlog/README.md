@@ -23,6 +23,6 @@ Deferred ideas, one file per item. Not commitments.
 | [safety-rails.md](safety-rails.md) | safety | Interactive confirmation rejected; duration validation complete |
 | [stack-docker-sdk-moby.md](stack-docker-sdk-moby.md) | stack | Docker SDK to moby/moby client modules |
 | [stack-logrus-slog.md](stack-logrus-slog.md) | stack | logrus to log/slog |
-| [stack-slackrus-webhook.md](stack-slackrus-webhook.md) | stack | Replace slackrus with generic --webhook |
+| [stack-slackrus-webhook.md](stack-slackrus-webhook.md) | stack | Generic --webhook events; slackrus dependency removed |
 | [stack-urfave-cli-v3.md](stack-urfave-cli-v3.md) | stack, arch | urfave/cli v1 to v3 |
 | [stress-first-class-cgroup.md](stress-first-class-cgroup.md) | stress | Stress: cgroup limits, PSI, stats, Podman 4.9 race |
