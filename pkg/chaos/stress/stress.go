@@ -20,6 +20,7 @@ type stressClient interface {
 
 // `stress-ng` command
 type stressCommand struct {
+	maxTargets   int
 	client       stressClient
 	names        []string
 	pattern      string
@@ -44,6 +45,7 @@ func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, ima
 		names:        globalParams.Names,
 		pattern:      globalParams.Pattern,
 		labels:       globalParams.Labels,
+		maxTargets:   globalParams.MaxTargets,
 		image:        image,
 		pull:         pull,
 		stressors:    strings.Fields(stressors),
@@ -66,7 +68,7 @@ func (s *stressCommand) Run(ctx context.Context, random bool) error {
 		"limit":     s.limit,
 		"random":    random,
 	}).Debug("stress testing all matching containers")
-	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels}
+	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels, MaxTargets: s.maxTargets}
 	if err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, true, s.stressContainer); err != nil {
 		return fmt.Errorf("one or more stress test failed: %w", err)
 	}

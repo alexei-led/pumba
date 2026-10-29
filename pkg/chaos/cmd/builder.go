@@ -61,6 +61,9 @@ func NewAction[P any](ctx context.Context, runtime chaos.Runtime, spec Spec[P]) 
 			}
 			f := cliflags.NewV1(c)
 			gp := chaos.ParseGlobalParams(f)
+			if gp.MaxTargets < 0 {
+				return fmt.Errorf("--max-targets must be non-negative")
+			}
 			p, err := spec.Parse(f, gp)
 			if err != nil {
 				return err

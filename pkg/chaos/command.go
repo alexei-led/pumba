@@ -29,6 +29,7 @@ type Command interface {
 
 // GlobalParams global parameters passed through CLI flags
 type GlobalParams struct {
+	MaxTargets int
 	Random     bool
 	Labels     []string
 	Pattern    string
@@ -60,6 +61,7 @@ func ParseGlobalParams(c cliflags.Flags) *GlobalParams {
 	g := c.Global()
 	names, pattern := getNamesOrPattern(c)
 	return &GlobalParams{
+		MaxTargets: g.Int("max-targets"),
 		Random:     g.Bool("random"),
 		Labels:     splitLabels(g.StringSlice("label")),
 		Pattern:    pattern,
