@@ -3,14 +3,15 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,6 +141,12 @@ func TestSlackHookFailures(t *testing.T) {
 	for _, mode := range []string{"500", "closed", "timeout", "redirect", "invalid-url"} {
 		t.Run(mode, func(t *testing.T) {
 			release := make(chan struct{})
+			var redirected atomic.Int32
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				redirected.Add(1)
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer target.Close()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				switch mode {
 				case "500":
@@ -152,13 +159,22 @@ func TestSlackHookFailures(t *testing.T) {
 				case "timeout":
 					<-release
 				case "redirect":
-					w.Header().Set("Location", "/redirected")
-					w.WriteHeader(http.StatusFound)
+					w.Header().Set("Location", target.URL)
+					w.WriteHeader(http.StatusTemporaryRedirect)
 				}
 			}))
 			defer server.Close()
 			defer close(release)
-			hook := newSlackHook(server.URL, "#pumba", log.DebugLevel)
+			hook := newSlackHook(server.URL+"/secret-token", "#pumba", log.DebugLevel)
+			reader, writer, err := os.Pipe()
+			require.NoError(t, err)
+			originalStderr := os.Stderr
+			os.Stderr = writer
+			t.Cleanup(func() {
+				os.Stderr = originalStderr
+				_ = reader.Close()
+				_ = writer.Close()
+			})
 			hook.client.Timeout = 50 * time.Millisecond
 			if mode == "invalid-url" {
 				hook.url = "://invalid"
@@ -174,6 +190,18 @@ func TestSlackHookFailures(t *testing.T) {
 				t.Fatal("webhook blocked logging")
 			}
 			waitSlackHook(t, hook)
+			require.NoError(t, hook.Fire(entry))
+			waitSlackHook(t, hook)
+			require.NoError(t, writer.Close())
+			os.Stderr = originalStderr
+			warnings, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			assert.Equal(t, 1, strings.Count(string(warnings), "\n"))
+			assert.Contains(t, string(warnings), "warning:")
+			assert.NotContains(t, string(warnings), server.URL)
+			assert.NotContains(t, string(warnings), "secret-token")
+			assert.NotContains(t, string(warnings), "secret response body")
+			assert.Zero(t, redirected.Load(), "log payload must not reach redirect destinations")
 		})
 	}
 }
