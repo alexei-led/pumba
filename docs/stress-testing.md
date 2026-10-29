@@ -28,6 +28,40 @@ pumba stress [options] CONTAINERS
 
 Run `pumba stress --help` for the full list of options.
 
+### First-class resource flags
+
+Use flags on the existing `stress` command; container names such as `cpu`,
+`memory`, or `io` remain positional targets, not subcommands.
+
+```bash
+pumba stress --duration 1m --cpu 2 --cpu-load 80 myapp
+pumba stress --duration 2m --memory 2 --memory-bytes 256M myapp
+pumba stress --duration 30s --io 4 myapp
+pumba stress --duration 1m --cpu 2 --memory 1 --memory-bytes 25% myapp
+```
+
+`--cpu`, `--memory`, and `--io` specify worker counts of at least 1.
+`--cpu-load` accepts 0–100 and requires `--cpu`. `--memory-bytes` requires
+`--memory` and accepts a positive integer byte count, a b/k/m/g suffix
+(case-insensitive), or an integer percentage from 1% to 100%. It maps to
+stress-ng's `--vm-bytes`: **total** memory shared by the memory workers, not
+an allocation per worker. Percentages refer to available memory as seen by
+stress-ng, not a promise to stay within the target's cgroup limit. Memory
+stress can trigger OOM kills; start with a small absolute size.
+
+`--memory` maps to `--vm`; `--io` maps to stress-ng's legacy sync(2) workers,
+not disk throughput or a read/write mix. See the
+[stress-ng 0.20.01 manual](https://github.com/ColinIanKing/stress-ng/blob/V0.20.01/stress-ng.1).
+
+With these flags, `--duration` is the single source of truth for the timeout.
+Pumba generates `--timeout` in whole seconds, rounding up for subsecond values;
+Pumba's own duration timer retains the exact deadline.
+
+**Do not combine these flags with an explicit `--stressors`: Pumba rejects the
+combination.** Raw `--stressors` invocations and the legacy default are unchanged,
+including any raw `--timeout`; they are not rewritten. If no resource flags are
+set, the default remains `--cpu 4 --timeout 60s`.
+
 ### Options
 
 | Flag              | Default                               | Description                                                                                                                                 |
@@ -36,6 +70,11 @@ Run `pumba stress --help` for the full list of options.
 | `--stress-image`  | `ghcr.io/alexei-led/stress-ng:latest` | Docker image with stress-ng tool                                                                                                            |
 | `--pull-image`    | `true`                                | Pull the stress image from the registry before use                                                                                          |
 | `--stressors`     | `--cpu 4 --timeout 60s`               | stress-ng stressors (see [stress-ng docs](https://github.com/ColinIanKing/stress-ng))                                                       |
+| `--cpu`          | _(unset)_ | CPU workers (at least 1) |
+| `--cpu-load`     | _(unset)_ | Load 0–100%; requires `--cpu` |
+| `--memory`       | _(unset)_ | Memory workers (stress-ng `--vm`, at least 1) |
+| `--memory-bytes` | _(unset)_ | Total bytes or 1–100% shared by memory workers; requires `--memory` |
+| `--io`           | _(unset)_ | sync(2) I/O workers (at least 1) |
 | `--inject-cgroup` | `false`                               | Inject stress-ng into target container's cgroup (shared resource accounting). See [Same-Cgroup Injection Mode](#same-cgroup-injection-mode) |
 
 > **Note:** The `--stressors` flag requires an `=` sign when passing values, e.g. `--stressors="--cpu 4 --timeout 60s"`.
@@ -54,7 +93,7 @@ pumba stress --duration 60s \
 
 ### Memory Stress
 
-Stress 2 memory workers, each allocating 256MB, for 2 minutes:
+Stress 2 memory workers sharing a total allocation of 256MB for 2 minutes:
 
 ```bash
 pumba stress --duration 2m \
