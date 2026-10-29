@@ -1,1 +1,7 @@
 * @alexei-led
+# Archfit protected paths
+/.archfit.yaml @alexei-led
+/.archfit-baseline.json @alexei-led
+/.archfit-labels.yaml @alexei-led
+/.archfit-app.yaml @alexei-led
+/.github/workflows/archfit.yaml @alexei-led

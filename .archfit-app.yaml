@@ -1,0 +1,7 @@
+# Archfit App settings. Changes need architecture-owner approval.
+version: 1
+owners:
+  - alexei-led
+gate: advisory
+workflow: .github/workflows/archfit.yaml
+data_mode: customer
