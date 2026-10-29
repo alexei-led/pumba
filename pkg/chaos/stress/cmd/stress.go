@@ -65,7 +65,7 @@ func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Comman
 
 func parseStressParams(c cliflags.Flags, _ *chaos.GlobalParams) (StressParams, error) {
 	duration := c.Duration("duration")
-	if duration == 0 {
+	if duration <= 0 {
 		return StressParams{}, errors.New("unset or invalid duration value")
 	}
 	return StressParams{

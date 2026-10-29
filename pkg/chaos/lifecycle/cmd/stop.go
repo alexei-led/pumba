@@ -58,7 +58,7 @@ func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 
 func parseStopParams(c cliflags.Flags, _ *chaos.GlobalParams) (StopParams, error) {
 	duration := c.Duration("duration")
-	if duration == 0 {
+	if duration <= 0 {
 		return StopParams{}, errors.New("unset or invalid duration value")
 	}
 	return StopParams{

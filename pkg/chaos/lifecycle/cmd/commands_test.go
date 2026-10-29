@@ -148,6 +148,17 @@ func TestParseStopParams_InvalidDurationErrors(t *testing.T) {
 	assert.EqualError(t, err, "unset or invalid duration value")
 }
 
+func TestParseStopParams_NegativeDurationErrors(t *testing.T) {
+	cmd := NewStopCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{
+		findFlag(t, cmd, "time"), findFlag(t, cmd, "limit"),
+		findFlag(t, cmd, "restart"), findFlag(t, cmd, "duration"),
+	}
+	c := newTestCLIContext(t, flags, []string{"--duration", "-1s"})
+	_, err := parseStopParams(cliflags.NewV1(c), defaultGlobalParams())
+	assert.EqualError(t, err, "unset or invalid duration value")
+}
+
 func TestBuildStopCommand_ReturnsLifecycleStop(t *testing.T) {
 	client := container.NewMockClient(t)
 	cmd, err := buildStopCommand(client, defaultGlobalParams(),
@@ -177,6 +188,14 @@ func TestParsePauseParams_ZeroDurationErrors(t *testing.T) {
 	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
 	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, nil)
+	_, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
+	assert.EqualError(t, err, "unset or invalid duration value")
+}
+
+func TestParsePauseParams_NegativeDurationErrors(t *testing.T) {
+	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
+	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
+	c := newTestCLIContext(t, flags, []string{"--duration", "-1s"})
 	_, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.EqualError(t, err, "unset or invalid duration value")
 }
