@@ -19,7 +19,10 @@ type ContainerAction func(ctx context.Context, c *container.Container) error
 
 // RunOnContainers lists running containers matching gp.{Names,Pattern,Labels}
 // (capped by limit), optionally narrows to a single random pick when random
-// is true, then invokes fn for each container. parallel selects between
+// is true, checks gp.MaxTargets, then invokes fn for each container. Callers
+// must forward MaxTargets and preserve wrapped errors with %w: over-cap
+// selections wrap ErrMaxTargetsExceeded and run no callbacks. Negative caps
+// return ErrNegativeMaxTargets. parallel selects between
 // errgroup fanout (true) and a sequential for-loop (false). Returns nil when
 // no containers match — same warning the per-action loops used to log.
 //
@@ -71,7 +74,7 @@ func runOnContainers(
 	fn ContainerAction,
 ) error {
 	if gp.MaxTargets < 0 {
-		return errors.New("--max-targets must be non-negative")
+		return ErrNegativeMaxTargets
 	}
 	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit, all)
 	if err != nil {
@@ -103,6 +106,9 @@ func runOnContainers(
 	}
 	return eg.Wait()
 }
+
+// ErrNegativeMaxTargets rejects invalid caps before listing or injecting.
+var ErrNegativeMaxTargets = errors.New("--max-targets must be non-negative")
 
 // ErrMaxTargetsExceeded marks safety refusals, which --skip-error must not suppress.
 var ErrMaxTargetsExceeded = errors.New("refusing to run")

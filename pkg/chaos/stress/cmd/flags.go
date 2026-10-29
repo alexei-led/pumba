@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	minWorkers = 1
-	maxPercent = 100
+	minWorkers   = 1
+	maxPercent   = 100
+	sizeUnitBits = 10
 )
 
 var memorySizePattern = regexp.MustCompile(`^[1-9]\d*[bBkKmMgG]?$`)
@@ -109,8 +110,18 @@ func validateMemoryBytes(value string) error {
 	if !memorySizePattern.MatchString(value) {
 		return errors.New("invalid --memory-bytes: use positive bytes, b/k/m/g suffix, or 1-100%")
 	}
-	if _, err := strconv.ParseUint(strings.TrimRight(value, "bBkKmMgG"), 10, 64); err != nil {
+	n, err := strconv.ParseUint(strings.TrimRight(value, "bBkKmMgG"), 10, 64)
+	if err != nil {
 		return fmt.Errorf("invalid --memory-bytes: %w", err)
+	}
+	// stress-ng scales suffixes without checking overflow; don't let an oversized
+	// request wrap into a smaller, valid workload.
+	multiplier := uint64(1)
+	if unit := strings.IndexByte("bkmg", strings.ToLower(value)[len(value)-1]); unit >= 0 {
+		multiplier <<= sizeUnitBits * unit
+	}
+	if n > math.MaxUint64/multiplier {
+		return errors.New("invalid --memory-bytes: size overflows uint64")
 	}
 	return nil
 }
