@@ -195,6 +195,7 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 | **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
 | **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
 | **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
+| **[Architecture](docs/architecture.md)**     | Module boundaries and the archfit policy that enforces them    |
 | **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
 
 ## Demo

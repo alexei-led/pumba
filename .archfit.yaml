@@ -1,13 +1,23 @@
-# Archfit config — reviewed 2026-08-23 against the current configuration reference.
+# Archfit config — approved architecture baseline, 2026-10-29 (engine v3.4.0).
+# The module graph below is frozen: depends_on lists record every allowed
+# cross-module edge. A new edge, cycle, or layer back-edge fails the gate.
 version: 2
+target_branch: master
 
-# Minimum severity for BC coupling advisories: low|medium|high|critical
 coupling:
   min_severity: medium
   duplicated_knowledge: score
   volatility_cascade: true
+  gate:
+    distributed_monolith:
+      mode: fail
+      max_new_seams: 0
 
-# LLM provider for off-gate enrich/explain/review (key from env: ANTHROPIC_API_KEY).
+# New production code outside every module is unreadable to the rules; make it
+# block instead of passing silently.
+module_review:
+  change_gate: fail
+
 ai:
   provider: anthropic
   model: claude-opus-4-8
@@ -23,11 +33,8 @@ languages:
 analyzers:
   syntax:
     enabled: true
-  # SCIP semantic graph (scip-go). Enables risk_hub and functional_candidates.
   scip:
     enabled: true
-  # Clone detection (jscpd). Flags cross-module code duplication; can upgrade
-  # edge strength to symmetric (S=9) where clones exist.
   clones:
     enabled: true
 
@@ -46,25 +53,19 @@ modules:
     role: composition_root
     subdomain: supporting
     volatility: low
-  mocks:
-    owner: alexei-led
-    paths:
-      - "mocks/**"
-    public:
-      - "mocks"
-    layer: core
-    role: generated
-    subdomain: supporting
-    volatility: low
+    depends_on: [pkg_chaos, pkg_container, pkg_runtime]
   pkg_chaos:
     owner: alexei-led
     paths:
       - "pkg/chaos/**"
     public:
       - "pkg/chaos"
+      - "pkg/chaos/cliflags"
+      - "pkg/chaos/*/cmd"
     layer: core
     subdomain: core
     volatility: high
+    depends_on: [pkg_container, pkg_util]
   pkg_container:
     owner: alexei-led
     paths:
@@ -74,25 +75,18 @@ modules:
     layer: core
     subdomain: core
     volatility: medium
+    depends_on: []
   pkg_runtime:
     owner: alexei-led
     paths:
       - "pkg/runtime/**"
     public:
-      - "pkg/runtime"
+      - "pkg/runtime/*"
     layer: core
     subdomain: core
     volatility: high
-  pkg_util:
-    owner: alexei-led
-    paths:
-      - "pkg/util/**"
-    public:
-      - "pkg/util"
-    layer: core
-    subdomain: supporting
-    volatility: low
-
+    depends_on: [pkg_container, pkg_tc]
+    visible_to: [cmd]
   pkg_tc:
     owner: alexei-led
     paths:
@@ -102,35 +96,64 @@ modules:
     layer: core
     subdomain: core
     volatility: high
+    depends_on: []
+  pkg_util:
+    owner: alexei-led
+    paths:
+      - "pkg/util/**"
+    public:
+      - "pkg/util"
+    layer: core
+    subdomain: supporting
+    volatility: low
+    depends_on: []
 
 rules:
-  # Domain model (pkg/container) must not import chaos behavior.
-  # pkg/container is the domain model; it is a dependency of chaos, not a consumer of it.
+  - id: approved-module-graph
+    type: module_dependencies
+    gate: fail
+    rationale: >-
+      The module graph is the approved architecture. A new cross-module edge
+      changes it and needs an owner-approved policy change first, not a code PR.
+
+  - id: no-module-cycles
+    type: module_cycle
+    gate: fail
+    rationale: >-
+      A cycle between modules makes them one unit: neither can change or be
+      tested alone.
+
   - id: no-container-to-chaos
     type: forbidden_dependency
     from: pkg/container/**
     to: pkg/chaos/**
     gate: fail
+    rationale: >-
+      pkg/container is the domain model that chaos consumes. Importing chaos
+      inverts the dependency and couples the model to every chaos action.
 
-  # Chaos behavior (pkg/chaos) must not import runtime adapters (pkg/runtime).
-  # Chaos defines *what* to do; runtime adapters implement *how* to do it via the
-  # container.Client interface. Direct runtime imports would bypass the abstraction.
   - id: no-chaos-to-runtime
     type: forbidden_dependency
     from: pkg/chaos/**
     to: pkg/runtime/**
     gate: fail
+    rationale: >-
+      Chaos says what to do through the container.Client interface; runtime
+      adapters say how. A direct import bypasses the interface and ties chaos
+      actions to one runtime.
 
-  # Generic utilities (pkg/util) must not import domain packages.
-  # Utility packages must stay domain-agnostic so they remain reusable.
   - id: no-util-to-domain
     type: forbidden_dependency
     from: pkg/util/**
     to: pkg/chaos/**
     gate: fail
+    rationale: >-
+      pkg/util must stay domain-agnostic so any package can use it without
+      pulling in chaos behavior.
 
-  # Inner layers (core) must not import the composition root (cmd).
-  # Fires when fromRank < toRank: any pkg/** or mocks/** importing cmd/** is forbidden.
   - id: layer-inversion
     type: forbidden_layer_direction
     gate: fail
+    rationale: >-
+      cmd is the composition root. A core package that imports it creates a
+      cycle with the wiring and cannot be reused or tested without the CLI.
