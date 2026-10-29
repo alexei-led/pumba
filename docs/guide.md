@@ -364,3 +364,46 @@ This is useful in recurring mode when target containers may temporarily not exis
 - [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress (includes `--inject-cgroup` for same-cgroup injection)
 - [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
 - [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba
+
+## Global safety options
+
+`--max-targets N` refuses to run when the number of selected containers exceeds
+N, before injecting any fault. The default is **unset** (`0`): there is no cap.
+Negative values are rejected. The count is evaluated after name, regex and label
+selection and after `--limit` and `--random` narrowing. With `--random`, only one
+container is counted. Dry-run also refuses over-cap selections. With `--interval`,
+the cap is checked again on every tick. A safety refusal exits non-zero even with
+`--skip-error`.
+
+```bash
+pumba --max-targets 3 --dry-run kill 're2:^web-'
+```
+
+## Protecting containers
+
+Set the container label `com.gaiaadm.pumba.skip=true` to exclude a container from
+Pumba selection, including explicit names, regexes, and label selectors. The value
+must be the string `true`; merely adding the key is not enough.
+
+```bash
+docker run -d --name protected --label com.gaiaadm.pumba.skip=true alpine sleep 3600
+```
+
+For Kubernetes, a Pod template label can express the same protection intent:
+
+```yaml
+spec:
+  template:
+    metadata:
+      labels:
+        com.gaiaadm.pumba.skip: "true"
+```
+
+**Kubernetes limitation:** Pumba reads labels on the runtime container, not Pod
+metadata. A Pod label alone is not a guarantee of protection: verify that your
+runtime exposes `com.gaiaadm.pumba.skip=true` on each container. Otherwise use
+explicit target allow-lists; do not rely on this Pod label to exclude containers.
+Pumba does not translate Kubernetes labels into runtime labels.
+
+Use `--max-targets` as an additional opt-in safety cap, and `--dry-run` to inspect
+selection before injecting faults. The cap does not replace protection labels.

@@ -2,7 +2,9 @@ package chaos
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
@@ -17,7 +19,10 @@ type ContainerAction func(ctx context.Context, c *container.Container) error
 
 // RunOnContainers lists running containers matching gp.{Names,Pattern,Labels}
 // (capped by limit), optionally narrows to a single random pick when random
-// is true, then invokes fn for each container. parallel selects between
+// is true, checks gp.MaxTargets, then invokes fn for each container. Callers
+// must forward MaxTargets and preserve wrapped errors with %w: over-cap
+// selections wrap ErrMaxTargetsExceeded and run no callbacks. Negative caps
+// return ErrNegativeMaxTargets. parallel selects between
 // errgroup fanout (true) and a sequential for-loop (false). Returns nil when
 // no containers match — same warning the per-action loops used to log.
 //
@@ -68,6 +73,9 @@ func runOnContainers(
 	all, random, parallel bool,
 	fn ContainerAction,
 ) error {
+	if gp.MaxTargets < 0 {
+		return ErrNegativeMaxTargets
+	}
 	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit, all)
 	if err != nil {
 		return fmt.Errorf("listing containers: %w", err)
@@ -80,6 +88,9 @@ func runOnContainers(
 		if c := container.RandomContainer(containers); c != nil {
 			containers = []*container.Container{c}
 		}
+	}
+	if err := checkMaxTargets(containers, gp.MaxTargets); err != nil {
+		return err
 	}
 	if !parallel {
 		for _, c := range containers {
@@ -94,4 +105,24 @@ func runOnContainers(
 		eg.Go(func() error { return fn(ctx, c) })
 	}
 	return eg.Wait()
+}
+
+// ErrNegativeMaxTargets rejects invalid caps before listing or injecting.
+var ErrNegativeMaxTargets = errors.New("--max-targets must be non-negative")
+
+// ErrMaxTargetsExceeded marks safety refusals, which --skip-error must not suppress.
+var ErrMaxTargetsExceeded = errors.New("refusing to run")
+
+// Keep refusal messages bounded even when a selector matches thousands of containers.
+const maxTargetNames = 10
+
+func checkMaxTargets(containers []*container.Container, maxTargets int) error {
+	if maxTargets == 0 || len(containers) <= maxTargets {
+		return nil
+	}
+	names := make([]string, 0, min(len(containers), maxTargetNames))
+	for _, c := range containers[:min(len(containers), maxTargetNames)] {
+		names = append(names, c.Name())
+	}
+	return fmt.Errorf("%w: %d containers selected, --max-targets is %d (first %d: %s)", ErrMaxTargetsExceeded, len(containers), maxTargets, len(names), strings.Join(names, ", "))
 }

@@ -85,6 +85,7 @@ func globalFlags(rootCertPath string) []cli.Flag {
 			Name:  "label",
 			Usage: "filter containers by labels, e.g. '--label key=value' (use '--label k1=v1 --label k2=v2' or '--label k1=v1,k2=v2' for multiple, AND logic)",
 		},
+		cli.IntFlag{Name: "max-targets", Usage: "refuse chaos when selected targets exceed this cap after --limit/--random (0: unset)"},
 		cli.BoolFlag{
 			Name:  "random, r",
 			Usage: "randomly select single matching container from list of target containers",

@@ -1,9 +1,8 @@
-# Stress: first-class flags and cgroup limits
+# Stress: cgroup limits and telemetry
 
 Tags: stress · Effort: M
 
 ## Approach
-- Flags instead of raw `--stressors` passthrough: `stress cpu --load 80 --cores 2`, `stress memory --percent 90 --oom`, `stress io --rw-mix`. Keep passthrough.
 - Temporarily lower `memory.max` / `cpu.max` on the target: simulates noisy neighbor or throttled pod without burning CPU.
 - Ramp memory until PSI `memory.pressure` reaches X.
 - Report target cgroup stats before/during/after in structured output.

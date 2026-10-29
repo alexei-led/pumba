@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -158,5 +159,44 @@ func TestRandomContainer(t *testing.T) {
 				assert.Contains(t, tt.containers, result)
 			}
 		})
+	}
+}
+
+func TestListNContainers_ProtectLabel(t *testing.T) {
+	for _, all := range []bool{false, true} {
+		for _, selector := range []struct {
+			name    string
+			names   []string
+			pattern string
+			labels  []string
+		}{
+			{name: "exact name", names: []string{"protected", "allowed"}},
+			{name: "regex", pattern: ".*"},
+			{name: "label", labels: []string{"role=api"}},
+		} {
+			t.Run(fmt.Sprintf("%s/all=%t", selector.name, all), func(t *testing.T) {
+				protected := &Container{ContainerName: "protected", Labels: map[string]string{pumbaSkipLabel: trueValue, "role": "api"}}
+				allowed := &Container{ContainerName: "allowed", Labels: map[string]string{"role": "api"}}
+				client := NewMockClient(t)
+				client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ListOpts{All: all, Labels: selector.labels}).RunAndReturn(func(_ context.Context, filter FilterFunc, _ ListOpts) ([]*Container, error) {
+					var selected []*Container
+					for _, c := range []*Container{protected, allowed} {
+						if filter(c) {
+							selected = append(selected, c)
+						}
+					}
+					return selected, nil
+				}).Once()
+				var got []*Container
+				var err error
+				if all {
+					got, err = ListNContainersAll(context.Background(), client, selector.names, selector.pattern, selector.labels, 0, true)
+				} else {
+					got, err = ListNContainers(context.Background(), client, selector.names, selector.pattern, selector.labels, 0)
+				}
+				require.NoError(t, err)
+				assert.Equal(t, []*Container{allowed}, got)
+			})
+		}
 	}
 }
