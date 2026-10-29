@@ -76,4 +76,4 @@ require (
 	gotest.tools/v3 v3.5.2 // indirect
 )
 
-go 1.26.0
+go 1.27.0

@@ -232,9 +232,7 @@ func buildStressConfig(image string, stressors []string, driver, fullPath, paren
 			Cmd:        stressors,
 		}, ctypes.HostConfig{
 			AutoRemove: true,
-			Resources: ctypes.Resources{
-				CgroupParent: cgroupParent,
-			},
+			CgroupParent: cgroupParent,
 		}
 }
 

@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Pumba! This guide covers how to s
 
 ## Prerequisites
 
-- **Go 1.26+** — see [go.dev/dl](https://go.dev/dl/) for installation
+- **Go 1.27+** — see [go.dev/dl](https://go.dev/dl/) for installation
 - **Docker** — required for integration tests, building Docker images, and running Pumba itself
 - **Colima** (macOS) — recommended for running containerd integration tests (`brew install colima`)
 - **golangci-lint** — installed automatically via `make setup-tools`

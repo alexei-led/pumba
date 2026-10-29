@@ -70,9 +70,7 @@ func stressContainerConfig(targetID string, stressors []string, img, driver, cgr
 			Cmd:        stressors,
 		}, ctypes.HostConfig{
 			AutoRemove: true,
-			Resources: ctypes.Resources{
-				CgroupParent: cgroupParent,
-			},
+			CgroupParent: cgroupParent,
 		}
 }
 
