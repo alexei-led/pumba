@@ -209,3 +209,5 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 ## License
 
 [Apache License 2.0](LICENSE)
+
+<!-- Docs-only required-check smoke test. -->
