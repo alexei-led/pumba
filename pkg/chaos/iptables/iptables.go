@@ -27,7 +27,7 @@ type iptablesClient interface {
 // 1h chaos run does not give cleanup an hour to complete.
 const cleanupTimeout = 30 * time.Second
 
-// run iptables command, stop iptables on timeout or abort. The add/del prefix
+// run iptables command, stop iptables on timeout, abort or failed install. The add/del prefix
 // pair distinguishes the rule installation command (-I/-A/-N) from its mirror
 // removal command (-D); both share the rest of the request fields.
 func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *container.IPTablesRequest) error {
@@ -47,11 +47,11 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 	})
 	logger.Debug("running iptables command")
 	if err := client.IPTablesContainer(ctx, addReq); err != nil {
-		// rules before the failing one may already be installed; remove them. The
-		// failing rule was never installed, so its delete always errors: log it, do
-		// not return it, or every partial install reports a cleanup failure.
+		// rules before the failing one may already be installed; remove them. Cleanup
+		// errors are logged, not returned: deleting the rule that never installed
+		// fails on every partial install, and returning it would bury the add error.
 		if cleanupErr := stopIPTables(ctx, client, delReq); cleanupErr != nil {
-			logger.WithError(cleanupErr).Warn("failed to stop iptables container after failure (expected for the rule that did not install)")
+			logger.WithError(cleanupErr).Warn("failed to stop iptables after failed install; rules may remain in the target")
 		}
 		return fmt.Errorf("iptables failed: %w", err)
 	}

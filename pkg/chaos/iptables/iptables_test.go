@@ -195,3 +195,22 @@ func Test_runIPTables_rollsBackOnAddFailure(t *testing.T) {
 		})
 	}
 }
+
+func Test_runIPTables_rollbackIgnoresCallerCancel(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	ctr := &container.Container{ContainerName: "c1", Labels: map[string]string{}, Networks: map[string]container.NetworkLink{}}
+	addReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-I", "INPUT"}, DPorts: []string{"80"}, Duration: time.Minute}
+	delReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-D", "INPUT"}, DPorts: []string{"80"}, Duration: time.Minute}
+
+	// SIGTERM mid-install cancels the caller's ctx; rollback must still get a live, bounded ctx
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(errors.New("add rule failed")).Once()
+	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Run(func(cleanupCtx context.Context, _ *container.IPTablesRequest) {
+		assert.NoError(t, cleanupCtx.Err())
+		_, hasDeadline := cleanupCtx.Deadline()
+		assert.True(t, hasDeadline)
+	}).Return(nil).Once()
+
+	assert.Error(t, runIPTables(ctx, mockClient, addReq, delReq))
+}
