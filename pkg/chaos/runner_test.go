@@ -32,7 +32,7 @@ func TestRunOnContainers_EmptyList(t *testing.T) {
 
 	called := false
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, true,
-		func(_ context.Context, _ *container.Container) error {
+		func(_ context.Context, _ *container.Container, _ *chaos.Target) error {
 			called = true
 			return nil
 		})
@@ -50,7 +50,7 @@ func TestRunOnContainers_ListError(t *testing.T) {
 		Return(nil, listErr)
 
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, true,
-		func(_ context.Context, _ *container.Container) error {
+		func(_ context.Context, _ *container.Container, _ *chaos.Target) error {
 			t.Fatal("fn must not run when list fails")
 			return nil
 		})
@@ -69,7 +69,7 @@ func TestRunOnContainers_SerialSingle(t *testing.T) {
 
 	var seen []string
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, false,
-		func(_ context.Context, c *container.Container) error {
+		func(_ context.Context, c *container.Container, _ *chaos.Target) error {
 			seen = append(seen, c.ContainerID)
 			return nil
 		})
@@ -88,7 +88,7 @@ func TestRunOnContainers_SerialMultiple(t *testing.T) {
 
 	var seen []string
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, false,
-		func(_ context.Context, c *container.Container) error {
+		func(_ context.Context, c *container.Container, _ *chaos.Target) error {
 			seen = append(seen, c.ContainerID)
 			return nil
 		})
@@ -107,7 +107,7 @@ func TestRunOnContainers_ParallelMultiple(t *testing.T) {
 
 	var counter atomic.Int32
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, true,
-		func(_ context.Context, _ *container.Container) error {
+		func(_ context.Context, _ *container.Container, _ *chaos.Target) error {
 			counter.Add(1)
 			return nil
 		})
@@ -126,7 +126,7 @@ func TestRunOnContainers_RandomPicksOne(t *testing.T) {
 
 	var counter atomic.Int32
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, true, true,
-		func(_ context.Context, _ *container.Container) error {
+		func(_ context.Context, _ *container.Container, _ *chaos.Target) error {
 			counter.Add(1)
 			return nil
 		})
@@ -146,7 +146,7 @@ func TestRunOnContainers_ParallelErrorReturned(t *testing.T) {
 	wantErr := errors.New("fail-b")
 	var counter atomic.Int32
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, true,
-		func(_ context.Context, c *container.Container) error {
+		func(_ context.Context, c *container.Container, _ *chaos.Target) error {
 			counter.Add(1)
 			if c.ContainerID == "b" {
 				return wantErr
@@ -170,7 +170,7 @@ func TestRunOnContainers_SerialStopsOnFirstError(t *testing.T) {
 	wantErr := errors.New("fail-a")
 	var seen []string
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, false,
-		func(_ context.Context, c *container.Container) error {
+		func(_ context.Context, c *container.Container, _ *chaos.Target) error {
 			seen = append(seen, c.ContainerID)
 			if c.ContainerID == "a" {
 				return wantErr
@@ -197,7 +197,7 @@ func TestRunOnContainers_PassesLabelsAndPatternToLister(t *testing.T) {
 		Return(cs, nil)
 
 	err := chaos.RunOnContainers(context.Background(), mockClient, gp, 0, false, true,
-		func(_ context.Context, _ *container.Container) error { return nil })
+		func(_ context.Context, _ *container.Container, _ *chaos.Target) error { return nil })
 	require.NoError(t, err)
 }
 
@@ -213,7 +213,7 @@ func TestRunOnContainersAll_IncludesStoppedContainers(t *testing.T) {
 
 	var seen []string
 	err := chaos.RunOnContainersAll(context.Background(), mockClient, gp, 0, false, false,
-		func(_ context.Context, c *container.Container) error {
+		func(_ context.Context, c *container.Container, _ *chaos.Target) error {
 			seen = append(seen, c.ContainerID)
 			return nil
 		})
@@ -232,7 +232,7 @@ func TestRunOnContainersAll_EmptyList(t *testing.T) {
 
 	called := false
 	err := chaos.RunOnContainersAll(context.Background(), mockClient, gp, 0, false, false,
-		func(_ context.Context, _ *container.Container) error {
+		func(_ context.Context, _ *container.Container, _ *chaos.Target) error {
 			called = true
 			return nil
 		})
@@ -271,7 +271,7 @@ func TestRunOnContainers_MaxTargets(t *testing.T) {
 					if all {
 						run = chaos.RunOnContainersAll
 					}
-					err := run(context.Background(), client, gp, tt.limit, tt.random, parallel, func(context.Context, *container.Container) error { calls.Add(1); return nil })
+					err := run(context.Background(), client, gp, tt.limit, tt.random, parallel, func(context.Context, *container.Container, *chaos.Target) error { calls.Add(1); return nil })
 					if tt.wantErr {
 						require.Error(t, err)
 						if tt.cap < 0 {

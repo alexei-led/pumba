@@ -20,18 +20,14 @@ type stressClient interface {
 
 // `stress-ng` command
 type stressCommand struct {
-	maxTargets   int
 	client       stressClient
-	names        []string
-	pattern      string
-	labels       []string
+	gp           *chaos.GlobalParams
 	image        string
 	pull         bool
 	stressors    []string
 	duration     time.Duration
 	limit        int
 	injectCgroup bool
-	dryRun       bool
 }
 
 const (
@@ -42,17 +38,13 @@ const (
 func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, image string, pull bool, stressors string, duration time.Duration, limit int, injectCgroup bool) chaos.Command {
 	stress := &stressCommand{
 		client:       client,
-		names:        globalParams.Names,
-		pattern:      globalParams.Pattern,
-		labels:       globalParams.Labels,
-		maxTargets:   globalParams.MaxTargets,
+		gp:           globalParams,
 		image:        image,
 		pull:         pull,
 		stressors:    strings.Fields(stressors),
 		duration:     duration,
 		limit:        limit,
 		injectCgroup: injectCgroup,
-		dryRun:       globalParams.DryRun,
 	}
 	return stress
 }
@@ -60,22 +52,21 @@ func NewStressCommand(client stressClient, globalParams *chaos.GlobalParams, ima
 // Run stress command
 func (s *stressCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
-		"names":     s.names,
-		"pattern":   s.pattern,
-		"labels":    s.labels,
+		"names":     s.gp.Names,
+		"pattern":   s.gp.Pattern,
+		"labels":    s.gp.Labels,
 		"duration":  s.duration,
 		"stressors": s.stressors,
 		"limit":     s.limit,
 		"random":    random,
 	}).Debug("stress testing all matching containers")
-	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels, MaxTargets: s.maxTargets}
-	if err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, true, s.stressContainer); err != nil {
+	if err := chaos.RunOnContainers(ctx, s.client, s.gp, s.limit, random, true, s.stressContainer); err != nil {
 		return fmt.Errorf("one or more stress test failed: %w", err)
 	}
 	return nil
 }
 
-func (s *stressCommand) stressContainer(ctx context.Context, c *container.Container) error {
+func (s *stressCommand) stressContainer(ctx context.Context, c *container.Container, t *chaos.Target) error {
 	log.WithFields(log.Fields{
 		"container":       c.ID(),
 		"duration":        s.duration,
@@ -89,15 +80,16 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		Duration:     s.duration,
 		Sidecar:      container.SidecarSpec{Image: s.image, Pull: s.pull},
 		InjectCgroup: s.injectCgroup,
-		DryRun:       s.dryRun,
+		DryRun:       s.gp.DryRun,
 	}
 	result, err := s.client.StressContainer(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stress test failed: %w", err)
 	}
-	if s.dryRun {
+	if s.gp.DryRun {
 		return nil
 	}
+	t.Applied()
 	timer := time.NewTimer(s.duration)
 	defer timer.Stop()
 	select {
@@ -107,22 +99,24 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
 		log.Debug("stop stress test on containers by stop event")
-		// cleanup must run even when parent ctx is canceled; preserve values but strip cancellation
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
-		defer cleanupCancel()
-		err = s.client.StopContainerWithID(cleanupCtx, result.SidecarID, defaultStopTimeout, s.dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to stop stress-ng container: %w", err)
-		}
+		return s.stopStress(ctx, result.SidecarID, t)
 	case <-timer.C:
 		log.WithField("duration", s.duration).Debug("stop stress containers after duration")
-		// parent ctx may cancel simultaneously with the timer; strip cancellation for cleanup
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
-		defer cleanupCancel()
-		err = s.client.StopContainerWithID(cleanupCtx, result.SidecarID, defaultStopTimeout, s.dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to stop stress-ng container: %w", err)
-		}
+		return s.stopStress(ctx, result.SidecarID, t)
+	}
+	return nil
+}
+
+// stopStress stops the stress-ng sidecar and reports the outcome to t.
+func (s *stressCommand) stopStress(ctx context.Context, sidecarID string, t *chaos.Target) error {
+	// cleanup must run even when parent ctx is canceled (or cancels simultaneously
+	// with the timer); preserve values but strip cancellation
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
+	defer cleanupCancel()
+	err := s.client.StopContainerWithID(cleanupCtx, sidecarID, defaultStopTimeout, s.gp.DryRun)
+	t.Reverted(err)
+	if err != nil {
+		return fmt.Errorf("failed to stop stress-ng container: %w", err)
 	}
 	return nil
 }

@@ -107,11 +107,10 @@ func TestRemoveCommand_Run(t *testing.T) {
 				DryRun:  tt.fields.dryRun,
 			}
 			k := &removeCommand{
-				client:  mockClient,
-				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
-				opts:    opts,
-				limit:   tt.fields.limit,
+				client: mockClient,
+				gp:     &chaos.GlobalParams{Names: tt.fields.names, Pattern: tt.fields.pattern},
+				opts:   opts,
+				limit:  tt.fields.limit,
 			}
 			if tt.errs.listError {
 				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.MatchedBy(func(opts container.ListOpts) bool { return opts.All == true })).Return(nil, errors.New("ERROR"))
@@ -160,19 +159,17 @@ func TestNewRemoveCommand(t *testing.T) {
 			volumes: true,
 			limit:   5,
 			want: &removeCommand{
-				names:   []string{"c1"},
-				pattern: "^c",
-				labels:  []string{"k=v"},
-				opts:    container.RemoveOpts{Force: true, Links: true, Volumes: true, DryRun: true},
-				limit:   5,
+				gp:    &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
+				opts:  container.RemoveOpts{Force: true, Links: true, Volumes: true, DryRun: true},
+				limit: 5,
 			},
 		},
 		{
 			name:   "all opts false",
 			params: &chaos.GlobalParams{Names: []string{"c1"}},
 			want: &removeCommand{
-				names: []string{"c1"},
-				opts:  container.RemoveOpts{},
+				gp:   &chaos.GlobalParams{Names: []string{"c1"}},
+				opts: container.RemoveOpts{},
 			},
 		},
 	}

@@ -56,27 +56,19 @@ type killClient interface {
 
 // `docker kill` command
 type killCommand struct {
-	maxTargets int
-	client     killClient
-	names      []string
-	pattern    string
-	labels     []string
-	signal     string
-	limit      int
-	dryRun     bool
+	client killClient
+	gp     *chaos.GlobalParams
+	signal string
+	limit  int
 }
 
 // NewKillCommand create new Kill Command instance
 func NewKillCommand(client killClient, params *chaos.GlobalParams, signal string, limit int) (chaos.Command, error) {
 	kill := &killCommand{
-		client:     client,
-		names:      params.Names,
-		pattern:    params.Pattern,
-		labels:     params.Labels,
-		maxTargets: params.MaxTargets,
-		signal:     signal,
-		limit:      limit,
-		dryRun:     params.DryRun,
+		client: client,
+		gp:     params,
+		signal: signal,
+		limit:  limit,
 	}
 	if kill.signal == "" {
 		kill.signal = DefaultKillSignal
@@ -90,20 +82,20 @@ func NewKillCommand(client killClient, params *chaos.GlobalParams, signal string
 // Run kill command
 func (k *killCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
-		"names":   k.names,
-		"pattern": k.pattern,
-		"labels":  k.labels,
+		"names":   k.gp.Names,
+		"pattern": k.gp.Pattern,
+		"labels":  k.gp.Labels,
 		"signal":  k.signal,
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("killing all matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels, MaxTargets: k.maxTargets}
-	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
-		func(ctx context.Context, c *container.Container) error {
+	return chaos.RunOnContainers(ctx, k.client, k.gp, k.limit, random, false,
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"ctr": c, "signal": k.signal}).Debug("killing ctr")
-			if err := k.client.KillContainer(ctx, c, k.signal, k.dryRun); err != nil {
+			if err := k.client.KillContainer(ctx, c, k.signal, k.gp.DryRun); err != nil {
 				return fmt.Errorf("failed to kill ctr: %w", err)
 			}
+			t.Applied()
 			return nil
 		})
 }

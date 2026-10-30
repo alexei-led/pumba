@@ -22,8 +22,8 @@ type LossParams struct {
 }
 
 // NewLossCLICommand initialize CLI loss command.
-func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[LossParams]{
+func NewLossCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[LossParams]{
 		Name: "loss",
 		Flags: []cli.Flag{
 			cli.StringFlag{

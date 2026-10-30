@@ -112,12 +112,9 @@ func TestRestartCommand_Run(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			k := &restartCommand{
 				client:  mockClient,
-				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
-				labels:  tt.fields.labels,
+				gp:      &chaos.GlobalParams{Names: tt.fields.names, Pattern: tt.fields.pattern, Labels: tt.fields.labels, DryRun: tt.fields.dryRun},
 				timeout: 1 * time.Second,
 				limit:   tt.fields.limit,
-				dryRun:  tt.fields.dryRun,
 			}
 			opts := container.ListOpts{Labels: tt.fields.labels}
 			if tt.errs.listError {
@@ -163,19 +160,16 @@ func TestNewRestartCommand(t *testing.T) {
 			timeout: 5 * time.Second,
 			limit:   2,
 			want: &restartCommand{
-				names:   []string{"c1"},
-				pattern: "^c",
-				labels:  []string{"k=v"},
+				gp:      &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
 				timeout: 5 * time.Second,
 				limit:   2,
-				dryRun:  true,
 			},
 		},
 		{
 			name:   "zero timeout",
 			params: &chaos.GlobalParams{Names: []string{"c1"}},
 			want: &restartCommand{
-				names: []string{"c1"},
+				gp: &chaos.GlobalParams{Names: []string{"c1"}},
 			},
 		},
 	}

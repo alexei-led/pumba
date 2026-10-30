@@ -17,29 +17,21 @@ type execClient interface {
 
 // `docker exec` command
 type execCommand struct {
-	maxTargets int
-	client     execClient
-	names      []string
-	pattern    string
-	labels     []string
-	command    string
-	args       []string
-	limit      int
-	dryRun     bool
+	client  execClient
+	gp      *chaos.GlobalParams
+	command string
+	args    []string
+	limit   int
 }
 
 // NewExecCommand create new Exec Command instance
 func NewExecCommand(client execClient, params *chaos.GlobalParams, command string, args []string, limit int) chaos.Command {
 	exec := &execCommand{
-		client:     client,
-		names:      params.Names,
-		pattern:    params.Pattern,
-		labels:     params.Labels,
-		maxTargets: params.MaxTargets,
-		command:    command,
-		args:       args,
-		limit:      limit,
-		dryRun:     params.DryRun,
+		client:  client,
+		gp:      params,
+		command: command,
+		args:    args,
+		limit:   limit,
 	}
 	if exec.command == "" {
 		exec.command = "kill 1"
@@ -51,19 +43,19 @@ func NewExecCommand(client execClient, params *chaos.GlobalParams, command strin
 func (k *execCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("execing all matching containers")
 	log.WithFields(log.Fields{
-		"names":   k.names,
-		"pattern": k.pattern,
-		"labels":  k.labels,
+		"names":   k.gp.Names,
+		"pattern": k.gp.Pattern,
+		"labels":  k.gp.Labels,
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels, MaxTargets: k.maxTargets}
-	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
-		func(ctx context.Context, c *container.Container) error {
+	return chaos.RunOnContainers(ctx, k.client, k.gp, k.limit, random, false,
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"c": *c, "command": k.command, "args": k.args}).Debug("execing c")
-			if err := k.client.ExecContainer(ctx, c, k.command, k.args, k.dryRun); err != nil {
+			if err := k.client.ExecContainer(ctx, c, k.command, k.args, k.gp.DryRun); err != nil {
 				return fmt.Errorf("failed to run exec command: %w", err)
 			}
+			t.Applied()
 			return nil
 		})
 }

@@ -12,15 +12,15 @@ import (
 )
 
 //nolint:funlen
-func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
+func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.Command {
 	return []cli.Command{
-		*cmd.NewKillCLICommand(topContext, runtime),
-		*cmd.NewExecCLICommand(topContext, runtime),
-		*cmd.NewRestartCLICommand(topContext, runtime),
-		*cmd.NewStopCLICommand(topContext, runtime),
-		*cmd.NewPauseCLICommand(topContext, runtime),
-		*cmd.NewRemoveCLICommand(topContext, runtime),
-		*stressCmd.NewStressCLICommand(topContext, runtime),
+		*cmd.NewKillCLICommand(topContext, runtime, events),
+		*cmd.NewExecCLICommand(topContext, runtime, events),
+		*cmd.NewRestartCLICommand(topContext, runtime, events),
+		*cmd.NewStopCLICommand(topContext, runtime, events),
+		*cmd.NewPauseCLICommand(topContext, runtime, events),
+		*cmd.NewRemoveCLICommand(topContext, runtime, events),
+		*stressCmd.NewStressCLICommand(topContext, runtime, events),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
@@ -64,14 +64,14 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 			ArgsUsage:   fmt.Sprintf("containers (names and RE2 regexes prefixed with %q; may be mixed)", re2Prefix),
 			Description: "delay, loss, duplicate and re-order packets, limit bandwidth, or combine effects in one netem qdisc",
 			Subcommands: []cli.Command{
-				*netemCmd.NewCombineCLICommand(topContext, runtime),
-				*netemCmd.NewDelayCLICommand(topContext, runtime),
-				*netemCmd.NewLossCLICommand(topContext, runtime),
-				*netemCmd.NewLossStateCLICommand(topContext, runtime),
-				*netemCmd.NewLossGECLICommand(topContext, runtime),
-				*netemCmd.NewRateCLICommand(topContext, runtime),
-				*netemCmd.NewDuplicateCLICommand(topContext, runtime),
-				*netemCmd.NewCorruptCLICommand(topContext, runtime),
+				*netemCmd.NewCombineCLICommand(topContext, runtime, events),
+				*netemCmd.NewDelayCLICommand(topContext, runtime, events),
+				*netemCmd.NewLossCLICommand(topContext, runtime, events),
+				*netemCmd.NewLossStateCLICommand(topContext, runtime, events),
+				*netemCmd.NewLossGECLICommand(topContext, runtime, events),
+				*netemCmd.NewRateCLICommand(topContext, runtime, events),
+				*netemCmd.NewDuplicateCLICommand(topContext, runtime, events),
+				*netemCmd.NewCorruptCLICommand(topContext, runtime, events),
 			},
 		},
 		{
@@ -126,7 +126,7 @@ func initializeCLICommands(runtime chaos.Runtime) []cli.Command {
 			ArgsUsage:   fmt.Sprintf("containers (names and RE2 regexes prefixed with %q; may be mixed)", re2Prefix),
 			Description: "emulate loss of incoming packets, all ports and address arguments will result in separate rules",
 			Subcommands: []cli.Command{
-				*ipTablesCmd.NewLossCLICommand(topContext, runtime),
+				*ipTablesCmd.NewLossCLICommand(topContext, runtime, events),
 			},
 		},
 	}

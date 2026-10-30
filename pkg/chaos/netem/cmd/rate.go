@@ -23,8 +23,8 @@ type RateParams struct {
 }
 
 // NewRateCLICommand initialize CLI rate command.
-func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[RateParams]{
+func NewRateCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[RateParams]{
 		Name: "rate",
 		Flags: []cli.Flag{
 			cli.StringFlag{

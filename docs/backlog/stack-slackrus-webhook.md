@@ -10,8 +10,8 @@ unimplemented.
 
 ## Approach
 
-Generic `--webhook URL` posting the JSON event from
-[agent-structured-output](agent-structured-output.md), with a Slack-compatible
+Generic `--webhook URL` posting the `pumba.event/v1` result events
+([docs/agents.md](../agents.md)), with a Slack-compatible
 payload option. Keep `--slackhook` as a deprecated alias for one release.
 
 ## Open questions

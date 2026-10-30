@@ -294,6 +294,7 @@ pumba --dry-run kill "re2:^test"
 ```
 
 This logs the planned actions without executing them. Useful for verifying your targeting before running for real.
+Dry-run returns right away; it does not wait for `--duration`.
 
 ## Logging
 
@@ -312,6 +313,33 @@ Use `--json` (or `-j`) to produce JSON-formatted logs, compatible with Logstash 
 ```bash
 pumba --json --log-level info kill myapp
 ```
+
+## Structured Output
+
+Use `--output ndjson` (or `-o ndjson`) to get result events on stdout, one JSON object per line.
+Logs stay on stderr, so stdout can be piped straight into `jq`:
+
+```bash
+pumba -o ndjson --run-id nightly-7 pause --duration 10s myapp 2>/dev/null | jq -c '{type, status}'
+```
+
+Each run emits `run.start`, then `target.applied` (fault active) and `target.result` (after revert)
+per target, and finally `run.end` with the overall `status` (`ok`, `failed`, `partial`,
+`cleanup_failed`, `no_targets`, `refused`, `usage_error`, `aborted`). Every event carries the run ID
+from `--run-id`, or a generated one.
+
+Exit codes are unchanged: `0` on success, `1` on error, in both modes. A failed cleanup (netem or iptables rules left in place)
+exits `1`.
+
+`--max-duration` bounds a run in time: when it expires, in-flight chaos is cleaned up and the run
+exits `1`. It does not undo `kill`, `rm`, or `stop` without `--restart`, and it cannot help if Pumba
+itself is killed.
+
+```bash
+pumba --max-duration 1h --interval 5m --random kill 're2:^worker-'
+```
+
+The full contract (fields, error codes, delivery, recipes) is in [Agents](agents.md).
 
 ## Slack Integration
 
@@ -363,6 +391,7 @@ This is useful in recurring mode when target containers may temporarily not exis
 - [Network Chaos](network-chaos.md) - netem and iptables commands
 - [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress (includes `--inject-cgroup` for same-cgroup injection)
 - [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
+- [Agents](agents.md) - Result events, run ID, exit codes and run budget for scripts and agents
 - [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba
 
 ## Global safety options

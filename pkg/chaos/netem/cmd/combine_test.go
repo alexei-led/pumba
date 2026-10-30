@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/alexei-led/pumba/pkg/chaos/netem"
 	"github.com/alexei-led/pumba/pkg/container"
@@ -15,7 +16,7 @@ import (
 
 func TestNewCombineCLICommandContract(t *testing.T) {
 	runtime, _, calls := fakeRuntime(t)
-	cmd := NewCombineCLICommand(context.Background(), runtime)
+	cmd := NewCombineCLICommand(context.Background(), runtime, chaos.NopSink{})
 
 	assertConstructorContract(t, cmd, "combine")
 	assert.Equal(t, 0, *calls)
@@ -23,7 +24,7 @@ func TestNewCombineCLICommandContract(t *testing.T) {
 
 func TestCombineCLIActionParsesContainerAfterSeparator(t *testing.T) {
 	runtime, client, calls := fakeRuntime(t)
-	cmd := NewCombineCLICommand(context.Background(), runtime)
+	cmd := NewCombineCLICommand(context.Background(), runtime, chaos.NopSink{})
 	parent := netemContext(t, nil)
 	ctx := childContext(t, parent, cmd.Flags, []string{
 		"--delay", "--delay-time", "100",
@@ -40,7 +41,7 @@ func TestCombineCLIActionParsesContainerAfterSeparator(t *testing.T) {
 }
 
 func TestParseCombineParams(t *testing.T) {
-	cmd := NewCombineCLICommand(context.Background(), nilRuntime())
+	cmd := NewCombineCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, []string{"--duration", "1s", "--interface", "eth0", "--target", "peer"})
 	ctx := childContext(t, parent, cmd.Flags, []string{
 		"--delay", "--delay-time", "200", "--delay-jitter", "50",
@@ -68,7 +69,7 @@ func TestParseCombineParams(t *testing.T) {
 }
 
 func TestParseCombineParamsRequiresEffectSwitchForParameters(t *testing.T) {
-	cmd := NewCombineCLICommand(context.Background(), nilRuntime())
+	cmd := NewCombineCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	ctx := childContext(t, parent, cmd.Flags, []string{
 		"--delay-time", "200",

@@ -289,7 +289,8 @@ func TestParseGlobalParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := buildFlags(t, globalFlags, tt.globalArgs, []cli.Flag{}, tt.childArgs)
-			got := ParseGlobalParams(f)
+			got, err := ParseGlobalParams(f)
+			require.NoError(t, err)
 			// Selectively assert only the fields the test specifies.
 			if tt.want.Random {
 				assert.True(t, got.Random)
@@ -320,7 +321,49 @@ func TestParseGlobalParams_MaxTargets(t *testing.T) {
 	for _, cap := range []int{0, 1, 3} {
 		t.Run(fmt.Sprint(cap), func(t *testing.T) {
 			f := buildFlags(t, []cli.Flag{cli.IntFlag{Name: "max-targets"}}, []string{"--max-targets", fmt.Sprint(cap)}, nil, []string{"target"})
-			assert.Equal(t, cap, ParseGlobalParams(f).MaxTargets)
+			got, err := ParseGlobalParams(f)
+			require.NoError(t, err)
+			assert.Equal(t, cap, got.MaxTargets)
+		})
+	}
+}
+
+func TestParseGlobalParams_RunIdentity(t *testing.T) {
+	globalFlags := []cli.Flag{
+		cli.StringFlag{Name: "run-id"},
+		cli.StringFlag{Name: "runtime", Value: "docker"},
+		cli.DurationFlag{Name: "max-duration"},
+	}
+	tests := []struct {
+		name            string
+		args            []string
+		wantRunID       string
+		wantRuntime     string
+		wantMaxDuration time.Duration
+		wantErr         string
+	}{
+		{name: "defaults", wantRuntime: "docker"},
+		{name: "explicit", args: []string{"--run-id", "exp-1", "--runtime", "podman", "--max-duration", "5m"}, wantRunID: "exp-1", wantRuntime: "podman", wantMaxDuration: 5 * time.Minute},
+		{name: "invalid run id", args: []string{"--run-id", "bad id"}, wantErr: "invalid --run-id"},
+		{name: "negative max duration", args: []string{"--max-duration", "-1s"}, wantErr: "--max-duration must be non-negative"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseGlobalParams(buildFlags(t, globalFlags, tt.args, []cli.Flag{}, []string{"c1"}))
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Equal(t, RunUsageError, NewOutcome(Counts{}, err, false).Status)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantRunID != "" {
+				assert.Equal(t, tt.wantRunID, got.RunID)
+			} else {
+				assert.NoError(t, ValidateRunID(got.RunID), "generated run ID")
+			}
+			assert.Equal(t, tt.wantRuntime, got.Runtime)
+			assert.Equal(t, tt.wantMaxDuration, got.MaxDuration)
+			assert.NotNil(t, got.Events)
 		})
 	}
 }

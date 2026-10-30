@@ -20,8 +20,8 @@ type ExecParams struct {
 }
 
 // NewExecCLICommand initialize CLI exec command.
-func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[ExecParams]{
+func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[ExecParams]{
 		Name: "exec",
 		Flags: []cli.Flag{
 			cli.StringFlag{
@@ -42,8 +42,10 @@ func NewExecCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command 
 		Usage:       "exec specified containers",
 		ArgsUsage:   fmt.Sprintf("containers (name, list of names, or RE2 regex if prefixed with %q)", chaos.Re2Prefix),
 		Description: "send command to target container(s)",
-		Parse:       parseExecParams,
-		Build:       buildExecCommand,
+		// exec arguments are free text that may carry secrets
+		ExcludeParams: []string{"args"},
+		Parse:         parseExecParams,
+		Build:         buildExecCommand,
 	})
 }
 

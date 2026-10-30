@@ -48,7 +48,7 @@ func newTestCLIContext(t *testing.T, flags []cli.Flag, args []string) *cli.Conte
 
 func TestNewStressCLICommand_Contract(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewStressCLICommand(context.Background(), rt)
+	cmd := NewStressCLICommand(context.Background(), rt, chaos.NopSink{})
 	require.NotNil(t, cmd)
 	assert.Equal(t, "stress", cmd.Name)
 	assert.NotNil(t, cmd.Action)
@@ -56,11 +56,11 @@ func TestNewStressCLICommand_Contract(t *testing.T) {
 }
 
 func TestNewStressCLICommand_AcceptsNilRuntime(t *testing.T) {
-	assert.NotNil(t, NewStressCLICommand(context.Background(), nilRuntime()))
+	assert.NotNil(t, NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{}))
 }
 
 func TestParseStressParams(t *testing.T) {
-	cmd := NewStressCLICommand(context.Background(), nilRuntime())
+	cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := newTestCLIContext(t, cmd.Flags,
 		[]string{"--duration", "30s", "--stress-image", "custom:tag", "--stressors", "--cpu 2"})
 	got, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -73,7 +73,7 @@ func TestParseStressParams(t *testing.T) {
 }
 
 func TestParseStressParams_InjectCgroup(t *testing.T) {
-	cmd := NewStressCLICommand(context.Background(), nilRuntime())
+	cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := newTestCLIContext(t, cmd.Flags,
 		[]string{"--duration", "10s", "--inject-cgroup"})
 	got, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -82,14 +82,14 @@ func TestParseStressParams_InjectCgroup(t *testing.T) {
 }
 
 func TestParseStressParams_MissingDurationErrors(t *testing.T) {
-	cmd := NewStressCLICommand(context.Background(), nilRuntime())
+	cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := newTestCLIContext(t, cmd.Flags, nil)
 	_, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.ErrorContains(t, err, "duration")
 }
 
 func TestParseStressParams_NegativeDurationErrors(t *testing.T) {
-	cmd := NewStressCLICommand(context.Background(), nilRuntime())
+	cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := newTestCLIContext(t, cmd.Flags, []string{"--duration", "-1s"})
 	_, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	assert.EqualError(t, err, "unset or invalid duration value")
@@ -97,7 +97,7 @@ func TestParseStressParams_NegativeDurationErrors(t *testing.T) {
 
 func TestBuildStressCommand(t *testing.T) {
 	client := container.NewMockClient(t)
-	cmd := NewStressCLICommand(context.Background(), nilRuntime())
+	cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := newTestCLIContext(t, cmd.Flags, []string{"--duration", "10s"})
 	p, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestParseStressParams_FirstClass(t *testing.T) {
 		{name: "zero bytes", args: []string{"--memory", "1", "--memory-bytes", "0"}, wantErr: "invalid --memory-bytes"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewStressCLICommand(context.Background(), nilRuntime())
+			cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 			args := append([]string{"--duration", "30s"}, tt.args...)
 			c := newTestCLIContext(t, cmd.Flags, args)
 			got, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -176,7 +176,7 @@ func TestStressCLI_ResourceNamesRemainTargets(t *testing.T) {
 				}).Return(&container.StressResult{}, nil).Once()
 				app := cli.NewApp()
 				app.Flags = []cli.Flag{cli.BoolFlag{Name: "dry-run"}}
-				app.Commands = []cli.Command{*NewStressCLICommand(context.Background(), func() container.Client { return client })}
+				app.Commands = []cli.Command{*NewStressCLICommand(context.Background(), func() container.Client { return client }, chaos.NopSink{})}
 				argv := append([]string{"pumba", "--dry-run", "stress", "--duration", "1m"}, args...)
 				require.NoError(t, app.Run(append(argv, name)))
 			})
@@ -187,7 +187,7 @@ func TestStressCLI_ResourceNamesRemainTargets(t *testing.T) {
 func TestParseStressParams_MemorySizeOverflow(t *testing.T) {
 	for _, size := range []string{"18446744073709551616", "18014398509481984K", "17592186044416m", "17179869185G"} {
 		t.Run(size, func(t *testing.T) {
-			cmd := NewStressCLICommand(context.Background(), nilRuntime())
+			cmd := NewStressCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 			c := newTestCLIContext(t, cmd.Flags, []string{"--duration", "1m", "--memory", "1", "--memory-bytes", size})
 			_, err := parseStressParams(cliflags.NewV1(c), defaultGlobalParams())
 			assert.ErrorContains(t, err, "invalid --memory-bytes")

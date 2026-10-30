@@ -83,17 +83,17 @@ func childContext(t *testing.T, parent *cli.Context, subFlags []cli.Flag, args [
 
 func TestNewLossCLICommand_Contract(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewLossCLICommand(context.Background(), rt)
+	cmd := NewLossCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "loss")
 	assert.Equal(t, 0, *calls, "Runtime must not be resolved at construction time")
 }
 
 func TestNewLossCLICommand_AcceptsNilRuntime(t *testing.T) {
-	assert.NotNil(t, NewLossCLICommand(context.Background(), nilRuntime()))
+	assert.NotNil(t, NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{}))
 }
 
 func TestParseLossParams(t *testing.T) {
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := iptablesParentContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--mode", "random", "--probability", "0.5"})
@@ -108,7 +108,7 @@ func TestParseLossParams(t *testing.T) {
 }
 
 func TestParseLossParams_BadIPTablesErrors(t *testing.T) {
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := iptablesParentContext(t, []string{"--interface", "eth0"})
 	c := childContext(t, parent, cmd.Flags, nil)
 	_, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -118,7 +118,7 @@ func TestParseLossParams_BadIPTablesErrors(t *testing.T) {
 func TestBuildLossCommand_Random(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := iptablesParentContext(t, nil)
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, []string{"--mode", "random", "--probability", "0.5"})
 	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestBuildLossCommand_Random(t *testing.T) {
 func TestBuildLossCommand_NTH(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := iptablesParentContext(t, nil)
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--mode", "nth", "--every", "3", "--packet", "0"})
 	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -143,7 +143,7 @@ func TestBuildLossCommand_NTH(t *testing.T) {
 func TestBuildLossCommand_BadMode(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := iptablesParentContext(t, nil)
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, []string{"--mode", "bogus"})
 	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)

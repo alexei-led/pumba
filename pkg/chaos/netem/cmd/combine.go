@@ -20,8 +20,8 @@ type CombineParams struct {
 }
 
 // NewCombineCLICommand initializes the explicit combined-effects command.
-func NewCombineCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[CombineParams]{
+func NewCombineCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[CombineParams]{
 		Name:        "combine",
 		Flags:       combineFlags(),
 		Usage:       "apply two or more effects in one netem qdisc",

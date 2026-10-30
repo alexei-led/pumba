@@ -81,3 +81,7 @@ Pumba's Podman runtime works identically to the Docker one but requires **rootfu
 
 1. Launch a target: `podman run -d --name stress-target alpine sleep infinity`
 2. Run pumba stress (child-cgroup sidecar): `./pumba_podman_stress.sh`
+
+## Read result events (agents and scripts)
+
+1. Run `./pumba_agent_output.sh` (needs `jq`): pauses a throwaway container and prints when the fault is active, each target result and the run status from the `--output ndjson` stream. See [docs/agents.md](../docs/agents.md).

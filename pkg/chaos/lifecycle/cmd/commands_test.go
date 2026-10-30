@@ -86,13 +86,13 @@ func assertConstructorContract(t *testing.T, cmd *cli.Command, wantName string) 
 
 func TestNewKillCLICommand_Contract(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewKillCLICommand(context.Background(), rt)
+	cmd := NewKillCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "kill")
 	assert.Equal(t, 0, *calls, "Runtime must not be resolved at construction time")
 }
 
 func TestParseKillParams(t *testing.T) {
-	cmd := NewKillCLICommand(context.Background(), nilRuntime())
+	cmd := NewKillCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := newTestCLIContext(t, []cli.Flag{findFlag(t, cmd, "signal"), findFlag(t, cmd, "limit")},
 		[]string{"--signal", "SIGTERM", "--limit", "3"})
 	got, err := parseKillParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -117,13 +117,13 @@ func TestBuildKillCommand_RejectsInvalidSignal(t *testing.T) {
 
 func TestNewStopCLICommand_Contract(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewStopCLICommand(context.Background(), rt)
+	cmd := NewStopCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "stop")
 	assert.Equal(t, 0, *calls)
 }
 
 func TestParseStopParams(t *testing.T) {
-	cmd := NewStopCLICommand(context.Background(), nilRuntime())
+	cmd := NewStopCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{
 		findFlag(t, cmd, "time"), findFlag(t, cmd, "limit"),
 		findFlag(t, cmd, "restart"), findFlag(t, cmd, "duration"),
@@ -136,7 +136,7 @@ func TestParseStopParams(t *testing.T) {
 }
 
 func TestParseStopParams_InvalidDurationErrors(t *testing.T) {
-	cmd := NewStopCLICommand(context.Background(), nilRuntime())
+	cmd := NewStopCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{
 		findFlag(t, cmd, "time"), findFlag(t, cmd, "limit"),
 		findFlag(t, cmd, "restart"), findFlag(t, cmd, "duration"),
@@ -149,7 +149,7 @@ func TestParseStopParams_InvalidDurationErrors(t *testing.T) {
 }
 
 func TestParseStopParams_NegativeDurationErrors(t *testing.T) {
-	cmd := NewStopCLICommand(context.Background(), nilRuntime())
+	cmd := NewStopCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{
 		findFlag(t, cmd, "time"), findFlag(t, cmd, "limit"),
 		findFlag(t, cmd, "restart"), findFlag(t, cmd, "duration"),
@@ -171,12 +171,12 @@ func TestBuildStopCommand_ReturnsLifecycleStop(t *testing.T) {
 
 func TestNewPauseCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewPauseCLICommand(context.Background(), rt)
+	cmd := NewPauseCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "pause")
 }
 
 func TestParsePauseParams(t *testing.T) {
-	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
+	cmd := NewPauseCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, []string{"--duration", "2s", "--limit", "4"})
 	got, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -185,7 +185,7 @@ func TestParsePauseParams(t *testing.T) {
 }
 
 func TestParsePauseParams_ZeroDurationErrors(t *testing.T) {
-	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
+	cmd := NewPauseCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, nil)
 	_, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -193,7 +193,7 @@ func TestParsePauseParams_ZeroDurationErrors(t *testing.T) {
 }
 
 func TestParsePauseParams_NegativeDurationErrors(t *testing.T) {
-	cmd := NewPauseCLICommand(context.Background(), nilRuntime())
+	cmd := NewPauseCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{findFlag(t, cmd, "duration"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, []string{"--duration", "-1s"})
 	_, err := parsePauseParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -212,12 +212,12 @@ func TestBuildPauseCommand(t *testing.T) {
 
 func TestNewRestartCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewRestartCLICommand(context.Background(), rt)
+	cmd := NewRestartCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "restart")
 }
 
 func TestParseRestartParams(t *testing.T) {
-	cmd := NewRestartCLICommand(context.Background(), nilRuntime())
+	cmd := NewRestartCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{findFlag(t, cmd, "timeout"), findFlag(t, cmd, "limit")}
 	c := newTestCLIContext(t, flags, []string{"--timeout", "5s", "--limit", "1"})
 	got, err := parseRestartParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -237,12 +237,12 @@ func TestBuildRestartCommand(t *testing.T) {
 
 func TestNewRemoveCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewRemoveCLICommand(context.Background(), rt)
+	cmd := NewRemoveCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "rm")
 }
 
 func TestParseRemoveParams(t *testing.T) {
-	cmd := NewRemoveCLICommand(context.Background(), nilRuntime())
+	cmd := NewRemoveCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{
 		findFlag(t, cmd, "force"), findFlag(t, cmd, "links"),
 		findFlag(t, cmd, "volumes"), findFlag(t, cmd, "limit"),
@@ -266,12 +266,12 @@ func TestBuildRemoveCommand(t *testing.T) {
 
 func TestNewExecCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewExecCLICommand(context.Background(), rt)
+	cmd := NewExecCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "exec")
 }
 
 func TestParseExecParams(t *testing.T) {
-	cmd := NewExecCLICommand(context.Background(), nilRuntime())
+	cmd := NewExecCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	flags := []cli.Flag{
 		findFlag(t, cmd, "command"), findFlag(t, cmd, "args"), findFlag(t, cmd, "limit"),
 	}
@@ -298,12 +298,12 @@ func TestBuildExecCommand(t *testing.T) {
 // --help/--version paths).
 func TestRuntimeAcceptsNil(t *testing.T) {
 	rt := nilRuntime()
-	assert.NotNil(t, NewKillCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewStopCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewRemoveCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewExecCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewPauseCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewRestartCLICommand(context.Background(), rt))
+	assert.NotNil(t, NewKillCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewStopCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewRemoveCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewExecCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewPauseCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewRestartCLICommand(context.Background(), rt, chaos.NopSink{}))
 }
 
 // TestKillRequiresContainerArgument verifies RequireArgs short-circuit on the
@@ -311,7 +311,7 @@ func TestRuntimeAcceptsNil(t *testing.T) {
 // before ever resolving the runtime.
 func TestKillRequiresContainerArgument(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewKillCLICommand(context.Background(), rt)
+	cmd := NewKillCLICommand(context.Background(), rt, chaos.NopSink{})
 	action, ok := cmd.Action.(func(*cli.Context) error)
 	require.True(t, ok)
 	err := action(newTestCLIContext(t, cmd.Flags, nil))
@@ -321,7 +321,7 @@ func TestKillRequiresContainerArgument(t *testing.T) {
 
 func TestRemoveRequiresContainerArgument(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewRemoveCLICommand(context.Background(), rt)
+	cmd := NewRemoveCLICommand(context.Background(), rt, chaos.NopSink{})
 	action, ok := cmd.Action.(func(*cli.Context) error)
 	require.True(t, ok)
 	err := action(newTestCLIContext(t, cmd.Flags, nil))
@@ -333,7 +333,7 @@ func TestRemoveRequiresContainerArgument(t *testing.T) {
 // arg short-circuits to the canonical error before parsing runs.
 func TestStopRequiresContainerArgument(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewStopCLICommand(context.Background(), rt)
+	cmd := NewStopCLICommand(context.Background(), rt, chaos.NopSink{})
 	action, ok := cmd.Action.(func(*cli.Context) error)
 	require.True(t, ok)
 	err := action(newTestCLIContext(t, cmd.Flags, nil))

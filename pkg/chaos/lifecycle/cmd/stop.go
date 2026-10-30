@@ -23,8 +23,8 @@ type StopParams struct {
 }
 
 // NewStopCLICommand initialize CLI stop command.
-func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[StopParams]{
+func NewStopCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[StopParams]{
 		Name: "stop",
 		Flags: []cli.Flag{
 			cli.IntFlag{

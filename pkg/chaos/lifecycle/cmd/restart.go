@@ -20,8 +20,8 @@ type RestartParams struct {
 }
 
 // NewRestartCLICommand initialize CLI restart command.
-func NewRestartCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[RestartParams]{
+func NewRestartCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[RestartParams]{
 		Name: "restart",
 		Flags: []cli.Flag{
 			cli.DurationFlag{

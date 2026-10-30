@@ -100,13 +100,13 @@ func childContext(t *testing.T, parent *cli.Context, subFlags []cli.Flag, args [
 
 func TestNewDelayCLICommand_Contract(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewDelayCLICommand(context.Background(), rt)
+	cmd := NewDelayCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "delay")
 	assert.Equal(t, 0, *calls, "Runtime must not be resolved at construction time")
 }
 
 func TestParseDelayParams(t *testing.T) {
-	cmd := NewDelayCLICommand(context.Background(), nilRuntime())
+	cmd := NewDelayCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--time", "200", "--jitter", "20", "--correlation", "30", "--distribution", "normal"})
@@ -121,7 +121,7 @@ func TestParseDelayParams(t *testing.T) {
 }
 
 func TestParseDelayParams_BadNetemErrors(t *testing.T) {
-	cmd := NewDelayCLICommand(context.Background(), nilRuntime())
+	cmd := NewDelayCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	// duration unset on parent → parseNetemParams must surface the error
 	parent := netemContext(t, []string{"--interface", "eth0"})
 	c := childContext(t, parent, cmd.Flags, nil)
@@ -132,7 +132,7 @@ func TestParseDelayParams_BadNetemErrors(t *testing.T) {
 func TestBuildDelayCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewDelayCLICommand(context.Background(), nilRuntime())
+	cmd := NewDelayCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, nil)
 	p, err := parseDelayParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -145,13 +145,13 @@ func TestBuildDelayCommand(t *testing.T) {
 
 func TestNewLossCLICommand_Contract(t *testing.T) {
 	rt, _, calls := fakeRuntime(t)
-	cmd := NewLossCLICommand(context.Background(), rt)
+	cmd := NewLossCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "loss")
 	assert.Equal(t, 0, *calls)
 }
 
 func TestParseLossParams(t *testing.T) {
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "10", "--correlation", "5"})
 	got, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -163,7 +163,7 @@ func TestParseLossParams(t *testing.T) {
 func TestBuildLossCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewLossCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "10"})
 	p, err := parseLossParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -176,12 +176,12 @@ func TestBuildLossCommand(t *testing.T) {
 
 func TestNewLossStateCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewLossStateCLICommand(context.Background(), rt)
+	cmd := NewLossStateCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "loss-state")
 }
 
 func TestParseLossStateParams(t *testing.T) {
-	cmd := NewLossStateCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossStateCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--p13", "10", "--p31", "90", "--p32", "5", "--p23", "85", "--p14", "1"})
@@ -197,7 +197,7 @@ func TestParseLossStateParams(t *testing.T) {
 func TestBuildLossStateCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewLossStateCLICommand(context.Background(), nilRuntime())
+	cmd := NewLossStateCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, nil)
 	p, err := parseLossStateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -210,12 +210,12 @@ func TestBuildLossStateCommand(t *testing.T) {
 
 func TestNewLossGECLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewLossGECLICommand(context.Background(), rt)
+	cmd := NewLossGECLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "loss-gemodel")
 }
 
 func TestParseLossGEParams(t *testing.T) {
-	cmd := NewLossGECLICommand(context.Background(), nilRuntime())
+	cmd := NewLossGECLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--pg", "10", "--pb", "90", "--one-h", "80", "--one-k", "5"})
@@ -230,7 +230,7 @@ func TestParseLossGEParams(t *testing.T) {
 func TestBuildLossGECommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewLossGECLICommand(context.Background(), nilRuntime())
+	cmd := NewLossGECLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, nil)
 	p, err := parseLossGEParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -243,12 +243,12 @@ func TestBuildLossGECommand(t *testing.T) {
 
 func TestNewRateCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewRateCLICommand(context.Background(), rt)
+	cmd := NewRateCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "rate")
 }
 
 func TestParseRateParams(t *testing.T) {
-	cmd := NewRateCLICommand(context.Background(), nilRuntime())
+	cmd := NewRateCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags,
 		[]string{"--rate", "1mbit", "--packetoverhead", "1", "--cellsize", "2", "--celloverhead", "3"})
@@ -263,7 +263,7 @@ func TestParseRateParams(t *testing.T) {
 func TestBuildRateCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewRateCLICommand(context.Background(), nilRuntime())
+	cmd := NewRateCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, []string{"--rate", "1mbit"})
 	p, err := parseRateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -276,12 +276,12 @@ func TestBuildRateCommand(t *testing.T) {
 
 func TestNewDuplicateCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewDuplicateCLICommand(context.Background(), rt)
+	cmd := NewDuplicateCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "duplicate")
 }
 
 func TestParseDuplicateParams(t *testing.T) {
-	cmd := NewDuplicateCLICommand(context.Background(), nilRuntime())
+	cmd := NewDuplicateCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "15", "--correlation", "5"})
 	got, err := parseDuplicateParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -293,7 +293,7 @@ func TestParseDuplicateParams(t *testing.T) {
 func TestBuildDuplicateCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewDuplicateCLICommand(context.Background(), nilRuntime())
+	cmd := NewDuplicateCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "15"})
 	p, err := parseDuplicateParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -306,12 +306,12 @@ func TestBuildDuplicateCommand(t *testing.T) {
 
 func TestNewCorruptCLICommand_Contract(t *testing.T) {
 	rt, _, _ := fakeRuntime(t)
-	cmd := NewCorruptCLICommand(context.Background(), rt)
+	cmd := NewCorruptCLICommand(context.Background(), rt, chaos.NopSink{})
 	assertConstructorContract(t, cmd, "corrupt")
 }
 
 func TestParseCorruptParams(t *testing.T) {
-	cmd := NewCorruptCLICommand(context.Background(), nilRuntime())
+	cmd := NewCorruptCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	parent := netemContext(t, nil)
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "20", "--correlation", "5"})
 	got, err := parseCorruptParams(cliflags.NewV1(c), defaultGlobalParams())
@@ -323,7 +323,7 @@ func TestParseCorruptParams(t *testing.T) {
 func TestBuildCorruptCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	parent := netemContext(t, nil)
-	cmd := NewCorruptCLICommand(context.Background(), nilRuntime())
+	cmd := NewCorruptCLICommand(context.Background(), nilRuntime(), chaos.NopSink{})
 	c := childContext(t, parent, cmd.Flags, []string{"--percent", "20"})
 	p, err := parseCorruptParams(cliflags.NewV1(c), defaultGlobalParams())
 	require.NoError(t, err)
@@ -336,13 +336,13 @@ func TestBuildCorruptCommand(t *testing.T) {
 
 func TestRuntimeAcceptsNil(t *testing.T) {
 	rt := nilRuntime()
-	assert.NotNil(t, NewDelayCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewLossCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewLossStateCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewLossGECLICommand(context.Background(), rt))
-	assert.NotNil(t, NewRateCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewDuplicateCLICommand(context.Background(), rt))
-	assert.NotNil(t, NewCorruptCLICommand(context.Background(), rt))
+	assert.NotNil(t, NewDelayCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewLossCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewLossStateCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewLossGECLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewRateCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewDuplicateCLICommand(context.Background(), rt, chaos.NopSink{}))
+	assert.NotNil(t, NewCorruptCLICommand(context.Background(), rt, chaos.NopSink{}))
 }
 
 // TestParseRequestBaseRejectsBadInterval double-checks interval enforcement on

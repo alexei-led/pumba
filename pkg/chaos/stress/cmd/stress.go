@@ -25,8 +25,8 @@ type StressParams struct {
 }
 
 // NewStressCLICommand initialize CLI stress command.
-func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[StressParams]{
+func NewStressCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[StressParams]{
 		Name: "stress",
 		Flags: append(resourceFlags(), []cli.Flag{
 			cli.StringFlag{

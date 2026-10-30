@@ -23,8 +23,8 @@ type DelayParams struct {
 }
 
 // NewDelayCLICommand initialize CLI delay command.
-func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[DelayParams]{
+func NewDelayCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[DelayParams]{
 		Name: "delay",
 		Flags: []cli.Flag{
 			cli.IntFlag{

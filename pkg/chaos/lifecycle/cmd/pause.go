@@ -21,8 +21,8 @@ type PauseParams struct {
 }
 
 // NewPauseCLICommand initialize CLI pause command.
-func NewPauseCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[PauseParams]{
+func NewPauseCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[PauseParams]{
 		Name: "pause",
 		Flags: []cli.Flag{
 			cli.StringFlag{

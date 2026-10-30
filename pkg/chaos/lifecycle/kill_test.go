@@ -110,13 +110,10 @@ func TestKillCommand_Run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			k := &killCommand{
-				client:  mockClient,
-				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
-				labels:  tt.fields.labels,
-				signal:  tt.fields.signal,
-				limit:   tt.fields.limit,
-				dryRun:  tt.fields.dryRun,
+				client: mockClient,
+				gp:     &chaos.GlobalParams{Names: tt.fields.names, Pattern: tt.fields.pattern, Labels: tt.fields.labels, DryRun: tt.fields.dryRun},
+				signal: tt.fields.signal,
+				limit:  tt.fields.limit,
 			}
 			opts := container.ListOpts{Labels: tt.fields.labels}
 			if tt.errs.listError {
@@ -169,7 +166,7 @@ func TestNewKillCommand(t *testing.T) {
 				limit:  10,
 			},
 			want: &killCommand{
-				names:  []string{"c1", "c2"},
+				gp:     &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				signal: "SIGTERM",
 				limit:  10,
 			},
@@ -189,7 +186,7 @@ func TestNewKillCommand(t *testing.T) {
 				signal: "",
 			},
 			want: &killCommand{
-				names:  []string{"c1", "c2"},
+				gp:     &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 				signal: DefaultKillSignal,
 			},
 		},

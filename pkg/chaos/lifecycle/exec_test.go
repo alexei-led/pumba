@@ -130,13 +130,10 @@ func TestExecCommand_Run(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			k := &execCommand{
 				client:  mockClient,
-				names:   tt.fields.params.Names,
-				pattern: tt.fields.params.Pattern,
-				labels:  tt.fields.params.Labels,
+				gp:      &chaos.GlobalParams{Names: tt.fields.params.Names, Pattern: tt.fields.params.Pattern, Labels: tt.fields.params.Labels, DryRun: tt.fields.params.DryRun},
 				command: tt.fields.command,
 				args:    tt.fields.args,
 				limit:   tt.fields.limit,
-				dryRun:  tt.fields.params.DryRun,
 			}
 			opts := container.ListOpts{Labels: tt.fields.params.Labels}
 			if tt.errs.listError {
@@ -184,13 +181,10 @@ func TestNewExecCommand(t *testing.T) {
 			args:    []string{"-la"},
 			limit:   3,
 			want: &execCommand{
-				names:   []string{"c1"},
-				pattern: "^c",
-				labels:  []string{"k=v"},
+				gp:      &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
 				command: "ls",
 				args:    []string{"-la"},
 				limit:   3,
-				dryRun:  true,
 			},
 		},
 		{
@@ -198,7 +192,7 @@ func TestNewExecCommand(t *testing.T) {
 			params:  &chaos.GlobalParams{Names: []string{"c1"}},
 			command: "",
 			want: &execCommand{
-				names:   []string{"c1"},
+				gp:      &chaos.GlobalParams{Names: []string{"c1"}},
 				command: "kill 1",
 			},
 		},
