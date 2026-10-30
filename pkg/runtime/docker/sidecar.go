@@ -78,7 +78,7 @@ func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container
 	}).Debugf("executing %s command in a separate container joining target container network namespace", tool)
 	return client.withSidecar(ctx, target, spec, labels, tool, func(sidecarID string) error {
 		for _, args := range argsList {
-			if _, err := client.runSidecarExec(ctx, sidecarID, tool, args); err != nil {
+			if err := client.runSidecarExec(ctx, sidecarID, tool, args); err != nil {
 				return fmt.Errorf("error running %s command on container: %v: %w", tool, strings.Join(args, " "), err)
 			}
 		}
@@ -161,14 +161,12 @@ func (client dockerClient) pullSidecarImage(ctx context.Context, img, tool strin
 }
 
 // runSidecarExec runs `tool` (sh, iptables or tc) with args inside the
-// sidecar and returns its stdout. A non-zero exit (e.g. tc rejecting bad
-// args, iptables rule rejected by kernel) is an error carrying stderr instead
-// of silent success.
-func (client dockerClient) runSidecarExec(ctx context.Context, sidecarID, tool string, args []string) (string, error) {
-	out, err := client.runExec(ctx, sidecarID, append([]string{tool}, args...), false)
-	if err != nil {
-		return "", err
+// sidecar. A non-zero exit (e.g. tc rejecting bad args, iptables rule rejected
+// by kernel) is an error carrying stderr instead of silent success.
+func (client dockerClient) runSidecarExec(ctx context.Context, sidecarID, tool string, args []string) error {
+	if _, _, err := client.runExec(ctx, sidecarID, append([]string{tool}, args...), false); err != nil {
+		return err
 	}
 	log.WithField("args", strings.Join(args, " ")).Debugf("run command on %s-container", tool)
-	return out, nil
+	return nil
 }

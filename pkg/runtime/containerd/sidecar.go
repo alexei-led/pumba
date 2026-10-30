@@ -29,7 +29,7 @@ var networkCapabilities = []string{"CAP_NET_ADMIN", "CAP_NET_RAW"}
 func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, command string, argsList [][]string) error {
 	return c.withSidecar(ctx, target, spec, labels, func(ctx context.Context, task containerd.Task) error {
 		for _, args := range argsList {
-			if _, err := c.runSidecarCmd(ctx, task, command, args); err != nil {
+			if _, _, err := c.runSidecarCmd(ctx, task, command, args); err != nil {
 				return err
 			}
 		}
@@ -106,7 +106,7 @@ func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Containe
 
 // runSidecarCmd executes a single command inside a running sidecar task and
 // returns its stdout.
-func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) (string, error) {
+func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) (string, string, error) {
 	cmdArgs := make([]string, 0, 1+len(args))
 	cmdArgs = append(cmdArgs, command)
 	cmdArgs = append(cmdArgs, args...)
@@ -124,12 +124,12 @@ func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Ta
 		},
 	}
 
-	out, err := execTaskOutput(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " ")))
+	out, errOut, err := execTaskOutput(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " ")))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("sidecar exec completed")
-	return out, nil
+	return out, errOut, nil
 }
 
 // pullImage pulls an image via containerd.

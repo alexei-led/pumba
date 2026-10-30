@@ -61,9 +61,9 @@ func TestIPTablesContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				cmdArgs := append(cmdPrefix, cmdSuffix...)
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
-				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
+				api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
@@ -82,9 +82,9 @@ func TestIPTablesContainer(t *testing.T) {
 				dryrun:    false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
-				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
+				api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				cmdArgs := append(append([]string{}, cmdPrefix...), "-s", "10.0.0.1/32")
 				cmdArgs = append(cmdArgs, cmdSuffix...)
@@ -105,9 +105,9 @@ func TestIPTablesContainer(t *testing.T) {
 				dryrun:    false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
-				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
+				api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				for _, dport := range dports {
 					cmdArgs := append(append([]string{}, cmdPrefix...), "--dport", dport)
@@ -130,9 +130,9 @@ func TestIPTablesContainer(t *testing.T) {
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
 				cmdArgs := append(cmdPrefix, cmdSuffix...)
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
-				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
+				api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").Return(ctypes.ExecInspect{}, nil)
 
 				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{"iptables"}, cmdArgs...), Privileged: true}).Return(ctypes.ExecCreateResponse{ID: "execID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "execID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
@@ -150,9 +150,9 @@ func TestIPTablesContainer(t *testing.T) {
 				dryrun:    false,
 			},
 			mockSet: func(api *mocks.APIClient, ctx context.Context, c *ctr.Container, cmdPrefix, cmdSuffix []string, srcIPs, dstIPs []*net.IPNet, sports, dports []string, image string, pull, dryrun bool) {
-				api.EXPECT().ContainerExecCreate(ctx, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
+				api.EXPECT().ContainerExecCreate(mock.Anything, c.ID(), ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", "iptables"}}).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
 				api.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
-				api.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil)
+				api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil)
 			},
 			wantErr: true,
 		},
@@ -213,7 +213,7 @@ func TestIPTablesForSimpleCases(t *testing.T) {
 		api.EXPECT().ContainerExecInspect(mock.Anything, "exec-id").Return(ctypes.ExecInspect{}, nil)
 
 		client := dockerClient{containerAPI: api}
-		_, err := client.runSidecarExec(ctx, "container-id", "iptables", []string{"-L"})
+		err := client.runSidecarExec(ctx, "container-id", "iptables", []string{"-L"})
 		assert.NoError(t, err)
 	})
 }

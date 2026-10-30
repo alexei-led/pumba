@@ -79,6 +79,7 @@ func TestInspectNetnsInLabeledSidecar(t *testing.T) {
 	expectExec(api, "inspector", false,
 		execStep{argv: tcplan.QdiscShowCommand(), stdout: qdiscShowNetem},
 		execStep{argv: tcplan.IPTablesShowCommand(), stdout: iptablesShowRule, stderr: "# Warning: iptables-legacy tables present\n"},
+		execStep{argv: tcplan.IPTablesLegacyShowCommand(), stdout: "-P INPUT ACCEPT\n-A OUTPUT -m comment --comment \"pumba:legacy1\" -j DROP\n"},
 	)
 	client := dockerClient{containerAPI: api, imageAPI: api}
 
@@ -87,8 +88,26 @@ func TestInspectNetnsInLabeledSidecar(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, &ctr.FaultState{
 		Qdiscs: []ctr.PumbaQdisc{{Device: "eth0", Kind: "netem", Ownership: ctr.QdiscPumbaOwned}},
-		Rules:  []ctr.PumbaRule{{RunID: "run1", Chain: "INPUT", Spec: "-A INPUT -i eth0 -m comment --comment \"pumba:run1\" -j DROP"}},
+		Rules: []ctr.PumbaRule{
+			{RunID: "run1", Chain: "INPUT", Spec: "-A INPUT -i eth0 -m comment --comment \"pumba:run1\" -j DROP"},
+			{RunID: "legacy1", Chain: "OUTPUT", Spec: "-A OUTPUT -m comment --comment \"pumba:legacy1\" -j DROP"},
+		},
 	}, state)
+}
+
+func TestInspectNetnsLegacyTablesUnlistableIsAnError(t *testing.T) {
+	api := NewMockEngine(t)
+	expectExec(api, "target", true,
+		execStep{argv: tcplan.QdiscShowCommand(), stdout: "qdisc noqueue 0: dev eth0 root refcnt 2\n"},
+		execStep{argv: tcplan.IPTablesShowCommand(), stdout: "-P INPUT ACCEPT\n", stderr: "# Warning: iptables-legacy tables present, use iptables-legacy to see them\n"},
+		execStep{argv: tcplan.IPTablesLegacyShowCommand(), stderr: "exec: \"iptables-legacy\": executable file not found in $PATH\n", exitCode: 127},
+	)
+	client := dockerClient{containerAPI: api}
+
+	state, err := client.InspectNetns(context.Background(), inspectReq(""))
+
+	require.ErrorContains(t, err, "iptables-legacy tables present but listing them failed")
+	assert.Nil(t, state)
 }
 
 func TestInspectNetnsTCFailureIsAnError(t *testing.T) {
@@ -197,7 +216,7 @@ func TestRunExecRejectsMalformedStream(t *testing.T) {
 	api.EXPECT().ContainerExecInspect(mock.Anything, "e").Return(ctypes.ExecInspect{}, nil)
 	client := dockerClient{containerAPI: api}
 
-	_, err := client.runExec(context.Background(), "c", []string{"tc", "qdisc", "show"}, false)
+	_, _, err := client.runExec(context.Background(), "c", []string{"tc", "qdisc", "show"}, false)
 
 	require.ErrorContains(t, err, "demultiplex")
 }

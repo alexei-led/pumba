@@ -165,13 +165,13 @@ func (c *containerdClient) resumeTask(ctx context.Context, containerID string) e
 // completion and returns its stdout. Handles the full exec lifecycle: create,
 // wait, start, collect exit status, delete. A non-zero exit is an error
 // carrying stderr.
-func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, error) {
+func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
 	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
 		cio.WithStreams(nil, &stdout, &stderr),
 	))
 	if err != nil {
-		return "", fmt.Errorf("failed to exec %s: %w", description, err)
+		return "", "", fmt.Errorf("failed to exec %s: %w", description, err)
 	}
 	defer func() {
 		if _, delErr := execProcess.Delete(ctx); delErr != nil {
@@ -181,28 +181,28 @@ func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Proc
 
 	exitCh, err := execProcess.Wait(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to wait on %s: %w", description, err)
+		return "", "", fmt.Errorf("failed to wait on %s: %w", description, err)
 	}
 
 	if err := execProcess.Start(ctx); err != nil {
-		return "", fmt.Errorf("failed to start %s: %w", description, err)
+		return "", "", fmt.Errorf("failed to start %s: %w", description, err)
 	}
 
 	select {
 	case status := <-exitCh:
 		code, _, err := status.Result()
 		if err != nil {
-			return "", fmt.Errorf("%s failed: %w", description, err)
+			return "", "", fmt.Errorf("%s failed: %w", description, err)
 		}
 		if err := waitIO(ctx, execProcess, ioDrainTimeout); err != nil {
-			return "", fmt.Errorf("%s canceled: %w", description, err)
+			return "", "", fmt.Errorf("%s canceled: %w", description, err)
 		}
 		if code != 0 {
-			return "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+			return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
 		}
-		return stdout.String(), nil
+		return stdout.String(), stderr.String(), nil
 	case <-ctx.Done():
-		return "", fmt.Errorf("%s canceled: %w", description, ctx.Err())
+		return "", "", fmt.Errorf("%s canceled: %w", description, ctx.Err())
 	}
 }
 
@@ -242,15 +242,15 @@ func waitIO(ctx context.Context, p containerd.Process, timeout time.Duration) er
 }
 
 func (c *containerdClient) execInContainer(ctx context.Context, containerID, command string, args []string) error {
-	_, err := c.execInContainerOutput(ctx, containerID, command, args)
+	_, _, err := c.execInContainerOutput(ctx, containerID, command, args)
 	return err
 }
 
 // execInContainerOutput is execInContainer returning the command's stdout.
-func (c *containerdClient) execInContainerOutput(ctx context.Context, containerID, command string, args []string) (string, error) {
+func (c *containerdClient) execInContainerOutput(ctx context.Context, containerID, command string, args []string) (string, string, error) {
 	task, err := c.getTask(ctx, containerID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	cmdArgs := make([]string, 0, 1+len(args))

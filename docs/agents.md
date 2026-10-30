@@ -180,7 +180,7 @@ Each inspected container gets one `target.result` with `state`:
 | `verdict` | `clean`, `dirty` or `unknown`; present with or without `--check` |
 | `reasons` | why `dirty` or `unknown`; `[]` when clean |
 | `run_filter` | the status `--run-id`, omitted when unset |
-| `orphan_sidecars` | sidecars whose target was not inspected; only when no containers are named |
+| `orphan_sidecars` | sidecars whose target was not inspected (gone or stopped); only when the selection is empty: no names, no `re2:` pattern and no `--label` |
 | `missing_targets` | named containers that do not exist or are not running |
 | `listing_gaps` | containers the runtime could not read (`id`, `error`) |
 

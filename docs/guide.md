@@ -357,8 +357,9 @@ Pumba tags what it creates with the run ID (`--run-id`, or a generated one):
 - qdiscs under Pumba's root handle `504d:`, as `pumba-owned` (the topology Pumba installs) or
   `suspicious` (the handle, but not Pumba's topology). qdiscs have no comment field, so they
   are never attributed to a run;
-- Pumba sidecars labeled with the container's ID. Sidecars whose target no longer exists are
-  reported only when no containers are named.
+- Pumba sidecars labeled with the container's ID. Sidecars whose target was not inspected
+  (gone or stopped) are reported as orphans only when nothing is selected: no names, no `re2:`
+  pattern and no `--label`.
 
 ```bash
 pumba status                         # everything Pumba left on running containers

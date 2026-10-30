@@ -16,7 +16,7 @@ func (c *containerdClient) InspectNetns(ctx context.Context, req *ctr.InspectReq
 	log.WithFields(log.Fields{"id": req.Container.ID(), "image": req.Sidecar.Image}).Debug("inspecting containerd container network namespace")
 	if req.Sidecar.Image == "" {
 		nsCtx := c.nsCtx(ctx)
-		return netns.Inspect(func(argv []string) (string, error) {
+		return netns.Inspect(func(argv []string) (string, string, error) {
 			return c.execInContainerOutput(nsCtx, req.Container.ID(), argv[0], argv[1:])
 		})
 	}
@@ -24,7 +24,7 @@ func (c *containerdClient) InspectNetns(ctx context.Context, req *ctr.InspectReq
 	labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindInspect)
 	err := c.withSidecar(ctx, req.Container, req.Sidecar, labels, func(ctx context.Context, task containerd.Task) error {
 		var err error
-		state, err = netns.Inspect(func(argv []string) (string, error) {
+		state, err = netns.Inspect(func(argv []string) (string, string, error) {
 			return c.runSidecarCmd(ctx, task, argv[0], argv[1:])
 		})
 		return err

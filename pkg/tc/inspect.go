@@ -27,6 +27,29 @@ func IPTablesShowCommand() []string {
 	return []string{"iptables", "-S"}
 }
 
+// IPTablesLegacyShowCommand lists the filter table rules of the iptables-legacy
+// backend, a rule set separate from the one iptables-nft shows.
+func IPTablesLegacyShowCommand() []string {
+	return []string{"iptables-legacy", "-S"}
+}
+
+// legacyTablesWarning is what iptables-nft prints when iptables-legacy tables
+// exist in the netns that it cannot show.
+const legacyTablesWarning = "# Warning: iptables-legacy tables present"
+
+// LegacyTablesPresent reports whether iptables-nft output (stdout or stderr)
+// says that iptables-legacy tables exist.
+func LegacyTablesPresent(output string) bool {
+	return strings.Contains(output, legacyTablesWarning)
+}
+
+// TaggedRules is the parsed `iptables -S` output. LegacyTablesPresent means
+// the listing is incomplete: iptables-legacy rules need a second listing.
+type TaggedRules struct {
+	Rules               []TaggedRule
+	LegacyTablesPresent bool
+}
+
 // PumbaQdisc is a device whose qdiscs use PumbaRootHandle. Qdiscs carry no
 // run ID, so a PumbaQdisc is never attributed to a run.
 type PumbaQdisc struct {
@@ -158,30 +181,34 @@ func pumbaTopology(rootKind string, children []qdisc) bool {
 
 // ParseTaggedRules parses `iptables -S` output and returns the rules whose
 // comment starts with CommentPrefix, in output order. Policy (-P), chain (-N)
-// and "#" lines carry no rule; any other line that is not an iptables spec
-// fails the parse.
-func ParseTaggedRules(output string) ([]TaggedRule, error) {
-	var rules []TaggedRule
+// and "#" lines carry no rule, but the iptables-legacy warning is reported in
+// LegacyTablesPresent; any other line that is not an iptables spec fails the
+// parse.
+func ParseTaggedRules(output string) (TaggedRules, error) {
+	var res TaggedRules
 	for line := range strings.Lines(output) {
 		line = strings.TrimSpace(line)
+		if LegacyTablesPresent(line) {
+			res.LegacyTablesPresent = true
+		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		args, err := splitArgs(line)
 		if err != nil {
-			return nil, err
+			return TaggedRules{}, err
 		}
 		if !strings.HasPrefix(args[0], "-") {
-			return nil, fmt.Errorf("unexpected iptables output: %q", line)
+			return TaggedRules{}, fmt.Errorf("unexpected iptables output: %q", line)
 		}
 		if args[0] != "-A" || len(args) < 2 {
 			continue
 		}
 		if runID, ok := runComment(args); ok {
-			rules = append(rules, TaggedRule{RunID: runID, Chain: args[1], Spec: line})
+			res.Rules = append(res.Rules, TaggedRule{RunID: runID, Chain: args[1], Spec: line})
 		}
 	}
-	return rules, nil
+	return res, nil
 }
 
 func runComment(args []string) (string, bool) {
