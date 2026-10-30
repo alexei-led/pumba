@@ -176,3 +176,62 @@ func TestStopWithoutRestartReportsAtOnce(t *testing.T) {
 	assert.Equal(t, []string{"applied:" + id, "result:" + id}, log.entries)
 	assert.Nil(t, log.results[id].Cleanup, "stop without restart leaves nothing to revert")
 }
+
+func TestInterruptedActionIsStillReverted(t *testing.T) {
+	actionErr := context.Canceled
+	for _, action := range []string{"pause", "stop --restart"} {
+		t.Run(action, func(t *testing.T) {
+			client := container.NewMockClient(t)
+			log := &orderLog{}
+			gp := &chaos.GlobalParams{Names: []string{"c0"}, Events: log}
+			targets := container.CreateTestContainers(1)
+			ctx, cancel := context.WithCancel(context.Background())
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).Return(targets, nil).Once()
+			interrupt := func(context.Context, *container.Container, ...any) error { cancel(); return actionErr }
+			revert := func(revertCtx context.Context, c *container.Container, _ bool) error {
+				assert.NoError(t, revertCtx.Err(), "revert runs on a detached context")
+				log.add("revert:" + c.Name())
+				return nil
+			}
+			var command chaos.Command
+			if action == "pause" {
+				client.EXPECT().PauseContainer(mock.Anything, targets[0], false).
+					RunAndReturn(func(ctx context.Context, c *container.Container, _ bool) error { return interrupt(ctx, c) }).Once()
+				client.EXPECT().UnpauseContainer(mock.Anything, targets[0], false).RunAndReturn(revert).Once()
+				command = NewPauseCommand(client, gp, time.Hour, 0)
+			} else {
+				client.EXPECT().StopContainer(mock.Anything, targets[0], DeafultWaitTime, false).
+					RunAndReturn(func(ctx context.Context, c *container.Container, _ int, _ bool) error { return interrupt(ctx, c) }).Once()
+				client.EXPECT().StartContainer(mock.Anything, targets[0], false).RunAndReturn(revert).Once()
+				command = NewStopCommand(client, gp, true, time.Hour, 0, 0)
+			}
+
+			err := command.Run(ctx, false)
+
+			require.ErrorIs(t, err, actionErr)
+			name := targets[0].Name()
+			assert.Equal(t, []string{"revert:" + name, "result:" + name}, log.entries)
+			assert.Equal(t, chaos.TargetFailed, log.results[name].Status)
+			assert.Equal(t, &chaos.Cleanup{OK: true}, log.results[name].Cleanup)
+		})
+	}
+}
+
+func TestEachRevertGetsItsOwnDeadline(t *testing.T) {
+	targets := container.CreateTestContainers(2)
+	held := make([]heldTarget, len(targets))
+	for i, c := range targets {
+		held[i] = heldTarget{c: c, done: func(error) {}}
+	}
+	var deadlines []time.Time
+	err := revertAfter(context.Background(), 0, true, held, func(ctx context.Context, _ *container.Container) error {
+		d, ok := ctx.Deadline()
+		require.True(t, ok)
+		deadlines = append(deadlines, d)
+		time.Sleep(20 * time.Millisecond)
+		return nil
+	})
+	require.NoError(t, err)
+	require.Len(t, deadlines, 2)
+	assert.Greater(t, deadlines[1].Sub(deadlines[0]), 10*time.Millisecond, "second revert must not share the first one's deadline")
+}

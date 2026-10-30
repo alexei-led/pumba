@@ -315,7 +315,6 @@ func TestStreamSinkWritesOrderedLines(t *testing.T) {
 	for i := range int64(n) {
 		s.Emit(appliedEvent(i + 1))
 	}
-	assert.Zero(t, s.stop())
 	require.True(t, s.flush(runEndEvent(), time.Second))
 
 	lines := parseNDJSON(t, buf.String())
@@ -346,7 +345,6 @@ func TestStreamSinkStalledWriterDropsInsteadOfBlocking(t *testing.T) {
 		t.Fatal("Emit blocked on a stalled writer")
 	}
 
-	assert.Equal(t, int64(extra), s.stop())
 	s.Emit(appliedEvent(99))
 	assert.False(t, s.flush(runEndEvent(), 20*time.Millisecond), "flush is bounded")
 	assert.Equal(t, int64(extra+1), s.dropped.Load(), "events after stop are dropped")
@@ -355,8 +353,9 @@ func TestStreamSinkStalledWriterDropsInsteadOfBlocking(t *testing.T) {
 func TestStreamSinkCountsWriteFailures(t *testing.T) {
 	s := newStreamSink(failingWriter{}, eventQueueSize)
 	s.Emit(appliedEvent(1))
-	s.stop()
-	require.True(t, s.flush(runEndEvent(), time.Second))
+	end := runEndEvent()
+	require.True(t, s.flush(end, time.Second))
+	assert.Equal(t, int64(1), end.End.EventsDropped, "write failures while draining count; the run.end line itself does not")
 	assert.Equal(t, int64(2), s.dropped.Load())
 }
 

@@ -83,8 +83,13 @@ func (s *streamSink) write() {
 	for ev := range s.queue {
 		s.encode(enc, ev)
 	}
-	// flush sets last before closing the queue, so it is visible here.
+	// flush sets last before closing the queue, so it is visible here. The
+	// drop count is read only now so failures while draining the queue are in
+	// it; a failure writing this line itself cannot be.
 	if s.last != nil {
+		if s.last.End != nil {
+			s.last.End.EventsDropped = s.dropped.Load()
+		}
 		s.encode(enc, s.last)
 	}
 }
@@ -95,16 +100,9 @@ func (s *streamSink) encode(enc *json.Encoder, ev *chaos.Event) {
 	}
 }
 
-// stop rejects further events and returns how many were dropped so far.
-func (s *streamSink) stop() int64 {
-	s.mu.Lock()
-	s.closed = true
-	s.mu.Unlock()
-	return s.dropped.Load()
-}
-
-// flush writes last after every queued event and waits up to timeout for the
-// writer to finish. It reports whether the writer finished. Call it once.
+// flush rejects further events, writes last after every queued event with
+// End.EventsDropped set to the drops counted by then, and waits up to timeout
+// for the writer to finish. It reports whether the writer finished. Call it once.
 func (s *streamSink) flush(last *chaos.Event, timeout time.Duration) bool {
 	s.mu.Lock()
 	s.closed = true
@@ -206,7 +204,6 @@ func (o *eventOutput) finish(err error, aborted bool) int {
 	if ev.RunID == "" {
 		ev.RunID = o.runID
 	}
-	ev.End.EventsDropped = o.stream.stop()
 	if !o.stream.flush(&ev, o.flushTimeout) {
 		log.Warn("timed out writing result events to stdout")
 	}

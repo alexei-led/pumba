@@ -26,7 +26,7 @@ func TestDescribeV1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.flag.GetName(), func(t *testing.T) {
-			got, ok := cliflags.DescribeV1(tt.flag)
+			got, _, ok := cliflags.DescribeV1(tt.flag)
 			assert.Equal(t, tt.ok, ok)
 			assert.Equal(t, tt.want, got)
 		})

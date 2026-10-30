@@ -53,7 +53,7 @@ func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 			log.WithFields(log.Fields{"container": c, "duration": p.duration}).Debug("pausing container for duration")
 			if pErr := p.client.PauseContainer(ctx, c, p.gp.DryRun); pErr != nil {
 				log.WithError(pErr).Warn("failed to pause container")
-				return pErr
+				return revertInterrupted(ctx, c, t, pErr, p.unpauseContainer)
 			}
 			t.Applied()
 			paused = append(paused, holdTarget(c, t))

@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
+	"github.com/alexei-led/pumba/pkg/chaos/lifecycle"
+	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,20 +21,25 @@ type commandFunc func(ctx context.Context) error
 func (f commandFunc) Run(ctx context.Context, _ bool) error { return f(ctx) }
 
 func TestRunChaosCommandMaxDurationMidFault(t *testing.T) {
-	var cleanedUp atomic.Bool
-	cmd := commandFunc(func(ctx context.Context) error {
-		<-ctx.Done() // fault active until the budget cancels it
-		cleanup := context.WithoutCancel(ctx)
-		require.NoError(t, cleanup.Err(), "cleanup context must survive the budget")
-		cleanedUp.Store(true)
-		return nil
-	})
-	gp := &chaos.GlobalParams{MaxDuration: 20 * time.Millisecond}
+	client := container.NewMockClient(t)
+	targets := container.CreateTestContainers(1)
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).Return(targets, nil).Once()
+	client.EXPECT().PauseContainer(mock.Anything, targets[0], false).Return(nil).Once()
+	var unpauseCtxErr error
+	var unpaused atomic.Bool
+	client.EXPECT().UnpauseContainer(mock.Anything, targets[0], false).
+		RunAndReturn(func(ctx context.Context, _ *container.Container, _ bool) error {
+			unpauseCtxErr = ctx.Err() // the budget has already cancelled the run context
+			unpaused.Store(true)
+			return nil
+		}).Once()
+	gp := &chaos.GlobalParams{Names: []string{"c0"}, MaxDuration: 20 * time.Millisecond}
 
-	err := chaos.RunChaosCommand(context.Background(), cmd, gp)
+	err := chaos.RunChaosCommand(context.Background(), lifecycle.NewPauseCommand(client, gp, time.Hour, 0), gp)
 
 	require.ErrorIs(t, err, chaos.ErrMaxDurationExceeded)
-	assert.True(t, cleanedUp.Load())
+	require.True(t, unpaused.Load(), "the fault must be reverted when the budget expires")
+	assert.NoError(t, unpauseCtxErr, "cleanup must not run on the cancelled budget context")
 	o := chaos.NewOutcome(chaos.Counts{Selected: 1, OK: 1}, err, false)
 	assert.Equal(t, chaos.RunAborted, o.Status)
 	assert.Equal(t, chaos.CodeTimeout, o.Error.Code)

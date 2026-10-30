@@ -65,7 +65,7 @@ pkg/
     outcome.go         — Recorder (counts results before delivery), NewOutcome (run.end status + exit code), coded errors
     runid.go           — run ID generation and validation
     cmd/               — Generic NewAction[P] CLI builder shared across all chaos packages
-    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context; DescribeV1 flag-type introspection for run.start params
+    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context; DescribeV1 is the single flag-type switch behind run.start params (`V1.CommandParams`) and the future `pumba schema`
     lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart); revert.go holds the batch wait-then-revert for pause/stop --restart
     lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
     netem/             — Network emulation (combine, delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)

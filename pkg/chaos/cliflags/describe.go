@@ -25,19 +25,16 @@ type FlagInfo struct {
 	Type    string
 }
 
-// valueReader reads a flag's typed value from a parsed context.
-type valueReader func(c *cli.Context, name string) any
+// ValueReader reads a flag's typed value from a parsed context.
+type ValueReader func(c *cli.Context, name string) any
 
-// DescribeV1 describes a urfave/cli v1 flag. ok is false for flag types Pumba
-// does not declare.
-func DescribeV1(f cli.Flag) (FlagInfo, bool) {
-	info, _, ok := describeV1(f)
-	return info, ok
-}
-
-func describeV1(f cli.Flag) (FlagInfo, valueReader, bool) {
+// DescribeV1 describes a urfave/cli v1 flag and returns the reader for its
+// typed value. ok is false for flag types Pumba does not declare. It is the
+// single flag type switch: CommandParams (run.start params) uses it, and
+// `pumba schema` reuses it for flag introspection.
+func DescribeV1(f cli.Flag) (FlagInfo, ValueReader, bool) {
 	var typ string
-	var read valueReader
+	var read ValueReader
 	switch f.(type) {
 	case cli.StringFlag:
 		typ, read = TypeString, func(c *cli.Context, n string) any { return c.String(n) }
@@ -91,7 +88,7 @@ func (f V1) CommandParams(exclude ...string) map[string]any {
 			flags = ctx.Command.Flags
 		}
 		for _, fl := range flags {
-			info, read, ok := describeV1(fl)
+			info, read, ok := DescribeV1(fl)
 			if !ok || skip[info.Name] {
 				continue
 			}

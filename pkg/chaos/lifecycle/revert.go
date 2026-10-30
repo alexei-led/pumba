@@ -21,15 +21,38 @@ func holdTarget(c *container.Container, t *chaos.Target) heldTarget {
 	return heldTarget{c: c, done: t.DeferResult()}
 }
 
-// revertTimeout is the least time reverts get, so a short --duration does not
-// cut off a slow unpause or start.
+// revertTimeout bounds each revert, so a slow unpause or start is not cut off
+// by a short --duration and one stuck revert cannot starve the later ones.
 const revertTimeout = 30 * time.Second
+
+// detachedRevert runs revert on a context detached from ctx, so a SIGTERM or
+// --max-duration deadline cannot cut it off, with its own revertTimeout bound.
+func detachedRevert(ctx context.Context, c *container.Container,
+	revert func(context.Context, *container.Container) error,
+) error {
+	revertCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), revertTimeout)
+	defer cancel()
+	return revert(revertCtx, c)
+}
+
+// revertInterrupted undoes an action that failed while ctx was cancelled. The
+// runtime call may have taken effect before it noticed the cancellation, so
+// the container is reverted anyway (unpause and start are harmless on a
+// running container) and the target reports the action error with its cleanup.
+// It returns err unchanged.
+func revertInterrupted(ctx context.Context, c *container.Container, t *chaos.Target, err error,
+	revert func(context.Context, *container.Container) error,
+) error {
+	if ctx.Err() != nil {
+		t.Reverted(detachedRevert(ctx, c, revert))
+	}
+	return err
+}
 
 // revertAfter waits for duration or ctx cancellation (dry-runs do not wait),
 // then reverts each held target and reports each target's own outcome, so no
-// target is reported before its own revert finished. Reverts always run on a
-// context detached from ctx, bounded by max(duration, revertTimeout), so a
-// SIGTERM or --max-duration deadline during the reverts cannot cut them off.
+// target is reported before its own revert finished. Each revert runs on its
+// own context detached from ctx (see detachedRevert).
 func revertAfter(ctx context.Context, duration time.Duration, dryRun bool, held []heldTarget,
 	revert func(context.Context, *container.Container) error,
 ) error {
@@ -46,11 +69,9 @@ func revertAfter(ctx context.Context, duration time.Duration, dryRun bool, held 
 			log.WithField("duration", duration).Debug("reverting containers after duration")
 		}
 	}
-	revertCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), max(duration, revertTimeout))
-	defer cancel()
 	var err error
 	for _, h := range held {
-		e := revert(revertCtx, h.c)
+		e := detachedRevert(ctx, h.c, revert)
 		h.done(e)
 		err = errors.Join(err, e)
 	}

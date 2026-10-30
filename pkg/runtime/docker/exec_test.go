@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/mocks"
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -337,5 +339,36 @@ func TestExecContainer(t *testing.T) {
 			}
 			api.AssertExpectations(t)
 		})
+	}
+}
+
+func Test_readAttached_interruptedByContext(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	resp := types.HijackedResponse{Conn: client, Reader: bufio.NewReader(client)}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	errc := make(chan error, 1)
+	go func() {
+		_, err := readAttached(ctx, resp)
+		errc <- err
+	}()
+
+	select {
+	case err := <-errc:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("want deadline exceeded, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("readAttached did not return after ctx deadline")
+	}
+}
+
+func Test_readAttached_readsToEOF(t *testing.T) {
+	resp := types.HijackedResponse{Conn: &net.TCPConn{}, Reader: bufio.NewReader(strings.NewReader("hello"))}
+	out, err := readAttached(context.Background(), resp)
+	if err != nil || string(out) != "hello" {
+		t.Fatalf("got %q, %v", out, err)
 	}
 }

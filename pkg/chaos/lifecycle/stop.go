@@ -64,6 +64,9 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 			log.WithFields(log.Fields{"container": c, "waitTime": s.waitTime}).Debug("stopping container")
 			if sErr := s.client.StopContainer(ctx, c, s.waitTime, s.gp.DryRun); sErr != nil {
 				log.WithError(sErr).Warn("failed to stop container")
+				if s.restart {
+					return revertInterrupted(ctx, c, t, sErr, s.startStoppedContainer)
+				}
 				return sErr
 			}
 			t.Applied()

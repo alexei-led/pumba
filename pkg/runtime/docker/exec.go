@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	log "github.com/sirupsen/logrus"
 )
@@ -42,7 +44,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 	}
 	defer attachRes.Close()
 
-	output, err := io.ReadAll(attachRes.Reader)
+	output, err := readAttached(ctx, attachRes)
 	if err != nil {
 		return fmt.Errorf("reading output from exec reader failed: %w", err)
 	}
@@ -64,6 +66,29 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 	return nil
 }
 
+// readAttached reads a hijacked attach stream to EOF. The SDK uses ctx only to
+// dial, so a blocked read ignores cancellation; a watcher closes the
+// connection when ctx is done, and the ctx error is returned instead of a
+// truncated result.
+func readAttached(ctx context.Context, resp types.HijackedResponse) ([]byte, error) {
+	var interrupted atomic.Bool
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			interrupted.Store(true)
+			resp.Close()
+		case <-done:
+		}
+	}()
+	out, err := io.ReadAll(resp.Reader)
+	if interrupted.Load() {
+		return out, context.Cause(ctx)
+	}
+	return out, err
+}
+
 // runExecAttached starts a pre-created exec by attaching to it and draining
 // stdout/stderr until the exec completes. Podman's Docker-compat API rejects
 // ContainerExecStart with empty ExecStartOptions ("must provide at least one
@@ -74,7 +99,7 @@ func (client dockerClient) runExecAttached(ctx context.Context, execID string) e
 		return err
 	}
 	defer resp.Close()
-	if _, err := io.ReadAll(resp.Reader); err != nil {
+	if _, err := readAttached(ctx, resp); err != nil {
 		return fmt.Errorf("drain exec %s output: %w", execID, err)
 	}
 	return nil

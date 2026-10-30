@@ -77,9 +77,8 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	return nil
 }
 
-// waitNetem waits for the requested duration or parent cancellation. Cleanup
-// then gets an independent bounded context, and its error is returned to the
-// caller so ownership failures cannot be reported as a successful chaos run.
+// waitNetem blocks until the requested duration elapses or ctx is cancelled.
+// It does no cleanup; the caller stops netem afterwards on a detached context.
 func waitNetem(ctx context.Context, duration time.Duration, logger *log.Entry) {
 	// create new context with timeout for canceling
 	stopCtx, cancel := context.WithTimeout(context.Background(), duration)
