@@ -65,18 +65,31 @@ func (client dockerClient) sidecarRemovalComplete(ctx context.Context, id string
 	return inspect.State.Status == "removing" || inspect.State.Status == "dead" || inspect.State.Dead
 }
 
-// runSidecar launches an ephemeral sidecar container that joins target's
-// network namespace, runs argsList through `tool` (tc or iptables), and is
-// force-removed on completion. Used by both netem and iptables paths.
-func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container, argsList [][]string, img, tool string, pull bool) error {
+// runSidecar runs argsList through `tool` (sh or iptables) in an ephemeral
+// sidecar that joins target's network namespace. Used by both netem and
+// iptables paths.
+func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, tool string, argsList [][]string) error {
 	log.WithFields(log.Fields{
 		"container": target.ID(),
-		"img":       img,
+		"img":       spec.Image,
 		"tool":      tool,
-		"pull":      pull,
+		"pull":      spec.Pull,
 		"args-list": argsList,
 	}).Debugf("executing %s command in a separate container joining target container network namespace", tool)
+	return client.withSidecar(ctx, target, spec, labels, tool, func(sidecarID string) error {
+		for _, args := range argsList {
+			if _, err := client.runSidecarExec(ctx, sidecarID, tool, args); err != nil {
+				return fmt.Errorf("error running %s command on container: %v: %w", tool, strings.Join(args, " "), err)
+			}
+		}
+		return nil
+	})
+}
 
+// withSidecar launches an ephemeral sidecar container that joins target's
+// network namespace, calls fn with its ID, and force-removes it afterwards.
+// name only labels log and error messages.
+func (client dockerClient) withSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, name string, fn func(sidecarID string) error) error {
 	hconfig := ctypes.HostConfig{
 		AutoRemove:   false,
 		CapAdd:       []string{"NET_ADMIN"},
@@ -87,8 +100,8 @@ func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container
 		DNSSearch:    []string{},
 	}
 	log.WithField("network", hconfig.NetworkMode).Debug("network mode")
-	if pull {
-		if err := client.pullSidecarImage(ctx, img, tool); err != nil {
+	if spec.Pull {
+		if err := client.pullSidecarImage(ctx, spec.Image, name); err != nil {
 			return err
 		}
 	}
@@ -100,33 +113,29 @@ func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container
 	// SIGTERM, which otherwise makes Podman wait the full 10 s StopTimeout
 	// before escalating (~tens of seconds per chaos cycle).
 	config := ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Labels:     labels,
 		Entrypoint: []string{"tail"},
 		Cmd:        []string{"-f", "/dev/null"},
-		Image:      img,
+		Image:      spec.Image,
 		StopSignal: "SIGKILL",
 	}
 
-	log.WithField("img", config.Image).Debugf("creating %s-container", tool)
+	log.WithField("img", config.Image).Debugf("creating %s-container", name)
 	createResponse, err := client.containerAPI.ContainerCreate(ctx, &config, &hconfig, nil, nil, "")
 	if err != nil {
-		return fmt.Errorf("failed to create %s-container from image %q: %w", tool, img, err)
+		return fmt.Errorf("failed to create %s-container from image %q: %w", name, spec.Image, err)
 	}
-	log.WithField("id", createResponse.ID).Debugf("%s container created, starting it", tool)
+	log.WithField("id", createResponse.ID).Debugf("%s container created, starting it", name)
 	if err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{}); err != nil {
 		_ = client.removeSidecar(ctx, createResponse.ID)
-		return fmt.Errorf("failed to start %s-container: %w", tool, err)
+		return fmt.Errorf("failed to start %s-container: %w", name, err)
 	}
-
-	for _, args := range argsList {
-		if err = client.runSidecarExec(ctx, createResponse.ID, tool, args); err != nil {
-			_ = client.removeSidecar(ctx, createResponse.ID)
-			return fmt.Errorf("error running %s command on container: %v: %w", tool, strings.Join(args, " "), err)
-		}
+	if err = fn(createResponse.ID); err != nil {
+		_ = client.removeSidecar(ctx, createResponse.ID)
+		return err
 	}
-
 	if err = client.removeSidecar(ctx, createResponse.ID); err != nil {
-		return fmt.Errorf("failed to remove %s-container: %w", tool, err)
+		return fmt.Errorf("failed to remove %s-container: %w", name, err)
 	}
 	return nil
 }
@@ -151,30 +160,15 @@ func (client dockerClient) pullSidecarImage(ctx context.Context, img, tool strin
 	}
 }
 
-// runSidecarExec creates and runs an exec inside the sidecar container,
-// invoking `tool` (tc or iptables) with args. The exit code is inspected so
-// that a non-zero status (e.g. tc rejecting bad args, iptables rule rejected
-// by kernel) surfaces as an error instead of silent success.
-func (client dockerClient) runSidecarExec(ctx context.Context, sidecarID, tool string, args []string) error {
-	execConfig := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          append([]string{tool}, args...),
-	}
-	execCreateResponse, err := client.containerAPI.ContainerExecCreate(ctx, sidecarID, execConfig)
+// runSidecarExec runs `tool` (sh, iptables or tc) with args inside the
+// sidecar and returns its stdout. A non-zero exit (e.g. tc rejecting bad
+// args, iptables rule rejected by kernel) is an error carrying stderr instead
+// of silent success.
+func (client dockerClient) runSidecarExec(ctx context.Context, sidecarID, tool string, args []string) (string, error) {
+	out, err := client.runExec(ctx, sidecarID, append([]string{tool}, args...), false)
 	if err != nil {
-		return fmt.Errorf("failed to create %s-container exec: %w", tool, err)
-	}
-	if err := client.runExecAttached(ctx, execCreateResponse.ID); err != nil {
-		return fmt.Errorf("failed to start %s-container exec: %w", tool, err)
-	}
-	insp, err := client.containerAPI.ContainerExecInspect(ctx, execCreateResponse.ID)
-	if err != nil {
-		return fmt.Errorf("failed to inspect %s-container exec: %w", tool, err)
-	}
-	if insp.ExitCode != 0 {
-		return fmt.Errorf("%s %s failed with exit code %d", tool, strings.Join(args, " "), insp.ExitCode)
+		return "", err
 	}
 	log.WithField("args", strings.Join(args, " ")).Debugf("run command on %s-container", tool)
-	return nil
+	return out, nil
 }

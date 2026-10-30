@@ -13,7 +13,7 @@ Deferred ideas, one file per item. Not commitments.
 | [chaos-time-and-syscalls.md](chaos-time-and-syscalls.md) | chaos | Clock skew and syscall fault injection |
 | [container-chaos-extras.md](container-chaos-extras.md) | container | Container chaos extras |
 | [devices-disk-pids-gpu.md](devices-disk-pids-gpu.md) | chaos, container | More devices: disk, PIDs/FDs, GPU |
-| [fault-lifecycle-run-id.md](fault-lifecycle-run-id.md) | arch, agent, safety | Fault lifecycle: artifact tagging, status/revert/verify-clean |
+| [fault-lifecycle-run-id.md](fault-lifecycle-run-id.md) | arch, agent, safety | Fault lifecycle: revert and handle refactor |
 | [host-chaos.md](host-chaos.md) | host, safety | Host chaos |
 | [k8s-integration.md](k8s-integration.md) | k8s | Kubernetes integration |
 | [network-atomic-and-selectors.md](network-atomic-and-selectors.md) | network, safety | AND-combined selectors (`--match-all`) |

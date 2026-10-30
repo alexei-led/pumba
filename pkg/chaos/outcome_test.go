@@ -140,6 +140,57 @@ func TestRecorderCountsAndStampsVersion(t *testing.T) {
 	assert.Equal(t, o.Error, end.End.Error)
 }
 
+// statusSink records forwarded status reports next to events.
+type statusSink struct {
+	recordSink
+	reports []*chaos.StatusReport
+}
+
+func (s *statusSink) RecordStatus(rep *chaos.StatusReport) { s.reports = append(s.reports, rep) }
+
+func TestRecorderStatusReport(t *testing.T) {
+	tests := []struct {
+		name     string
+		check    bool
+		verdict  chaos.Verdict
+		err      error
+		status   chaos.RunStatus
+		exitCode int
+		code     chaos.ErrorCode
+	}{
+		{name: "check clean", check: true, verdict: chaos.VerdictClean, status: chaos.RunClean},
+		{name: "check dirty", check: true, verdict: chaos.VerdictDirty, status: chaos.RunDirty, exitCode: 1},
+		{name: "check unknown", check: true, verdict: chaos.VerdictUnknown, status: chaos.RunUnknown, exitCode: 1},
+		{
+			name: "check keeps the inspection error", check: true, verdict: chaos.VerdictUnknown,
+			err:    chaos.NewInspectError(errors.New("tc: not found")),
+			status: chaos.RunUnknown, exitCode: 1, code: chaos.CodeCommandFailed,
+		},
+		{name: "without check the verdict is coverage only", verdict: chaos.VerdictDirty, status: chaos.RunNoTargets, code: chaos.CodeNoTargets},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			next := &statusSink{}
+			rec := chaos.NewRecorder(next, "1.5.0")
+			rep := &chaos.StatusReport{Check: tt.check, Coverage: &chaos.StatusCoverage{Verdict: tt.verdict}}
+			(&chaos.GlobalParams{Events: rec}).RecordStatus(rep)
+
+			end, o := rec.RunEnd(tt.err, false)
+
+			assert.Equal(t, []*chaos.StatusReport{rep}, next.reports, "the report is forwarded")
+			assert.Same(t, rep.Coverage, end.End.Coverage)
+			assert.Equal(t, tt.status, o.Status)
+			assert.Equal(t, tt.exitCode, o.ExitCode)
+			if tt.code == "" {
+				assert.Nil(t, o.Error)
+				return
+			}
+			require.NotNil(t, o.Error)
+			assert.Equal(t, tt.code, o.Error.Code)
+		})
+	}
+}
+
 func TestRecorderRunEndBeforeRunStart(t *testing.T) {
 	rec := chaos.NewRecorder(chaos.NopSink{}, "1.5.0")
 	end, o := rec.RunEnd(chaos.NewUsageError(errors.New("bad")), false)

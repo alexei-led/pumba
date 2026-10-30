@@ -69,7 +69,7 @@ func TestNewCombinedCommandValidation(t *testing.T) {
 func TestCombinedCommandRunBuildsOneNetemCommand(t *testing.T) {
 	client := container.NewMockClient(t)
 	target := &container.Container{ContainerID: "target-id", ContainerName: "target"}
-	gp := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
+	gp := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1"}
 	req := &container.NetemRequest{Interface: "eth0", Duration: time.Millisecond, DryRun: true}
 	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{All: false}).
 		Return([]*container.Container{target}, nil)
@@ -85,6 +85,7 @@ func TestCombinedCommandRunBuildsOneNetemCommand(t *testing.T) {
 		},
 		Duration: time.Millisecond,
 		DryRun:   true,
+		RunID:    "run1",
 	}
 	client.EXPECT().NetemContainer(mock.Anything, expected).Return(nil)
 	client.EXPECT().StopNetemContainer(mock.Anything, expected).Return(nil)

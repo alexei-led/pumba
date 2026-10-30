@@ -116,6 +116,7 @@ type Recorder struct {
 	action  string
 	counts  Counts
 	skipped error
+	status  *StatusReport
 }
 
 // skippedErrorRecorder is implemented by event sinks that keep the tick errors
@@ -131,6 +132,17 @@ func (r *Recorder) RecordSkipped(err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.skipped = err
+}
+
+// RecordStatus keeps the latest status report for run.end and forwards it
+// when the next sink takes status reports.
+func (r *Recorder) RecordStatus(rep *StatusReport) {
+	r.mu.Lock()
+	r.status = rep
+	r.mu.Unlock()
+	if next, ok := r.next.(StatusRecorder); ok {
+		next.RecordStatus(rep)
+	}
 }
 
 // NewRecorder returns a Recorder forwarding to next.
@@ -178,9 +190,18 @@ func (r *Recorder) RunEnd(err error, aborted bool) (Event, Outcome) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o := NewOutcome(r.counts, err, aborted)
+	runErr := err
 	if err == nil && r.skipped != nil {
 		// --skip-error keeps exit 0; the status still reports the failure
 		o.Status, o.Error = outcomeStatus(r.counts, r.skipped, aborted)
+		runErr = r.skipped
+	}
+	var coverage *StatusCoverage
+	if r.status != nil {
+		coverage = r.status.Coverage
+		if r.status.Check {
+			o = checkOutcome(o, coverage.Verdict, runErr)
+		}
 	}
 	return Event{
 		Schema: EventSchema,
@@ -188,6 +209,23 @@ func (r *Recorder) RunEnd(err error, aborted bool) (Event, Outcome) {
 		RunID:  r.runID,
 		Time:   time.Now().UTC(),
 		Action: r.action,
-		End:    &RunEnd{Status: o.Status, Counts: r.counts, Error: o.Error},
+		End:    &RunEnd{Status: o.Status, Counts: r.counts, Error: o.Error, Coverage: coverage},
 	}, o
+}
+
+// checkOutcome makes the status --check verdict the run outcome: exit 0 only
+// when clean, also under --skip-error. Status records no report on a usage
+// error or refusal, so those keep their status; a listing failure records an
+// unknown report. An error, also one --skip-error swallowed, stays in
+// run.end.error; errors derived from counts alone (no_targets) give way to
+// the verdict and its reasons.
+func checkOutcome(o Outcome, v Verdict, err error) Outcome {
+	o.Status = RunStatus(v)
+	if err == nil {
+		o.Error = nil
+	}
+	if v != VerdictClean {
+		o.ExitCode = 1
+	}
+	return o
 }

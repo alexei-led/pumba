@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	pumbaLabel     = "com.gaiaadm.pumba"
-	pumbaSkipLabel = "com.gaiaadm.pumba.skip"
-	signalLabel    = "com.gaiaadm.pumba.stop-signal"
-	trueValue      = "true"
+	pumbaLabel  = "com.gaiaadm.pumba"
+	signalLabel = "com.gaiaadm.pumba.stop-signal"
+	trueValue   = "true"
 
 	// StateRunning represents a running container state.
 	StateRunning = "running"
@@ -125,7 +124,7 @@ func (c *Container) IsPumba() bool {
 // identified by the presence of the "com.gaiaadm.pumba.skip" label in
 // the container metadata. Use it to skip monitoring and helper containers.
 func (c *Container) IsPumbaSkip() bool {
-	val, ok := c.Labels[pumbaSkipLabel]
+	val, ok := c.Labels[SkipLabel]
 	return ok && val == trueValue
 }
 

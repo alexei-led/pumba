@@ -23,7 +23,12 @@ func Test_tcContainerCommands(t *testing.T) {
 	}
 
 	config := ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Labels: map[string]string{
+			"com.gaiaadm.pumba.skip":   "true",
+			"com.gaiaadm.pumba.run-id": "run1",
+			"com.gaiaadm.pumba.target": "targetID",
+			"com.gaiaadm.pumba.kind":   "netem",
+		},
 		Entrypoint: []string{"tail"},
 		Cmd:        []string{"-f", "/dev/null"},
 		Image:      "pumba/tcimage",
@@ -68,7 +73,8 @@ func Test_tcContainerCommands(t *testing.T) {
 	engineClient.EXPECT().ContainerRemove(ctx, "tcID", ctypes.RemoveOptions{Force: true}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
-	err := client.runSidecar(context.TODO(), c, [][]string{{"test", "one"}, {"test", "two"}}, "pumba/tcimage", "tc", true)
+	labels := ctr.SidecarLabels("run1", "targetID", ctr.SidecarKindNetem)
+	err := client.runSidecar(context.TODO(), c, ctr.SidecarSpec{Image: "pumba/tcimage", Pull: true}, labels, "tc", [][]string{{"test", "one"}, {"test", "two"}})
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)

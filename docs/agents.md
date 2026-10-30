@@ -3,7 +3,8 @@
 How a program runs Pumba and reads what happened, without parsing logs.
 
 - `--output ndjson`: result events on stdout, one JSON object per line (schema `pumba.event/v1`).
-- `--run-id`: names the run; every event carries it.
+- `--run-id`: names the run; every event carries it, and it tags the sidecars and iptables rules the run creates.
+- `pumba status --check`: did a run leave faults behind? A `clean`/`dirty`/`unknown` verdict.
 - `--max-duration`: a time budget, so a forgotten `--interval` run stops by itself.
 - The exit code is `0` or `1`. The detail is in the last event, `run.end`.
 
@@ -72,6 +73,7 @@ Terminal record per target and tick. For faults that are reverted (netem, iptabl
 | `status` | `ok`, `failed`, `cleanup_failed`, `planned` (dry-run), `skipped` (serial run stopped by an earlier failure) |
 | `error` | `null` or an [error object](#errors) |
 | `cleanup` | `null` when nothing was reverted (one-shot actions, dry-run); else `{"ok":true}` or `{"ok":false,"error":"…"}` |
+| `state` | `status` only: what was found on the target, see [Status](#status-pumba-status---check) |
 
 ### `run.end`
 
@@ -81,6 +83,7 @@ Emitted when the process finishes, also for usage errors that never reached `run
 - `counts`: `selected` (number of `target.result` events), `ok`, `failed`, `cleanup_failed`, `planned`, `skipped`.
 - `error`: `null` or an [error object](#errors).
 - `events_dropped`: events lost on the way to stdout (see [Delivery](#delivery)).
+- `coverage`: `status` only, see [Status](#status-pumba-status---check).
 
 | `status` | When | Exit |
 |---|---|---|
@@ -92,6 +95,7 @@ Emitted when the process finishes, also for usage errors that never reached `run
 | `refused` | `--max-targets` exceeded; nothing was injected | 1 |
 | `usage_error` | bad flag, argument or `--run-id` | 1 |
 | `aborted` | `--max-duration` expired (`timeout`, exit 1) or SIGINT/SIGTERM (`canceled`, exit 0) | see left |
+| `clean`, `dirty`, `unknown` | `status --check` only: the verdict | 0 for `clean`, else 1 |
 
 The first matching row wins, top to bottom in this order: `usage_error`, `refused`, `cleanup_failed`, `aborted` (timeout), `failed`/`partial`, `aborted` (canceled), `no_targets`, `ok`. A cleanup failure outranks a timeout because a leftover fault matters more.
 
@@ -108,12 +112,11 @@ When a usage error stops Pumba before `run.start`, `run.end` has `"action":""`. 
 | `max_targets_exceeded` | `select` | selection is larger than `--max-targets` |
 | `runtime_unavailable` | `runtime`, `select` | cannot create the runtime client, or listing containers failed |
 | `command_failed` | `inject` | the chaos action failed |
+| `command_failed` | `inspect` | `status` could not read a target's netns |
 | `cleanup_failed` | `cleanup` | reverting the fault failed |
 | `timeout` | `runtime` | `--max-duration` expired |
 | `canceled` | `runtime` | SIGINT/SIGTERM |
 | `rootless_unsupported` | — | reserved; rootless Podman failures currently report `command_failed` |
-
-Phase `inspect` is reserved.
 
 ## Exit codes
 
@@ -154,6 +157,47 @@ Limits:
 
 `--help` and `--version` are not runs and emit no events. A top-level `pumba --help` still prints to stdout.
 
+## Status (`pumba status [--check]`)
+
+`pumba status [--run-id ID] [--check] [--tc-image IMG] [--pull-image] [containers…]` reports the Pumba faults left on running containers: iptables rules tagged `pumba:<run-id>`, qdiscs under Pumba's root handle `504d:`, and sidecars labeled `com.gaiaadm.pumba.*`. Selection works as for chaos commands; no containers means all running. `--max-targets` applies. `--random` and `--dry-run` are ignored. The status `--run-id` is a **filter** for rules and sidecars; the global `--run-id` only names the status run.
+
+Each inspected container gets one `target.result` with `state`:
+
+```json
+{"rules":[{"run_id":"ci-42","chain":"INPUT","spec":"-A INPUT -i eth0 -m comment --comment \"pumba:ci-42\" -m statistic --mode random --probability 1.00000000000 -j DROP"}],
+ "qdiscs":[{"device":"eth0","kind":"netem","ownership":"pumba-owned","run_id":null}],
+ "sidecars":[{"id":"f965…","name":"/vigilant_mahavira","kind":"stress","state":"running","target_id":"72c5…","run_id":"ci-42"}]}
+```
+
+- `qdiscs[].ownership`: `pumba-owned` (Pumba's topology) or `suspicious` (Pumba's handle, other topology). qdiscs have no comment field: `run_id` is always `null` and the run filter never hides them.
+- `sidecars[].run_id` is `null` for an untagged sidecar. Status's own `inspect` sidecars are never reported.
+- A failed inspection makes the target `failed` with `error.phase` `inspect`; its `state` then holds only sidecars.
+
+`run.end.coverage` holds the verdict and what belongs to no inspected target:
+
+| Field | Meaning |
+|---|---|
+| `verdict` | `clean`, `dirty` or `unknown`; present with or without `--check` |
+| `reasons` | why `dirty` or `unknown`; `[]` when clean |
+| `run_filter` | the status `--run-id`, omitted when unset |
+| `orphan_sidecars` | sidecars whose target was not inspected; only when no containers are named |
+| `missing_targets` | named containers that do not exist or are not running |
+| `listing_gaps` | containers the runtime could not read (`id`, `error`) |
+
+| Verdict | When |
+|---|---|
+| `clean` | every selected target was inspected, coverage has no gaps, nothing matched |
+| `dirty` | a tagged rule or labeled sidecar matched (or an orphan sidecar); without a run filter, also a `pumba-owned` qdisc |
+| `unknown` | a listing or an inspection failed, a target is missing, a listing gap, a `suspicious` qdisc, nothing selected, or with a run filter only qdiscs found |
+
+`dirty` wins over `unknown`. `clean` is never vacuous: an empty selection is `unknown`.
+
+With `--check`, the verdict is the `run.end.status` and the exit code: `0` only for `clean`, also with `--skip-error`. A real error stays in `run.end.error`. A failed listing gives `unknown` with the reason `listing failed: ...`. A refused (`--max-targets`) or usage error keeps its own status. `--check` with `--interval` is a usage error. Without `--check`, `status` exits like any command (`1` only when an inspection or the listing failed) and the verdict is only in `coverage`.
+
+In text mode `status` prints a `TARGET KIND DETAIL RUN` table to stdout, plus a `verdict:` line with `--check`. In ndjson mode stdout carries only events.
+
+Known limits: iptables rules from Pumba 1.4 and earlier have no comment; containerd stress with `--stress-image ""` leaves no container; containers sharing a netns report the same rules and qdiscs. Rootless Podman is refused, as for netem.
+
 ## Recipes
 
 Wait until the fault is active, then probe:
@@ -178,6 +222,14 @@ Preview targets without touching anything:
 
 ```bash
 pumba -o ndjson --dry-run kill 're2:^web-' | jq -r 'select(.type=="target.result") | .target.name'
+```
+
+Check that a run left nothing behind, even after a crash:
+
+```bash
+pumba -o ndjson --run-id ci-42 iptables --duration 5m loss --probability 0.2 web-1 >/dev/null &
+# ... the run is killed with -9 ...
+pumba -o ndjson status --check --run-id ci-42 web-1 | tail -n1 | jq '{status, reasons: .coverage.reasons}'
 ```
 
 Bound a recurring run:

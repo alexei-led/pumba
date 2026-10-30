@@ -61,6 +61,13 @@ type Stressor interface {
 	StressContainer(context.Context, *StressRequest) (*StressResult, error)
 }
 
+// Inspector reads the Pumba fault state of a target's network namespace:
+// Pumba-owned qdiscs and iptables rules tagged with a pumba:<run-id> comment.
+// A command that fails is an error, never an empty (clean) state.
+type Inspector interface {
+	InspectNetns(context.Context, *InspectRequest) (*FaultState, error)
+}
+
 // Client is the full container runtime interface, combining all focused interfaces.
 type Client interface {
 	Lister
@@ -70,5 +77,6 @@ type Client interface {
 	Netem
 	IPTables
 	Stressor
+	Inspector
 	Close() error
 }

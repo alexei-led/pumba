@@ -72,6 +72,7 @@ Pumba targets **Linux containers** — every chaos action depends on Linux primi
 | **Stress Testing**  | `stress`                                  | CPU, memory, I/O stress via stress-ng (child cgroup or same-cgroup injection) |
 | **Targeting**       | names, regex (`re2:`), labels, `--random` | Flexible container selection                                                  |
 | **Scheduling**      | `--interval`                              | Recurring chaos at fixed intervals                                            |
+| **Leftover check**  | `status [--check]`                        | Find iptables rules, qdiscs and sidecars a run left behind                    |
 
 ## Quick Start
 
@@ -105,6 +106,9 @@ pumba iptables --duration 2m loss --probability 0.1 myapp
 
 # Stress CPU of mycontainer for 60 seconds
 pumba stress --duration 60s --stressors="--cpu 4 --timeout 60s" mycontainer
+
+# Did a crashed run leave faults behind? Exit 0 only when clean
+pumba status --check myapp
 ```
 
 ### Containerd Runtime
@@ -188,7 +192,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 | `--dry-run` | `false` | `DRY-RUN` | Log planned chaos actions without executing them |
 | `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
 | `--output`, `-o` | `text` | — | `ndjson`: result events (`pumba.event/v1`) on stdout, one per line; logs stay on stderr |
-| `--run-id` | Generated | — | Name this run in result events; 1–48 characters from `[A-Za-z0-9_.-]` |
+| `--run-id` | Generated | — | Name this run in result events and tag what it creates (sidecar labels, iptables comments); 1–48 characters from `[A-Za-z0-9_.-]` |
 | `--max-duration` | `0` (unlimited) | — | Time budget for active chaos and `--interval`; on expiry in-flight chaos is cleaned up and the run exits 1 |
 | `--help`, `-h` | `false` | — | Show help (built-in) |
 | `--version`, `-v` | `false` | — | Print the version (built-in) |
@@ -223,7 +227,7 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 | **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
 | **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
 | **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
-| **[Agents](docs/agents.md)**                 | `--output ndjson` result events, run ID, exit codes, run budget |
+| **[Agents](docs/agents.md)**                 | `--output ndjson` result events, run ID, `status --check`, exit codes, run budget |
 | **[Architecture](docs/architecture.md)**     | Module boundaries and the archfit policy that enforces them    |
 | **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
 

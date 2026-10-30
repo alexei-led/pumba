@@ -171,13 +171,13 @@ func TestStressCLI_ResourceNamesRemainTargets(t *testing.T) {
 					stressors = []string{"--cpu", "2", "--timeout", "5s"}
 				}
 				client.EXPECT().StressContainer(mock.Anything, &container.StressRequest{
-					Container: target, Stressors: stressors, Duration: time.Minute, DryRun: true,
+					Container: target, Stressors: stressors, Duration: time.Minute, DryRun: true, RunID: "run1",
 					Sidecar: container.SidecarSpec{Image: "ghcr.io/alexei-led/stress-ng:latest", Pull: true},
 				}).Return(&container.StressResult{}, nil).Once()
 				app := cli.NewApp()
-				app.Flags = []cli.Flag{cli.BoolFlag{Name: "dry-run"}}
+				app.Flags = []cli.Flag{cli.BoolFlag{Name: "dry-run"}, cli.StringFlag{Name: "run-id"}}
 				app.Commands = []cli.Command{*NewStressCLICommand(context.Background(), func() container.Client { return client }, chaos.NopSink{})}
-				argv := append([]string{"pumba", "--dry-run", "stress", "--duration", "1m"}, args...)
+				argv := append([]string{"pumba", "--dry-run", "--run-id", "run1", "stress", "--duration", "1m"}, args...)
 				require.NoError(t, app.Run(append(argv, name)))
 			})
 		}

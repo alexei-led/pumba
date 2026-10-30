@@ -26,10 +26,25 @@ var networkCapabilities = []string{"CAP_NET_ADMIN", "CAP_NET_RAW"}
 
 // sidecarExec creates a short-lived sidecar container that shares the target
 // container's network namespace and runs the given command+args inside it.
-func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, sidecarImage string, pull bool, command string, argsList [][]string) error {
-	ctx = c.nsCtx(ctx)
+func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, command string, argsList [][]string) error {
+	return c.withSidecar(ctx, target, spec, labels, func(ctx context.Context, task containerd.Task) error {
+		for _, args := range argsList {
+			if _, err := c.runSidecarCmd(ctx, task, command, args); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
 
-	if pull {
+// withSidecar creates a short-lived labeled sidecar container that shares the
+// target container's network namespace, calls fn with its running task, and
+// removes the sidecar afterwards, even when ctx is canceled.
+func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, fn func(context.Context, containerd.Task) error) error {
+	ctx = c.nsCtx(ctx)
+	sidecarImage := spec.Image
+
+	if spec.Pull {
 		if err := c.pullImage(ctx, sidecarImage); err != nil {
 			return fmt.Errorf("failed to pull sidecar image %s: %w", sidecarImage, err)
 		}
@@ -62,6 +77,7 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 			}),
 			oci.WithCapabilities(networkCapabilities),
 		),
+		containerd.WithContainerLabels(labels),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create sidecar container: %w", err)
@@ -85,17 +101,12 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 		return fmt.Errorf("failed to start sidecar task: %w", err)
 	}
 
-	for _, args := range argsList {
-		if err := c.runSidecarCmd(ctx, task, command, args); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return fn(ctx, task)
 }
 
-// runSidecarCmd executes a single command inside a running sidecar task.
-func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) error {
+// runSidecarCmd executes a single command inside a running sidecar task and
+// returns its stdout.
+func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) (string, error) {
 	cmdArgs := make([]string, 0, 1+len(args))
 	cmdArgs = append(cmdArgs, command)
 	cmdArgs = append(cmdArgs, args...)
@@ -113,11 +124,12 @@ func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Ta
 		},
 	}
 
-	if err := execTask(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " "))); err != nil {
-		return err
+	out, err := execTaskOutput(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " ")))
+	if err != nil {
+		return "", err
 	}
 	log.WithField("args", strings.Join(args, " ")).Debug("sidecar exec completed")
-	return nil
+	return out, nil
 }
 
 // pullImage pulls an image via containerd.

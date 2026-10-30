@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -159,29 +161,45 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 
 	// if command found execute it
 	log.WithField("command", execCmd).Debug("command found: continue execution")
+	if _, err := client.runExec(ctx, c.ID(), append([]string{execCmd}, execArgs...), privileged); err != nil {
+		return fmt.Errorf("command '%s' failed in %s container: %w", execCmd, c.ID(), err)
+	}
+	return nil
+}
 
-	// prepare exec config
-	config := ctypes.ExecOptions{
+// runExec runs argv as an exec in containerID and returns its stdout. A
+// non-zero exit is an error that carries stderr, so callers can name the
+// cause (e.g. a missing iptables extension).
+func (client dockerClient) runExec(ctx context.Context, containerID string, argv []string, privileged bool) (string, error) {
+	created, err := client.containerAPI.ContainerExecCreate(ctx, containerID, ctypes.ExecOptions{
 		AttachStdout: true,
 		AttachStderr: true,
 		Privileged:   privileged,
-		Cmd:          append([]string{execCmd}, execArgs...),
-	}
-	// execute the command
-	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
+		Cmd:          argv,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create exec configuration for a command: %w", err)
+		return "", fmt.Errorf("failed to create exec %s: %w", strings.Join(argv, " "), err)
 	}
-	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
-	if err = client.runExecAttached(ctx, exec.ID); err != nil {
-		return fmt.Errorf("failed to start command execution: %w", err)
-	}
-	exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
+	resp, err := client.containerAPI.ContainerExecAttach(ctx, created.ID, ctypes.ExecAttachOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to inspect command execution: %w", err)
+		return "", fmt.Errorf("failed to start exec %s: %w", strings.Join(argv, " "), err)
 	}
-	if exitInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' failed in %s container; run it in manually to debug", execCmd, c.ID())
+	raw, err := readAttached(ctx, resp)
+	resp.Close()
+	if err != nil {
+		return "", fmt.Errorf("failed to read exec %s output: %w", strings.Join(argv, " "), err)
 	}
-	return nil
+	insp, err := client.containerAPI.ContainerExecInspect(ctx, created.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect exec %s: %w", strings.Join(argv, " "), err)
+	}
+	// Without a TTY the attach stream multiplexes stdout and stderr.
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, bytes.NewReader(raw)); err != nil {
+		return "", fmt.Errorf("failed to demultiplex exec %s output: %w", strings.Join(argv, " "), err)
+	}
+	if insp.ExitCode != 0 {
+		return "", fmt.Errorf("%s failed with exit code %d: %s", strings.Join(argv, " "), insp.ExitCode, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.String(), nil
 }

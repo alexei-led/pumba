@@ -53,14 +53,8 @@ func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath,
 }
 
 // createStressSidecar resolves the target cgroup path, optionally pulls the image, and creates and starts the stress sidecar container.
-func (c *containerdClient) createStressSidecar(
-	ctx context.Context,
-	target *ctr.Container,
-	sidecarImage string,
-	stressors []string,
-	injectCgroup bool,
-	pull bool,
-) (string, containerd.Container, containerd.Task, <-chan containerd.ExitStatus, error) {
+func (c *containerdClient) createStressSidecar(ctx context.Context, req *ctr.StressRequest) (string, containerd.Container, containerd.Task, <-chan containerd.ExitStatus, error) {
+	target, sidecarImage, injectCgroup := req.Container, req.Sidecar.Image, req.InjectCgroup
 	targetTask, err := c.getTask(ctx, target.ID())
 	if err != nil {
 		return "", nil, nil, nil, fmt.Errorf("failed to get target task for stress sidecar: %w", err)
@@ -75,7 +69,7 @@ func (c *containerdClient) createStressSidecar(
 		return "", nil, nil, nil, fmt.Errorf("failed to resolve cgroup for stress sidecar: %w", err)
 	}
 
-	if pull {
+	if req.Sidecar.Pull {
 		if err := c.pullImage(ctx, sidecarImage); err != nil {
 			return "", nil, nil, nil, fmt.Errorf("failed to pull stress image: %w", err)
 		}
@@ -94,13 +88,13 @@ func (c *containerdClient) createStressSidecar(
 	}
 
 	sidecarID := fmt.Sprintf("pumba-stress-%d", execCounter.Add(1))
-	specOpts := buildStressSpecOpts(image, stressors, cgroupPath, cgroupParent, sidecarID, injectCgroup)
+	specOpts := buildStressSpecOpts(image, req.Stressors, cgroupPath, cgroupParent, sidecarID, injectCgroup)
 
 	sidecarContainer, err := c.client.NewContainer(ctx, sidecarID,
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(sidecarID+"-snapshot", image),
 		containerd.WithNewSpec(specOpts...),
-		containerd.WithContainerLabels(map[string]string{"com.gaiaadm.pumba.skip": "true"}),
+		containerd.WithContainerLabels(ctr.SidecarLabels(req.RunID, target.ID(), ctr.SidecarKindStress)),
 	)
 	if err != nil {
 		return "", nil, nil, nil, fmt.Errorf("failed to create stress sidecar: %w", err)

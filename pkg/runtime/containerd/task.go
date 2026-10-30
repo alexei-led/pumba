@@ -161,15 +161,17 @@ func (c *containerdClient) resumeTask(ctx context.Context, containerID string) e
 	return task.Resume(ctx)
 }
 
-// execTask runs a command inside a containerd task and waits for completion.
-// Handles the full exec lifecycle: create, wait, start, collect exit status, delete.
-func execTask(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) error {
+// execTaskOutput runs a command inside a containerd task, waits for
+// completion and returns its stdout. Handles the full exec lifecycle: create,
+// wait, start, collect exit status, delete. A non-zero exit is an error
+// carrying stderr.
+func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
 		cio.WithStreams(nil, &stdout, &stderr),
 	))
 	if err != nil {
-		return fmt.Errorf("failed to exec %s: %w", description, err)
+		return "", fmt.Errorf("failed to exec %s: %w", description, err)
 	}
 	defer func() {
 		if _, delErr := execProcess.Delete(ctx); delErr != nil {
@@ -179,32 +181,76 @@ func execTask(ctx context.Context, task containerd.Task, pspec *specs.Process, e
 
 	exitCh, err := execProcess.Wait(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to wait on %s: %w", description, err)
+		return "", fmt.Errorf("failed to wait on %s: %w", description, err)
 	}
 
 	if err := execProcess.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start %s: %w", description, err)
+		return "", fmt.Errorf("failed to start %s: %w", description, err)
 	}
 
 	select {
 	case status := <-exitCh:
 		code, _, err := status.Result()
 		if err != nil {
-			return fmt.Errorf("%s failed: %w", description, err)
+			return "", fmt.Errorf("%s failed: %w", description, err)
+		}
+		if err := waitIO(ctx, execProcess, ioDrainTimeout); err != nil {
+			return "", fmt.Errorf("%s canceled: %w", description, err)
 		}
 		if code != 0 {
-			return fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+			return "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
 		}
+		return stdout.String(), nil
+	case <-ctx.Done():
+		return "", fmt.Errorf("%s canceled: %w", description, ctx.Err())
+	}
+}
+
+// ioDrainTimeout bounds how long execTaskOutput waits for the exec's output
+// after the process exits. A background child that inherits stdout keeps the
+// FIFOs open past exit, so EOF may never come.
+const ioDrainTimeout = 2 * time.Second
+
+// waitIO waits until the exec's output is fully copied into the buffers; the
+// exit status can arrive before the copy finishes. After timeout (or ctx
+// cancel) it aborts the copy and waits for it to stop, so the buffers are safe
+// to read on return; output still held by a lingering child is dropped.
+func waitIO(ctx context.Context, p containerd.Process, timeout time.Duration) error {
+	pio := p.IO()
+	if pio == nil {
+		return nil
+	}
+	done := make(chan struct{})
+	go func() {
+		pio.Wait()
+		close(done)
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return nil
+	case <-timer.C:
+		pio.Cancel()
+		<-done
 		return nil
 	case <-ctx.Done():
-		return fmt.Errorf("%s canceled: %w", description, ctx.Err())
+		pio.Cancel()
+		<-done
+		return ctx.Err()
 	}
 }
 
 func (c *containerdClient) execInContainer(ctx context.Context, containerID, command string, args []string) error {
+	_, err := c.execInContainerOutput(ctx, containerID, command, args)
+	return err
+}
+
+// execInContainerOutput is execInContainer returning the command's stdout.
+func (c *containerdClient) execInContainerOutput(ctx context.Context, containerID, command string, args []string) (string, error) {
 	task, err := c.getTask(ctx, containerID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	cmdArgs := make([]string, 0, 1+len(args))
@@ -218,5 +264,5 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 		User: specs.User{UID: 0, GID: 0},
 	}
 
-	return execTask(ctx, task, pspec, execID, fmt.Sprintf("exec in %s '%s'", containerID, strings.Join(cmdArgs, " ")))
+	return execTaskOutput(ctx, task, pspec, execID, fmt.Sprintf("exec in %s '%s'", containerID, strings.Join(cmdArgs, " ")))
 }

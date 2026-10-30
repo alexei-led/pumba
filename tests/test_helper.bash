@@ -343,6 +343,19 @@ podman_rm_force() {
 	done
 }
 
+# ── NDJSON event assertions (pumba -o ndjson) ────────────────────────────
+
+# Run jq filter $1 on the slurped event array in $output; fail unless true.
+assert_events() {
+	echo "$output" | jq -se "$1" >/dev/null || fail "events do not match '$1':
+$output"
+}
+
+# Run jq filter $1 on the last event (run.end) in $output; fail unless true.
+assert_run_end() {
+	assert_events "last | .type == \"run.end\" and ($1)"
+}
+
 # ── Nettools image helper ──────────────────────────────────────────────────
 
 ensure_nettools_image() {
