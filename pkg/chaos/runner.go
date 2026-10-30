@@ -112,6 +112,14 @@ func runOnContainers(
 	}
 	if !parallel {
 		for i, c := range containers {
+			// Never start a target after cancellation: an action handed a dead
+			// ctx can fail mid-call and trigger a revert on an untouched container.
+			select {
+			case <-ctx.Done():
+				skipTargets(gp, tick, containers[i:])
+				return nil
+			default:
+			}
 			if err := run(c); err != nil {
 				skipTargets(gp, tick, containers[i+1:])
 				return err

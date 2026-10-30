@@ -332,3 +332,26 @@ func TestTargetConcurrentReports(t *testing.T) {
 		}))
 	assert.Len(t, sink.ofType(chaos.EventTargetApplied), 1, "applied is emitted once")
 }
+
+func TestRunOnContainersSerialStopsStartingTargetsAfterCancel(t *testing.T) {
+	client := container.NewMockClient(t)
+	expectList(client, "a", "b", "c")
+	sink := &recordSink{}
+	gp := &chaos.GlobalParams{Events: sink}
+	ctx, cancel := context.WithCancel(context.Background())
+	var called []string
+	err := chaos.RunOnContainers(ctx, client, gp, 0, false, false,
+		func(_ context.Context, c *container.Container, target *chaos.Target) error {
+			called = append(called, c.ID())
+			target.Applied()
+			target.Reverted(nil)
+			cancel()
+			return nil
+		})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a"}, called, "no target may start after cancellation")
+	assert.Equal(t, []eventKey{
+		applied(1, "a"), result(1, "a", chaos.TargetOK),
+		result(1, "b", chaos.TargetSkipped), result(1, "c", chaos.TargetSkipped),
+	}, keys(sink.all()))
+}

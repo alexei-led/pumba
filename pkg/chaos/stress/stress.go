@@ -95,6 +95,8 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 	select {
 	case out := <-result.Output:
 		log.WithField("stdout", out).Debug("stress-ng completed")
+		// stress-ng exited on its own and its sidecar auto-removes: nothing is left to revert.
+		t.Reverted(nil)
 	case e := <-result.Errors:
 		return fmt.Errorf("stress-ng failed with error: %w", e)
 	case <-ctx.Done():
