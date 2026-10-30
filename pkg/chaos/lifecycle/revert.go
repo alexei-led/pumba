@@ -26,25 +26,25 @@ func holdTarget(c *container.Container, t *chaos.Target) heldTarget {
 const revertTimeout = 30 * time.Second
 
 // detachedRevert runs revert on a context detached from ctx, so a SIGTERM or
-// --max-duration deadline cannot cut it off, with its own revertTimeout bound.
-func detachedRevert(ctx context.Context, c *container.Container,
+// --max-duration deadline cannot cut it off, with its own timeout bound.
+func detachedRevert(ctx context.Context, timeout time.Duration, c *container.Container,
 	revert func(context.Context, *container.Container) error,
 ) error {
-	revertCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), revertTimeout)
+	revertCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 	return revert(revertCtx, c)
 }
 
 // revertInterrupted undoes an action that failed while ctx was cancelled. The
 // runtime call may have taken effect before it noticed the cancellation, so
-// the container is reverted anyway (unpause and start are harmless on a
-// running container) and the target reports the action error with its cleanup.
-// It returns err unchanged.
-func revertInterrupted(ctx context.Context, c *container.Container, t *chaos.Target, err error,
+// the container is reverted anyway, on a detached context bounded by timeout,
+// and the target reports the action error with its cleanup. It returns err
+// unchanged.
+func revertInterrupted(ctx context.Context, timeout time.Duration, c *container.Container, t *chaos.Target, err error,
 	revert func(context.Context, *container.Container) error,
 ) error {
 	if ctx.Err() != nil {
-		t.Reverted(detachedRevert(ctx, c, revert))
+		t.Reverted(detachedRevert(ctx, timeout, c, revert))
 	}
 	return err
 }
@@ -71,7 +71,7 @@ func revertAfter(ctx context.Context, duration time.Duration, dryRun bool, held 
 	}
 	var err error
 	for _, h := range held {
-		e := detachedRevert(ctx, h.c, revert)
+		e := detachedRevert(ctx, revertTimeout, h.c, revert)
 		h.done(e)
 		err = errors.Join(err, e)
 	}

@@ -177,42 +177,84 @@ func TestStopWithoutRestartReportsAtOnce(t *testing.T) {
 	assert.Nil(t, log.results[id].Cleanup, "stop without restart leaves nothing to revert")
 }
 
-func TestInterruptedActionIsStillReverted(t *testing.T) {
+func TestInterruptedPauseIsStillReverted(t *testing.T) {
 	actionErr := context.Canceled
-	for _, action := range []string{"pause", "stop --restart"} {
-		t.Run(action, func(t *testing.T) {
+	client := container.NewMockClient(t)
+	log := &orderLog{}
+	gp := &chaos.GlobalParams{Names: []string{"c0"}, Events: log}
+	targets := container.CreateTestContainers(1)
+	ctx, cancel := context.WithCancel(context.Background())
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).Return(targets, nil).Once()
+	client.EXPECT().PauseContainer(mock.Anything, targets[0], false).
+		RunAndReturn(func(context.Context, *container.Container, bool) error { cancel(); return actionErr }).Once()
+	client.EXPECT().UnpauseContainer(mock.Anything, targets[0], false).
+		RunAndReturn(func(revertCtx context.Context, c *container.Container, _ bool) error {
+			assert.NoError(t, revertCtx.Err(), "revert runs on a detached context")
+			log.add("revert:" + c.Name())
+			return nil
+		}).Once()
+
+	err := NewPauseCommand(client, gp, time.Hour, 0).Run(ctx, false)
+
+	require.ErrorIs(t, err, actionErr)
+	name := targets[0].Name()
+	assert.Equal(t, []string{"revert:" + name, "result:" + name}, log.entries)
+	assert.Equal(t, chaos.TargetFailed, log.results[name].Status)
+	assert.Equal(t, &chaos.Cleanup{OK: true}, log.results[name].Cleanup)
+}
+
+func TestInterruptedStopFinishesStopBeforeRestart(t *testing.T) {
+	stopErr := context.Canceled
+	notRunning := errors.New("container is not running")
+	startErr := errors.New("start failed")
+	tests := []struct {
+		name        string
+		finishErr   error
+		startErr    error
+		wantStatus  chaos.TargetStatus
+		wantCleanup *chaos.Cleanup
+	}{
+		{name: "stop finished then restarted", wantStatus: chaos.TargetFailed, wantCleanup: &chaos.Cleanup{OK: true}},
+		{name: "already exited still restarted", finishErr: notRunning, wantStatus: chaos.TargetFailed, wantCleanup: &chaos.Cleanup{OK: true}},
+		{name: "restart failed", startErr: startErr, wantStatus: chaos.TargetCleanupFailed,
+			wantCleanup: &chaos.Cleanup{Error: "failed to start stopped container: start failed"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			client := container.NewMockClient(t)
 			log := &orderLog{}
 			gp := &chaos.GlobalParams{Names: []string{"c0"}, Events: log}
 			targets := container.CreateTestContainers(1)
+			name := targets[0].Name()
 			ctx, cancel := context.WithCancel(context.Background())
 			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).Return(targets, nil).Once()
-			interrupt := func(context.Context, *container.Container, ...any) error { cancel(); return actionErr }
-			revert := func(revertCtx context.Context, c *container.Container, _ bool) error {
-				assert.NoError(t, revertCtx.Err(), "revert runs on a detached context")
-				log.add("revert:" + c.Name())
-				return nil
-			}
-			var command chaos.Command
-			if action == "pause" {
-				client.EXPECT().PauseContainer(mock.Anything, targets[0], false).
-					RunAndReturn(func(ctx context.Context, c *container.Container, _ bool) error { return interrupt(ctx, c) }).Once()
-				client.EXPECT().UnpauseContainer(mock.Anything, targets[0], false).RunAndReturn(revert).Once()
-				command = NewPauseCommand(client, gp, time.Hour, 0)
-			} else {
-				client.EXPECT().StopContainer(mock.Anything, targets[0], DeafultWaitTime, false).
-					RunAndReturn(func(ctx context.Context, c *container.Container, _ int, _ bool) error { return interrupt(ctx, c) }).Once()
-				client.EXPECT().StartContainer(mock.Anything, targets[0], false).RunAndReturn(revert).Once()
-				command = NewStopCommand(client, gp, true, time.Hour, 0, 0)
-			}
+			client.EXPECT().StopContainer(mock.Anything, targets[0], DeafultWaitTime, false).
+				RunAndReturn(func(context.Context, *container.Container, int, bool) error {
+					log.add("stop:interrupted")
+					cancel()
+					return stopErr
+				}).Once()
+			client.EXPECT().StopContainer(mock.Anything, targets[0], DeafultWaitTime, false).
+				RunAndReturn(func(stopCtx context.Context, _ *container.Container, _ int, _ bool) error {
+					assert.NoError(t, stopCtx.Err(), "finishing stop runs on a detached context")
+					_, bounded := stopCtx.Deadline()
+					assert.True(t, bounded, "finishing stop is bounded")
+					log.add("stop:finish")
+					return tt.finishErr
+				}).Once()
+			client.EXPECT().StartContainer(mock.Anything, targets[0], false).
+				RunAndReturn(func(startCtx context.Context, _ *container.Container, _ bool) error {
+					assert.NoError(t, startCtx.Err(), "restart runs on a detached context")
+					log.add("start")
+					return tt.startErr
+				}).Once()
 
-			err := command.Run(ctx, false)
+			err := NewStopCommand(client, gp, true, time.Hour, 0, 0).Run(ctx, false)
 
-			require.ErrorIs(t, err, actionErr)
-			name := targets[0].Name()
-			assert.Equal(t, []string{"revert:" + name, "result:" + name}, log.entries)
-			assert.Equal(t, chaos.TargetFailed, log.results[name].Status)
-			assert.Equal(t, &chaos.Cleanup{OK: true}, log.results[name].Cleanup)
+			require.ErrorIs(t, err, stopErr)
+			assert.Equal(t, []string{"stop:interrupted", "stop:finish", "start", "result:" + name}, log.entries)
+			assert.Equal(t, tt.wantStatus, log.results[name].Status)
+			assert.Equal(t, tt.wantCleanup, log.results[name].Cleanup)
 		})
 	}
 }

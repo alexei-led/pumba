@@ -65,7 +65,7 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 			if sErr := s.client.StopContainer(ctx, c, s.waitTime, s.gp.DryRun); sErr != nil {
 				log.WithError(sErr).Warn("failed to stop container")
 				if s.restart {
-					return revertInterrupted(ctx, c, t, sErr, s.startStoppedContainer)
+					return revertInterrupted(ctx, s.restartTimeout(), c, t, sErr, s.restartInterrupted)
 				}
 				return sErr
 			}
@@ -77,6 +77,34 @@ func (s *stopCommand) Run(ctx context.Context, random bool) error {
 		})
 	// (re)start stopped containers after duration or on ctx.Done()
 	return errors.Join(err, revertAfter(ctx, s.duration, s.gp.DryRun, stopped, s.startStoppedContainer))
+}
+
+// stopBound is the longest StopContainer can take: the graceful wait plus
+// the wait after the SIGKILL fallback.
+func (s *stopCommand) stopBound() time.Duration {
+	return 2 * time.Duration(s.waitTime) * time.Second
+}
+
+// restartTimeout bounds restartInterrupted: finishing the stop, then the start.
+func (s *stopCommand) restartTimeout() time.Duration {
+	return s.stopBound() + revertTimeout
+}
+
+// restartInterrupted reverts a stop that ctx cut off mid-call. The runtime may
+// have sent the stop signal and then given up waiting (and on the SIGKILL
+// fallback), so the container can still be running or exiting; a start now is
+// a no-op and the container stays stopped once it exits. So finish the stop
+// first, with the same wait time and SIGKILL escalation, then start it. ctx
+// must already be detached from the cancelled one.
+func (s *stopCommand) restartInterrupted(ctx context.Context, c *container.Container) error {
+	stopCtx, cancel := context.WithTimeout(ctx, s.stopBound())
+	defer cancel()
+	if err := s.client.StopContainer(stopCtx, c, s.waitTime, s.gp.DryRun); err != nil {
+		// Expected when the container already exited (kill of a stopped
+		// container fails); whether the start succeeds decides cleanup.
+		log.WithError(err).WithField("container", c).Debug("failed to finish interrupted stop")
+	}
+	return s.startStoppedContainer(ctx, c)
 }
 
 // start a previously stopped container after duration on exit
