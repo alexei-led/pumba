@@ -169,8 +169,13 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 
 // runExec runs argv as an exec in containerID and returns its stdout. A
 // non-zero exit is an error that carries stderr, so callers can name the
-// cause (e.g. a missing iptables extension).
+// cause (e.g. a missing iptables extension). Like runExecAttached it ignores
+// the caller's cancellation, bounded by faultExecTimeout: its callers install,
+// remove or inspect faults, and a tc script killed midway leaves a partial
+// topology.
 func (client dockerClient) runExec(ctx context.Context, containerID string, argv []string, privileged bool) (string, error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
+	defer cancel()
 	created, err := client.containerAPI.ContainerExecCreate(ctx, containerID, ctypes.ExecOptions{
 		AttachStdout: true,
 		AttachStderr: true,
