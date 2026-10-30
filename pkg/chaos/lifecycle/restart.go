@@ -18,27 +18,19 @@ type restartClient interface {
 
 // `docker restart` command
 type restartCommand struct {
-	maxTargets int
-	client     restartClient
-	names      []string
-	pattern    string
-	labels     []string
-	timeout    time.Duration
-	limit      int
-	dryRun     bool
+	client  restartClient
+	gp      *chaos.GlobalParams
+	timeout time.Duration
+	limit   int
 }
 
 // NewRestartCommand create new Restart Command instance
 func NewRestartCommand(client restartClient, params *chaos.GlobalParams, timeout time.Duration, limit int) chaos.Command {
 	return &restartCommand{
-		client:     client,
-		names:      params.Names,
-		pattern:    params.Pattern,
-		labels:     params.Labels,
-		maxTargets: params.MaxTargets,
-		timeout:    timeout,
-		limit:      limit,
-		dryRun:     params.DryRun,
+		client:  client,
+		gp:      params,
+		timeout: timeout,
+		limit:   limit,
 	}
 }
 
@@ -46,19 +38,19 @@ func NewRestartCommand(client restartClient, params *chaos.GlobalParams, timeout
 func (k *restartCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("restarting all matching containers")
 	log.WithFields(log.Fields{
-		"names":   k.names,
-		"pattern": k.pattern,
-		"labels":  k.labels,
+		"names":   k.gp.Names,
+		"pattern": k.gp.Pattern,
+		"labels":  k.gp.Labels,
 		"limit":   k.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: k.names, Pattern: k.pattern, Labels: k.labels, MaxTargets: k.maxTargets}
-	return chaos.RunOnContainers(ctx, k.client, gp, k.limit, random, false,
-		func(ctx context.Context, c *container.Container) error {
+	return chaos.RunOnContainers(ctx, k.client, k.gp, k.limit, random, false,
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"container": c, "timeout": k.timeout}).Debug("restarting container")
-			if err := k.client.RestartContainer(ctx, c, k.timeout, k.dryRun); err != nil {
+			if err := k.client.RestartContainer(ctx, c, k.timeout, k.gp.DryRun); err != nil {
 				return fmt.Errorf("failed to restart container: %w", err)
 			}
+			t.Applied()
 			return nil
 		})
 }

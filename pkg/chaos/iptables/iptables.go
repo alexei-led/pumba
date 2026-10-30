@@ -22,6 +22,12 @@ type iptablesClient interface {
 	container.IPTables
 }
 
+// targetReport is the part of *chaos.Target runIPTables reports through.
+type targetReport interface {
+	Applied()
+	Reverted(err error)
+}
+
 // cleanupTimeout caps how long the iptables-cleanup sidecar cycle is allowed
 // to run after abort or scheduled stop. Independent of --duration so a
 // 1h chaos run does not give cleanup an hour to complete.
@@ -29,8 +35,11 @@ const cleanupTimeout = 30 * time.Second
 
 // run iptables command, stop iptables on timeout, abort or failed install. The add/del prefix
 // pair distinguishes the rule installation command (-I/-A/-N) from its mirror
-// removal command (-D); both share the rest of the request fields.
-func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *container.IPTablesRequest) error {
+// removal command (-D); both share the rest of the request fields. Reports to
+// t when the rules are installed and how their removal went; a failed removal
+// after a successful install is returned as an error. Dry-runs do not wait for
+// the duration.
+func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *container.IPTablesRequest, t targetReport) error {
 	logger := log.WithFields(log.Fields{
 		"id":           addReq.Container.ID(),
 		"name":         addReq.Container.Name(),
@@ -48,34 +57,39 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 	logger.Debug("running iptables command")
 	if err := client.IPTablesContainer(ctx, addReq); err != nil {
 		// rules before the failing one may already be installed; remove them. Cleanup
-		// errors are logged, not returned: deleting the rule that never installed
-		// fails on every partial install, and returning it would bury the add error.
+		// errors are logged, not returned or reported: deleting the rule that never
+		// installed fails on every partial install, and returning it would bury the add error.
 		if cleanupErr := stopIPTables(ctx, client, delReq); cleanupErr != nil {
 			logger.WithError(cleanupErr).Warn("failed to stop iptables after failed install; rules may remain in the target")
 		}
 		return fmt.Errorf("iptables failed: %w", err)
 	}
 	logger.Debug("iptables command started")
+	t.Applied()
+	if !addReq.DryRun {
+		waitIPTables(ctx, addReq.Duration, logger)
+	}
+	// stopIPTables uses context.WithoutCancel so cleanup succeeds even if the parent
+	// ctx is canceled or inherited a deadline that has elapsed alongside the wait.
+	err := stopIPTables(ctx, client, delReq)
+	t.Reverted(err)
+	if err != nil {
+		logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
+		return fmt.Errorf("stopping iptables: %w", err)
+	}
+	return nil
+}
 
-	// create new context with timeout for canceling
-	stopCtx, cancel := context.WithTimeout(context.Background(), addReq.Duration)
-	defer cancel()
-	// wait for specified duration and then stop iptables (where it applied) or stop on ctx.Done()
-	// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
-	// or if it inherited a deadline that has elapsed alongside stopCtx.
+// waitIPTables waits for the requested duration or parent cancellation.
+func waitIPTables(ctx context.Context, duration time.Duration, logger *log.Entry) {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping iptables command on abort")
-		if err := stopIPTables(ctx, client, delReq); err != nil {
-			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
-		}
-	case <-stopCtx.Done():
+	case <-timer.C:
 		logger.Debug("stopping iptables command on timeout")
-		if err := stopIPTables(ctx, client, delReq); err != nil {
-			logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
-		}
 	}
-	return nil
 }
 
 // stopIPTables removes the rules via delReq. It runs on a context detached from

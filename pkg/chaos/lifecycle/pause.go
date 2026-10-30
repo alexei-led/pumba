@@ -20,84 +20,53 @@ type pauseClient interface {
 
 // `docker pause` command
 type pauseCommand struct {
-	maxTargets int
-	client     pauseClient
-	names      []string
-	pattern    string
-	labels     []string
-	duration   time.Duration
-	limit      int
-	dryRun     bool
+	client   pauseClient
+	gp       *chaos.GlobalParams
+	duration time.Duration
+	limit    int
 }
 
 // NewPauseCommand create new Pause Command instance
 func NewPauseCommand(client pauseClient, params *chaos.GlobalParams, duration time.Duration, limit int) chaos.Command {
 	return &pauseCommand{
-		client:     client,
-		names:      params.Names,
-		pattern:    params.Pattern,
-		labels:     params.Labels,
-		maxTargets: params.MaxTargets,
-		duration:   duration,
-		limit:      limit,
-		dryRun:     params.DryRun}
+		client:   client,
+		gp:       params,
+		duration: duration,
+		limit:    limit,
+	}
 }
 
 // Run pause command
 func (p *pauseCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("pausing all matching containers")
 	log.WithFields(log.Fields{
-		"names":    p.names,
-		"pattern":  p.pattern,
-		"labels":   p.labels,
+		"names":    p.gp.Names,
+		"pattern":  p.gp.Pattern,
+		"labels":   p.gp.Labels,
 		"duration": p.duration,
 		"limit":    p.limit,
 		"random":   random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: p.names, Pattern: p.pattern, Labels: p.labels, MaxTargets: p.maxTargets}
-	pausedContainers := make([]*container.Container, 0)
-	err := chaos.RunOnContainers(ctx, p.client, gp, p.limit, random, false,
-		func(ctx context.Context, c *container.Container) error {
+	var paused []heldTarget
+	err := chaos.RunOnContainers(ctx, p.client, p.gp, p.limit, random, false,
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"container": c, "duration": p.duration}).Debug("pausing container for duration")
-			if pErr := p.client.PauseContainer(ctx, c, p.dryRun); pErr != nil {
+			if pErr := p.client.PauseContainer(ctx, c, p.gp.DryRun); pErr != nil {
 				log.WithError(pErr).Warn("failed to pause container")
-				return pErr
+				return revertInterrupted(ctx, revertTimeout, c, t, pErr, p.unpauseContainer)
 			}
-			pausedContainers = append(pausedContainers, c)
+			t.Applied()
+			paused = append(paused, holdTarget(c, t))
 			return nil
 		})
-
-	// if there are paused containers unpause them
-	if len(pausedContainers) > 0 {
-		// wait for specified duration and then unpause containers or unpause on ctx.Done()
-		durationTimer := time.NewTimer(p.duration)
-		defer durationTimer.Stop()
-		var unpauseErr error
-		select {
-		case <-ctx.Done():
-			log.Debug("unpause containers by stop event")
-			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
-			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.duration)
-			defer cancel()
-			unpauseErr = p.unpauseContainers(cleanupCtx, pausedContainers)
-		case <-durationTimer.C:
-			log.WithField("duration", p.duration).Debug("unpause containers after duration")
-			unpauseErr = p.unpauseContainers(ctx, pausedContainers)
-		}
-		err = errors.Join(err, unpauseErr)
-	}
-	return err
+	// unpause paused containers after duration or on ctx.Done()
+	return errors.Join(err, revertAfter(ctx, p.duration, p.gp.DryRun, paused, p.unpauseContainer))
 }
 
-// unpause containers
-func (p *pauseCommand) unpauseContainers(ctx context.Context, containers []*container.Container) error {
-	var err error
-	for _, container := range containers {
-		log.WithField("container", container).Debug("unpause container")
-		c := container
-		if e := p.client.UnpauseContainer(ctx, c, p.dryRun); e != nil {
-			err = errors.Join(err, fmt.Errorf("failed to unpause container: %w", e))
-		}
+func (p *pauseCommand) unpauseContainer(ctx context.Context, c *container.Container) error {
+	log.WithField("container", c).Debug("unpause container")
+	if err := p.client.UnpauseContainer(ctx, c, p.gp.DryRun); err != nil {
+		return fmt.Errorf("failed to unpause container: %w", err)
 	}
-	return err
+	return nil
 }

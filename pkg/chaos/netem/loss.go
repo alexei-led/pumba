@@ -79,14 +79,14 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	}
 	netemCmd := n.buildNetemCmd()
 	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
-		func(ctx context.Context, c *container.Container) error {
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"container": *c}).Debug("adding network random packet loss for container")
 			netemCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
 			req := *resolvedReq
 			req.Container = c
 			req.Command = netemCmd
-			if err := runNetem(netemCtx, n.client, &req); err != nil {
+			if err := runNetem(netemCtx, n.client, &req, t); err != nil {
 				log.WithError(err).Warn("failed to set packet loss for container")
 				return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
 			}

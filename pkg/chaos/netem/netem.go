@@ -17,13 +17,21 @@ type netemClient interface {
 	container.Netem
 }
 
+// targetReport is the part of *chaos.Target runNetem reports through.
+type targetReport interface {
+	Applied()
+	Reverted(err error)
+}
+
 // cleanupTimeout caps how long the netem-cleanup sidecar cycle is allowed
 // to run after abort or scheduled stop. Independent of --duration so a
 // 1h chaos run does not give cleanup an hour to complete.
 const cleanupTimeout = 30 * time.Second
 
-// run network emulation command, stop netem on timeout or abort
-func runNetem(ctx context.Context, client netemClient, req *container.NetemRequest) error {
+// run network emulation command, stop netem on timeout or abort. Reports to t
+// when the qdisc is installed and how its removal went; a failed install is
+// reported by the returned error alone. Dry-runs do not wait for the duration.
+func runNetem(ctx context.Context, client netemClient, req *container.NetemRequest, t targetReport) error {
 	// Each per-action Run already resolves --target container names/IDs
 	// once, before matched containers are enumerated (see e.g. delay.go).
 	// This call is a no-op then, since TargetNames is already empty; it
@@ -48,30 +56,39 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	})
 	logger.Debug("running netem command")
 	if err := client.NetemContainer(ctx, req); err != nil {
-		cleanupErr := stopNetem(ctx, client, req)
-		if cleanupErr != nil {
+		// Best-effort rollback of a partial install. Not reported as a revert:
+		// the stop script also refuses when the install never happened (foreign
+		// root qdisc, failed image pull), which would mask the install error.
+		if cleanupErr := stopNetem(ctx, client, req); cleanupErr != nil {
 			return errors.Join(fmt.Errorf("netem failed: %w", err), fmt.Errorf("stopping netem after failure: %w", cleanupErr))
 		}
 		return fmt.Errorf("netem failed: %w", err)
 	}
 	logger.Debug("netem command started")
+	t.Applied()
+	if !req.DryRun {
+		waitNetem(ctx, req.Duration, logger)
+	}
+	err := stopNetem(ctx, client, req)
+	t.Reverted(err)
+	if err != nil {
+		return fmt.Errorf("stopping netem: %w", err)
+	}
+	return nil
+}
 
+// waitNetem blocks until the requested duration elapses or ctx is cancelled.
+// It does no cleanup; the caller stops netem afterwards on a detached context.
+func waitNetem(ctx context.Context, duration time.Duration, logger *log.Entry) {
 	// create new context with timeout for canceling
-	stopCtx, cancel := context.WithTimeout(context.Background(), req.Duration)
+	stopCtx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
-	// Wait for the requested duration or parent cancellation. Cleanup gets an
-	// independent bounded context, then its error is returned to the caller so
-	// ownership failures cannot be reported as a successful chaos run.
 	select {
 	case <-ctx.Done():
 		logger.Debug("stopping netem command on abort")
 	case <-stopCtx.Done():
 		logger.Debug("stopping netem command on timeout")
 	}
-	if err := stopNetem(ctx, client, req); err != nil {
-		return fmt.Errorf("stopping netem: %w", err)
-	}
-	return nil
 }
 
 func stopNetem(ctx context.Context, client netemClient, req *container.NetemRequest) error {

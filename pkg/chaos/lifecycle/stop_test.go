@@ -135,12 +135,10 @@ func TestStopCommand_Run(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			s := &stopCommand{
 				client:   mockClient,
-				names:    tt.fields.names,
-				pattern:  tt.fields.pattern,
+				gp:       &chaos.GlobalParams{Names: tt.fields.names, Pattern: tt.fields.pattern, DryRun: tt.fields.dryRun},
 				restart:  tt.fields.restart,
 				waitTime: tt.fields.waitTime,
 				limit:    tt.fields.limit,
-				dryRun:   tt.fields.dryRun,
 			}
 			if tt.errs.listError {
 				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts")).Return(nil, errors.New("ERROR"))
@@ -200,14 +198,11 @@ func TestNewStopCommand(t *testing.T) {
 			waitTime: 10,
 			limit:    3,
 			want: &stopCommand{
-				names:    []string{"c1"},
-				pattern:  "^c",
-				labels:   []string{"k=v"},
+				gp:       &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
 				restart:  true,
 				duration: 5 * time.Second,
 				waitTime: 10,
 				limit:    3,
-				dryRun:   true,
 			},
 		},
 		{
@@ -215,7 +210,7 @@ func TestNewStopCommand(t *testing.T) {
 			params:   &chaos.GlobalParams{Names: []string{"c1"}},
 			waitTime: 0,
 			want: &stopCommand{
-				names:    []string{"c1"},
+				gp:       &chaos.GlobalParams{Names: []string{"c1"}},
 				waitTime: DeafultWaitTime,
 			},
 		},
@@ -224,7 +219,7 @@ func TestNewStopCommand(t *testing.T) {
 			params:   &chaos.GlobalParams{Names: []string{"c1"}},
 			waitTime: -5,
 			want: &stopCommand{
-				names:    []string{"c1"},
+				gp:       &chaos.GlobalParams{Names: []string{"c1"}},
 				waitTime: DeafultWaitTime,
 			},
 		},
@@ -249,7 +244,7 @@ func TestStopCommand_Run_CtxCancelRestartsContainers(t *testing.T) {
 
 	s := &stopCommand{
 		client:   mockClient,
-		names:    []string{"c1", "c2"},
+		gp:       &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 		restart:  true,
 		duration: 10 * time.Second, // long — timer must not fire
 		waitTime: 1,

@@ -2,6 +2,7 @@ package netem
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -122,6 +123,45 @@ func TestDelayCommand_Run_NoContainers(t *testing.T) {
 	err = cmd.Run(context.Background(), false)
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
+}
+
+// resultSink keeps the target.result events of a run.
+type resultSink struct{ results []chaos.TargetResult }
+
+func (s *resultSink) Emit(ev *chaos.Event) {
+	if ev.Type == chaos.EventTargetResult {
+		s.results = append(s.results, *ev.Result)
+	}
+}
+
+func TestDelayCommand_Run_InstallFailureWithFailedRollbackIsFailedNotCleanupFailed(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	c1 := &container.Container{ContainerID: "id1", ContainerName: "c1"}
+	sink := &resultSink{}
+	gparams := &chaos.GlobalParams{Names: []string{"c1"}, Events: sink}
+	nparams := &container.NetemRequest{Interface: "eth0", Duration: time.Hour, Sidecar: container.SidecarSpec{Image: "tc"}}
+	installErr := errors.New("refusing to replace a foreign or stale root qdisc")
+	rollbackErr := errors.New("refusing to remove a foreign root qdisc")
+
+	mockClient.EXPECT().ListContainers(mock.Anything,
+		mock.AnythingOfType("container.FilterFunc"),
+		container.ListOpts{All: false, Labels: nil}).
+		Return([]*container.Container{c1}, nil)
+	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(installErr).Once()
+	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(rollbackErr).Once()
+
+	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, 100, 0, 0, "")
+	require.NoError(t, err)
+
+	err = cmd.Run(context.Background(), false)
+	require.ErrorIs(t, err, installErr)
+	require.ErrorIs(t, err, rollbackErr)
+	require.Len(t, sink.results, 1)
+	got := sink.results[0]
+	assert.Equal(t, chaos.TargetFailed, got.Status)
+	require.NotNil(t, got.Error)
+	assert.Equal(t, chaos.CodeCommandFailed, got.Error.Code)
+	assert.Nil(t, got.Cleanup, "nothing was installed, so nothing was reverted")
 }
 
 func TestDelayCommand_Run_WithRandom(t *testing.T) {

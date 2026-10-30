@@ -4,13 +4,16 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/mocks"
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
+	"github.com/stretchr/testify/mock"
 )
 
 func Test_dockerClient_execOnContainer(t *testing.T) {
@@ -38,11 +41,11 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{ID: "cmdID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "cmdID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "cmdID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "cmdID").Return(ctypes.ExecInspect{}, nil)
 			},
 		},
@@ -58,11 +61,11 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: true}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{ID: "cmdID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "cmdID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "cmdID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "cmdID").Return(ctypes.ExecInspect{}, nil)
 			},
 		},
@@ -77,7 +80,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil)
 			},
 			wantErr: true,
@@ -105,7 +108,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(types.HijackedResponse{}, errors.New("which error"))
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(types.HijackedResponse{}, errors.New("which error"))
 			},
 			wantErr: true,
 		},
@@ -119,7 +122,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, errors.New("which error"))
 			},
 			wantErr: true,
@@ -134,7 +137,7 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{}, errors.New("cmd error"))
@@ -151,11 +154,11 @@ func Test_dockerClient_execOnContainer(t *testing.T) {
 			mockInit: func(ctx context.Context, engine *mocks.APIClient, cID, cmd string, args []string) {
 				checkConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"which", cmd}}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, checkConfig).Return(ctypes.ExecCreateResponse{ID: "whichID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 				engine.EXPECT().ContainerExecInspect(ctx, "whichID").Return(ctypes.ExecInspect{}, nil)
 				execConfig := ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: append([]string{cmd}, args...), Privileged: false}
 				engine.EXPECT().ContainerExecCreate(ctx, cID, execConfig).Return(ctypes.ExecCreateResponse{ID: "cmdID"}, nil)
-				engine.EXPECT().ContainerExecAttach(ctx, "cmdID", ctypes.ExecAttachOptions{}).Return(types.HijackedResponse{}, errors.New("cmd error"))
+				engine.EXPECT().ContainerExecAttach(mock.Anything, "cmdID", ctypes.ExecAttachOptions{}).Return(types.HijackedResponse{}, errors.New("cmd error"))
 			},
 			wantErr: true,
 		},
@@ -337,5 +340,100 @@ func TestExecContainer(t *testing.T) {
 			}
 			api.AssertExpectations(t)
 		})
+	}
+}
+
+func Test_readAttached_interruptedByContext(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	resp := types.HijackedResponse{Conn: client, Reader: bufio.NewReader(client)}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	errc := make(chan error, 1)
+	go func() {
+		_, err := readAttached(ctx, resp)
+		errc <- err
+	}()
+
+	select {
+	case err := <-errc:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("want deadline exceeded, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("readAttached did not return after ctx deadline")
+	}
+}
+
+func Test_readAttached_readsToEOF(t *testing.T) {
+	resp := types.HijackedResponse{Conn: &net.TCPConn{}, Reader: bufio.NewReader(strings.NewReader("hello"))}
+	out, err := readAttached(context.Background(), resp)
+	if err != nil || string(out) != "hello" {
+		t.Fatalf("got %q, %v", out, err)
+	}
+}
+
+// blockedAttach returns an attach stream that yields nothing until the test
+// writes to or closes the returned server end.
+func blockedAttach(t *testing.T) (types.HijackedResponse, net.Conn) {
+	server, client := net.Pipe()
+	t.Cleanup(func() { server.Close() })
+	return types.HijackedResponse{Conn: client, Reader: bufio.NewReader(client)}, server
+}
+
+func Test_runExecAttached_ignoresCancellation(t *testing.T) {
+	resp, server := blockedAttach(t)
+	api := NewMockEngine(t)
+	api.EXPECT().ContainerExecAttach(mock.Anything, "execID", ctypes.ExecAttachOptions{}).
+		RunAndReturn(func(ctx context.Context, _ string, _ ctypes.ExecAttachOptions) (types.HijackedResponse, error) {
+			if ctx.Err() != nil {
+				t.Errorf("attach got a cancelled context: %v", ctx.Err())
+			}
+			return resp, nil
+		}).Once()
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	errc := make(chan error, 1)
+	go func() { errc <- client.runExecAttached(ctx, "execID") }()
+	time.Sleep(50 * time.Millisecond)
+	if _, err := server.Write([]byte("tc done")); err != nil {
+		t.Fatalf("exec stream closed before the script finished: %v", err)
+	}
+	server.Close()
+
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatalf("want exec drained to EOF, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("runExecAttached did not return after EOF")
+	}
+}
+
+func Test_ExecContainer_interruptedByCancellation(t *testing.T) {
+	resp, _ := blockedAttach(t)
+	api := NewMockEngine(t)
+	c := &ctr.Container{ContainerID: "abc"}
+	api.EXPECT().ContainerExecCreate(mock.Anything, "abc", mock.AnythingOfType("container.ExecOptions")).
+		Return(ctypes.ExecCreateResponse{ID: "execID"}, nil).Once()
+	api.EXPECT().ContainerExecAttach(mock.Anything, "execID", ctypes.ExecAttachOptions{}).Return(resp, nil).Once()
+	client := dockerClient{containerAPI: api, imageAPI: api}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	errc := make(chan error, 1)
+	go func() { errc <- client.ExecContainer(ctx, c, "sleep", []string{"infinity"}, false) }()
+
+	select {
+	case err := <-errc:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("want deadline exceeded, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("ExecContainer did not return after ctx deadline")
 	}
 }

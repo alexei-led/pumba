@@ -22,8 +22,8 @@ type CorruptParams struct {
 }
 
 // NewCorruptCLICommand initialize CLI corrupt command.
-func NewCorruptCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[CorruptParams]{
+func NewCorruptCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[CorruptParams]{
 		Name: "corrupt",
 		Flags: []cli.Flag{
 			cli.Float64Flag{

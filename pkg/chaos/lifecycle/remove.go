@@ -17,23 +17,17 @@ type removeClient interface {
 
 // `docker rm` command
 type removeCommand struct {
-	maxTargets int
-	client     removeClient
-	names      []string
-	pattern    string
-	labels     []string
-	opts       container.RemoveOpts
-	limit      int
+	client removeClient
+	gp     *chaos.GlobalParams
+	opts   container.RemoveOpts
+	limit  int
 }
 
 // NewRemoveCommand create new Kill Command instance
 func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, links, volumes bool, limit int) chaos.Command {
 	remove := &removeCommand{
-		client:     client,
-		names:      params.Names,
-		pattern:    params.Pattern,
-		labels:     params.Labels,
-		maxTargets: params.MaxTargets,
+		client: client,
+		gp:     params,
 		opts: container.RemoveOpts{
 			Force:   force,
 			Links:   links,
@@ -49,15 +43,14 @@ func NewRemoveCommand(client removeClient, params *chaos.GlobalParams, force, li
 func (r *removeCommand) Run(ctx context.Context, random bool) error {
 	log.Debug("removing all matching containers")
 	log.WithFields(log.Fields{
-		"names":   r.names,
-		"pattern": r.pattern,
-		"labels":  r.labels,
+		"names":   r.gp.Names,
+		"pattern": r.gp.Pattern,
+		"labels":  r.gp.Labels,
 		"limit":   r.limit,
 		"random":  random,
 	}).Debug("listing matching containers")
-	gp := &chaos.GlobalParams{Names: r.names, Pattern: r.pattern, Labels: r.labels, MaxTargets: r.maxTargets}
-	return chaos.RunOnContainersAll(ctx, r.client, gp, r.limit, random, false,
-		func(ctx context.Context, c *container.Container) error {
+	return chaos.RunOnContainersAll(ctx, r.client, r.gp, r.limit, random, false,
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{
 				"container": c,
 				"force":     r.opts.Force,
@@ -67,6 +60,7 @@ func (r *removeCommand) Run(ctx context.Context, random bool) error {
 			if err := r.client.RemoveContainer(ctx, c, r.opts); err != nil {
 				return fmt.Errorf("failed to remove container: %w", err)
 			}
+			t.Applied()
 			return nil
 		})
 }

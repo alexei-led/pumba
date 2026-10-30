@@ -85,7 +85,7 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 	}).Debug("listing matching containers")
 	addCmdPrefix, delCmdPrefix, cmdSuffix := n.buildIPTablesCmd()
 	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
-		func(ctx context.Context, c *container.Container) error {
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"container": *c}).Debug("adding network random packet loss for container")
 			iptCtx, cancel := context.WithTimeout(ctx, n.req.Duration)
 			defer cancel()
@@ -95,7 +95,7 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 			addReq.CmdSuffix = cmdSuffix
 			delReq := addReq
 			delReq.CmdPrefix = delCmdPrefix
-			if err := runIPTables(iptCtx, n.client, &addReq, &delReq); err != nil {
+			if err := runIPTables(iptCtx, n.client, &addReq, &delReq, t); err != nil {
 				log.WithError(err).Warn("failed to set packet loss for container")
 				return fmt.Errorf("failed to add packet loss for one or more containers: %w", err)
 			}

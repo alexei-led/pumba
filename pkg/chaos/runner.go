@@ -15,16 +15,27 @@ import (
 // In serial runs, the first error stops iteration. In parallel runs, every
 // closure runs to completion regardless of errors; errgroup.Wait returns
 // the first reported error.
-type ContainerAction func(ctx context.Context, c *container.Container) error
+//
+// t reports beyond the error: call t.Applied() the moment the fault becomes
+// active (one-shot actions: once the action ran) and t.Reverted(err) with the
+// outcome of reverting it. RunOnContainers emits the target's terminal
+// target.result when the action returns, unless it deferred that with
+// t.DeferResult().
+type ContainerAction func(ctx context.Context, c *container.Container, t *Target) error
 
 // RunOnContainers lists running containers matching gp.{Names,Pattern,Labels}
 // (capped by limit), optionally narrows to a single random pick when random
 // is true, checks gp.MaxTargets, then invokes fn for each container. Callers
-// must forward MaxTargets and preserve wrapped errors with %w: over-cap
-// selections wrap ErrMaxTargetsExceeded and run no callbacks. Negative caps
-// return ErrNegativeMaxTargets. parallel selects between
+// must pass the *GlobalParams they received and preserve wrapped errors with
+// %w: over-cap selections wrap ErrMaxTargetsExceeded and run no callbacks.
+// Negative caps return ErrNegativeMaxTargets. parallel selects between
 // errgroup fanout (true) and a sequential for-loop (false). Returns nil when
 // no containers match — same warning the per-action loops used to log.
+//
+// Each call is one tick of the run: target events carry a tick counter kept
+// in gp, starting at 1. Every selected target ends with one target.result;
+// targets a serial run did not reach after a failure are reported skipped.
+// Refusals and empty selections emit no target events.
 //
 // The helper takes container.Lister rather than the per-action narrow client
 // interface so it stays domain-agnostic; every action's client embeds Lister.
@@ -32,13 +43,13 @@ type ContainerAction func(ctx context.Context, c *container.Container) error
 // Example:
 //
 //	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
-//	    func(ctx context.Context, c *container.Container) error {
+//	    func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 //	        netemCtx, cancel := context.WithCancel(ctx)
 //	        defer cancel()
 //	        req := *n.req
 //	        req.Container = c
 //	        req.Command = netemCmd
-//	        return runNetem(netemCtx, n.client, &req)
+//	        return runNetem(netemCtx, n.client, &req, t)
 //	    })
 func RunOnContainers(
 	ctx context.Context,
@@ -73,12 +84,13 @@ func runOnContainers(
 	all, random, parallel bool,
 	fn ContainerAction,
 ) error {
+	tick := gp.ticks.Add(1)
 	if gp.MaxTargets < 0 {
 		return ErrNegativeMaxTargets
 	}
 	containers, err := container.ListNContainersAll(ctx, lister, gp.Names, gp.Pattern, gp.Labels, limit, all)
 	if err != nil {
-		return fmt.Errorf("listing containers: %w", err)
+		return &codedError{code: CodeRuntimeUnavailable, phase: PhaseSelect, err: fmt.Errorf("listing containers: %w", err)}
 	}
 	if len(containers) == 0 {
 		log.Warning("no containers found")
@@ -92,9 +104,24 @@ func runOnContainers(
 	if err := checkMaxTargets(containers, gp.MaxTargets); err != nil {
 		return err
 	}
+	run := func(c *container.Container) error {
+		t := newTarget(gp, tick, c)
+		err := fn(ctx, c, t)
+		t.finish(err)
+		return err
+	}
 	if !parallel {
-		for _, c := range containers {
-			if err := fn(ctx, c); err != nil {
+		for i, c := range containers {
+			// Never start a target after cancellation: an action handed a dead
+			// ctx can fail mid-call and trigger a revert on an untouched container.
+			select {
+			case <-ctx.Done():
+				skipTargets(gp, tick, containers[i:])
+				return nil
+			default:
+			}
+			if err := run(c); err != nil {
+				skipTargets(gp, tick, containers[i+1:])
 				return err
 			}
 		}
@@ -102,7 +129,7 @@ func runOnContainers(
 	}
 	var eg errgroup.Group
 	for _, c := range containers {
-		eg.Go(func() error { return fn(ctx, c) })
+		eg.Go(func() error { return run(c) })
 	}
 	return eg.Wait()
 }

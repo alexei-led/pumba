@@ -20,7 +20,7 @@
 
 Integration tests use [bats](https://github.com/bats-core/bats-core):
 
-- Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`
+- Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`; result-event tests (`tests/output.bats`, ndjson smoke in `*_global_flags.bats`) need `jq` and use `run --separate-stderr` to assert on stdout alone
 - **Run all tests locally (recommended):** `colima ssh -- sudo bats tests/*.bats tests/containerd_*.bats`
   - Colima VM has native Docker + containerd sockets; `sudo` is required for containerd sidecar tests
 - **Docker tests only (via Docker image):** `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --entrypoint bats pumba:test tests/*.bats`
@@ -49,19 +49,24 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
 
 ```
 cmd/
-  main.go              — CLI entry point: main(), init(), signal context, app construction
+  main.go              — CLI entry point: main() → run(args, stdout, stderr), signal context, app construction
+  events.go            — --output/--run-id handling, non-blocking stdout NDJSON sink, run.end + exit code
   runtime.go           — createRuntimeClient, tlsConfig, runtime factory vars (newDockerClient/newContainerdClient/newPodmanClient)
   logging.go           — setupLogging: log-level switch + Slack hook wiring
   slackhook.go         — Best-effort async Slack webhook logrus hook + shutdown drain
-  flags.go             — globalFlags(rootCertPath) builder
+  flags.go             — globalFlags(rootCertPath) builder (+ resultFlags: --run-id, --output, --max-duration)
   commands.go          — initializeCLICommands wiring chaos cmd builders into urfave/cli commands
 pkg/
   chaos/
     command.go         — ChaosCommand interface, Runtime factory type, scheduling/interval runner
     runner.go          — chaos.RunOnContainers / RunOnContainersAll fanout helper (the canonical list-then-random-then-parallel/serial pattern)
+    target.go          — per-target handle (*chaos.Target) that turns Applied/Reverted reports into target.applied/target.result events
+    events.go          — pumba.event/v1 types, EventSink, status/error-code constants
+    outcome.go         — Recorder (counts results before delivery), NewOutcome (run.end status + exit code), coded errors
+    runid.go           — run ID generation and validation
     cmd/               — Generic NewAction[P] CLI builder shared across all chaos packages
-    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context
-    lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart)
+    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context; DescribeV1 is the single flag-type switch behind run.start params (`V1.CommandParams`) and the future `pumba schema`
+    lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart); revert.go holds the batch wait-then-revert for pause/stop --restart
     lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
     netem/             — Network emulation (combine, delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)
     netem/cmd/         — CLI command builders for netem
@@ -92,6 +97,7 @@ Module boundaries are enforced by archfit; see [docs/architecture.md](docs/archi
 - **Interface name validation** (`pkg/util/util.go::ValidateInterfaceName`): single source of truth for the `eth0`/`en0`/`lo`/`vlan.10` regex check; both `pkg/chaos/netem/parse.go` and `pkg/chaos/iptables/parse.go` call it. Never re-introduce a local `regexp.MustCompile` for interface names.
 - **Generic CLI builder** (`pkg/chaos/cmd/builder.go`): `NewAction[P]` keeps chaos action cmd files in the same shape — flag list + typed `ParamParser[P]` + `CommandFactory[P]`. Parsers receive `cliflags.Flags`, never `*cli.Context` directly.
 - **Shared cmd parsing** (`pkg/chaos/{netem,iptables}/parse.go::ParseRequestBase`): per-action cmd parsers (`delay.go`, `loss.go`, …) call `ParseRequestBase` first to read parent-level flags via `c.Parent()` and build the populated base request (`*NetemRequest` for netem; iptables returns a small `RequestBase` carrying `*IPTablesRequest` + iface/protocol/limit). Per-action parsers then fill only their action-specific fields. New netem/iptables subcommands MUST follow this pattern — never re-parse the parent flag set inline.
+- **Result events** (`--output ndjson`, schema `pumba.event/v1`, contract in [docs/agents.md](docs/agents.md)): `run.start` is emitted by `NewAction` after Build; `target.applied` / `target.result` only by `RunOnContainers` through the `*chaos.Target` it passes to each `ContainerAction`; `run.end` only by `cmd/events.go` when the app returns. `chaos.Recorder` counts `target.result` synchronously before delivery, and `chaos.NewOutcome` maps counts + returned error to `run.end.status` and the exit code (0/1 only). Writing events to stdout happens only in `cmd` (bounded queue, drops counted); chaos code never writes to stdout.
 - **CLI flags adapter** (`pkg/chaos/cliflags/`): `Flags` interface wraps `urfave/cli` v1 via `V1`. Future v3 migration is a one-file swap (`v3.go` + wiring change in `cmd/main.go`).
 - **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client; split per-concern across `client.go`, `http_client.go`, `inspect.go`, `lifecycle.go`, `exec.go`, `sidecar.go`, `netem.go`, `iptables.go`, `stress.go`, `cgroup.go`, `pull.go` (no monolith — every file < 350 LOC)
 - **Containerd runtime** (`pkg/runtime/containerd/`): Containerd implementation of container.Client (socket: `/run/containerd/containerd.sock`, namespace: `k8s.io`); split per-concern across `client.go`, `api.go`, `container.go`, `task.go`, `commands.go`, `cgroup.go`, `sidecar.go`, `netem.go`, `iptables.go`, `stress.go`, `stress_sidecar.go` (every production file ≤ 250 LOC)
@@ -109,7 +115,8 @@ Module boundaries are enforced by archfit; see [docs/architecture.md](docs/archi
 - **Interfaces:** Define interfaces for testability (Client in `pkg/container/client.go`)
 - **Constructor injection over globals:** Chaos cmd builders take `runtime chaos.Runtime` and produce a closure that reads it lazily. Never reintroduce a `chaos.DockerClient`-style global — visibility in the function signature is the rule.
 - **Request value objects for fat methods:** Interface methods accept request structs from `pkg/container/requests.go`, not long positional arg lists. Examples: `Netem.NetemContainer(*NetemRequest)`, `IPTables.IPTablesContainer(*IPTablesRequest)`, `Stressor.StressContainer(*StressRequest) (*StressResult, error)`, `Lifecycle.RemoveContainer(*Container, RemoveOpts)`. New runtime methods that exceed 4 params must follow the same pattern. Pass pointer for ≥3-field requests; pass-by-value for tiny opts (like `RemoveOpts`'s 4 bools).
-- **Chaos fanout via `chaos.RunOnContainers`:** New chaos actions MUST route through `chaos.RunOnContainers` (or `RunOnContainersAll` for stopped-container targeting) — never hand-roll `container.ListNContainers` + manual `sync.WaitGroup`/`errgroup` fanout in a `Run()` body. The helper enforces list → limit/random narrowing → target-cap check → parallel-or-serial → collect-errors uniformly. Always forward `gp.MaxTargets` (including when copying `GlobalParams`) and wrap errors with `%w` so `ErrMaxTargetsExceeded` cannot be suppressed by `--skip-error`. Action-specific timeouts (e.g. `context.WithTimeout(ctx, n.req.Duration)`) belong inside the closure, not at the caller.
+- **Chaos fanout via `chaos.RunOnContainers`:** New chaos actions MUST route through `chaos.RunOnContainers` (or `RunOnContainersAll` for stopped-container targeting) — never hand-roll `container.ListNContainers` + manual `sync.WaitGroup`/`errgroup` fanout in a `Run()` body. The helper enforces list → limit/random narrowing → target-cap check → parallel-or-serial → collect-errors uniformly. Keep and pass the `*GlobalParams` you received — never copy it (it carries the run ID, event sink, tick counter and `MaxTargets`; `go vet` copylocks flags copies) — and wrap errors with `%w` so `ErrMaxTargetsExceeded` cannot be suppressed by `--skip-error`. Action-specific timeouts (e.g. `context.WithTimeout(ctx, n.req.Duration)`) belong inside the closure, not at the caller.
+- **`ContainerAction` contract:** `func(ctx, c, t *chaos.Target) error`. Call `t.Applied()` right after inject (one-shot actions: after the call succeeded) and `t.Reverted(err)` with the revert outcome; the runner emits the terminal `target.result` when the action returns. Batch reverts (pause, stop `--restart`) call `t.DeferResult()` and invoke the returned func after that target's own revert (see `lifecycle/revert.go`). Dry-run must return without waiting for `--duration`. A cleanup failure after a successful inject must be returned as an error (exit 1), not only logged.
 - **Interface name validation:** call `util.ValidateInterfaceName(name)` for any new flag that takes a network interface name. Do not introduce a local `regexp.MustCompile` for the `eth0`/`en0`/`vlan.10` pattern.
 - **Mocking:** testify mocks, generated by mockery v3. Mock files live in `mocks/`, `pkg/container/mock_*.go`, and test-only `pkg/runtime/containerd/mock_*_test.go`. Never generate external SDK mocks into production `.go` files.
 - **Mock constructor:** Always use `container.NewMockClient(t)` — never `new(container.MockClient)`; auto-asserts expectations on test cleanup
@@ -127,7 +134,7 @@ Module boundaries are enforced by archfit; see [docs/architecture.md](docs/archi
 ## Unit Test Coverage Strategy
 
 - **Skip from unit tests** (covered by integration tests or untestable without real runtime):
-  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`) and `cmd/slackhook_test.go` (webhook payload, thresholds, failure handling, and shutdown drain), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
+  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`), `cmd/events_test.go` (NDJSON stream, run.end per outcome, stalled-writer drops, usage errors) and `cmd/slackhook_test.go` (webhook payload, thresholds, failure handling, and shutdown drain), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
 - **Run() method variants:** Always add NoContainers + DryRun + WithRandom test cases
 - **Run unit tests in sandbox:** `CGO_ENABLED=0 go test ./...` (no CGO needed outside CI)
 

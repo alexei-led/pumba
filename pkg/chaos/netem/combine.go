@@ -152,13 +152,13 @@ func (n *combinedCommand) Run(ctx context.Context, random bool) error {
 		"limit": n.limit, "random": random, "command": command,
 	}).Debug("adding combined network effects to matching containers")
 	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
-		func(ctx context.Context, target *container.Container) error {
+		func(ctx context.Context, target *container.Container, t *chaos.Target) error {
 			netemCtx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			req := *resolvedReq
 			req.Container = target
 			req.Command = command
-			if err := runNetem(netemCtx, n.client, &req); err != nil {
+			if err := runNetem(netemCtx, n.client, &req, t); err != nil {
 				return fmt.Errorf("failed to apply combined network effects: %w", err)
 			}
 			return nil

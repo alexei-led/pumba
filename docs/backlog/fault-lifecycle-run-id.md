@@ -1,16 +1,17 @@
-# Fault lifecycle, run ID, status/revert/verify-clean
+# Fault lifecycle: artifact tagging, status/revert/verify-clean
 
 Tags: arch, agent, safety · Effort: M
 
 ## Why
-Cleanup is embedded per action. Crashed runs (including agent crashes) leave qdiscs, iptables rules or sidecars with no way to find or remove them. Foundation for JSON output, MCP and rollback.
+Cleanup is embedded per action. Crashed runs (including agent crashes) leave qdiscs, iptables rules or sidecars with no way to find or remove them. Foundation for MCP and rollback.
+
+Shipped: `--run-id` and result events (`--output ndjson`, see [docs/agents.md](../agents.md)).
 
 ## Approach
-- Run ID per invocation.
-- Tag artifacts: `iptables -m comment --comment pumba:<run-id>`; `pumba.run-id` label on sidecars.
+- Tag artifacts with the run ID: `iptables -m comment --comment pumba:<run-id>`; `pumba.run-id` label on sidecars.
 - Uniform `Inject(ctx) (Handle, error)`; `Handle.Revert(ctx)`, `Handle.Verify(ctx)`.
 - Commands: `pumba status`, `pumba revert [--run-id]`, `pumba verify-clean`.
-- Typed event bus: Slack/webhook, JSON output, MCP and OTel become subscribers.
+- More event subscribers on the existing `chaos.EventSink`: webhook, MCP, OTel.
 
 ## Open questions
 - Tagging tc qdiscs (handles have no comment field).

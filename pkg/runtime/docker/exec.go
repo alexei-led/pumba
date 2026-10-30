@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	log "github.com/sirupsen/logrus"
 )
@@ -42,7 +45,9 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 	}
 	defer attachRes.Close()
 
-	output, err := io.ReadAll(attachRes.Reader)
+	// User-facing `pumba exec` runs arbitrary, possibly endless commands, so
+	// --max-duration and SIGTERM must interrupt it (unlike runExecAttached).
+	output, err := readAttached(ctx, attachRes)
 	if err != nil {
 		return fmt.Errorf("reading output from exec reader failed: %w", err)
 	}
@@ -64,17 +69,55 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 	return nil
 }
 
+// faultExecTimeout bounds a fault-installing exec that ignores the caller's
+// cancellation (see runExecAttached). tc/iptables scripts finish in well under
+// a second; this only guards against a hung runtime.
+const faultExecTimeout = 2 * time.Minute
+
+// readAttached reads a hijacked attach stream to EOF. The SDK uses ctx only to
+// dial, so a blocked read ignores cancellation; a watcher closes the
+// connection when ctx is done, and the ctx error is returned instead of a
+// truncated result.
+func readAttached(ctx context.Context, resp types.HijackedResponse) ([]byte, error) {
+	var interrupted atomic.Bool
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			interrupted.Store(true)
+			resp.Close()
+		case <-done:
+		}
+	}()
+	out, err := io.ReadAll(resp.Reader)
+	if interrupted.Load() {
+		return out, context.Cause(ctx)
+	}
+	return out, err
+}
+
 // runExecAttached starts a pre-created exec by attaching to it and draining
 // stdout/stderr until the exec completes. Podman's Docker-compat API rejects
 // ContainerExecStart with empty ExecStartOptions ("must provide at least one
 // stream to attach to"); Docker accepts it. ContainerExecAttach works on both.
+//
+// Every caller installs or removes a fault (tc/iptables scripts in a sidecar
+// or, in exec mode, the target), so the exec must run to completion: closing
+// the stream on cancellation makes the caller remove the sidecar (SIGKILL) or
+// run the stop script while the start script is midway, leaving a partial
+// topology the verified stop script refuses to remove. These execs are short,
+// so attach and read ignore ctx cancellation, bounded by faultExecTimeout.
+// Only the user-facing ExecContainer reads interruptibly.
 func (client dockerClient) runExecAttached(ctx context.Context, execID string) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
+	defer cancel()
 	resp, err := client.containerAPI.ContainerExecAttach(ctx, execID, ctypes.ExecAttachOptions{})
 	if err != nil {
 		return err
 	}
 	defer resp.Close()
-	if _, err := io.ReadAll(resp.Reader); err != nil {
+	if _, err := readAttached(ctx, resp); err != nil {
 		return fmt.Errorf("drain exec %s output: %w", execID, err)
 	}
 	return nil

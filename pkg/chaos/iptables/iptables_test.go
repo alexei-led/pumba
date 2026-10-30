@@ -10,7 +10,21 @@ import (
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
+
+// fakeReport records what runIPTables reports about its target, in order.
+type fakeReport struct {
+	calls     []string
+	revertErr error
+}
+
+func (f *fakeReport) Applied() { f.calls = append(f.calls, "applied") }
+
+func (f *fakeReport) Reverted(err error) {
+	f.calls = append(f.calls, "reverted")
+	f.revertErr = err
+}
 
 func Test_runIPTables(t *testing.T) {
 	type errs struct {
@@ -91,7 +105,7 @@ func Test_runIPTables(t *testing.T) {
 			abort: true,
 		},
 		{
-			name: "iptables error in StopIPTablesContainer",
+			name: "iptables cleanup failure is returned",
 			args: args{
 				container: &container.Container{
 					ContainerName: "c1",
@@ -106,7 +120,7 @@ func Test_runIPTables(t *testing.T) {
 				image:        "test/image",
 			},
 			errs:    errs{stopErr: true},
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -153,9 +167,16 @@ func Test_runIPTables(t *testing.T) {
 				cancel()
 			}
 
-			if err := runIPTables(ctx, mockClient, addReq, delReq); (err != nil) != tt.wantErr {
+			report := &fakeReport{}
+			err := runIPTables(ctx, mockClient, addReq, delReq, report)
+			if (err != nil) != tt.wantErr {
 				t.Errorf("runIPTables() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			if tt.wantErr {
+				assert.ErrorIs(t, err, stopErr)
+			}
+			assert.Equal(t, []string{"applied", "reverted"}, report.calls)
+			assert.Equal(t, stopErr, report.revertErr)
 		})
 	}
 }
@@ -190,8 +211,10 @@ func Test_runIPTables_rollsBackOnAddFailure(t *testing.T) {
 			mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(addErr).Once()
 			mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(tt.cleanupErr).Once()
 
-			err := runIPTables(context.Background(), mockClient, addReq, delReq)
+			report := &fakeReport{}
+			err := runIPTables(context.Background(), mockClient, addReq, delReq, report)
 			assert.EqualError(t, err, "iptables failed: add rule failed")
+			assert.Empty(t, report.calls, "rollback of a partial install is neither applied nor a cleanup outcome")
 		})
 	}
 }
@@ -212,5 +235,18 @@ func Test_runIPTables_rollbackIgnoresCallerCancel(t *testing.T) {
 		assert.True(t, hasDeadline)
 	}).Return(nil).Once()
 
-	assert.Error(t, runIPTables(ctx, mockClient, addReq, delReq))
+	assert.Error(t, runIPTables(ctx, mockClient, addReq, delReq, &fakeReport{}))
+}
+
+func Test_runIPTables_dryRunReturnsWithoutWaiting(t *testing.T) {
+	mockClient := container.NewMockClient(t)
+	ctr := &container.Container{ContainerName: "c1"}
+	addReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-I", "INPUT"}, Duration: time.Hour, DryRun: true}
+	delReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-D", "INPUT"}, Duration: time.Hour, DryRun: true}
+	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil).Once()
+	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil).Once()
+
+	start := time.Now()
+	require.NoError(t, runIPTables(context.Background(), mockClient, addReq, delReq, &fakeReport{}))
+	assert.Less(t, time.Since(start), time.Second, "dry-run must not sleep for --duration")
 }

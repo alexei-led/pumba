@@ -12,6 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fakeReport records what runNetem reports about its target, in order.
+type fakeReport struct {
+	calls     []string
+	revertErr error
+}
+
+func (f *fakeReport) Applied() { f.calls = append(f.calls, "applied") }
+
+func (f *fakeReport) Reverted(err error) {
+	f.calls = append(f.calls, "reverted")
+	f.revertErr = err
+}
+
 func Test_runNetem(t *testing.T) {
 	type errs struct {
 		startErr bool
@@ -154,9 +167,16 @@ func Test_runNetem(t *testing.T) {
 				cancel()
 			}
 
-			if err := runNetem(ctx, mockClient, req); (err != nil) != tt.wantErr {
+			report := &fakeReport{}
+			if err := runNetem(ctx, mockClient, req, report); (err != nil) != tt.wantErr {
 				t.Errorf("runNetem() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			if tt.errs.startErr {
+				require.Empty(t, report.calls)
+				return
+			}
+			require.Equal(t, []string{"applied", "reverted"}, report.calls)
+			require.Equal(t, stopErr, report.revertErr)
 		})
 	}
 }
@@ -178,9 +198,11 @@ func TestRunNetemSetupFailureCleansUpAfterCancellation(t *testing.T) {
 		}).
 		Return(cleanupErr)
 
-	err := runNetem(ctx, client, req)
+	report := &fakeReport{}
+	err := runNetem(ctx, client, req, report)
 	require.ErrorIs(t, err, startErr)
 	require.ErrorIs(t, err, cleanupErr)
+	require.Empty(t, report.calls, "a failed install is neither applied nor reverted")
 }
 
 func TestRunNetemTimeoutReturnsCleanupError(t *testing.T) {
@@ -198,7 +220,7 @@ func TestRunNetemTimeoutReturnsCleanupError(t *testing.T) {
 		}).
 		Return(stopErr)
 
-	err := runNetem(context.Background(), client, req)
+	err := runNetem(context.Background(), client, req, &fakeReport{})
 	require.ErrorIs(t, err, stopErr)
 }
 
@@ -222,6 +244,22 @@ func TestRunNetemCancellationReturnsCleanupErrorWithLiveContext(t *testing.T) {
 		}).
 		Return(stopErr)
 
-	err := runNetem(ctx, client, req)
+	err := runNetem(ctx, client, req, &fakeReport{})
 	require.ErrorIs(t, err, stopErr)
+}
+
+func TestRunNetemDryRunReturnsWithoutWaiting(t *testing.T) {
+	req := &container.NetemRequest{
+		Container: &container.Container{ContainerID: "c1"},
+		Interface: "eth0",
+		Duration:  time.Hour,
+		DryRun:    true,
+	}
+	client := container.NewMockClient(t)
+	client.EXPECT().NetemContainer(mock.Anything, req).Return(nil)
+	client.EXPECT().StopNetemContainer(mock.Anything, req).Return(nil)
+
+	start := time.Now()
+	require.NoError(t, runNetem(context.Background(), client, req, &fakeReport{}))
+	require.Less(t, time.Since(start), time.Second, "dry-run must not sleep for --duration")
 }

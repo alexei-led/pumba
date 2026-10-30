@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -57,6 +58,25 @@ func init() {
 }
 
 func main() {
+	if code := run(os.Args, os.Stdout, os.Stderr); code != 0 {
+		os.Exit(code)
+	}
+}
+
+// run executes the CLI and returns the process exit code: 1 exactly when the
+// command failed, in every --output mode. In ndjson mode run.end is the last
+// stdout line.
+func run(args []string, stdout, stderr io.Writer) int {
+	out := newEventOutput(stdout, stderr, version)
+	err := newApp(out).Run(args)
+	if err != nil {
+		log.StandardLogger().Log(log.FatalLevel, err)
+	}
+	flushSlackHooks()
+	return out.finish(err, topContext.Err() != nil)
+}
+
+func newApp(out *eventOutput) *cli.App {
 	rootCertPath := "/etc/ssl/docker"
 
 	if os.Getenv("DOCKER_CERT_PATH") != "" {
@@ -76,27 +96,26 @@ func main() {
 	app.EnableBashCompletion = true
 	app.Usage = "Pumba is a resilience testing tool, that helps applications tolerate random Docker container failures: process, network and performance."
 	app.ArgsUsage = fmt.Sprintf("containers (names and RE2 regexes prefixed with %q; may be mixed)", re2Prefix)
-	app.Before = before
+	app.Writer = out.stdout
+	app.ErrWriter = out.stderr
+	app.Before = func(c *cli.Context) error { return before(c, out) }
 	app.After = func(_ *cli.Context) error {
 		if runtimeClient != nil {
 			return runtimeClient.Close()
 		}
 		return nil
 	}
-	app.Commands = initializeCLICommands(func() ctr.Client { return runtimeClient })
+	app.OnUsageError = out.onUsageError
+	app.Commands = initializeCLICommands(func() ctr.Client { return runtimeClient }, out.rec)
+	setUsageErrorHandler(app.Commands, out.onUsageError)
 	app.Flags = globalFlags(rootCertPath)
-
-	err := app.Run(os.Args)
-	if err != nil {
-		log.StandardLogger().Log(log.FatalLevel, err)
-	}
-	flushSlackHooks()
-	if err != nil {
-		os.Exit(1)
-	}
+	return app
 }
 
-func before(c *cli.Context) error {
+func before(c *cli.Context, out *eventOutput) error {
+	if err := out.configure(c); err != nil {
+		return err
+	}
 	if c.GlobalInt("max-targets") < 0 {
 		return chaos.ErrNegativeMaxTargets
 	}

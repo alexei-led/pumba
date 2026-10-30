@@ -7,7 +7,7 @@ import (
 )
 
 func globalFlags(rootCertPath string) []cli.Flag {
-	return []cli.Flag{
+	return append([]cli.Flag{
 		cli.StringFlag{
 			Name:   "host, H",
 			Usage:  "daemon socket to connect to",
@@ -98,6 +98,26 @@ func globalFlags(rootCertPath string) []cli.Flag {
 		cli.BoolFlag{
 			Name:  "skip-error",
 			Usage: "skip chaos command error and retry to execute the command on next interval tick",
+		},
+	}, resultFlags()...)
+}
+
+// resultFlags are the global flags for run identity, result output and the
+// run budget.
+func resultFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:  "run-id",
+			Usage: "name this run in result events; 1-48 characters from [A-Za-z0-9_.-] (generated when empty)",
+		},
+		cli.StringFlag{
+			Name:  "output, o",
+			Usage: "result output: text (logs only) or ndjson (pumba.event/v1 events on stdout, one per line)",
+			Value: outputText,
+		},
+		cli.DurationFlag{
+			Name:  "max-duration",
+			Usage: "time budget for active chaos and --interval scheduling; on expiry in-flight chaos is cleaned up and the run fails (0: unlimited)",
 		},
 	}
 }

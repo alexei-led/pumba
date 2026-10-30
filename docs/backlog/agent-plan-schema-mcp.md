@@ -14,4 +14,4 @@ Agents must discover the CLI and preview effects without parsing `--help` or run
 - stdio only, or also HTTP.
 - How much safety policy lives in the server vs the caller.
 
-Depends on: [fault-lifecycle-run-id](fault-lifecycle-run-id.md), [agent-structured-output](agent-structured-output.md).
+Depends on: [fault-lifecycle-run-id](fault-lifecycle-run-id.md). Builds on result events ([docs/agents.md](../agents.md)).

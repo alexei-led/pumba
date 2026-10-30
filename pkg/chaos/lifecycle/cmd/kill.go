@@ -19,8 +19,8 @@ type KillParams struct {
 }
 
 // NewKillCLICommand initialize CLI kill command.
-func NewKillCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[KillParams]{
+func NewKillCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[KillParams]{
 		Name: "kill",
 		Flags: []cli.Flag{
 			cli.StringFlag{

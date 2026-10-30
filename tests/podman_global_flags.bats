@@ -14,6 +14,8 @@
 
 load test_helper
 
+bats_require_minimum_version 1.5.0
+
 setup() {
     require_podman
     podman_rm_force pdm_flag_victim pdm_flag_interval pdm_flag_victim_1 pdm_flag_victim_2
@@ -180,4 +182,19 @@ teardown() {
     assert_success
 
     wait_for 5 "podman inspect -f '{{.State.Status}}' $full_id | grep -q exited" "container to exit"
+}
+
+@test "Should emit ndjson result events via podman runtime" {
+    podman run -d --name pdm_flag_victim alpine top
+    wait_for_running podman pdm_flag_victim
+    full_id=$(podman inspect --format="{{.Id}}" pdm_flag_victim)
+
+    run --separate-stderr pumba --runtime podman -o ndjson --run-id pdm-smoke --dry-run kill $full_id
+    assert_success
+
+    echo "$output" | jq -se '[.[].type] == ["run.start","target.result","run.end"]'
+    echo "$output" | jq -se 'all(.schema == "pumba.event/v1" and .run_id == "pdm-smoke")'
+    echo "$output" | jq -se '.[0].runtime == "podman" and .[1].status == "planned" and .[1].target.id == "'"$full_id"'"'
+    echo "$output" | jq -se 'last | .status == "ok" and .counts.planned == 1'
+    [ "$(podman inspect -f '{{.State.Status}}' pdm_flag_victim)" = "running" ]
 }

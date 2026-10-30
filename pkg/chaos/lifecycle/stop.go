@@ -25,16 +25,12 @@ type stopClient interface {
 
 // `docker stop` command
 type stopCommand struct {
-	maxTargets int
-	client     stopClient
-	names      []string
-	pattern    string
-	labels     []string
-	restart    bool
-	duration   time.Duration
-	waitTime   int
-	limit      int
-	dryRun     bool
+	client   stopClient
+	gp       *chaos.GlobalParams
+	restart  bool
+	duration time.Duration
+	waitTime int
+	limit    int
 }
 
 // NewStopCommand create new Stop Command instance
@@ -43,73 +39,79 @@ func NewStopCommand(client stopClient, params *chaos.GlobalParams, restart bool,
 		waitTime = DeafultWaitTime
 	}
 	return &stopCommand{
-		client:     client,
-		names:      params.Names,
-		pattern:    params.Pattern,
-		labels:     params.Labels,
-		maxTargets: params.MaxTargets,
-		dryRun:     params.DryRun,
-		restart:    restart,
-		duration:   duration,
-		waitTime:   waitTime,
-		limit:      limit}
+		client:   client,
+		gp:       params,
+		restart:  restart,
+		duration: duration,
+		waitTime: waitTime,
+		limit:    limit}
 }
 
 // Run stop command
 func (s *stopCommand) Run(ctx context.Context, random bool) error {
 	log.WithFields(log.Fields{
-		"names":    s.names,
-		"pattern":  s.pattern,
-		"labels":   s.labels,
+		"names":    s.gp.Names,
+		"pattern":  s.gp.Pattern,
+		"labels":   s.gp.Labels,
 		"duration": s.duration,
 		"waitTime": s.waitTime,
 		"limit":    s.limit,
 		"random":   random,
 	}).Debug("stopping all matching containers")
-	gp := &chaos.GlobalParams{Names: s.names, Pattern: s.pattern, Labels: s.labels, MaxTargets: s.maxTargets}
-	stoppedContainers := make([]*container.Container, 0)
-	err := chaos.RunOnContainers(ctx, s.client, gp, s.limit, random, false,
-		func(ctx context.Context, c *container.Container) error {
+	var stopped []heldTarget
+	err := chaos.RunOnContainers(ctx, s.client, s.gp, s.limit, random, false,
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{"container": c, "waitTime": s.waitTime}).Debug("stopping container")
-			if sErr := s.client.StopContainer(ctx, c, s.waitTime, s.dryRun); sErr != nil {
+			if sErr := s.client.StopContainer(ctx, c, s.waitTime, s.gp.DryRun); sErr != nil {
 				log.WithError(sErr).Warn("failed to stop container")
+				if s.restart {
+					return revertInterrupted(ctx, s.restartTimeout(), c, t, sErr, s.restartInterrupted)
+				}
 				return sErr
 			}
-			stoppedContainers = append(stoppedContainers, c)
+			t.Applied()
+			if s.restart {
+				stopped = append(stopped, holdTarget(c, t))
+			}
 			return nil
 		})
-
-	// if there are stopped containers and want to (re)start ...
-	if len(stoppedContainers) > 0 && s.restart {
-		// wait for specified duration and then start containers or start on ctx.Done()
-		durationTimer := time.NewTimer(s.duration)
-		defer durationTimer.Stop()
-		var restartErr error
-		select {
-		case <-ctx.Done():
-			log.Debug("start stopped containers by stop event")
-			// use context.WithoutCancel so cleanup succeeds even if the parent ctx is canceled
-			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.duration)
-			defer cancel()
-			restartErr = s.startStoppedContainers(cleanupCtx, stoppedContainers)
-		case <-durationTimer.C:
-			log.WithField("duration", s.duration).Debug("start stopped containers after duration")
-			restartErr = s.startStoppedContainers(ctx, stoppedContainers)
-		}
-		err = errors.Join(err, restartErr)
-	}
-	return err
+	// (re)start stopped containers after duration or on ctx.Done()
+	return errors.Join(err, revertAfter(ctx, s.duration, s.gp.DryRun, stopped, s.startStoppedContainer))
 }
 
-// start previously stopped containers after duration on exit
-func (s *stopCommand) startStoppedContainers(ctx context.Context, containers []*container.Container) error {
-	var err error
-	for _, container := range containers {
-		c := container
-		log.WithField("container", c).Debug("start stopped container")
-		if e := s.client.StartContainer(ctx, c, s.dryRun); e != nil {
-			err = errors.Join(err, fmt.Errorf("failed to start stopped container: %w", e))
-		}
+// stopBound is the longest StopContainer can take: the graceful wait plus
+// the wait after the SIGKILL fallback.
+func (s *stopCommand) stopBound() time.Duration {
+	return 2 * time.Duration(s.waitTime) * time.Second
+}
+
+// restartTimeout bounds restartInterrupted: finishing the stop, then the start.
+func (s *stopCommand) restartTimeout() time.Duration {
+	return s.stopBound() + revertTimeout
+}
+
+// restartInterrupted reverts a stop that ctx cut off mid-call. The runtime may
+// have sent the stop signal and then given up waiting (and on the SIGKILL
+// fallback), so the container can still be running or exiting; a start now is
+// a no-op and the container stays stopped once it exits. So finish the stop
+// first, with the same wait time and SIGKILL escalation, then start it. ctx
+// must already be detached from the cancelled one.
+func (s *stopCommand) restartInterrupted(ctx context.Context, c *container.Container) error {
+	stopCtx, cancel := context.WithTimeout(ctx, s.stopBound())
+	defer cancel()
+	if err := s.client.StopContainer(stopCtx, c, s.waitTime, s.gp.DryRun); err != nil {
+		// Expected when the container already exited (kill of a stopped
+		// container fails); whether the start succeeds decides cleanup.
+		log.WithError(err).WithField("container", c).Debug("failed to finish interrupted stop")
 	}
-	return err
+	return s.startStoppedContainer(ctx, c)
+}
+
+// start a previously stopped container after duration on exit
+func (s *stopCommand) startStoppedContainer(ctx context.Context, c *container.Container) error {
+	log.WithField("container", c).Debug("start stopped container")
+	if err := s.client.StartContainer(ctx, c, s.gp.DryRun); err != nil {
+		return fmt.Errorf("failed to start stopped container: %w", err)
+	}
+	return nil
 }

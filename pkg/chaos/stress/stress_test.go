@@ -3,6 +3,7 @@ package stress
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,18 @@ func testContainer(id, name string) *container.Container {
 		Labels:        map[string]string{},
 		Networks:      map[string]container.NetworkLink{},
 	}
+}
+
+// recordSink keeps every emitted event in order.
+type recordSink struct {
+	mu     sync.Mutex
+	events []chaos.Event
+}
+
+func (s *recordSink) Emit(ev *chaos.Event) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.events = append(s.events, *ev)
 }
 
 func TestStressCommand_Run(t *testing.T) {
@@ -239,12 +252,17 @@ func TestStressCommand_Run_DurationTimeout(t *testing.T) {
 	mockClient.EXPECT().StopContainerWithID(mock.Anything, "stress-id", defaultStopTimeout, false).
 		Return(nil)
 
-	params := &chaos.GlobalParams{Names: []string{"target"}}
+	sink := &recordSink{}
+	params := &chaos.GlobalParams{Names: []string{"target"}, Events: sink}
 	cmd := NewStressCommand(mockClient, params, image, false, "--cpu 2", duration, 0, false)
 	err := cmd.Run(context.Background(), false)
 
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
+	require.Len(t, sink.events, 2)
+	assert.Equal(t, chaos.EventTargetApplied, sink.events[0].Type)
+	assert.Equal(t, chaos.TargetOK, sink.events[1].Result.Status)
+	assert.Equal(t, &chaos.Cleanup{OK: true}, sink.events[1].Result.Cleanup)
 }
 
 func TestStressCommand_Run_StopContainerError(t *testing.T) {
@@ -272,11 +290,35 @@ func TestStressCommand_Run_StopContainerError(t *testing.T) {
 	mockClient.EXPECT().StopContainerWithID(mock.Anything, "stress-id", defaultStopTimeout, false).
 		Return(errors.New("container already removed"))
 
-	params := &chaos.GlobalParams{Names: []string{"target"}}
+	sink := &recordSink{}
+	params := &chaos.GlobalParams{Names: []string{"target"}, Events: sink}
 	cmd := NewStressCommand(mockClient, params, image, false, "--cpu 2", duration, 0, false)
 	err := cmd.Run(context.Background(), false)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "container already removed")
 	mockClient.AssertExpectations(t)
+	require.Len(t, sink.events, 2)
+	assert.Equal(t, chaos.TargetCleanupFailed, sink.events[1].Result.Status)
+	assert.Equal(t, &chaos.Cleanup{Error: "container already removed"}, sink.events[1].Result.Cleanup)
+}
+
+func TestStressCommand_Run_NaturalCompletionReportsCleanup(t *testing.T) {
+	target := testContainer("abc123", "target")
+	mockClient := container.NewMockClient(t)
+	output := make(chan string, 1)
+	output <- "done"
+	mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).
+		Return([]*container.Container{target}, nil)
+	mockClient.EXPECT().StressContainer(mock.Anything, mock.AnythingOfType("*container.StressRequest")).
+		Return(&container.StressResult{SidecarID: "stress-id", Output: output, Errors: make(chan error)}, nil)
+
+	sink := &recordSink{}
+	params := &chaos.GlobalParams{Names: []string{"target"}, Events: sink}
+	cmd := NewStressCommand(mockClient, params, "stress-ng:latest", false, "--cpu 2", time.Minute, 0, false)
+	require.NoError(t, cmd.Run(context.Background(), false))
+
+	require.Len(t, sink.events, 2)
+	assert.Equal(t, chaos.TargetOK, sink.events[1].Result.Status)
+	assert.Equal(t, &chaos.Cleanup{OK: true}, sink.events[1].Result.Cleanup)
 }

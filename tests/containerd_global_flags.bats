@@ -2,6 +2,8 @@
 
 load test_helper
 
+bats_require_minimum_version 1.5.0
+
 setup() {
     docker rm -f ctr_flag_victim ctr_flag_interval >/dev/null 2>&1 || true
     docker rm -f ctr_flag_victim_1 ctr_flag_victim_2 >/dev/null 2>&1 || true
@@ -160,4 +162,19 @@ teardown() {
     run pumba --log-level debug kill $full_id
     echo "Kill exited container output: $output"
     # Should handle gracefully (may warn but not crash)
+}
+
+@test "Should emit ndjson result events via containerd runtime" {
+    docker run -d --name ctr_flag_victim alpine top
+    wait_for_running docker ctr_flag_victim
+    full_id=$(docker inspect --format="{{.Id}}" ctr_flag_victim)
+
+    run --separate-stderr sudo pumba --runtime containerd --containerd-namespace moby -o ndjson --run-id ctr-smoke --dry-run kill $full_id
+    assert_success
+
+    echo "$output" | jq -se '[.[].type] == ["run.start","target.result","run.end"]'
+    echo "$output" | jq -se 'all(.schema == "pumba.event/v1" and .run_id == "ctr-smoke")'
+    echo "$output" | jq -se '.[0].runtime == "containerd" and .[1].status == "planned" and .[1].target.id == "'"$full_id"'"'
+    echo "$output" | jq -se 'last | .status == "ok" and .counts.planned == 1'
+    [ "$(docker inspect -f '{{.State.Status}}' ctr_flag_victim)" = "running" ]
 }

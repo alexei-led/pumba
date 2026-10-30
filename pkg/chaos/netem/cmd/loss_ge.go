@@ -23,8 +23,8 @@ type LossGEParams struct {
 }
 
 // NewLossGECLICommand initialize CLI loss-gemodel command.
-func NewLossGECLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[LossGEParams]{
+func NewLossGECLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[LossGEParams]{
 		Name: "loss-gemodel",
 		Flags: []cli.Flag{
 			cli.Float64Flag{

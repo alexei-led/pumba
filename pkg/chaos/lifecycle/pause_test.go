@@ -104,11 +104,9 @@ func TestPauseCommand_Run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := container.NewMockClient(t)
 			s := &pauseCommand{
-				client:  mockClient,
-				names:   tt.fields.names,
-				pattern: tt.fields.pattern,
-				limit:   tt.fields.limit,
-				dryRun:  tt.fields.dryRun,
+				client: mockClient,
+				gp:     &chaos.GlobalParams{Names: tt.fields.names, Pattern: tt.fields.pattern, DryRun: tt.fields.dryRun},
+				limit:  tt.fields.limit,
 			}
 			if tt.errs.listError {
 				mockClient.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), mock.AnythingOfType("container.ListOpts")).Return(nil, errors.New("ERROR"))
@@ -160,12 +158,9 @@ func TestNewPauseCommand(t *testing.T) {
 			duration: 3 * time.Second,
 			limit:    2,
 			want: &pauseCommand{
-				names:    []string{"c1"},
-				pattern:  "^c",
-				labels:   []string{"k=v"},
+				gp:       &chaos.GlobalParams{Names: []string{"c1"}, Pattern: "^c", Labels: []string{"k=v"}, DryRun: true},
 				duration: 3 * time.Second,
 				limit:    2,
-				dryRun:   true,
 			},
 		},
 		{
@@ -174,7 +169,7 @@ func TestNewPauseCommand(t *testing.T) {
 			duration: 0,
 			limit:    0,
 			want: &pauseCommand{
-				names: []string{"c1"},
+				gp: &chaos.GlobalParams{Names: []string{"c1"}},
 			},
 		},
 	}
@@ -198,7 +193,7 @@ func TestPauseCommand_Run_CtxCancelUnpausesContainers(t *testing.T) {
 
 	p := &pauseCommand{
 		client:   mockClient,
-		names:    []string{"c1", "c2"},
+		gp:       &chaos.GlobalParams{Names: []string{"c1", "c2"}},
 		duration: 10 * time.Second, // long — timer must not fire
 	}
 

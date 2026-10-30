@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/runtime/containerd"
@@ -25,7 +26,9 @@ var (
 
 // createRuntimeClient constructs the container.Client for the runtime selected
 // via --runtime. Extracted from before() to keep gocyclo under the 15 limit
-// and to give unit tests a single function to exercise.
+// and to give unit tests a single function to exercise. Bad runtime or TLS
+// settings are usage errors; a failing client factory means the runtime is
+// unavailable. Messages are unchanged.
 func createRuntimeClient(c *cli.Context) (ctr.Client, error) {
 	f := cliflags.NewV1FromApp(c)
 	switch runtime := f.String("runtime"); runtime {
@@ -35,27 +38,27 @@ func createRuntimeClient(c *cli.Context) (ctr.Client, error) {
 		// without payoff for the v3 migration this abstraction targets.
 		tlsCfg, err := tlsConfig(c)
 		if err != nil {
-			return nil, err
+			return nil, chaos.NewUsageError(err)
 		}
 		client, err := newDockerClient(f.String("host"), tlsCfg)
 		if err != nil {
-			return nil, fmt.Errorf("could not create Docker client: %w", err)
+			return nil, chaos.NewRuntimeUnavailableError(fmt.Errorf("could not create Docker client: %w", err))
 		}
 		return client, nil
 	case "containerd":
 		client, err := newContainerdClient(f.String("containerd-socket"), f.String("containerd-namespace"))
 		if err != nil {
-			return nil, fmt.Errorf("could not create containerd client: %w", err)
+			return nil, chaos.NewRuntimeUnavailableError(fmt.Errorf("could not create containerd client: %w", err))
 		}
 		return client, nil
 	case "podman":
 		client, err := newPodmanClient(f.String("podman-socket"))
 		if err != nil {
-			return nil, fmt.Errorf("could not create podman client: %w", err)
+			return nil, chaos.NewRuntimeUnavailableError(fmt.Errorf("could not create podman client: %w", err))
 		}
 		return client, nil
 	default:
-		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
+		return nil, chaos.NewUsageError(fmt.Errorf("unsupported runtime: %s", runtime))
 	}
 }
 

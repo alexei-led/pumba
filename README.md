@@ -187,12 +187,16 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 | `--random`, `-r` | `false` | — | Pick one matching container at random |
 | `--dry-run` | `false` | `DRY-RUN` | Log planned chaos actions without executing them |
 | `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
+| `--output`, `-o` | `text` | — | `ndjson`: result events (`pumba.event/v1`) on stdout, one per line; logs stay on stderr |
+| `--run-id` | Generated | — | Name this run in result events; 1–48 characters from `[A-Za-z0-9_.-]` |
+| `--max-duration` | `0` (unlimited) | — | Time budget for active chaos and `--interval`; on expiry in-flight chaos is cleaned up and the run exits 1 |
 | `--help`, `-h` | `false` | — | Show help (built-in) |
 | `--version`, `-v` | `false` | — | Print the version (built-in) |
 
 TLS certificate defaults use `DOCKER_CERT_PATH` instead of `/etc/ssl/docker` when set.
 `--interval=0` runs once. Use `--skip-error` with intervals to continue after transient failures.
 Safety-cap refusals are never suppressed by `--skip-error`.
+Agents and scripts: see [docs/agents.md](docs/agents.md) for the result event contract, error codes and exit codes.
 
 ### Run with Docker
 
@@ -219,6 +223,7 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 | **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
 | **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
 | **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
+| **[Agents](docs/agents.md)**                 | `--output ndjson` result events, run ID, exit codes, run budget |
 | **[Architecture](docs/architecture.md)**     | Module boundaries and the archfit policy that enforces them    |
 | **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
 

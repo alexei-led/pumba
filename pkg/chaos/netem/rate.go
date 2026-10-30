@@ -108,7 +108,7 @@ func (n *rateCommand) Run(ctx context.Context, random bool) error {
 	}
 	netemCmd := n.buildNetemCmd()
 	return chaos.RunOnContainers(ctx, n.client, n.gp, n.limit, random, true,
-		func(ctx context.Context, c *container.Container) error {
+		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			log.WithFields(log.Fields{
 				"container": c,
 				"command":   netemCmd,
@@ -118,7 +118,7 @@ func (n *rateCommand) Run(ctx context.Context, random bool) error {
 			req := *resolvedReq
 			req.Container = c
 			req.Command = netemCmd
-			if err := runNetem(netemCtx, n.client, &req); err != nil {
+			if err := runNetem(netemCtx, n.client, &req, t); err != nil {
 				log.WithError(err).Warn("failed to set network rate for container")
 				return fmt.Errorf("failed to set network rate for one or more containers: %w", err)
 			}

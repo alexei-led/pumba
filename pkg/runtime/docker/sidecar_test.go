@@ -60,10 +60,10 @@ func Test_tcContainerCommands(t *testing.T) {
 	engineClient.EXPECT().ContainerCreate(ctx, &config, &hconfig, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(ctypes.CreateResponse{ID: "tcID"}, nil)
 	engineClient.EXPECT().ContainerStart(ctx, "tcID", ctypes.StartOptions{}).Return(nil)
 	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "test", "one"}}).Return(ctypes.ExecCreateResponse{ID: "execID1"}, nil)
-	engineClient.EXPECT().ContainerExecAttach(ctx, "execID1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+	engineClient.EXPECT().ContainerExecAttach(mock.Anything, "execID1", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "execID1").Return(ctypes.ExecInspect{}, nil)
 	engineClient.EXPECT().ContainerExecCreate(ctx, "tcID", ctypes.ExecOptions{AttachStdout: true, AttachStderr: true, Cmd: []string{"tc", "test", "two"}}).Return(ctypes.ExecCreateResponse{ID: "execID2"}, nil)
-	engineClient.EXPECT().ContainerExecAttach(ctx, "execID2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
+	engineClient.EXPECT().ContainerExecAttach(mock.Anything, "execID2", ctypes.ExecAttachOptions{}).Return(fakeExecAttach(), nil)
 	engineClient.EXPECT().ContainerExecInspect(ctx, "execID2").Return(ctypes.ExecInspect{}, nil)
 	engineClient.EXPECT().ContainerRemove(ctx, "tcID", ctypes.RemoveOptions{Force: true}).Return(nil)
 

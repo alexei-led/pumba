@@ -22,8 +22,8 @@ type DuplicateParams struct {
 }
 
 // NewDuplicateCLICommand initialize CLI duplicate command.
-func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime) *cli.Command {
-	return chaoscmd.NewAction(ctx, runtime, chaoscmd.Spec[DuplicateParams]{
+func NewDuplicateCLICommand(ctx context.Context, runtime chaos.Runtime, events chaos.EventSink) *cli.Command {
+	return chaoscmd.NewAction(ctx, runtime, events, chaoscmd.Spec[DuplicateParams]{
 		Name: "duplicate",
 		Flags: []cli.Flag{
 			cli.Float64Flag{

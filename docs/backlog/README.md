@@ -8,13 +8,12 @@ Deferred ideas, one file per item. Not commitments.
 | File | Tag | Summary |
 |---|---|---|
 | [agent-plan-schema-mcp.md](agent-plan-schema-mcp.md) | agent | Machine-readable plan, schema, MCP server |
-| [agent-structured-output.md](agent-structured-output.md) | agent | Structured result output |
 | [arch-otel-sidecar-images.md](arch-otel-sidecar-images.md) | arch | OpenTelemetry spans and sidecar image consolidation |
 | [chaos-experiments-probes.md](chaos-experiments-probes.md) | chaos, agent | Experiment files, steady-state probes, scenario library |
 | [chaos-time-and-syscalls.md](chaos-time-and-syscalls.md) | chaos | Clock skew and syscall fault injection |
 | [container-chaos-extras.md](container-chaos-extras.md) | container | Container chaos extras |
 | [devices-disk-pids-gpu.md](devices-disk-pids-gpu.md) | chaos, container | More devices: disk, PIDs/FDs, GPU |
-| [fault-lifecycle-run-id.md](fault-lifecycle-run-id.md) | arch, agent, safety | Fault lifecycle, run ID, status/revert/verify-clean |
+| [fault-lifecycle-run-id.md](fault-lifecycle-run-id.md) | arch, agent, safety | Fault lifecycle: artifact tagging, status/revert/verify-clean |
 | [host-chaos.md](host-chaos.md) | host, safety | Host chaos |
 | [k8s-integration.md](k8s-integration.md) | k8s | Kubernetes integration |
 | [network-atomic-and-selectors.md](network-atomic-and-selectors.md) | network, safety | AND-combined selectors (`--match-all`) |
