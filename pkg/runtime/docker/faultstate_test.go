@@ -11,7 +11,10 @@ import (
 	tcplan "github.com/alexei-led/pumba/pkg/tc"
 	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -57,9 +60,15 @@ func expectExec(api *mocks.APIClient, containerID string, privileged bool, steps
 
 func expectSidecar(api *mocks.APIClient, targetID, sidecarID string, labels map[string]string) {
 	api.EXPECT().ContainerCreate(mock.Anything,
-		mock.MatchedBy(func(c *ctypes.Config) bool { return assert.ObjectsAreEqual(labels, c.Labels) }),
-		mock.MatchedBy(func(h *ctypes.HostConfig) bool { return h.NetworkMode == ctypes.NetworkMode("container:"+targetID) }),
-		mock.Anything, mock.Anything, "",
+		&ctypes.Config{
+			Labels: labels, Entrypoint: []string{"tail"}, Cmd: []string{"-f", "/dev/null"},
+			Image: "nettools", StopSignal: "SIGKILL",
+		},
+		&ctypes.HostConfig{
+			CapAdd: []string{"NET_ADMIN"}, NetworkMode: ctypes.NetworkMode("container:" + targetID),
+			PortBindings: nat.PortMap{}, DNS: []string{}, DNSOptions: []string{}, DNSSearch: []string{},
+		},
+		(*network.NetworkingConfig)(nil), (*ocispec.Platform)(nil), "",
 	).Return(ctypes.CreateResponse{ID: sidecarID}, nil).Once()
 	api.EXPECT().ContainerStart(mock.Anything, sidecarID, ctypes.StartOptions{}).Return(nil).Once()
 	api.EXPECT().ContainerRemove(mock.Anything, sidecarID, ctypes.RemoveOptions{Force: true}).Return(nil).Once()

@@ -5,6 +5,7 @@ import (
 	"net"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func setupNetSidecarContainer(t *testing.T, labels map[string]string) (*MockapiC
 	exitCh := make(chan containerd.ExitStatus, 1)
 	exitCh <- *containerd.NewExitStatus(137, time.Now(), nil)
 	sidecarTask.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	sidecarTask.EXPECT().Kill(mock.Anything, mock.Anything).Return(nil)
+	sidecarTask.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Return(nil)
 	sidecarTask.EXPECT().Delete(mock.Anything).Return(nil, nil)
 
 	sidecar := NewMockContainer(t)
