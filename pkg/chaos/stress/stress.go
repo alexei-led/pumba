@@ -81,6 +81,7 @@ func (s *stressCommand) stressContainer(ctx context.Context, c *container.Contai
 		Sidecar:      container.SidecarSpec{Image: s.image, Pull: s.pull},
 		InjectCgroup: s.injectCgroup,
 		DryRun:       s.gp.DryRun,
+		RunID:        s.gp.RunID,
 	}
 	result, err := s.client.StressContainer(ctx, req)
 	if err != nil {

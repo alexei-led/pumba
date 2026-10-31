@@ -341,6 +341,64 @@ pumba --max-duration 1h --interval 5m --random kill 're2:^worker-'
 
 The full contract (fields, error codes, delivery, recipes) is in [Agents](agents.md).
 
+## Finding Leftovers
+
+A run that dies before its cleanup (`kill -9`, OOM, node loss) leaves its faults in place.
+Pumba tags what it creates with the run ID (`--run-id`, or a generated one):
+
+- every sidecar (netem, iptables, stress, and status's own inspect sidecar) carries the labels
+  `com.gaiaadm.pumba.run-id`, `com.gaiaadm.pumba.target` (target container ID),
+  `com.gaiaadm.pumba.kind` and `com.gaiaadm.pumba.skip=true`;
+- every iptables rule carries `-m comment --comment pumba:<run-id>`.
+
+`pumba status` reports, per selected running container (default: all running):
+
+- iptables rules with a `pumba:` comment;
+- qdiscs under Pumba's root handle `504d:`, as `pumba-owned` (the topology Pumba installs) or
+  `suspicious` (the handle, but not Pumba's topology). qdiscs have no comment field, so they
+  are never attributed to a run;
+- Pumba sidecars labeled with the container's ID. Sidecars whose target was not inspected
+  (gone or stopped) are reported as orphans only when nothing is selected: no names, no `re2:`
+  pattern and no `--label`.
+
+```bash
+pumba status                         # everything Pumba left on running containers
+pumba status --run-id nightly-7 web  # only rules and sidecars of run nightly-7 (qdiscs always shown)
+pumba status --check web             # prints a verdict; exit 0 only when clean
+```
+
+`status --run-id` filters; the global `--run-id` only names the status run itself.
+
+| Verdict | When | Exit |
+|---|---|---|
+| `clean` | every selected container was inspected and nothing matched | 0 |
+| `dirty` | a tagged rule or labeled sidecar matched; without `--run-id`, also a `pumba-owned` qdisc | 1 |
+| `unknown` | an inspection failed, a named container is missing, a container could not be read, a `suspicious` qdisc, nothing selected, or (with `--run-id`) only qdiscs found | 1 |
+
+`dirty` wins over `unknown`. `--check` cannot be combined with `--interval`; `--random` and
+`--dry-run` are ignored; `--max-targets` applies.
+
+Status changes no fault. It inspects each container's network namespace in a short-lived
+sidecar (`--tc-image`), or with `--tc-image ""` by exec in the container. The image or target
+needs `tc` and `iptables`. When `iptables` uses the legacy backend, `iptables-nft` is also
+required; when the nft backend warns that legacy tables exist, `iptables-legacy` is required
+to inspect them. Missing backend coverage, or older `iptables --version` output without a
+recognized backend identifier, makes inspection fail (`unknown` unless other evidence makes
+it `dirty`). On Podman it needs rootful mode, like netem and iptables.
+
+To clean up by hand, delete what status lists, for example:
+
+```bash
+pid=$(docker inspect -f '{{.State.Pid}}' web)
+sudo nsenter -t "$pid" -n tc qdisc del dev eth0 root
+sudo nsenter -t "$pid" -n iptables -D INPUT -i eth0 -m comment --comment pumba:nightly-7 ...  # status spec, -A → -D
+docker rm -f $(docker ps -aq --filter label=com.gaiaadm.pumba.run-id=nightly-7)
+```
+
+Limits: iptables rules from Pumba 1.4 and earlier have no comment and are not found; containerd
+stress with `--stress-image ""` runs stress-ng by exec in the target and leaves no container to
+find; containers sharing a network namespace report the same rules and qdiscs.
+
 ## Slack Integration
 
 Pumba can send log events to a Slack channel via incoming webhooks:
@@ -391,7 +449,7 @@ This is useful in recurring mode when target containers may temporarily not exis
 - [Network Chaos](network-chaos.md) - netem and iptables commands
 - [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress (includes `--inject-cgroup` for same-cgroup injection)
 - [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
-- [Agents](agents.md) - Result events, run ID, exit codes and run budget for scripts and agents
+- [Agents](agents.md) - Result events, run ID, `status --check`, exit codes and run budget for scripts and agents
 - [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba
 
 ## Global safety options

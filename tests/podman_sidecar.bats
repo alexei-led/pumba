@@ -20,25 +20,23 @@
 load test_helper
 
 setup() {
+    PODMAN_FIXTURE_IDS=()
     require_podman
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — sidecar netem requires rootful mode"
     fi
-    podman_rm_force pdm-sidecar-target
     podman pull docker.io/library/alpine:latest >/dev/null 2>&1 || true
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
-    podman run -d --privileged --name pdm-sidecar-target docker.io/library/alpine:latest \
+    podman_fixture_run -d --privileged --name pdm-sidecar-target docker.io/library/alpine:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
     wait_for_running podman pdm-sidecar-target
 }
 
 teardown() {
+    [ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
     sudo pkill -f "pumba.*netem.*pdm-sidecar-target" 2>/dev/null || true
     kill %1 2>/dev/null || true
-    podman_rm_force pdm-sidecar-target
-    for sc in $(podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
-        podman rm -f "$sc" >/dev/null 2>&1 || true
-    done
+    podman_fixture_cleanup
 }
 
 @test "Should apply netem delay via sidecar container (tc-image) on podman" {
@@ -62,7 +60,7 @@ teardown() {
 
     # After pumba exits, sidecar should be removed (autoremove or cleanup)
     sleep 2
-    run podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true"
+    run podman_fixture_sidecars
     [ -z "$output" ] || echo "leftover sidecars: $output"
     [ -z "$output" ]
 }
@@ -72,8 +70,7 @@ teardown() {
     # broad re2: pattern cannot accidentally recurse onto them. Verify
     # that invariant by planting a fake labeled container and confirming
     # pumba's regex-based `kill` ignores it.
-    podman_rm_force pdm-skip-labeled
-    podman run -d --name pdm-skip-labeled --label com.gaiaadm.pumba.skip=true \
+    podman_fixture_run -d --name pdm-skip-labeled --label com.gaiaadm.pumba.skip=true \
         docker.io/library/alpine:latest top >/dev/null
 
     # Targets BOTH pdm-sidecar-target and pdm-skip-labeled via regex.
@@ -84,8 +81,6 @@ teardown() {
     status_labeled=$(podman inspect -f '{{.State.Status}}' pdm-skip-labeled 2>/dev/null || echo "missing")
     echo "skip-labeled container status: $status_labeled"
     [ "$status_labeled" = "running" ]
-
-    podman_rm_force pdm-skip-labeled
 }
 
 @test "Should clean up netem rules on target on SIGTERM via podman runtime" {
@@ -114,7 +109,7 @@ teardown() {
     refute_output --partial "netem"
 
     # No tc sidecar should linger.
-    run podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true"
+    run podman_fixture_sidecars
     echo "remaining sidecars: $output"
     [ -z "$output" ]
 }

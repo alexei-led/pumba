@@ -252,7 +252,7 @@ func TestApplyContainerFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fn := applyContainerFilter(tt.filter)
+			fn := applyContainerFilter(&tt.filter)
 			assert.Equal(t, tt.expected, fn(tt.container))
 		})
 	}

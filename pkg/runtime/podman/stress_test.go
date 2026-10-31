@@ -219,7 +219,11 @@ func TestStressContainer_DefaultSystemd_SetsCgroupParent(t *testing.T) {
 
 	require.NotNil(t, gotConfig)
 	require.Equal(t, "stress-ng:latest", gotConfig.Image)
-	require.Equal(t, "true", gotConfig.Labels[skipLabelKey])
+	require.Equal(t, map[string]string{
+		ctr.SkipLabel:   "true",
+		ctr.TargetLabel: "abc123",
+		ctr.KindLabel:   ctr.SidecarKindStress,
+	}, gotConfig.Labels)
 	require.Equal(t, []string{"/stress-ng"}, []string(gotConfig.Entrypoint))
 	require.Equal(t, []string{"--cpu", "2"}, []string(gotConfig.Cmd))
 
@@ -390,10 +394,21 @@ func TestStressContainer_StartError(t *testing.T) {
 	require.Nil(t, errCh)
 }
 
+func buildStressReq(injectCgroup bool) *ctr.StressRequest {
+	req := stressReq(newStressTarget(), []string{"--cpu", "1"}, "img", false, 10*time.Second, injectCgroup, false)
+	req.RunID = "run1"
+	return req
+}
+
 func TestBuildStressConfig_DefaultSystemd(t *testing.T) {
-	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", "/machine.slice/libpod-abc.scope", false)
+	cfg, hc := buildStressConfig(buildStressReq(false), driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", "/machine.slice/libpod-abc.scope")
 	require.Equal(t, "img", cfg.Image)
-	require.Equal(t, "true", cfg.Labels[skipLabelKey])
+	require.Equal(t, map[string]string{
+		ctr.SkipLabel:   "true",
+		ctr.RunIDLabel:  "run1",
+		ctr.TargetLabel: "abc123",
+		ctr.KindLabel:   ctr.SidecarKindStress,
+	}, cfg.Labels)
 	require.Equal(t, []string{"/stress-ng"}, []string(cfg.Entrypoint))
 	require.Equal(t, []string{"--cpu", "1"}, []string(cfg.Cmd))
 	require.True(t, hc.AutoRemove)
@@ -402,15 +417,16 @@ func TestBuildStressConfig_DefaultSystemd(t *testing.T) {
 }
 
 func TestBuildStressConfig_DefaultCgroupfs(t *testing.T) {
-	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverCgroupfs, "/libpod/abc", "/libpod", "/libpod/abc", false)
+	cfg, hc := buildStressConfig(buildStressReq(false), driverCgroupfs, "/libpod/abc", "/libpod", "/libpod/abc")
 	require.Equal(t, []string{"/stress-ng"}, []string(cfg.Entrypoint))
 	require.Equal(t, []string{"--cpu", "1"}, []string(cfg.Cmd))
 	require.Equal(t, "/libpod/abc", hc.Resources.CgroupParent, "cgroupfs nests sidecar under target's full path for shared OOM scope")
 }
 
 func TestBuildStressConfig_Inject(t *testing.T) {
-	cfg, hc := buildStressConfig("img", []string{"--cpu", "1"}, driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", "/machine.slice/libpod-abc.scope/container", true)
+	cfg, hc := buildStressConfig(buildStressReq(true), driverSystemd, "/machine.slice/libpod-abc.scope", "/machine.slice", "/machine.slice/libpod-abc.scope/container")
 	require.Equal(t, []string{"/cg-inject"}, []string(cfg.Entrypoint))
+	require.Equal(t, "run1", cfg.Labels[ctr.RunIDLabel])
 	require.Equal(t,
 		[]string{"--cgroup-path", "/machine.slice/libpod-abc.scope/container", "--", "/stress-ng", "--cpu", "1"},
 		[]string(cfg.Cmd),

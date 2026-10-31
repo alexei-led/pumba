@@ -22,9 +22,9 @@
 //
 //   - Rootless guards (rootless.go) — rootless Podman cannot grant NET_ADMIN
 //     to a sidecar in the target's netns or write across sibling cgroup
-//     scopes, so netem/iptables/stress fail fast at the API boundary with a
-//     diagnostic pointing at `podman machine set --rootful` or the rootful
-//     systemd unit.
+//     scopes, so netem/iptables/stress and netns inspection (InspectNetns)
+//     fail fast at the API boundary with a diagnostic pointing at
+//     `podman machine set --rootful` or the rootful systemd unit.
 //   - cgroup leaf naming (cgroup.go, stress.go) — Podman uses
 //     `libpod-<id>.scope` (sometimes with a nested `container/` leaf for the
 //     libpod init sub-cgroup) under systemd, vs Docker's `docker-<id>.scope`.

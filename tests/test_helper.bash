@@ -343,6 +343,49 @@ podman_rm_force() {
 	done
 }
 
+# Record only containers actually created by this test. Do not remove a
+# pre-existing container by name to make room for a fixture.
+podman_fixture_run() {
+	local id
+	id=$(podman run "$@") || return
+	PODMAN_FIXTURE_IDS+=("$id")
+}
+
+# Match sidecars to recorded full target IDs, never the skip label alone:
+# users also put that label on containers they want Pumba to protect.
+podman_fixture_sidecars() {
+	local id
+	for id in "${PODMAN_FIXTURE_IDS[@]}"; do
+		podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true" \
+			--filter "label=com.gaiaadm.pumba.target=$id" || return
+	done
+}
+
+podman_fixture_cleanup() {
+	local sidecars sc
+	[ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
+	# Enumerate while the targets still exist, then remove only these fixtures.
+	sidecars=$(podman_fixture_sidecars) || return
+	for sc in $sidecars; do
+		podman_rm_force "$sc"
+	done
+	podman_rm_force "${PODMAN_FIXTURE_IDS[@]}"
+	PODMAN_FIXTURE_IDS=()
+}
+
+# ── NDJSON event assertions (pumba -o ndjson) ────────────────────────────
+
+# Run jq filter $1 on the slurped event array in $output; fail unless true.
+assert_events() {
+	echo "$output" | jq -se "$1" >/dev/null || fail "events do not match '$1':
+$output"
+}
+
+# Run jq filter $1 on the last event (run.end) in $output; fail unless true.
+assert_run_end() {
+	assert_events "last | .type == \"run.end\" and ($1)"
+}
+
 # ── Nettools image helper ──────────────────────────────────────────────────
 
 ensure_nettools_image() {

@@ -230,6 +230,27 @@ For `--inject-cgroup` mode, the [`cg-inject`](https://github.com/alexei-led/stre
 
 When Pumba passes `--cgroup-path` (as it does on Kubernetes), these driver-based paths are not used — `cg-inject` writes directly to the provided path.
 
+## Sidecar Labels
+
+Every stress sidecar carries these labels, so a sidecar left by a crashed run can be found:
+
+| Label | Value |
+| ----- | ----- |
+| `com.gaiaadm.pumba.run-id` | the run ID (`--run-id`, or generated) |
+| `com.gaiaadm.pumba.target` | target container ID |
+| `com.gaiaadm.pumba.kind` | `stress` |
+| `com.gaiaadm.pumba.skip` | `true` (Pumba never targets its own sidecars) |
+
+`pumba status` reports such sidecars per target, and `pumba status --check` counts them as `dirty`
+(see [Finding Leftovers](guide.md#finding-leftovers)). To remove them by hand:
+
+```bash
+docker rm -f $(docker ps -aq --filter label=com.gaiaadm.pumba.run-id=<run-id>)
+```
+
+On containerd, `--stress-image ""` runs stress-ng by exec in the target instead; that leaves no
+container behind for `status` to find.
+
 ## Tips
 
 - The `--timeout` value in `--stressors` should match or be less than `--duration`

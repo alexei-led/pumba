@@ -29,6 +29,7 @@ packages:
       Netem:
       IPTables:
       Stressor:
+      Inspector:
 
   github.com/docker/docker/client:
     config:

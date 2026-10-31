@@ -36,6 +36,8 @@ type NetemRequest struct {
 	Duration    time.Duration
 	Sidecar     SidecarSpec
 	DryRun      bool
+	// RunID labels the sidecar with the run. Empty means untagged.
+	RunID string
 }
 
 // IPTablesRequest carries every parameter required to apply or stop an
@@ -52,6 +54,10 @@ type IPTablesRequest struct {
 	Duration  time.Duration
 	Sidecar   SidecarSpec
 	DryRun    bool
+	// RunID labels the sidecar and tags every rule with the iptables comment
+	// "pumba:<RunID>" in both the add and the delete spec. Empty means
+	// untagged.
+	RunID string
 }
 
 // StressRequest carries every parameter required to apply a stress-ng workload
@@ -66,6 +72,8 @@ type StressRequest struct {
 	Sidecar      SidecarSpec
 	InjectCgroup bool
 	DryRun       bool
+	// RunID labels the stress sidecar with the run. Empty means untagged.
+	RunID string
 }
 
 // StressResult bundles the sidecar identifier and the streaming output
@@ -90,4 +98,48 @@ type RemoveOpts struct {
 	Links   bool
 	Volumes bool
 	DryRun  bool
+}
+
+// InspectRequest asks a runtime for the Pumba fault state of Container's
+// network namespace. Sidecar is the image hint for the short-lived inspect
+// sidecar; an empty image runs the commands in the target itself. RunID only
+// labels the inspect sidecar; it does not filter the result.
+type InspectRequest struct {
+	Container *Container
+	Sidecar   SidecarSpec
+	RunID     string
+}
+
+// QdiscOwnership classifies a qdisc tree that uses Pumba's root handle 504d:.
+type QdiscOwnership string
+
+const (
+	// QdiscPumbaOwned: the topology matches what Pumba installs (netem root,
+	// or prio + sfq + netem bands).
+	QdiscPumbaOwned QdiscOwnership = "pumba-owned"
+	// QdiscSuspicious: the handle is present but the topology is not Pumba's.
+	QdiscSuspicious QdiscOwnership = "suspicious"
+)
+
+// PumbaQdisc is a device whose qdisc tree uses Pumba's root handle. Qdiscs
+// carry no run ID, so it is never attributed to a run.
+type PumbaQdisc struct {
+	Device    string
+	Kind      string
+	Ownership QdiscOwnership
+}
+
+// PumbaRule is an iptables rule carrying the comment "pumba:<RunID>". Spec is
+// the rule as `iptables -S` prints it.
+type PumbaRule struct {
+	RunID string
+	Chain string
+	Spec  string
+}
+
+// FaultState is the Pumba fault state found in one network namespace.
+// Containers that share a netns report the same state.
+type FaultState struct {
+	Qdiscs []PumbaQdisc
+	Rules  []PumbaRule
 }

@@ -25,7 +25,7 @@ func (c *containerdClient) StressContainer(ctx context.Context, req *ctr.StressR
 		return &ctr.StressResult{}, nil
 	}
 	if req.Sidecar.Image != "" {
-		id, outCh, errCh, err := c.stressSidecar(ctx, req.Container, req.Sidecar.Image, req.Stressors, req.InjectCgroup, req.Sidecar.Pull)
+		id, outCh, errCh, err := c.stressSidecar(ctx, req)
 		if err != nil {
 			return nil, err
 		}
@@ -60,17 +60,10 @@ func (c *containerdClient) stressDirectExec(ctx context.Context, container *ctr.
 // stressSidecar creates a long-lived sidecar container running stress-ng (or cg-inject)
 // as its main process. Returns the sidecar ID and output/error channels. A goroutine waits
 // for the task to exit and performs full cleanup (task delete + container/snapshot removal).
-func (c *containerdClient) stressSidecar(
-	ctx context.Context,
-	target *ctr.Container,
-	sidecarImage string,
-	stressors []string,
-	injectCgroup bool,
-	pull bool,
-) (string, <-chan string, <-chan error, error) {
+func (c *containerdClient) stressSidecar(ctx context.Context, req *ctr.StressRequest) (string, <-chan string, <-chan error, error) {
 	ctx = c.nsCtx(ctx)
 
-	sidecarID, sidecarContainer, task, waitCh, err := c.createStressSidecar(ctx, target, sidecarImage, stressors, injectCgroup, pull)
+	sidecarID, sidecarContainer, task, waitCh, err := c.createStressSidecar(ctx, req)
 	if err != nil {
 		return "", nil, nil, err
 	}

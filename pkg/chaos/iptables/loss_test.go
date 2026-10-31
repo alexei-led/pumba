@@ -84,7 +84,7 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 		Labels:        map[string]string{},
 		Networks:      map[string]container.NetworkLink{},
 	}
-	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
+	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1"}
 	base := newBase(&container.IPTablesRequest{
 		Duration: 100 * time.Millisecond,
 		Sidecar:  container.SidecarSpec{Image: "iptables-image"},
@@ -107,6 +107,7 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 		Duration:  100 * time.Millisecond,
 		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
 		DryRun:    true,
+		RunID:     "run1",
 	}
 	delReq := &container.IPTablesRequest{
 		Container: target,
@@ -115,6 +116,7 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 		Duration:  100 * time.Millisecond,
 		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
 		DryRun:    true,
+		RunID:     "run1",
 	}
 	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
 	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)

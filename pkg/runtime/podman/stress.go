@@ -32,10 +32,6 @@ func removeOnError(ctx context.Context, api apiBackend, id string, cause error) 
 	return cause
 }
 
-// skipLabelKey tags pumba-spawned sidecars so list filters can exclude them
-// from chaos target selection. Shared with the docker runtime.
-const skipLabelKey = "com.gaiaadm.pumba.skip"
-
 // StressContainer launches a stress-ng sidecar that targets req.Container's
 // cgroup. The target cgroup is resolved host-side from /proc/<pid>/cgroup —
 // necessary because modern Podman defaults to private cgroup namespaces that
@@ -76,7 +72,7 @@ func (p *podmanClient) StressContainer(ctx context.Context, req *ctr.StressReque
 		"procs-path": cg.procsPath,
 	}).Debug("resolved podman target cgroup")
 
-	config, hconfig := buildStressConfig(req.Sidecar.Image, req.Stressors, cg.driver, cg.fullPath, cg.parent, cg.procsPath, req.InjectCgroup)
+	config, hconfig := buildStressConfig(req, cg.driver, cg.fullPath, cg.parent, cg.procsPath)
 
 	if req.Sidecar.Pull {
 		if err := p.pullStressImage(ctx, req.Sidecar.Image); err != nil {
@@ -197,9 +193,10 @@ func (p *podmanClient) resolveCgroup(ctx context.Context, targetID string) (cgro
 // /sys/fs/cgroup) and let /cg-inject move its PID into the target's exact
 // cgroup. Required when the target's parent slice is unwritable by a sibling
 // (e.g. kubelet-owned kubepods slices).
-func buildStressConfig(image string, stressors []string, driver, fullPath, parent, procsPath string, injectCgroup bool) (ctypes.Config, ctypes.HostConfig) {
-	labels := map[string]string{skipLabelKey: "true"}
-	if injectCgroup {
+func buildStressConfig(req *ctr.StressRequest, driver, fullPath, parent, procsPath string) (ctypes.Config, ctypes.HostConfig) {
+	image, stressors := req.Sidecar.Image, req.Stressors
+	labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindStress)
+	if req.InjectCgroup {
 		cmd := append([]string{"--cgroup-path", procsPath, "--", "/stress-ng"}, stressors...)
 		return ctypes.Config{
 			Image:      image,

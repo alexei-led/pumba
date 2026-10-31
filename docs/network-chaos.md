@@ -75,7 +75,11 @@ make push-nettools-images
 
 ## Netem Commands
 
-Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). Pumba first verifies that the interface has its default root qdisc and refuses to alter a foreign or stale qdisc. If Pumba is killed with `SIGKILL` after setup, it cannot run cleanup; inspect the interface and manually remove only the Pumba-owned `504d:` root qdisc. All netem commands require a `--duration` flag and support these common options:
+Network emulation (`netem`) manipulates **outgoing** traffic using Linux traffic control (`tc`). Pumba first verifies that the interface has its default root qdisc and refuses to alter a foreign or stale qdisc. If Pumba is killed with `SIGKILL` after setup, it cannot run cleanup; `pumba status` lists the Pumba-owned `504d:` root qdisc it left (see [Finding Leftovers](guide.md#finding-leftovers)), and you remove only that qdisc by hand.
+
+qdiscs have no comment field, so a qdisc cannot be attributed to a run. `status` reports a `504d:` root qdisc as `pumba-owned` when its topology is what Pumba installs (a netem root, or a prio root with its sfq and netem bands), and as `suspicious` otherwise. Its run is always `null`.
+
+All netem commands require a `--duration` flag and support these common options:
 
 | Flag                            | Description                                            | Default                                           |
 | ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
@@ -256,6 +260,8 @@ The `iptables` command manipulates **incoming** traffic by adding packet filteri
 
 Run `pumba iptables --help` for the full list of options.
 
+Every rule carries `-m comment --comment pumba:<run-id>` (the global `--run-id`, or a generated one), in both the add and the delete spec, so `pumba status` can find rules a crashed run left behind. This needs the `xt_comment` kernel module (iptables-legacy) or the nft comment match (iptables-nft). Without it the rule is not installed and the error names `xt_comment`. Rules from Pumba 1.4 and earlier have no comment and are invisible to `status`.
+
 ### loss
 
 Drop incoming packets using either random probability or every-nth-packet matching.
@@ -382,6 +388,8 @@ pumba iptables --iptables-image ghcr.io/alexei-led/pumba-alpine-nettools:latest 
 - Ensure the nettools image is accessible (try `docker pull` manually)
 - Check that you have permissions to create containers with `NET_ADMIN` capability
 - On minikube, `pumba netem` commands won't work because the `sch_netem` kernel module is missing
+- `iptables comment match (xt_comment) unavailable`: load the module on the host (`modprobe xt_comment`)
+- After a crash or `kill -9`, run `pumba status --check <container>` to see what is left
 - When using Kubernetes, ensure Pumba's service account has sufficient RBAC permissions
 
 ## Further Reading

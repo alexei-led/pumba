@@ -734,7 +734,11 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				systemAPI:    mockClient,
 			}
 			tt.mockInit(tt.args.ctx, mockClient, mConn, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
-			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull, false)
+			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, &ctr.StressRequest{
+				Container: &ctr.Container{ContainerID: tt.args.targetID},
+				Stressors: tt.args.stressors,
+				Sidecar:   ctr.SidecarSpec{Image: tt.args.image, Pull: tt.args.pull},
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.stressContainerCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return

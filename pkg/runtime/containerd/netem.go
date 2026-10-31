@@ -28,9 +28,10 @@ func (c *containerdClient) StopNetemContainer(ctx context.Context, req *ctr.Nete
 
 func (c *containerdClient) runNetemPlan(ctx context.Context, req *ctr.NetemRequest, args []string) error {
 	if req.Sidecar.Image != "" {
-		return c.sidecarExec(ctx, req.Container, req.Sidecar.Image, req.Sidecar.Pull, "sh", [][]string{args})
+		labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindNetem)
+		return c.sidecarExec(ctx, req.Container, req.Sidecar, labels, "sh", [][]string{args})
 	}
-	return c.execInContainer(c.nsCtx(ctx), req.Container.ID(), "sh", args)
+	return c.execFaultInContainer(c.nsCtx(ctx), req.Container.ID(), "sh", args)
 }
 
 func containerdNetemPlanRequest(req *ctr.NetemRequest) *tcplan.NetemRequest {

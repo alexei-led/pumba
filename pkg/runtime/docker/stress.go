@@ -26,7 +26,7 @@ func (client dockerClient) StressContainer(ctx context.Context, req *ctr.StressR
 	if req.DryRun {
 		return &ctr.StressResult{}, nil
 	}
-	id, output, errCh, err := client.stressContainerCommand(ctx, req.Container.ID(), req.Stressors, req.Sidecar.Image, req.Sidecar.Pull, req.InjectCgroup)
+	id, output, errCh, err := client.stressContainerCommand(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +37,10 @@ func (client dockerClient) StressContainer(ctx context.Context, req *ctr.StressR
 // cgroupPath is the target's cgroup base path resolved from ContainerInspect (may be empty).
 // For inject-cgroup mode: when cgroupPath is known, uses --cgroup-path; otherwise falls back
 // to --target-id + --cgroup-driver.
-func stressContainerConfig(targetID string, stressors []string, img, driver, cgroupParent, cgroupPath string, injectCgroup bool) (ctypes.Config, ctypes.HostConfig) {
-	if injectCgroup {
+func stressContainerConfig(req *ctr.StressRequest, driver, cgroupParent, cgroupPath string) (ctypes.Config, ctypes.HostConfig) {
+	targetID, stressors, img := req.Container.ID(), req.Stressors, req.Sidecar.Image
+	labels := ctr.SidecarLabels(req.RunID, targetID, ctr.SidecarKindStress)
+	if req.InjectCgroup {
 		var cmd []string
 		if cgroupPath != "" {
 			cmd = append([]string{"--cgroup-path", cgroupPath, "--", "/stress-ng"}, stressors...)
@@ -51,7 +53,7 @@ func stressContainerConfig(targetID string, stressors []string, img, driver, cgr
 			}).Debug("using inject-cgroup mode with driver-based path")
 		}
 		return ctypes.Config{
-			Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+			Labels:     labels,
 			Image:      img,
 			Entrypoint: []string{"/cg-inject"},
 			Cmd:        cmd,
@@ -64,7 +66,7 @@ func stressContainerConfig(targetID string, stressors []string, img, driver, cgr
 	// default child-cgroup mode: use --cgroup-parent with the resolved path
 	log.WithField("cgroup-parent", cgroupParent).Debug("resolved cgroup parent")
 	return ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Labels:     labels,
 		Image:      img,
 		Entrypoint: []string{"/stress-ng"},
 		Cmd:        stressors,
@@ -76,22 +78,22 @@ func stressContainerConfig(targetID string, stressors []string, img, driver, cgr
 
 // stressContainerCommand executes a stress-ng command in a stress-ng Docker container
 // in the target container's cgroup.
-func (client dockerClient) stressContainerCommand(ctx context.Context, targetID string, stressors []string, img string, pull, injectCgroup bool) (string, <-chan string, <-chan error, error) {
+func (client dockerClient) stressContainerCommand(ctx context.Context, req *ctr.StressRequest) (string, <-chan string, <-chan error, error) {
 	log.WithFields(log.Fields{
-		"target":        targetID,
-		"stressors":     stressors,
-		"img":           img,
-		"pull":          pull,
-		"inject-cgroup": injectCgroup,
+		"target":        req.Container.ID(),
+		"stressors":     req.Stressors,
+		"img":           req.Sidecar.Image,
+		"pull":          req.Sidecar.Pull,
+		"inject-cgroup": req.InjectCgroup,
 	}).Debug("executing stress-ng command")
 
-	driver, cgroupParent, cgroupPath, err := client.stressResolveDriver(ctx, targetID, injectCgroup)
+	driver, cgroupParent, cgroupPath, err := client.stressResolveDriver(ctx, req.Container.ID(), req.InjectCgroup)
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	config, hconfig := stressContainerConfig(targetID, stressors, img, driver, cgroupParent, cgroupPath, injectCgroup)
-	if pull {
+	config, hconfig := stressContainerConfig(req, driver, cgroupParent, cgroupPath)
+	if req.Sidecar.Pull {
 		if err := client.pullImage(ctx, config.Image); err != nil {
 			return "", nil, nil, err
 		}

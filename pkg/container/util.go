@@ -10,6 +10,10 @@ import (
 type ListOpts struct {
 	All    bool
 	Labels []string
+	// OnSkip, when set, is called for each container the runtime could not
+	// read and left out of the result (a listing gap). Runtimes that fail the
+	// whole listing on such errors never call it.
+	OnSkip func(id string, err error)
 }
 
 // list filter
@@ -28,7 +32,7 @@ func listContainers(ctx context.Context, client Lister, names []string, pattern 
 			Labels: labels,
 		},
 	}
-	containers, err := client.ListContainers(ctx, applyContainerFilter(f), f.Opts)
+	containers, err := client.ListContainers(ctx, applyContainerFilter(&f), f.Opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}

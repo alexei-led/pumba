@@ -109,6 +109,7 @@ func (n *delayCommand) Run(ctx context.Context, random bool) error {
 			defer cancel()
 			req := *resolvedReq
 			req.Container = c
+			req.RunID = n.gp.RunID
 			req.Command = netemCmd
 			if err := runNetem(netemCtx, n.client, &req, t); err != nil {
 				log.WithError(err).Warn("failed to delay network for container")

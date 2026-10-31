@@ -302,7 +302,7 @@ func TestDelayCommand_Run_DryRun(t *testing.T) {
 				Labels:        map[string]string{},
 				Networks:      map[string]container.NetworkLink{},
 			}
-			gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true}
+			gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1"}
 			nparams := &container.NetemRequest{
 				Interface: "eth0",
 				Duration:  100 * time.Millisecond,
@@ -322,6 +322,7 @@ func TestDelayCommand_Run_DryRun(t *testing.T) {
 				Duration:  100 * time.Millisecond,
 				Sidecar:   container.SidecarSpec{Image: tt.image},
 				DryRun:    true,
+				RunID:     "run1",
 			}
 			mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
 			mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)

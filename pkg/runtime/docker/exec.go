@@ -1,7 +1,9 @@
 package docker
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,7 +49,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 	defer attachRes.Close()
 
 	// User-facing `pumba exec` runs arbitrary, possibly endless commands, so
-	// --max-duration and SIGTERM must interrupt it (unlike runExecAttached).
+	// --max-duration and SIGTERM must interrupt it (unlike runExec).
 	output, err := readAttached(ctx, attachRes)
 	if err != nil {
 		return fmt.Errorf("reading output from exec reader failed: %w", err)
@@ -70,7 +73,7 @@ func (client dockerClient) ExecContainer(ctx context.Context, c *ctr.Container, 
 }
 
 // faultExecTimeout bounds a fault-installing exec that ignores the caller's
-// cancellation (see runExecAttached). tc/iptables scripts finish in well under
+// cancellation (see runExec). tc/iptables scripts finish in well under
 // a second; this only guards against a hung runtime.
 const faultExecTimeout = 2 * time.Minute
 
@@ -97,32 +100,6 @@ func readAttached(ctx context.Context, resp types.HijackedResponse) ([]byte, err
 	return out, err
 }
 
-// runExecAttached starts a pre-created exec by attaching to it and draining
-// stdout/stderr until the exec completes. Podman's Docker-compat API rejects
-// ContainerExecStart with empty ExecStartOptions ("must provide at least one
-// stream to attach to"); Docker accepts it. ContainerExecAttach works on both.
-//
-// Every caller installs or removes a fault (tc/iptables scripts in a sidecar
-// or, in exec mode, the target), so the exec must run to completion: closing
-// the stream on cancellation makes the caller remove the sidecar (SIGKILL) or
-// run the stop script while the start script is midway, leaving a partial
-// topology the verified stop script refuses to remove. These execs are short,
-// so attach and read ignore ctx cancellation, bounded by faultExecTimeout.
-// Only the user-facing ExecContainer reads interruptibly.
-func (client dockerClient) runExecAttached(ctx context.Context, execID string) error {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
-	defer cancel()
-	resp, err := client.containerAPI.ContainerExecAttach(ctx, execID, ctypes.ExecAttachOptions{})
-	if err != nil {
-		return err
-	}
-	defer resp.Close()
-	if _, err := readAttached(ctx, resp); err != nil {
-		return fmt.Errorf("drain exec %s output: %w", execID, err)
-	}
-	return nil
-}
-
 // execute command on container
 func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container, execCmd string, execArgs []string, privileged bool) error {
 	log.WithFields(log.Fields{
@@ -136,52 +113,90 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 	execCmd = strings.ReplaceAll(execCmd, " ", "")
 
 	// check if command exists inside target container
-	checkExists := ctypes.ExecOptions{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          []string{"which", execCmd},
-	}
-	exec, err := client.containerAPI.ContainerExecCreate(ctx, c.ID(), checkExists)
-	if err != nil {
-		return fmt.Errorf("failed to create exec configuration to check if command exists: %w", err)
-	}
 	log.WithField("command", execCmd).Debugf("checking if command exists")
-	if err = client.runExecAttached(ctx, exec.ID); err != nil {
-		return fmt.Errorf("failed to check if command exists in a container: %w", err)
-	}
-	checkInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
-	if err != nil {
-		return fmt.Errorf("failed to inspect check execution: %w", err)
-	}
-	if checkInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' not found inside the %s container", execCmd, c.ID())
+	if _, _, err := client.runExec(ctx, c.ID(), []string{"which", execCmd}, false); err != nil {
+		return fmt.Errorf("command '%s' not found inside the %s container: %w", execCmd, c.ID(), err)
 	}
 
 	// if command found execute it
 	log.WithField("command", execCmd).Debug("command found: continue execution")
+	if _, _, err := client.runExec(ctx, c.ID(), append([]string{execCmd}, execArgs...), privileged); err != nil {
+		return fmt.Errorf("command '%s' failed in %s container: %w", execCmd, c.ID(), err)
+	}
+	return nil
+}
 
-	// prepare exec config
-	config := ctypes.ExecOptions{
+// runExec runs argv as an exec in containerID and returns its stdout and
+// stderr. A non-zero exit is an error that carries stderr, so callers can name
+// the cause (e.g. a missing iptables extension). It attaches with
+// ContainerExecAttach, which Podman's Docker-compat API accepts where
+// ContainerExecStart with empty options is rejected.
+//
+// An admitted exec ignores subsequent cancellation, bounded by faultExecTimeout:
+// its callers install, remove or inspect faults (or probe for a command), and a
+// tc script killed midway leaves a partial topology the verified stop script
+// refuses to remove. Cancellation still prevents admission of another exec.
+func (client dockerClient) runExec(ctx context.Context, containerID string, argv []string, privileged bool) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
+	defer cancel()
+	created, err := client.containerAPI.ContainerExecCreate(ctx, containerID, ctypes.ExecOptions{
 		AttachStdout: true,
 		AttachStderr: true,
 		Privileged:   privileged,
-		Cmd:          append([]string{execCmd}, execArgs...),
-	}
-	// execute the command
-	exec, err = client.containerAPI.ContainerExecCreate(ctx, c.ID(), config)
+		Cmd:          argv,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create exec configuration for a command: %w", err)
+		return "", "", fmt.Errorf("failed to create exec %s: %w", strings.Join(argv, " "), err)
 	}
-	log.Debugf("starting exec %s %s (%s)", execCmd, execArgs, exec.ID)
-	if err = client.runExecAttached(ctx, exec.ID); err != nil {
-		return fmt.Errorf("failed to start command execution: %w", err)
-	}
-	exitInspect, err := client.containerAPI.ContainerExecInspect(ctx, exec.ID)
+	resp, err := client.containerAPI.ContainerExecAttach(ctx, created.ID, ctypes.ExecAttachOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to inspect command execution: %w", err)
+		return "", "", fmt.Errorf("failed to start exec %s: %w", strings.Join(argv, " "), err)
 	}
-	if exitInspect.ExitCode != 0 {
-		return fmt.Errorf("command '%s' failed in %s container; run it in manually to debug", execCmd, c.ID())
+	raw, err := readAttached(ctx, resp)
+	resp.Close()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read exec %s output: %w", strings.Join(argv, " "), err)
+	}
+	insp, err := client.containerAPI.ContainerExecInspect(ctx, created.ID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to inspect exec %s: %w", strings.Join(argv, " "), err)
+	}
+	if insp.Running {
+		return "", "", fmt.Errorf("exec %s is still running after attach closed", strings.Join(argv, " "))
+	}
+	// StdCopy accepts EOF inside a frame, so check completeness before it can
+	// discard fault evidence (or allocate an untrusted declared payload size).
+	if err := validateExecFrames(raw); err != nil {
+		return "", "", fmt.Errorf("failed to demultiplex exec %s output: %w", strings.Join(argv, " "), err)
+	}
+	// Without a TTY the attach stream multiplexes stdout and stderr.
+	var outBuf, errBuf bytes.Buffer
+	if _, err := stdcopy.StdCopy(&outBuf, &errBuf, bytes.NewReader(raw)); err != nil {
+		return "", "", fmt.Errorf("failed to demultiplex exec %s output: %w", strings.Join(argv, " "), err)
+	}
+	if insp.ExitCode != 0 {
+		return "", "", fmt.Errorf("%s failed with exit code %d: %s", strings.Join(argv, " "), insp.ExitCode, strings.TrimSpace(errBuf.String()))
+	}
+	return outBuf.String(), errBuf.String(), nil
+}
+
+// validateExecFrames checks the captured non-TTY Docker attach framing without
+// allocating from its length fields. StdCopy still validates stream identifiers.
+func validateExecFrames(raw []byte) error {
+	const headerSize, lengthOffset = 8, 4
+	for len(raw) > 0 {
+		if len(raw) < headerSize {
+			return fmt.Errorf("incomplete multiplexed header: %w", io.ErrUnexpectedEOF)
+		}
+		size := binary.BigEndian.Uint32(raw[lengthOffset:headerSize])
+		raw = raw[headerSize:]
+		if uint64(size) > uint64(len(raw)) {
+			return fmt.Errorf("incomplete multiplexed payload: %w", io.ErrUnexpectedEOF)
+		}
+		raw = raw[int(size):]
 	}
 	return nil
 }

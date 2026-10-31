@@ -2,6 +2,8 @@
 
 load test_helper
 
+STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
+
 setup() {
     cleanup_containers "stress_victim"
 }
@@ -24,15 +26,11 @@ teardown() {
 }
 
 @test "Should stress container with CPU stressor" {
-    # Create container with stress-ng pre-installed
-    docker run -d --name stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity"
-    sleep 5
-    # Verify stress-ng is installed
-    run docker exec stress_victim which stress-ng
-    assert_success
+    create_test_container "stress_victim"
+    assert_container_state "stress_victim" "running"
 
-    # Run stress for a short time
-    run pumba --log-level debug stress --duration 10s --pull-image=false --stressors="--cpu 1 --cpu-method loop --timeout 3s" stress_victim
+    # stress-ng runs in a sidecar, using the image preloaded by the workflow.
+    run pumba --log-level debug stress --duration 10s --pull-image=false --stress-image "${STRESS_IMAGE}" --stressors="--cpu 1 --cpu-method loop --timeout 3s" stress_victim
     echo "Stress output: $output"
     assert_success
 }
