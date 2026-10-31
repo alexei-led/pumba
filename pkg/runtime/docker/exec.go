@@ -3,6 +3,7 @@ package docker
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
@@ -160,6 +161,14 @@ func (client dockerClient) runExec(ctx context.Context, containerID string, argv
 	if err != nil {
 		return "", "", fmt.Errorf("failed to inspect exec %s: %w", strings.Join(argv, " "), err)
 	}
+	if insp.Running {
+		return "", "", fmt.Errorf("exec %s is still running after attach closed", strings.Join(argv, " "))
+	}
+	// StdCopy accepts EOF inside a frame, so check completeness before it can
+	// discard fault evidence (or allocate an untrusted declared payload size).
+	if err := validateExecFrames(raw); err != nil {
+		return "", "", fmt.Errorf("failed to demultiplex exec %s output: %w", strings.Join(argv, " "), err)
+	}
 	// Without a TTY the attach stream multiplexes stdout and stderr.
 	var outBuf, errBuf bytes.Buffer
 	if _, err := stdcopy.StdCopy(&outBuf, &errBuf, bytes.NewReader(raw)); err != nil {
@@ -169,4 +178,22 @@ func (client dockerClient) runExec(ctx context.Context, containerID string, argv
 		return "", "", fmt.Errorf("%s failed with exit code %d: %s", strings.Join(argv, " "), insp.ExitCode, strings.TrimSpace(errBuf.String()))
 	}
 	return outBuf.String(), errBuf.String(), nil
+}
+
+// validateExecFrames checks the captured non-TTY Docker attach framing without
+// allocating from its length fields. StdCopy still validates stream identifiers.
+func validateExecFrames(raw []byte) error {
+	const headerSize, lengthOffset = 8, 4
+	for len(raw) > 0 {
+		if len(raw) < headerSize {
+			return fmt.Errorf("incomplete multiplexed header: %w", io.ErrUnexpectedEOF)
+		}
+		size := binary.BigEndian.Uint32(raw[lengthOffset:headerSize])
+		raw = raw[headerSize:]
+		if uint64(size) > uint64(len(raw)) {
+			return fmt.Errorf("incomplete multiplexed payload: %w", io.ErrUnexpectedEOF)
+		}
+		raw = raw[int(size):]
+	}
+	return nil
 }
