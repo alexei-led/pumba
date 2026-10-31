@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 func TestWaitStressSidecarCleanupFailures(t *testing.T) {
@@ -99,6 +101,8 @@ func TestCreateStressSidecarCleanupFailures(t *testing.T) { //nolint:paralleltes
 			result, err := newTestClient(api).StressContainer(ctx, stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng", false, time.Second, false, false))
 
 			require.ErrorIs(t, err, operationErr)
+			var cleanup *ctr.StressCleanupError
+			require.ErrorAs(t, err, &cleanup)
 			assert.ErrorIs(t, err, containerCleanupErr)
 			if stage != "create_task" {
 				assert.ErrorIs(t, err, taskCleanupErr)
@@ -110,7 +114,7 @@ func TestCreateStressSidecarCleanupFailures(t *testing.T) { //nolint:paralleltes
 
 func TestStressDirectExecCancellation(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"cancel", "duration", "cleanup_failure", "natural_failure"} {
+	for _, mode := range []string{"cancel", "duration", "grpc_cancel", "cleanup_failure", "natural_failure"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
@@ -136,6 +140,9 @@ func TestStressDirectExecCancellation(t *testing.T) {
 				if mode != "duration" {
 					cancel()
 				}
+				if mode == "grpc_cancel" {
+					running <- *containerd.NewExitStatus(0, time.Now(), grpcstatus.Error(codes.Canceled, "wait canceled"))
+				}
 			}).Return(nil).Once()
 			proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
 				reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
@@ -150,7 +157,7 @@ func TestStressDirectExecCancellation(t *testing.T) {
 				assert.True(t, ok)
 			}).Return(nil, deleteErr).Once()
 			if mode == "natural_failure" {
-				proc.EXPECT().IO().Return(nil).Once()
+				proc.EXPECT().IO().Return(newHeldIO()).Once()
 			}
 			task := newRunningTask(t)
 			setupExec(task, proc)
@@ -219,6 +226,33 @@ func TestWaitStressSidecarFailedKillDoesNotHideExit(t *testing.T) {
 			if !errdefs.IsNotFound(killErr) {
 				require.ErrorIs(t, err, killErr)
 			}
+		})
+	}
+}
+
+func TestStressExecCanceledStatus(t *testing.T) {
+	grpcCanceled := grpcstatus.Error(codes.Canceled, "SDK wait canceled")
+	grpcDeadline := grpcstatus.Error(codes.DeadlineExceeded, "SDK deadline expired")
+	workloadErr := errors.New("workload failed")
+	for _, tt := range []struct {
+		name     string
+		err      error
+		canceled error
+		want     bool
+	}{
+		{name: "context", err: context.Canceled, canceled: context.Canceled, want: true},
+		{name: "grpc canceled", err: grpcCanceled, canceled: context.Canceled, want: true},
+		{name: "wrapped grpc", err: fmt.Errorf("exec: %w", grpcCanceled), canceled: context.Canceled, want: true},
+		{name: "grpc deadline", err: grpcDeadline, canceled: context.DeadlineExceeded, want: true},
+		{name: "wrong status", err: grpcCanceled, canceled: context.DeadlineExceeded},
+		{name: "permission error", err: grpcstatus.Error(codes.PermissionDenied, "denied"), canceled: context.Canceled},
+		{name: "joined context and workload", err: errors.Join(context.Canceled, workloadErr), canceled: context.Canceled},
+		{name: "joined grpc and workload", err: errors.Join(grpcCanceled, workloadErr), canceled: context.Canceled},
+		{name: "wrapped joined", err: fmt.Errorf("exec: %w", errors.Join(grpcCanceled, workloadErr)), canceled: context.Canceled},
+		{name: "no error", canceled: context.Canceled},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, stressExecCanceled(tt.err, tt.canceled))
 		})
 	}
 }

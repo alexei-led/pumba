@@ -7,11 +7,19 @@ import (
 	"syscall"
 	"time"
 
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/errdefs"
 )
 
 const stressKilledExitCode = 128 + uint32(syscall.SIGKILL)
+
+func wrapStressCleanup(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &ctr.StressCleanupError{Err: err}
+}
 
 type stressTaskExit struct {
 	status               containerd.ExitStatus

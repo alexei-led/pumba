@@ -104,7 +104,7 @@ func (c *containerdClient) createStressSidecar(ctx, waitCtx context.Context, req
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 		cleanupErr := c.deleteContainer(c.nsCtx(cleanupCtx), sidecarContainer)
 		cancel()
-		return "", nil, nil, nil, errors.Join(err, cleanupErr)
+		return "", nil, nil, nil, errors.Join(err, wrapStressCleanup(cleanupErr))
 	}
 
 	return sidecarID, sidecarContainer, task, waitCh, nil
@@ -119,11 +119,11 @@ func (c *containerdClient) startSidecarTask(ctx, waitCtx context.Context, cntr c
 
 	waitCh, err := task.Wait(waitCtx)
 	if err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), cleanupTaskExec(ctx, task, false))
+		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false)))
 	}
 
 	if err := task.Start(ctx); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), cleanupTaskExec(ctx, task, false))
+		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false)))
 	}
 
 	return task, waitCh, nil

@@ -11,6 +11,8 @@ import (
 	containerd "github.com/containerd/containerd/v2/client"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // StressContainer runs stress-ng to stress a container.
@@ -105,5 +107,9 @@ func stressExecCanceled(err, canceled error) bool {
 	if _, joined := err.(interface{ Unwrap() []error }); joined {
 		return false
 	}
-	return errors.Is(err, canceled)
+	if errors.Is(err, canceled) {
+		return true
+	}
+	return (errors.Is(canceled, context.Canceled) && grpcstatus.Code(err) == codes.Canceled) ||
+		(errors.Is(canceled, context.DeadlineExceeded) && grpcstatus.Code(err) == codes.DeadlineExceeded)
 }
