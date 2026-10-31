@@ -132,11 +132,14 @@ func (client dockerClient) execOnContainer(ctx context.Context, c *ctr.Container
 // ContainerExecAttach, which Podman's Docker-compat API accepts where
 // ContainerExecStart with empty options is rejected.
 //
-// It ignores the caller's cancellation, bounded by faultExecTimeout: its
-// callers install, remove or inspect faults (or probe for a command), and a tc
-// script killed midway leaves a partial topology the verified stop script
-// refuses to remove.
+// An admitted exec ignores subsequent cancellation, bounded by faultExecTimeout:
+// its callers install, remove or inspect faults (or probe for a command), and a
+// tc script killed midway leaves a partial topology the verified stop script
+// refuses to remove. Cancellation still prevents admission of another exec.
 func (client dockerClient) runExec(ctx context.Context, containerID string, argv []string, privileged bool) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
 	defer cancel()
 	created, err := client.containerAPI.ContainerExecCreate(ctx, containerID, ctypes.ExecOptions{

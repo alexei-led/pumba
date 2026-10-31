@@ -385,6 +385,7 @@ func blockedAttach(t *testing.T) (types.HijackedResponse, net.Conn) {
 func Test_execOnContainer_probeIgnoresCancellation(t *testing.T) {
 	resp, server := blockedAttach(t)
 	api := NewMockEngine(t)
+	attached := make(chan struct{})
 	c := &ctr.Container{ContainerID: "abc"}
 	notCancelled := func(ctx context.Context) {
 		if ctx.Err() != nil {
@@ -399,16 +400,23 @@ func Test_execOnContainer_probeIgnoresCancellation(t *testing.T) {
 	api.EXPECT().ContainerExecAttach(mock.Anything, "whichID", ctypes.ExecAttachOptions{}).
 		RunAndReturn(func(ctx context.Context, _ string, _ ctypes.ExecAttachOptions) (types.HijackedResponse, error) {
 			notCancelled(ctx)
+			close(attached)
 			return resp, nil
 		}).Once()
-	api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").Return(ctypes.ExecInspect{ExitCode: 1}, nil).Once()
+	api.EXPECT().ContainerExecInspect(mock.Anything, "whichID").
+		Run(func(ctx context.Context, _ string) { notCancelled(ctx) }).Return(ctypes.ExecInspect{ExitCode: 1}, nil).Once()
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	defer cancel()
 
 	errc := make(chan error, 1)
 	go func() { errc <- client.execOnContainer(ctx, c, "tool", nil, false) }()
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-attached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("probe did not attach")
+	}
+	cancel()
 	server.Close()
 
 	select {
@@ -478,7 +486,7 @@ func Test_runSidecarExec_ignoresCancellation(t *testing.T) {
 		}).Return(ctypes.ExecInspect{ExitCode: 0}, nil).Once()
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	defer cancel()
 
 	errc := make(chan error, 1)
 	go func() {
@@ -490,6 +498,7 @@ func Test_runSidecarExec_ignoresCancellation(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("fault exec did not attach")
 	}
+	cancel()
 	select {
 	case <-inspected:
 		t.Error("fault exec inspected while its stream was still open")
