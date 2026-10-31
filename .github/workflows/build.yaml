@@ -148,6 +148,8 @@ jobs:
           docker pull alpine:latest &
           docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
           wait
+          # Build locally so status's mixed-backend regression runs on both arches.
+          docker build -t ghcr.io/alexei-led/pumba-debian-nettools:latest -f docker/debian-nettools.Dockerfile .
           docker pull ghcr.io/alexei-led/stress-ng:0.20.01
           # Warm up: exercise the nettools sidecar flow once so the first
           # netem test doesn't pay container-create latency.
