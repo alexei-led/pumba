@@ -29,6 +29,9 @@ progress*.txt
 # Git time tracking
 .gtm/
 
+# Review
+.revmux/
+
 # Debug binaries
 **/debug
 **/debug.test
