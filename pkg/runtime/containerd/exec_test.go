@@ -8,6 +8,7 @@ import (
 
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/cio"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -127,5 +128,58 @@ func isClosed(ch <-chan struct{}) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func TestExecContainerIncompleteOutputDoesNotHideCleanupFailure(t *testing.T) {
+	t.Parallel()
+	proc := newSuccessProcess(t)
+	proc.EXPECT().IO().Unset()
+	proc.EXPECT().IO().Return(newHeldIO()).Once()
+	proc.EXPECT().Delete(mock.Anything).Unset()
+	proc.EXPECT().Delete(mock.Anything).Return(nil, assert.AnError).Once()
+	task := newRunningTask(t)
+	setupExec(task, proc)
+	api := NewMockapiClient(t)
+	setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+
+	err := newTestClient(api).ExecContainer(context.Background(), testContainer("c1"), "sh", []string{"-c", "sleep 60 & exit"}, false)
+
+	require.ErrorIs(t, err, assert.AnError)
+	assert.ErrorIs(t, err, errExecCleanup)
+}
+
+func TestExecTaskOutputClosedWaitChannel(t *testing.T) {
+	t.Parallel()
+	for _, canceled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "missing_exit_status", true: "cancellation_closed_wait"}[canceled], func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			exitCh := make(chan containerd.ExitStatus)
+			proc := NewMockProcess(t)
+			proc.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil).Once()
+			proc.EXPECT().Start(mock.Anything).Run(func(context.Context) {
+				if canceled {
+					cancel()
+				}
+				close(exitCh)
+			}).Return(nil).Once()
+			proc.EXPECT().IO().Return(nil).Maybe()
+			proc.EXPECT().Delete(mock.Anything).Return(nil, nil).Once()
+			task := NewMockTask(t)
+			setupExec(task, proc)
+
+			out, errOut, err := execTaskOutput(ctx, task, &specs.Process{}, "exec-id", "inspection")
+
+			require.Error(t, err, "closed wait channel is not evidence of successful exit")
+			assert.Empty(t, out)
+			assert.Empty(t, errOut)
+			if canceled {
+				assert.ErrorIs(t, err, context.Canceled)
+			} else {
+				assert.ErrorContains(t, err, "wait channel closed without exit status")
+			}
+		})
 	}
 }

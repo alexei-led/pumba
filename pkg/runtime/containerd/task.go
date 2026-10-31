@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -14,9 +13,6 @@ import (
 	"github.com/containerd/errdefs"
 	log "github.com/sirupsen/logrus"
 )
-
-// execCounter generates unique IDs for exec and sidecar operations.
-var execCounter atomic.Uint64
 
 // signalMap maps signal names to syscall signals.
 var signalMap = map[string]syscall.Signal{

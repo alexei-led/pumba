@@ -34,6 +34,12 @@ func execArgs(argv ...string) any {
 // sidecar task for Exec expectations.
 func setupNetSidecar(t *testing.T, labels map[string]string) (*MockapiClient, *MockTask) {
 	t.Helper()
+	api, task, _ := setupNetSidecarContainer(t, labels)
+	return api, task
+}
+
+func setupNetSidecarContainer(t *testing.T, labels map[string]string) (*MockapiClient, *MockTask, *MockContainer) {
+	t.Helper()
 	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, newRunningTaskWithPID(t, 42)))
 	api.EXPECT().GetImage(mock.Anything, "nettools").Return(NewMockImage(t), nil)
@@ -55,7 +61,7 @@ func setupNetSidecar(t *testing.T, labels map[string]string) (*MockapiClient, *M
 		mock.MatchedBy(func(id string) bool { return strings.HasPrefix(id, "pumba-sidecar-") }),
 		mock.Anything, mock.Anything, mock.Anything, labelsOpt(labels),
 	).Return(sidecar, nil)
-	return api, sidecarTask
+	return api, sidecarTask, sidecar
 }
 
 func TestInspectNetnsInLabeledSidecar(t *testing.T) {
@@ -168,4 +174,63 @@ func TestStressSidecarCarriesLabels(t *testing.T) { //nolint:paralleltest // mut
 	_, err := newTestClient(api).StressContainer(context.Background(), req)
 
 	require.ErrorIs(t, err, assert.AnError)
+}
+
+func TestInspectNetnsExecCleanupFailure(t *testing.T) {
+	t.Parallel()
+	for _, sidecar := range []bool{false, true} {
+		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
+			t.Parallel()
+			var api *MockapiClient
+			var task *MockTask
+			req := &ctr.InspectRequest{Container: testContainer("c1")}
+			if sidecar {
+				api, task = setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+				req.Sidecar.Image = "nettools"
+			} else {
+				api, task = NewMockapiClient(t), newRunningTask(t)
+				setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			}
+			proc := newSuccessProcess(t)
+			proc.EXPECT().Delete(mock.Anything).Unset()
+			proc.EXPECT().Delete(mock.Anything).Return(nil, assert.AnError).Once()
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(proc, nil).Once()
+
+			state, err := newTestClient(api).InspectNetns(context.Background(), req)
+
+			require.ErrorIs(t, err, assert.AnError)
+			assert.Nil(t, state)
+		})
+	}
+}
+
+func TestInspectNetnsCancellation(t *testing.T) {
+	t.Parallel()
+	for _, sidecar := range []bool{false, true} {
+		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var api *MockapiClient
+			var task *MockTask
+			req := &ctr.InspectRequest{Container: testContainer("c1")}
+			if sidecar {
+				api, task = setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+				req.Sidecar.Image = "nettools"
+			} else {
+				api, task = NewMockapiClient(t), newRunningTask(t)
+				setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			}
+			proc := NewMockProcess(t)
+			proc.EXPECT().Wait(mock.Anything).Return(make(<-chan containerd.ExitStatus), nil).Once()
+			proc.EXPECT().Start(mock.Anything).Run(func(context.Context) { cancel() }).Return(nil).Once()
+			proc.EXPECT().Delete(mock.Anything).Return(nil, nil).Once()
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(proc, nil).Once()
+
+			state, err := newTestClient(api).InspectNetns(ctx, req)
+
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Nil(t, state)
+		})
+	}
 }

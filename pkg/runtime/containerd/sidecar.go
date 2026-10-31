@@ -2,6 +2,7 @@ package containerd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"syscall"
@@ -29,7 +30,7 @@ var networkCapabilities = []string{"CAP_NET_ADMIN", "CAP_NET_RAW"}
 func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, command string, argsList [][]string) error {
 	return c.withSidecar(ctx, target, spec, labels, func(ctx context.Context, task containerd.Task) error {
 		for _, args := range argsList {
-			if _, _, err := c.runSidecarCmd(ctx, task, command, args); err != nil {
+			if _, _, err := c.runSidecarCommand(ctx, task, command, args, execFaultTaskOutput); err != nil {
 				return err
 			}
 		}
@@ -40,7 +41,7 @@ func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Containe
 // withSidecar creates a short-lived labeled sidecar container that shares the
 // target container's network namespace, calls fn with its running task, and
 // removes the sidecar afterwards, even when ctx is canceled.
-func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, fn func(context.Context, containerd.Task) error) error {
+func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, fn func(context.Context, containerd.Task) error) (resultErr error) {
 	ctx = c.nsCtx(ctx)
 	sidecarImage := spec.Image
 
@@ -64,7 +65,7 @@ func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Containe
 		return fmt.Errorf("failed to get sidecar image %s: %w", sidecarImage, err)
 	}
 
-	sidecarID := fmt.Sprintf("pumba-sidecar-%d", execCounter.Add(1))
+	sidecarID := newOperationID("pumba-sidecar")
 	sidecarContainer, err := c.client.NewContainer(ctx, sidecarID,
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(sidecarID+"-snapshot", image),
@@ -89,7 +90,7 @@ func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Containe
 		defer cancel()
 		cleanupCtx = c.nsCtx(cleanupCtx)
 		if cleanupErr := c.cleanupSidecar(cleanupCtx, sidecarContainer); cleanupErr != nil {
-			log.WithError(cleanupErr).Warn("failed to clean up sidecar container")
+			resultErr = errors.Join(resultErr, fmt.Errorf("failed to clean up sidecar container: %w", cleanupErr))
 		}
 	}()
 
@@ -107,10 +108,14 @@ func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Containe
 // runSidecarCmd executes a single command inside a running sidecar task and
 // returns its stdout.
 func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) (string, string, error) {
+	return c.runSidecarCommand(ctx, task, command, args, execTaskOutput)
+}
+
+func (c *containerdClient) runSidecarCommand(ctx context.Context, task containerd.Task, command string, args []string, execute taskExecutor) (string, string, error) {
 	cmdArgs := make([]string, 0, 1+len(args))
 	cmdArgs = append(cmdArgs, command)
 	cmdArgs = append(cmdArgs, args...)
-	execID := fmt.Sprintf("pumba-sc-exec-%d", execCounter.Add(1))
+	execID := newOperationID("pumba-sc-exec")
 	pspec := &specs.Process{
 		Args: cmdArgs,
 		Cwd:  "/",
@@ -124,7 +129,7 @@ func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Ta
 		},
 	}
 
-	out, errOut, err := execTaskOutput(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " ")))
+	out, errOut, err := execute(ctx, task, pspec, execID, fmt.Sprintf("sidecar exec '%s'", strings.Join(cmdArgs, " ")))
 	if err != nil {
 		return "", "", err
 	}
@@ -145,24 +150,38 @@ func (c *containerdClient) pullImage(ctx context.Context, ref string) error {
 // cleanupSidecar kills the task and removes the sidecar container and its snapshot.
 func (c *containerdClient) cleanupSidecar(ctx context.Context, cntr containerd.Container) error {
 	task, err := cntr.Task(ctx, nil)
-	if err != nil && !errdefs.IsNotFound(err) {
-		log.WithError(err).Warn("failed to get sidecar task for cleanup")
-	}
+	var taskErr error
 	if err == nil {
-		waitCh, waitErr := task.Wait(ctx)
-		_ = task.Kill(ctx, syscall.SIGKILL)
-		if waitErr == nil {
-			killTimer := time.NewTimer(sidecarKillTimeout)
-			defer killTimer.Stop()
-			select {
-			case <-waitCh:
-			case <-killTimer.C:
-			}
+		taskErr = cleanupSidecarTask(ctx, task)
+	} else if !errdefs.IsNotFound(err) {
+		taskErr = fmt.Errorf("failed to get sidecar task for cleanup: %w", err)
+	}
+	return errors.Join(taskErr, c.deleteContainer(ctx, cntr))
+}
+
+func cleanupSidecarTask(ctx context.Context, task containerd.Task) error {
+	waitCh, waitErr := task.Wait(ctx)
+	killErr := task.Kill(ctx, syscall.SIGKILL)
+	if waitErr == nil && killErr == nil {
+		killTimer := time.NewTimer(sidecarKillTimeout)
+		defer killTimer.Stop()
+		select {
+		case <-waitCh:
+		case <-killTimer.C:
+			waitErr = errors.New("timed out waiting for sidecar task after SIGKILL")
+		case <-ctx.Done():
+			waitErr = ctx.Err()
 		}
-		_, _ = task.Delete(ctx)
 	}
-	if err := cntr.Delete(ctx, containerd.WithSnapshotCleanup); err != nil && !errdefs.IsNotFound(err) {
-		return fmt.Errorf("failed to delete sidecar container: %w", err)
+	if errdefs.IsNotFound(waitErr) {
+		waitErr = nil
 	}
-	return nil
+	if errdefs.IsNotFound(killErr) {
+		killErr = nil
+	}
+	_, deleteErr := task.Delete(ctx)
+	if errdefs.IsNotFound(deleteErr) {
+		deleteErr = nil
+	}
+	return errors.Join(waitErr, killErr, deleteErr)
 }

@@ -11,14 +11,19 @@ import (
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	log "github.com/sirupsen/logrus"
 )
+
+type taskExecutor func(context.Context, containerd.Task, *specs.Process, string, string) (string, string, error)
 
 // execTaskOutput runs a command inside a containerd task, waits for
 // completion and returns its stdout. Handles the full exec lifecycle: create,
 // wait, start, collect exit status, delete. A non-zero exit is an error
 // carrying stderr.
 func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, string, error) {
+	return runTaskExec(ctx, task, pspec, execID, description, false)
+}
+
+func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string, terminateOnCancel bool) (out, errOut string, resultErr error) {
 	var stdout, stderr bytes.Buffer
 	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
 		cio.WithStreams(nil, &stdout, &stderr),
@@ -27,8 +32,9 @@ func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Proc
 		return "", "", fmt.Errorf("failed to exec %s: %w", description, err)
 	}
 	defer func() {
-		if _, delErr := execProcess.Delete(ctx); delErr != nil {
-			log.WithError(delErr).WithField("exec", description).Warn("failed to delete exec process")
+		if cleanupErr := cleanupTaskExec(ctx, execProcess, terminateOnCancel && ctx.Err() != nil); cleanupErr != nil {
+			out, errOut = "", ""
+			resultErr = errors.Join(resultErr, fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanupErr))
 		}
 	}()
 
@@ -42,7 +48,13 @@ func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Proc
 	}
 
 	select {
-	case status := <-exitCh:
+	case status, ok := <-exitCh:
+		if !ok {
+			if err := ctx.Err(); err != nil {
+				return "", "", fmt.Errorf("%s canceled: %w", description, err)
+			}
+			return "", "", fmt.Errorf("%s: wait channel closed without exit status", description)
+		}
 		code, _, err := status.Result()
 		if err != nil {
 			return "", "", fmt.Errorf("%s failed: %w", description, err)
@@ -105,7 +117,7 @@ func waitIO(ctx context.Context, p containerd.Process, timeout time.Duration) er
 // on incomplete captured output; neither may treat a prefix as complete.
 func (c *containerdClient) execUserCommand(ctx context.Context, containerID, command string, args []string) error {
 	err := c.execInContainer(ctx, containerID, command, args)
-	if errors.Is(err, errIncompleteOutput) {
+	if errors.Is(err, errIncompleteOutput) && !errors.Is(err, errExecCleanup) {
 		return nil
 	}
 	return err
@@ -118,6 +130,10 @@ func (c *containerdClient) execInContainer(ctx context.Context, containerID, com
 
 // execInContainerOutput is execInContainer returning the command's stdout.
 func (c *containerdClient) execInContainerOutput(ctx context.Context, containerID, command string, args []string) (string, string, error) {
+	return c.execContainerCommand(ctx, containerID, command, args, execTaskOutput)
+}
+
+func (c *containerdClient) execContainerCommand(ctx context.Context, containerID, command string, args []string, execute taskExecutor) (string, string, error) {
 	task, err := c.getTask(ctx, containerID)
 	if err != nil {
 		return "", "", err
@@ -126,7 +142,7 @@ func (c *containerdClient) execInContainerOutput(ctx context.Context, containerI
 	cmdArgs := make([]string, 0, 1+len(args))
 	cmdArgs = append(cmdArgs, command)
 	cmdArgs = append(cmdArgs, args...)
-	execID := fmt.Sprintf("pumba-exec-%d", execCounter.Add(1))
+	execID := newOperationID("pumba-exec")
 	pspec := &specs.Process{
 		Args: cmdArgs,
 		Cwd:  "/",
@@ -134,5 +150,5 @@ func (c *containerdClient) execInContainerOutput(ctx context.Context, containerI
 		User: specs.User{UID: 0, GID: 0},
 	}
 
-	return execTaskOutput(ctx, task, pspec, execID, fmt.Sprintf("exec in %s '%s'", containerID, strings.Join(cmdArgs, " ")))
+	return execute(ctx, task, pspec, execID, fmt.Sprintf("exec in %s '%s'", containerID, strings.Join(cmdArgs, " ")))
 }
