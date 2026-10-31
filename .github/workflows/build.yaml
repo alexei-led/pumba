@@ -159,14 +159,12 @@ jobs:
           docker rm -f "${cid}" 2>/dev/null || true
       - name: Run Docker Integration Tests
         if: matrix.runtime == 'docker'
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 10
-          max_attempts: 2
-          command: |
-            shopt -s extglob
-            sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
-              tests/!(containerd_*|podman_*).bats 2>&1 | tee "$BATS_LOG"
+        timeout-minutes: 15
+        run: |
+          set -o pipefail
+          shopt -s extglob
+          sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
+            tests/!(containerd_*|podman_*).bats 2>&1 | tee "$BATS_LOG"
       # ── Containerd runtime ────────────────────────────────────────────────
       - name: Setup Containerd Runtime
         if: matrix.runtime == 'containerd'
