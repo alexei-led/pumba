@@ -23,6 +23,13 @@ func (client dockerClient) StopIPTablesContainer(ctx context.Context, req *ctr.I
 	return client.runIPTables(ctx, req)
 }
 
+// PlanIPTablesContainer returns the argv IPTablesContainer(add) and
+// StopIPTablesContainer(del) run. The `which iptables` probe of exec mode is
+// not part of the plan.
+func (client dockerClient) PlanIPTablesContainer(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
+	return netns.IPTablesPlan(add, del), nil
+}
+
 func logIPTablesRequest(req *ctr.IPTablesRequest) *log.Entry {
 	return log.WithFields(log.Fields{
 		"name":          req.Container.Name(),
@@ -48,11 +55,12 @@ func (client dockerClient) runIPTables(ctx context.Context, req *ctr.IPTablesReq
 	commands := netns.IPTablesCommands(req)
 	if req.Sidecar.Image != "" {
 		labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindIPTables)
-		return client.runSidecar(ctx, req.Container, req.Sidecar, labels, "iptables", commands)
+		return client.runSidecar(ctx, req.Container, req.Sidecar, labels, ctr.SidecarKindIPTables, commands)
 	}
-	for _, args := range commands {
+	for _, argv := range commands {
+		args := argv[1:]
 		log.WithField("iptables", strings.Join(args, " ")).Debug("executing iptables")
-		if err := client.execOnContainer(ctx, req.Container, "iptables", args, true); err != nil {
+		if err := client.execOnContainer(ctx, req.Container, argv[0], args, true); err != nil {
 			return fmt.Errorf("error running iptables command on container: %v: %w", strings.Join(args, " "), err)
 		}
 	}

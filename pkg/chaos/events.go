@@ -142,6 +142,19 @@ type TargetResult struct {
 	Cleanup *Cleanup `json:"cleanup"`
 	// State is what `pumba status` found on the target; nil for other actions.
 	State *TargetState `json:"state,omitempty"`
+	// Plan is what a netem or iptables dry-run would run on the target; nil
+	// otherwise.
+	Plan *Plan `json:"plan,omitempty"`
+}
+
+// Plan is the exact commands a dry-run would run in the target's network
+// namespace to apply the fault and to revert it. Each argv starts with the
+// binary. Via is "sidecar" (Image set) or "exec" in the target.
+type Plan struct {
+	Via    string     `json:"via"`
+	Image  string     `json:"image,omitempty"`
+	Apply  [][]string `json:"apply"`
+	Revert [][]string `json:"revert"`
 }
 
 // Cleanup is the outcome of reverting a fault on one target.

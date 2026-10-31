@@ -84,7 +84,8 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 		Labels:        map[string]string{},
 		Networks:      map[string]container.NetworkLink{},
 	}
-	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1"}
+	sink := &resultSink{}
+	gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1", Events: sink}
 	base := newBase(&container.IPTablesRequest{
 		Duration: 100 * time.Millisecond,
 		Sidecar:  container.SidecarSpec{Image: "iptables-image"},
@@ -118,14 +119,16 @@ func TestLossCommand_Run_RandomMode(t *testing.T) {
 		DryRun:    true,
 		RunID:     "run1",
 	}
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
+	mockClient.EXPECT().PlanIPTablesContainer(addReq, delReq).Return(dryRunPlan, nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
 
 	err = cmd.Run(context.Background(), false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, sink.results, 1)
+	assert.Equal(t, chaos.TargetPlanned, sink.results[0].Status)
+	assert.Equal(t, plannedResult, sink.results[0].Plan)
 }
 
 func TestLossCommand_Run_NTHMode(t *testing.T) {
@@ -168,8 +171,7 @@ func TestLossCommand_Run_NTHMode(t *testing.T) {
 		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
 		DryRun:    true,
 	}
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
+	mockClient.EXPECT().PlanIPTablesContainer(addReq, delReq).Return(dryRunPlan, nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, base, ModeNTH, 0, 5, 0)
 	require.NoError(t, err)
@@ -218,8 +220,7 @@ func TestLossCommand_Run_WithProtocol(t *testing.T) {
 		Sidecar:   container.SidecarSpec{Image: "iptables-image"},
 		DryRun:    true,
 	}
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil)
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil)
+	mockClient.EXPECT().PlanIPTablesContainer(addReq, delReq).Return(dryRunPlan, nil)
 
 	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)
@@ -245,8 +246,7 @@ func TestLossCommand_Run_WithRandom(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil)
 
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, mock.AnythingOfType("*container.IPTablesRequest")).Return(nil).Once()
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, mock.AnythingOfType("*container.IPTablesRequest")).Return(nil).Once()
+	mockClient.EXPECT().PlanIPTablesContainer(mock.AnythingOfType("*container.IPTablesRequest"), mock.AnythingOfType("*container.IPTablesRequest")).Return(dryRunPlan, nil).Once()
 
 	cmd, err := NewLossCommand(mockClient, gparams, base, ModeRandom, 0.5, 0, 0)
 	require.NoError(t, err)

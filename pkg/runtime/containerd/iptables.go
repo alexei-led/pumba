@@ -22,6 +22,12 @@ func (c *containerdClient) StopIPTablesContainer(ctx context.Context, req *ctr.I
 	return c.runIPTables(ctx, req)
 }
 
+// PlanIPTablesContainer returns the argv IPTablesContainer(add) and
+// StopIPTablesContainer(del) run.
+func (c *containerdClient) PlanIPTablesContainer(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
+	return netns.IPTablesPlan(add, del), nil
+}
+
 func (c *containerdClient) runIPTables(ctx context.Context, req *ctr.IPTablesRequest) error {
 	if req.DryRun {
 		return nil
@@ -29,11 +35,11 @@ func (c *containerdClient) runIPTables(ctx context.Context, req *ctr.IPTablesReq
 	commands := netns.IPTablesCommands(req)
 	if req.Sidecar.Image != "" {
 		labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindIPTables)
-		return c.sidecarExec(ctx, req.Container, req.Sidecar, labels, "iptables", commands)
+		return c.sidecarExec(ctx, req.Container, req.Sidecar, labels, commands)
 	}
 	ctx = c.nsCtx(ctx)
-	for _, args := range commands {
-		if err := c.execInContainer(ctx, req.Container.ID(), "iptables", args); err != nil {
+	for _, argv := range commands {
+		if err := c.execInContainer(ctx, req.Container.ID(), argv[0], argv[1:]); err != nil {
 			return fmt.Errorf("failed to run iptables command: %w", err)
 		}
 	}

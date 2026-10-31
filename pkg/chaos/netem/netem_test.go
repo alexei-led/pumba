@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,7 @@ import (
 type fakeReport struct {
 	calls     []string
 	revertErr error
+	plan      *container.CommandPlan
 }
 
 func (f *fakeReport) Applied() { f.calls = append(f.calls, "applied") }
@@ -23,6 +25,11 @@ func (f *fakeReport) Applied() { f.calls = append(f.calls, "applied") }
 func (f *fakeReport) Reverted(err error) {
 	f.calls = append(f.calls, "reverted")
 	f.revertErr = err
+}
+
+func (f *fakeReport) SetPlan(p *container.CommandPlan) {
+	f.calls = append(f.calls, "planned")
+	f.plan = p
 }
 
 func Test_runNetem(t *testing.T) {
@@ -248,18 +255,57 @@ func TestRunNetemCancellationReturnsCleanupErrorWithLiveContext(t *testing.T) {
 	require.ErrorIs(t, err, stopErr)
 }
 
-func TestRunNetemDryRunReturnsWithoutWaiting(t *testing.T) {
-	req := &container.NetemRequest{
-		Container: &container.Container{ContainerID: "c1"},
-		Interface: "eth0",
-		Duration:  time.Hour,
-		DryRun:    true,
-	}
-	client := container.NewMockClient(t)
-	client.EXPECT().NetemContainer(mock.Anything, req).Return(nil)
-	client.EXPECT().StopNetemContainer(mock.Anything, req).Return(nil)
+// plannedResult is the target.result of a dry-run that planned dryRunPlan.
+var plannedResult = &chaos.Plan{
+	Via:    "sidecar",
+	Image:  "tc",
+	Apply:  [][]string{{"sh", "-ec", "start"}},
+	Revert: [][]string{{"sh", "-ec", "stop"}},
+}
 
-	start := time.Now()
-	require.NoError(t, runNetem(context.Background(), client, req, &fakeReport{}))
-	require.Less(t, time.Since(start), time.Second, "dry-run must not sleep for --duration")
+// dryRunPlan is what the mocked runtime plans for dry-run tests.
+var dryRunPlan = &container.CommandPlan{
+	Via:    container.ViaSidecar,
+	Image:  "tc",
+	Apply:  [][]string{{"sh", "-ec", "start"}},
+	Revert: [][]string{{"sh", "-ec", "stop"}},
+}
+
+func TestRunNetemDryRunPlansWithoutRunning(t *testing.T) {
+	planErr := errors.New("rootless")
+	tests := []struct {
+		name     string
+		plan     *container.CommandPlan
+		err      error
+		wantPlan *container.CommandPlan
+		wantErr  error
+	}{
+		{name: "plan reported", plan: dryRunPlan, wantPlan: dryRunPlan},
+		{name: "plan failure returned", err: planErr, wantErr: planErr},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &container.NetemRequest{
+				Container: &container.Container{ContainerID: "c1"},
+				Interface: "eth0",
+				Duration:  time.Hour,
+				DryRun:    true,
+			}
+			client := container.NewMockClient(t)
+			client.EXPECT().PlanNetemContainer(req).Return(tt.plan, tt.err).Once()
+
+			report := &fakeReport{}
+			start := time.Now()
+			err := runNetem(context.Background(), client, req, report)
+			require.Less(t, time.Since(start), time.Second, "dry-run must not sleep for --duration")
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.Empty(t, report.calls)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, []string{"planned"}, report.calls)
+			require.Same(t, tt.wantPlan, report.plan)
+		})
+	}
 }

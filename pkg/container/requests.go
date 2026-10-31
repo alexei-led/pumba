@@ -60,6 +60,27 @@ type IPTablesRequest struct {
 	RunID string
 }
 
+// CommandVia says where planned commands run.
+type CommandVia string
+
+const (
+	// ViaSidecar: in a short-lived sidecar that joins the target's netns.
+	ViaSidecar CommandVia = "sidecar"
+	// ViaExec: by exec in the target container itself.
+	ViaExec CommandVia = "exec"
+)
+
+// CommandPlan is what a runtime would run in a target's network namespace to
+// apply a fault and to revert it. Each argv starts with the binary (sh or
+// iptables). Image is the sidecar image; empty when Via is ViaExec. Runtime
+// probes (e.g. checking the binary exists) are not part of the plan.
+type CommandPlan struct {
+	Via    CommandVia
+	Image  string
+	Apply  [][]string
+	Revert [][]string
+}
+
 // StressRequest carries every parameter required to apply a stress-ng workload
 // against a target container. Sidecar describes the stress-ng image hint for
 // runtimes that launch one; runtimes free to ignore (e.g. containerd direct

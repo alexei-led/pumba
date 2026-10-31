@@ -26,6 +26,7 @@ type iptablesClient interface {
 type targetReport interface {
 	Applied()
 	Reverted(err error)
+	SetPlan(p *container.CommandPlan)
 }
 
 // cleanupTimeout caps how long the iptables-cleanup sidecar cycle is allowed
@@ -37,8 +38,8 @@ const cleanupTimeout = 30 * time.Second
 // pair distinguishes the rule installation command (-I/-A/-N) from its mirror
 // removal command (-D); both share the rest of the request fields. Reports to
 // t when the rules are installed and how their removal went; a failed removal
-// after a successful install is returned as an error. Dry-runs do not wait for
-// the duration.
+// after a successful install is returned as an error. A dry-run runs nothing:
+// it reports the runtime's plan of the commands to t and returns at once.
 func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *container.IPTablesRequest, t targetReport) error {
 	logger := log.WithFields(log.Fields{
 		"id":           addReq.Container.ID(),
@@ -54,6 +55,9 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 		"image":        addReq.Sidecar.Image,
 		"pull":         addReq.Sidecar.Pull,
 	})
+	if addReq.DryRun {
+		return planIPTables(client, addReq, delReq, t, logger)
+	}
 	logger.Debug("running iptables command")
 	if err := client.IPTablesContainer(ctx, addReq); err != nil {
 		// rules before the failing one may already be installed; remove them. Cleanup
@@ -66,9 +70,7 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 	}
 	logger.Debug("iptables command started")
 	t.Applied()
-	if !addReq.DryRun {
-		waitIPTables(ctx, addReq.Duration, logger)
-	}
+	waitIPTables(ctx, addReq.Duration, logger)
 	// stopIPTables uses context.WithoutCancel so cleanup succeeds even if the parent
 	// ctx is canceled or inherited a deadline that has elapsed alongside the wait.
 	err := stopIPTables(ctx, client, delReq)
@@ -77,6 +79,18 @@ func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *con
 		logger.WithError(err).Warn("failed to stop iptables container (container may have been removed)")
 		return fmt.Errorf("stopping iptables: %w", err)
 	}
+	return nil
+}
+
+// planIPTables reports the commands an iptables run would execute on the
+// target.
+func planIPTables(client iptablesClient, addReq, delReq *container.IPTablesRequest, t targetReport, logger *log.Entry) error {
+	plan, err := client.PlanIPTablesContainer(addReq, delReq)
+	if err != nil {
+		return fmt.Errorf("planning iptables: %w", err)
+	}
+	logger.WithFields(log.Fields{"via": plan.Via, "apply": plan.Apply, "revert": plan.Revert}).Info("dry-run: planned iptables commands")
+	t.SetPlan(plan)
 	return nil
 }
 
