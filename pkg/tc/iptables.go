@@ -79,9 +79,8 @@ func ExplainIPTablesError(err error, tagged bool) error {
 // print when the comment extension or its kernel module is missing.
 func commentMatchMissing(msg string) bool {
 	msg = strings.ToLower(msg)
-	if strings.Contains(msg, "no chain/target/match by that name") {
-		return true
-	}
-	return strings.Contains(msg, "comment") &&
-		(strings.Contains(msg, "couldn't load match") || strings.Contains(msg, "not supported"))
+	return strings.Contains(msg, "couldn't load match `comment'") ||
+		strings.Contains(msg, "couldn't load match 'comment'") ||
+		strings.Contains(msg, `couldn't load match "comment"`) ||
+		(strings.Contains(msg, "extension comment revision") && strings.Contains(msg, "not supported"))
 }

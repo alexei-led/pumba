@@ -98,7 +98,9 @@ func mockIPTablesDryRun(t *testing.T) *ctr.MockClient {
 	client := ctr.NewMockClient(t)
 	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ctr.ListOpts{}).Return([]*ctr.Container{web}, nil).Once()
 	client.EXPECT().PlanIPTablesContainer(mock.AnythingOfType("*container.IPTablesRequest"), mock.AnythingOfType("*container.IPTablesRequest")).
-		RunAndReturn(func(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) { return netns.IPTablesPlan(add, del), nil }).Once()
+		RunAndReturn(func(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
+			return netns.IPTablesPlan(add, del), nil
+		}).Once()
 	client.EXPECT().Close().Return(nil).Maybe()
 	return client
 }

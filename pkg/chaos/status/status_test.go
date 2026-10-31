@@ -85,7 +85,8 @@ func expectListings(client *container.MockClient, world []*container.Container, 
 	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
 		mock.MatchedBy(func(o container.ListOpts) bool { return o.All && o.OnSkip != nil && o.Labels == nil })).
 		RunAndReturn(serve).Once()
-	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+		mock.MatchedBy(func(o container.ListOpts) bool { return !o.All && o.OnSkip != nil && o.Labels == nil })).
 		RunAndReturn(serve).Once()
 }
 
@@ -292,6 +293,51 @@ func TestStatusVerdicts(t *testing.T) {
 	}
 }
 
+func TestStatusTargetListingGap(t *testing.T) {
+	for _, dirty := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unknown", true: "dirty"}[dirty], func(t *testing.T) {
+			client := container.NewMockClient(t)
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+				mock.MatchedBy(func(o container.ListOpts) bool { return o.All })).
+				Return(nil, nil).Once()
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+				mock.MatchedBy(func(o container.ListOpts) bool { return !o.All })).
+				RunAndReturn(func(_ context.Context, fn container.FilterFunc, opts container.ListOpts) ([]*container.Container, error) {
+					if opts.OnSkip != nil {
+						opts.OnSkip("db-id", errors.New("task status: unavailable"))
+					}
+					require.True(t, fn(web))
+					return []*container.Container{web}, nil
+				}).Once()
+			state := &container.FaultState{}
+			if dirty {
+				state.Rules = []container.PumbaRule{ruleX}
+			}
+			expectInspect(client, web, state, nil)
+			rec := &recording{}
+			recorder := chaos.NewRecorder(rec, "test")
+			gp := &chaos.GlobalParams{Pattern: "web|db", RunID: invocation, Events: recorder}
+			cmd := status.NewCommand(client, gp, status.Params{Check: true, Sidecar: tcImage})
+
+			err := cmd.Run(context.Background(), false)
+
+			require.NoError(t, err)
+			require.Len(t, rec.reports, 1)
+			cov := rec.reports[0].Coverage
+			assert.Equal(t, []chaos.ListingGap{{ID: "db-id", Error: "task status: unavailable"}}, cov.ListingGaps)
+			assert.Empty(t, cov.MissingTargets, "regex selections cannot detect missing targets by name")
+			want := chaos.VerdictUnknown
+			if dirty {
+				want = chaos.VerdictDirty
+			}
+			assert.Equal(t, want, cov.Verdict)
+			end, outcome := recorder.RunEnd(err, false)
+			assert.Equal(t, chaos.RunStatus(want), end.End.Status)
+			assert.Equal(t, 1, outcome.ExitCode)
+		})
+	}
+}
+
 func resultFor(t *testing.T, results []*chaos.TargetResult, id string) *chaos.TargetResult {
 	t.Helper()
 	for _, r := range results {
@@ -359,7 +405,8 @@ func TestStatusListingFailureRecordsUnknown(t *testing.T) {
 				client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
 					mock.MatchedBy(func(o container.ListOpts) bool { return o.All })).
 					Return(nil, nil).Once()
-				client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), container.ListOpts{}).
+				client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+					mock.MatchedBy(func(o container.ListOpts) bool { return !o.All && o.OnSkip != nil })).
 					Return(nil, socketClosed).Once()
 			},
 			wantErr: "selecting targets: ",
@@ -390,6 +437,52 @@ func TestStatusListingFailureRecordsUnknown(t *testing.T) {
 			assert.Equal(t, 1, o.ExitCode, "--check must not pass a run that inspected nothing")
 			require.NotNil(t, o.Error)
 			assert.Equal(t, tt.code, o.Error.Code)
+		})
+	}
+}
+
+func TestStatusTargetListingFailureRetainsEvidence(t *testing.T) {
+	for _, selection := range []string{"unscoped", "names", "pattern", "labels"} {
+		t.Run(selection, func(t *testing.T) {
+			client := container.NewMockClient(t)
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+				mock.MatchedBy(func(o container.ListOpts) bool { return o.All })).
+				RunAndReturn(func(_ context.Context, _ container.FilterFunc, opts container.ListOpts) ([]*container.Container, error) {
+					opts.OnSkip("unreadable", errors.New("task status unavailable"))
+					return []*container.Container{sidecar("s1", container.SidecarKindStress, "gone", "X", container.StateRunning)}, nil
+				}).Once()
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+				mock.MatchedBy(func(o container.ListOpts) bool { return !o.All })).Return(nil, errors.New("socket closed")).Once()
+			sink := &recording{}
+			rec := chaos.NewRecorder(sink, "1.5.0")
+			gp := &chaos.GlobalParams{Events: rec, SkipErrors: true}
+			switch selection {
+			case "names":
+				gp.Names = []string{"web"}
+			case "pattern":
+				gp.Pattern = "^web"
+			case "labels":
+				gp.Labels = []string{"app=web"}
+			}
+			cmd := status.NewCommand(client, gp, status.Params{Check: true, RunFilter: "X"})
+			err := chaos.RunChaosCommand(context.Background(), cmd, gp)
+			require.NoError(t, err)
+			require.Len(t, sink.reports, 1)
+			cov := sink.reports[0].Coverage
+			assert.Equal(t, []chaos.ListingGap{{ID: "unreadable", Error: "task status unavailable"}}, cov.ListingGaps)
+			want := chaos.VerdictUnknown
+			if selection == "unscoped" {
+				want = chaos.VerdictDirty
+				require.Len(t, cov.OrphanSidecars, 1)
+				assert.Equal(t, "s1", cov.OrphanSidecars[0].ID)
+			} else {
+				assert.Empty(t, cov.OrphanSidecars, "a failed selection must not expose unrelated artifacts")
+			}
+			assert.Equal(t, want, cov.Verdict)
+			assert.Contains(t, cov.Reasons[len(cov.Reasons)-1], "listing failed: selecting targets:")
+			_, outcome := rec.RunEnd(err, false)
+			assert.Equal(t, chaos.RunStatus(want), outcome.Status)
+			assert.Equal(t, 1, outcome.ExitCode)
 		})
 	}
 }

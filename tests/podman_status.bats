@@ -20,24 +20,22 @@ bats_require_minimum_version 1.5.0
 NETTOOLS="ghcr.io/alexei-led/pumba-alpine-nettools:latest"
 
 setup() {
+    PODMAN_FIXTURE_IDS=()
     require_podman
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — status requires rootful mode"
     fi
-    podman_rm_force pdm-status-ctr
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull "${NETTOOLS}" >/dev/null 2>&1 || true
-    podman run -d --privileged --name pdm-status-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
+    podman_fixture_run -d --privileged --name pdm-status-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
     wait_for_running podman pdm-status-ctr
 }
 
 teardown() {
+    [ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
     pkill -f "pumba.*pdm-status-ctr" 2>/dev/null || true
     kill %1 2>/dev/null || true
-    podman_rm_force pdm-status-ctr
-    for sc in $(podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
-        podman rm -f "$sc" >/dev/null 2>&1 || true
-    done
+    podman_fixture_cleanup
 }
 
 # Run jq filter $1 on the state of the only target.result in $output.

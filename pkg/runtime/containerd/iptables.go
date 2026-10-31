@@ -39,7 +39,7 @@ func (c *containerdClient) runIPTables(ctx context.Context, req *ctr.IPTablesReq
 	}
 	ctx = c.nsCtx(ctx)
 	for _, argv := range commands {
-		if err := c.execInContainer(ctx, req.Container.ID(), argv[0], argv[1:]); err != nil {
+		if err := c.execFaultInContainer(ctx, req.Container.ID(), argv[0], argv[1:]); err != nil {
 			return fmt.Errorf("failed to run iptables command: %w", err)
 		}
 	}

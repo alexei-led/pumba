@@ -52,13 +52,13 @@ func NewCommand(client statusClient, gp *chaos.GlobalParams, p Params) chaos.Com
 // Run inspects every selected running target once (one tick): it lists Pumba
 // sidecars, inspects each target's netns through chaos.RunOnContainers, and
 // records the report with the verdict. An inspection failure fails its target
-// and the run. A listing failure records an unknown report, so --check never
-// passes on a run that saw nothing; a refusal or usage error records none.
+// and the run. A listing failure preserves known dirty evidence or records
+// unknown, so --check never passes; a refusal or usage error records none.
 func (s *statusCommand) Run(ctx context.Context, _ bool) error {
 	sidecars, gaps, err := s.listSidecars(ctx)
 	if err != nil {
 		err = chaos.NewRuntimeUnavailableError(fmt.Errorf("listing pumba sidecars: %w", err))
-		s.recordListingFailure(err)
+		s.recordListingFailure(err, nil, nil)
 		return err
 	}
 	byTarget := map[string][]chaos.StateSidecar{}
@@ -69,7 +69,15 @@ func (s *statusCommand) Run(ctx context.Context, _ bool) error {
 		mu      sync.Mutex
 		targets []chaos.StatusTarget
 	)
-	runErr := chaos.RunOnContainers(ctx, s.client, s.gp, 0, false, true,
+	lister := gapLister{Lister: s.client, onSkip: func(id string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		gap := chaos.ListingGap{ID: id, Error: err.Error()}
+		if !slices.Contains(gaps, gap) {
+			gaps = append(gaps, gap)
+		}
+	}}
+	runErr := chaos.RunOnContainers(ctx, lister, s.gp, 0, false, true,
 		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			st, err := s.inspect(ctx, c, byTarget[c.ID()])
 			t.SetState(st.State)
@@ -81,7 +89,7 @@ func (s *statusCommand) Run(ctx context.Context, _ bool) error {
 	if runErr != nil && len(targets) == 0 {
 		err := fmt.Errorf("selecting targets: %w", runErr)
 		if !errors.Is(runErr, chaos.ErrMaxTargetsExceeded) && !errors.Is(runErr, chaos.ErrNegativeMaxTargets) {
-			s.recordListingFailure(err)
+			s.recordListingFailure(err, sidecars, gaps)
 		}
 		return err
 	}
@@ -95,17 +103,28 @@ func (s *statusCommand) Run(ctx context.Context, _ bool) error {
 	return nil
 }
 
-// recordListingFailure records a report with an unknown verdict for a run that
-// could not list containers and so inspected nothing.
-func (s *statusCommand) recordListingFailure(err error) {
-	s.gp.RecordStatus(&chaos.StatusReport{Check: s.p.Check, Targets: []chaos.StatusTarget{}, Coverage: &chaos.StatusCoverage{
-		RunFilter:      s.p.RunFilter,
-		OrphanSidecars: []chaos.StateSidecar{},
-		MissingTargets: []string{},
-		ListingGaps:    []chaos.ListingGap{},
-		Verdict:        chaos.VerdictUnknown,
-		Reasons:        []string{"listing failed: " + err.Error()},
-	}})
+// gapLister observes the runner's target listing without changing shared
+// selection interfaces or bypassing its max-target guard.
+type gapLister struct {
+	container.Lister
+	onSkip func(string, error)
+}
+
+func (l gapLister) ListContainers(ctx context.Context, fn container.FilterFunc, opts container.ListOpts) ([]*container.Container, error) {
+	opts.OnSkip = l.onSkip
+	return l.Lister.ListContainers(ctx, fn, opts)
+}
+
+// recordListingFailure retains findings from completed listings when a later
+// listing fails. Dirty evidence wins, but the failure still explains the gap.
+func (s *statusCommand) recordListingFailure(err error, sidecars []chaos.StateSidecar, gaps []chaos.ListingGap) {
+	cov := s.coverage(nil, sidecars, nonNil(gaps))
+	// A failed listing cannot establish that named targets are absent.
+	cov.MissingTargets = []string{}
+	cov.Verdict, cov.Reasons = evaluate(nil, cov)
+	cov.Reasons = slices.DeleteFunc(cov.Reasons, func(reason string) bool { return reason == noTargetsSelectedReason })
+	cov.Reasons = append(cov.Reasons, "listing failed: "+err.Error())
+	s.gp.RecordStatus(&chaos.StatusReport{Check: s.p.Check, Targets: []chaos.StatusTarget{}, Coverage: cov})
 }
 
 // listSidecars lists every Pumba sidecar except inspect sidecars, running or
@@ -206,6 +225,8 @@ func named(name string, t chaos.TargetRef) bool {
 	return name == t.ID || name == t.Name || name == strings.TrimPrefix(t.Name, "/")
 }
 
+const noTargetsSelectedReason = "no targets selected"
+
 // evaluate decides the verdict and its reasons. Dirty wins over unknown: a
 // matched attributable artifact is certain even when coverage is incomplete.
 // Clean is never vacuous: no inspected target is unknown.
@@ -226,7 +247,7 @@ func evaluate(targets []chaos.StatusTarget, cov *chaos.StatusCoverage) (chaos.Ve
 		unknown = append(unknown, fmt.Sprintf("%s: container could not be read", g.ID))
 	}
 	if len(targets) == 0 {
-		unknown = append(unknown, "no targets selected")
+		unknown = append(unknown, noTargetsSelectedReason)
 	}
 	switch {
 	case len(dirty) > 0:

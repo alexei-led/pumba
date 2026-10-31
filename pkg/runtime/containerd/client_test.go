@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/containers"
-	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/errdefs"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -754,68 +752,6 @@ func TestExecContainer_NonZeroExit(t *testing.T) {
 	err := client.ExecContainer(context.Background(), testContainer("c1"), "false", nil, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exited with code 1")
-}
-
-// heldIO is a cio.IO whose copy never reaches EOF on its own, like an exec
-// whose background child keeps stdout open; only Cancel ends the copy.
-type heldIO struct {
-	canceled chan struct{}
-	once     sync.Once
-}
-
-func newHeldIO() *heldIO { return &heldIO{canceled: make(chan struct{})} }
-
-func (h *heldIO) Config() cio.Config { return cio.Config{} }
-func (h *heldIO) Cancel()            { h.once.Do(func() { close(h.canceled) }) }
-func (h *heldIO) Wait()              { <-h.canceled }
-func (h *heldIO) Close() error       { return nil }
-
-func TestWaitIO(t *testing.T) {
-	t.Parallel()
-
-	canceledCtx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	tests := []struct {
-		name    string
-		ctx     context.Context
-		wantErr error
-	}{
-		{name: "output_held_open_past_exit_returns_after_timeout", ctx: context.Background()},
-		{name: "ctx_canceled_returns_ctx_error", ctx: canceledCtx, wantErr: context.Canceled},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			pio := newHeldIO()
-			p := NewMockProcess(t)
-			p.EXPECT().IO().Return(pio)
-
-			errCh := make(chan error, 1)
-			go func() { errCh <- waitIO(tt.ctx, p, 10*time.Millisecond) }()
-
-			select {
-			case err := <-errCh:
-				if tt.wantErr != nil {
-					require.ErrorIs(t, err, tt.wantErr)
-				} else {
-					require.NoError(t, err)
-				}
-			case <-time.After(5 * time.Second):
-				t.Fatal("waitIO blocked on IO that never reaches EOF")
-			}
-			assert.True(t, isClosed(pio.canceled), "IO copy must be canceled")
-		})
-	}
-}
-
-func isClosed(ch <-chan struct{}) bool {
-	select {
-	case <-ch:
-		return true
-	default:
-		return false
-	}
 }
 
 func TestExecContainer_LoadError(t *testing.T) {

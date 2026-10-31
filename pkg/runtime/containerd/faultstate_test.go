@@ -3,7 +3,9 @@ package containerd
 import (
 	"context"
 	"net"
+	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -34,6 +36,12 @@ func execArgs(argv ...string) any {
 // sidecar task for Exec expectations.
 func setupNetSidecar(t *testing.T, labels map[string]string) (*MockapiClient, *MockTask) {
 	t.Helper()
+	api, task, _ := setupNetSidecarContainer(t, labels)
+	return api, task
+}
+
+func setupNetSidecarContainer(t *testing.T, labels map[string]string) (*MockapiClient, *MockTask, *MockContainer) {
+	t.Helper()
 	api := NewMockapiClient(t)
 	setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, newRunningTaskWithPID(t, 42)))
 	api.EXPECT().GetImage(mock.Anything, "nettools").Return(NewMockImage(t), nil)
@@ -43,7 +51,7 @@ func setupNetSidecar(t *testing.T, labels map[string]string) (*MockapiClient, *M
 	exitCh := make(chan containerd.ExitStatus, 1)
 	exitCh <- *containerd.NewExitStatus(137, time.Now(), nil)
 	sidecarTask.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
-	sidecarTask.EXPECT().Kill(mock.Anything, mock.Anything).Return(nil)
+	sidecarTask.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Return(nil)
 	sidecarTask.EXPECT().Delete(mock.Anything).Return(nil, nil)
 
 	sidecar := NewMockContainer(t)
@@ -55,7 +63,16 @@ func setupNetSidecar(t *testing.T, labels map[string]string) (*MockapiClient, *M
 		mock.MatchedBy(func(id string) bool { return strings.HasPrefix(id, "pumba-sidecar-") }),
 		mock.Anything, mock.Anything, mock.Anything, labelsOpt(labels),
 	).Return(sidecar, nil)
-	return api, sidecarTask
+	return api, sidecarTask, sidecar
+}
+
+// nftVersionExecutor supplies the version stdout that the empty-output process
+// mocks cannot produce. Other commands still exercise the real exec lifecycle.
+func nftVersionExecutor(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, string, error) {
+	if slices.Equal(pspec.Args, []string{"iptables", "--version"}) {
+		return "iptables v1.8.13 (nf_tables)\n", "", nil
+	}
+	return execTaskOutput(ctx, task, pspec, execID, description)
 }
 
 func TestInspectNetnsInLabeledSidecar(t *testing.T) {
@@ -63,9 +80,9 @@ func TestInspectNetnsInLabeledSidecar(t *testing.T) {
 	task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
 	task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("iptables", "-S"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
 
-	state, err := newTestClient(api).InspectNetns(context.Background(), &ctr.InspectRequest{
+	state, err := newTestClient(api).inspectNetns(context.Background(), &ctr.InspectRequest{
 		Container: testContainer("c1"), Sidecar: ctr.SidecarSpec{Image: "nettools"}, RunID: "status1",
-	})
+	}, nftVersionExecutor)
 
 	require.NoError(t, err)
 	assert.Equal(t, &ctr.FaultState{}, state)
@@ -96,6 +113,37 @@ func TestInspectNetnsInTargetWithoutIPTablesIsAnError(t *testing.T) {
 	require.ErrorContains(t, err, "failed to list iptables rules")
 	assert.ErrorContains(t, err, "exited with code 127")
 	assert.Nil(t, state)
+}
+
+func TestInspectNetnsIncompleteOutputIsAnError(t *testing.T) {
+	for _, sidecar := range []bool{false, true} {
+		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
+			t.Parallel()
+			var api *MockapiClient
+			var task *MockTask
+			req := &ctr.InspectRequest{Container: testContainer("c1")}
+			if sidecar {
+				api, task = setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+				req.Sidecar.Image = "nettools"
+			} else {
+				api = NewMockapiClient(t)
+				task = newRunningTask(t)
+				setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			}
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).
+				Return(newSuccessProcess(t), nil).Once()
+			proc := newSuccessProcess(t)
+			proc.EXPECT().IO().Unset()
+			proc.EXPECT().IO().Return(newHeldIO()).Once()
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("iptables", "-S"), mock.Anything).
+				Return(proc, nil).Once()
+
+			state, err := newTestClient(api).InspectNetns(context.Background(), req)
+
+			require.ErrorContains(t, err, "incomplete exec output")
+			assert.Nil(t, state, "a parseable prefix is not evidence of clean state")
+		})
+	}
 }
 
 func TestNetemSidecarCarriesLabels(t *testing.T) {
@@ -137,4 +185,76 @@ func TestStressSidecarCarriesLabels(t *testing.T) { //nolint:paralleltest // mut
 	_, err := newTestClient(api).StressContainer(context.Background(), req)
 
 	require.ErrorIs(t, err, assert.AnError)
+}
+
+func TestInspectNetnsExecCleanupFailure(t *testing.T) {
+	t.Parallel()
+	for _, sidecar := range []bool{false, true} {
+		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
+			t.Parallel()
+			var api *MockapiClient
+			var task *MockTask
+			req := &ctr.InspectRequest{Container: testContainer("c1")}
+			if sidecar {
+				api, task = setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+				req.Sidecar.Image = "nettools"
+			} else {
+				api, task = NewMockapiClient(t), newRunningTask(t)
+				setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			}
+			proc := newSuccessProcess(t)
+			proc.EXPECT().Delete(mock.Anything).Unset()
+			proc.EXPECT().Delete(mock.Anything).Return(nil, assert.AnError).Once()
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(proc, nil).Once()
+
+			state, err := newTestClient(api).InspectNetns(context.Background(), req)
+
+			require.ErrorIs(t, err, assert.AnError)
+			assert.Nil(t, state)
+		})
+	}
+}
+
+func TestInspectNetnsCancellation(t *testing.T) {
+	t.Parallel()
+	for _, sidecar := range []bool{false, true} {
+		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var api *MockapiClient
+			var task *MockTask
+			req := &ctr.InspectRequest{Container: testContainer("c1")}
+			if sidecar {
+				api, task = setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+				req.Sidecar.Image = "nettools"
+			} else {
+				api, task = NewMockapiClient(t), newRunningTask(t)
+				setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			}
+			proc := NewMockProcess(t)
+			proc.EXPECT().Wait(mock.Anything).Return(make(<-chan containerd.ExitStatus), nil).Once()
+			proc.EXPECT().Start(mock.Anything).Run(func(context.Context) { cancel() }).Return(nil).Once()
+			proc.EXPECT().Delete(mock.Anything).Return(nil, nil).Once()
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(proc, nil).Once()
+
+			state, err := newTestClient(api).InspectNetns(ctx, req)
+
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Nil(t, state)
+		})
+	}
+}
+
+func TestInspectNetnsUnknownBackendIsAnError(t *testing.T) {
+	t.Parallel()
+	api, task := setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+	for _, argv := range [][]string{{"tc", "qdisc", "show"}, {"iptables", "-S"}, {"iptables", "--version"}} {
+		task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs(argv...), mock.Anything).Return(newSuccessProcess(t), nil).Once()
+	}
+	state, err := newTestClient(api).InspectNetns(context.Background(), &ctr.InspectRequest{
+		Container: testContainer("c1"), Sidecar: ctr.SidecarSpec{Image: "nettools"},
+	})
+	require.ErrorContains(t, err, "unrecognized iptables version")
+	assert.Nil(t, state)
 }

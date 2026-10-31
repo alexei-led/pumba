@@ -34,25 +34,21 @@ load test_helper
 STRESS_IMAGE="ghcr.io/alexei-led/stress-ng:0.20.01"
 
 setup() {
+    PODMAN_FIXTURE_IDS=()
     require_podman
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — stress sidecar requires rootful mode"
     fi
-    podman_rm_force pdm_stress_victim
-    podman run -d --name pdm_stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity" >/dev/null 2>&1
+    podman_fixture_run -d --name pdm_stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity" >/dev/null 2>&1
     wait_for 30 "podman exec pdm_stress_victim which stress-ng >/dev/null 2>&1" "stress-ng to be installed"
     podman pull "${STRESS_IMAGE}" >/dev/null 2>&1 || true
 }
 
 teardown() {
+    [ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
     sudo pkill -f "pumba.*stress.*pdm_stress_victim" 2>/dev/null || true
     kill %1 2>/dev/null || true
-    podman_rm_force pdm_stress_victim
-    # AutoRemove is set on stress sidecars, but reap any stragglers left by
-    # aborted test runs.
-    for sc in $(podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
-        podman rm -f "$sc" >/dev/null 2>&1 || true
-    done
+    podman_fixture_cleanup
 }
 
 @test "Should handle stress on non-existent container via podman runtime" {
@@ -70,7 +66,7 @@ teardown() {
     [ "$(podman inspect -f '{{.State.Status}}' pdm_stress_victim)" = "running" ]
 
     # No sidecar should have been created in dry-run mode
-    run podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true"
+    run podman_fixture_sidecars
     [ -z "$output" ]
 }
 
@@ -85,7 +81,7 @@ teardown() {
     assert_output --partial "resolved podman target cgroup"
 
     # Verify sidecar was cleaned up (AutoRemove)
-    run podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true"
+    run podman_fixture_sidecars
     [ -z "$output" ]
 
     [ "$(podman inspect -f '{{.State.Status}}' pdm_stress_victim)" = "running" ]

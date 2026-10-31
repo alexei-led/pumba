@@ -37,5 +37,5 @@ func (c *containerdClient) runNetemCommand(ctx context.Context, req *ctr.NetemRe
 		labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindNetem)
 		return c.sidecarExec(ctx, req.Container, req.Sidecar, labels, [][]string{argv})
 	}
-	return c.execInContainer(c.nsCtx(ctx), req.Container.ID(), argv[0], argv[1:])
+	return c.execFaultInContainer(c.nsCtx(ctx), req.Container.ID(), argv[0], argv[1:])
 }
