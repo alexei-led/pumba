@@ -379,8 +379,12 @@ pumba status --check web             # prints a verdict; exit 0 only when clean
 `--dry-run` are ignored; `--max-targets` applies.
 
 Status changes no fault. It inspects each container's network namespace in a short-lived
-sidecar (`--tc-image`, needs `tc` and `iptables`), or with `--tc-image ""` by exec in the
-container, which then needs both tools. On Podman it needs rootful mode, like netem and iptables.
+sidecar (`--tc-image`), or with `--tc-image ""` by exec in the container. The image or target
+needs `tc` and `iptables`. When `iptables` uses the legacy backend, `iptables-nft` is also
+required; when the nft backend warns that legacy tables exist, `iptables-legacy` is required
+to inspect them. Missing backend coverage, or older `iptables --version` output without a
+recognized backend identifier, makes inspection fail (`unknown` unless other evidence makes
+it `dirty`). On Podman it needs rootful mode, like netem and iptables.
 
 To clean up by hand, delete what status lists, for example:
 
