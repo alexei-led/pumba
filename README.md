@@ -221,6 +221,7 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 | -------------------------------------------- | -------------------------------------------------------------- |
 | **[User Guide](docs/guide.md)**              | Container chaos commands, targeting, scheduling, configuration |
 | **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
+| **[Auth Outage Rehearsal](docs/auth-outage-rehearsal.md)** | Chaos scenario: rehearse auth-server (TACACS+/RADIUS/LDAP) outages |
 | **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
 | **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
 | **[Agents](docs/agents.md)**                 | `--output ndjson` result events, run ID, exit codes, run budget |
