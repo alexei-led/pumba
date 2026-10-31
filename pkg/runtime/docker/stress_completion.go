@@ -31,7 +31,10 @@ func (client dockerClient) drainStressOutput(ctx context.Context, id string, att
 	defer attach.Close()
 	stopClose := context.AfterFunc(ctx, attach.Close)
 	defer stopClose()
-	exited, waitErrors := client.containerAPI.ContainerWait(ctx, id, ctypes.WaitConditionNotRunning)
+	waitCtx, stopWait := context.WithCancel(ctx)
+	defer stopWait()
+	exited, waitErrors := client.containerAPI.ContainerWait(waitCtx, id, ctypes.WaitConditionNotRunning)
+	exited, waitErrors = bufferedStressWait(exited, waitErrors)
 	var buf bytes.Buffer
 	_, readErr := io.Copy(&buf, attach.Reader)
 	if ctx.Err() != nil && stressInterruptedRead(ctx, readErr) {
@@ -122,4 +125,27 @@ func stressErrorCause(err error) error {
 func stressInterruptedRead(ctx context.Context, err error) bool {
 	cause := stressErrorCause(err)
 	return errors.Is(cause, net.ErrClosed) || errors.Is(cause, io.ErrClosedPipe) || errors.Is(cause, ctx.Err())
+}
+
+// The SDK sends successful wait results on an unbuffered channel without a
+// cancellation select. Always receive its one terminal result, even if the
+// attachment fails or the caller stops waiting first.
+func bufferedStressWait(exited <-chan ctypes.WaitResponse, waitErrors <-chan error) (<-chan ctypes.WaitResponse, <-chan error) {
+	statuses, failures := make(chan ctypes.WaitResponse, 1), make(chan error, 1)
+	go func() {
+		select {
+		case status, ok := <-exited:
+			if !ok {
+				failures <- errors.New("stress-ng wait channel closed without exit status")
+			} else {
+				statuses <- status
+			}
+		case err := <-waitErrors:
+			if err == nil {
+				err = errors.New("stress-ng wait channel closed without exit status")
+			}
+			failures <- err
+		}
+	}()
+	return statuses, failures
 }

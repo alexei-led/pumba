@@ -764,5 +764,5 @@ func expectStressExit(t *testing.T, engine *mocks.APIClient, ctx context.Context
 	} else {
 		exited <- container.WaitResponse{StatusCode: code}
 	}
-	engine.EXPECT().ContainerWait(ctx, "000", container.WaitConditionNotRunning).Return((<-chan container.WaitResponse)(exited), (<-chan error)(errs)).Once()
+	engine.EXPECT().ContainerWait(mock.Anything, "000", container.WaitConditionNotRunning).Return((<-chan container.WaitResponse)(exited), (<-chan error)(errs)).Once()
 }

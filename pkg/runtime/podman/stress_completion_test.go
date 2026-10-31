@@ -188,7 +188,12 @@ func TestStressContainer_CancellationClosesAttachAndRemovesOwnedSidecar(t *testi
 	api.EXPECT().ContainerAttach(mock.Anything, "owned-stress", ctypes.AttachOptions{Stdout: true, Stderr: true, Stream: true}).Return(types.HijackedResponse{Conn: conn, Reader: bufio.NewReader(conn)}, nil).Once()
 	api.EXPECT().ContainerStart(mock.Anything, "owned-stress", ctypes.StartOptions{}).Return(nil).Once()
 	waiting := make(chan struct{})
-	api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).Run(func(context.Context, string, ctypes.WaitCondition) { close(waiting) }).Return(make(<-chan ctypes.WaitResponse), make(<-chan error)).Once()
+	waitErrors := make(chan error, 1)
+	api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
+		Run(func(waitCtx context.Context, _ string, _ ctypes.WaitCondition) {
+			context.AfterFunc(waitCtx, func() { waitErrors <- waitCtx.Err() })
+			close(waiting)
+		}).Return(make(<-chan ctypes.WaitResponse), (<-chan error)(waitErrors)).Once()
 	removeErr := errors.New("cancel cleanup failed")
 	api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Run(func(ctx context.Context, _ string, _ ctypes.RemoveOptions) {
 		assert.NoError(t, ctx.Err())
@@ -225,4 +230,65 @@ func TestStressWaitExit_CancellationRetainsJoinedFailure(t *testing.T) {
 	waitErrors := make(chan error, 1)
 	waitErrors <- errors.Join(genuine, context.Canceled)
 	require.ErrorIs(t, waitStressExit(ctx, make(<-chan ctypes.WaitResponse), waitErrors), genuine)
+}
+
+func TestStressContainerDrainsUnbufferedWait(t *testing.T) {
+	for _, mode := range []string{"read_error", "canceled"} {
+		t.Run(mode, func(t *testing.T) {
+			api, start := completionRuntime(t)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			readErr := errors.New("attachment read failed")
+			var reader io.Reader = failedStressReader{readErr}
+			if mode == "canceled" {
+				reader = cancelingStressReader{cancel: cancel, err: net.ErrClosed}
+			}
+			conn, peer := net.Pipe()
+			defer peer.Close()
+			defer conn.Close()
+			api.EXPECT().ContainerAttach(mock.Anything, "owned-stress", ctypes.AttachOptions{Stdout: true, Stderr: true, Stream: true}).
+				Return(types.HijackedResponse{Conn: conn, Reader: bufio.NewReader(reader)}, nil).Once()
+			api.EXPECT().ContainerStart(mock.Anything, "owned-stress", ctypes.StartOptions{}).Return(nil).Once()
+			exited, waitErrors := make(chan ctypes.WaitResponse), make(chan error, 1)
+			publish, delivered, abort, publisherDone := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
+			if mode == "read_error" {
+				close(publish)
+			}
+			go func() {
+				defer close(publisherDone)
+				select {
+				case <-publish:
+					select {
+					case exited <- ctypes.WaitResponse{}:
+						close(delivered)
+					case <-abort:
+					}
+				case <-abort:
+				}
+			}()
+			t.Cleanup(func() { close(abort); <-publisherDone })
+			api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
+				Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
+			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).
+				Run(func(context.Context, string, ctypes.RemoveOptions) {
+					if mode == "canceled" {
+						close(publish)
+					}
+				}).Return(nil).Once()
+
+			result, err := start(ctx)
+			require.NoError(t, err)
+			_, err = collectStressResult(t, result)
+			if mode == "read_error" {
+				require.ErrorIs(t, err, readErr)
+			} else {
+				require.NoError(t, err)
+			}
+			select {
+			case <-delivered:
+			case <-time.After(time.Second):
+				t.Fatal("SDK wait sender remained blocked after stress completion")
+			}
+		})
+	}
 }
