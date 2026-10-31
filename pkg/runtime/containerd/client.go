@@ -244,5 +244,5 @@ func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Con
 			command, args = fields[0], fields[1:]
 		}
 	}
-	return c.execInContainer(c.nsCtx(ctx), container.ID(), command, args)
+	return c.execUserCommand(c.nsCtx(ctx), container.ID(), command, args)
 }

@@ -98,6 +98,37 @@ func TestInspectNetnsInTargetWithoutIPTablesIsAnError(t *testing.T) {
 	assert.Nil(t, state)
 }
 
+func TestInspectNetnsIncompleteOutputIsAnError(t *testing.T) {
+	for _, sidecar := range []bool{false, true} {
+		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
+			t.Parallel()
+			var api *MockapiClient
+			var task *MockTask
+			req := &ctr.InspectRequest{Container: testContainer("c1")}
+			if sidecar {
+				api, task = setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+				req.Sidecar.Image = "nettools"
+			} else {
+				api = NewMockapiClient(t)
+				task = newRunningTask(t)
+				setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			}
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).
+				Return(newSuccessProcess(t), nil).Once()
+			proc := newSuccessProcess(t)
+			proc.EXPECT().IO().Unset()
+			proc.EXPECT().IO().Return(newHeldIO()).Once()
+			task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("iptables", "-S"), mock.Anything).
+				Return(proc, nil).Once()
+
+			state, err := newTestClient(api).InspectNetns(context.Background(), req)
+
+			require.ErrorContains(t, err, "incomplete exec output")
+			assert.Nil(t, state, "a parseable prefix is not evidence of clean state")
+		})
+	}
+}
+
 func TestNetemSidecarCarriesLabels(t *testing.T) {
 	api, task := setupNetSidecar(t, ctr.SidecarLabels("run1", "c1", ctr.SidecarKindNetem))
 	task.EXPECT().Exec(mock.Anything, mock.Anything, mock.MatchedBy(func(p *specs.Process) bool { return p.Args[0] == "sh" }), mock.Anything).Return(newSuccessProcess(t), nil).Once()

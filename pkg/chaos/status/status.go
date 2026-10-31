@@ -69,7 +69,15 @@ func (s *statusCommand) Run(ctx context.Context, _ bool) error {
 		mu      sync.Mutex
 		targets []chaos.StatusTarget
 	)
-	runErr := chaos.RunOnContainers(ctx, s.client, s.gp, 0, false, true,
+	lister := gapLister{Lister: s.client, onSkip: func(id string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		gap := chaos.ListingGap{ID: id, Error: err.Error()}
+		if !slices.Contains(gaps, gap) {
+			gaps = append(gaps, gap)
+		}
+	}}
+	runErr := chaos.RunOnContainers(ctx, lister, s.gp, 0, false, true,
 		func(ctx context.Context, c *container.Container, t *chaos.Target) error {
 			st, err := s.inspect(ctx, c, byTarget[c.ID()])
 			t.SetState(st.State)
@@ -93,6 +101,18 @@ func (s *statusCommand) Run(ctx context.Context, _ bool) error {
 		return fmt.Errorf("inspecting targets: %w", runErr)
 	}
 	return nil
+}
+
+// gapLister observes the runner's target listing without changing shared
+// selection interfaces or bypassing its max-target guard.
+type gapLister struct {
+	container.Lister
+	onSkip func(string, error)
+}
+
+func (l gapLister) ListContainers(ctx context.Context, fn container.FilterFunc, opts container.ListOpts) ([]*container.Container, error) {
+	opts.OnSkip = l.onSkip
+	return l.Lister.ListContainers(ctx, fn, opts)
 }
 
 // recordListingFailure records a report with an unknown verdict for a run that
