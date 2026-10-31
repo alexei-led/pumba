@@ -79,6 +79,7 @@ func TestInspectNetnsInLabeledSidecar(t *testing.T) {
 	expectExec(api, "inspector", false,
 		execStep{argv: tcplan.QdiscShowCommand(), stdout: qdiscShowNetem},
 		execStep{argv: tcplan.IPTablesShowCommand(), stdout: iptablesShowRule, stderr: "# Warning: iptables-legacy tables present\n"},
+		execStep{argv: tcplan.IPTablesVersionCommand(), stdout: "iptables v1.8.13 (nf_tables)\n"},
 		execStep{argv: tcplan.IPTablesLegacyShowCommand(), stdout: "-P INPUT ACCEPT\n-A OUTPUT -m comment --comment \"pumba:legacy1\" -j DROP\n"},
 	)
 	client := dockerClient{containerAPI: api, imageAPI: api}
@@ -100,6 +101,7 @@ func TestInspectNetnsLegacyTablesUnlistableIsAnError(t *testing.T) {
 	expectExec(api, "target", true,
 		execStep{argv: tcplan.QdiscShowCommand(), stdout: "qdisc noqueue 0: dev eth0 root refcnt 2\n"},
 		execStep{argv: tcplan.IPTablesShowCommand(), stdout: "-P INPUT ACCEPT\n", stderr: "# Warning: iptables-legacy tables present, use iptables-legacy to see them\n"},
+		execStep{argv: tcplan.IPTablesVersionCommand(), stdout: "iptables v1.8.13 (nf_tables)\n"},
 		execStep{argv: tcplan.IPTablesLegacyShowCommand(), stderr: "exec: \"iptables-legacy\": executable file not found in $PATH\n", exitCode: 127},
 	)
 	client := dockerClient{containerAPI: api}
@@ -219,4 +221,30 @@ func TestRunExecRejectsMalformedStream(t *testing.T) {
 	_, _, err := client.runExec(context.Background(), "c", []string{"tc", "qdisc", "show"}, false)
 
 	require.ErrorContains(t, err, "demultiplex")
+}
+
+func TestInspectNetnsLegacyDefaultFindsNFTRules(t *testing.T) {
+	for _, image := range []string{"", "nettools"} {
+		t.Run(map[string]string{"": "target", "nettools": "sidecar"}[image], func(t *testing.T) {
+			api := NewMockEngine(t)
+			id, privileged := "target", true
+			if image != "" {
+				id, privileged = "inspector", false
+				expectSidecar(api, "target", id, ctr.SidecarLabels("status1", "target", ctr.SidecarKindInspect))
+			}
+			expectExec(api, id, privileged,
+				execStep{argv: tcplan.QdiscShowCommand(), stdout: "qdisc noqueue 0: dev eth0 root\n"},
+				execStep{argv: tcplan.IPTablesShowCommand(), stdout: "-A OUTPUT -m comment --comment pumba:legacy1 -j DROP\n"},
+				execStep{argv: tcplan.IPTablesVersionCommand(), stdout: "iptables v1.8.13 (legacy)\n"},
+				execStep{argv: tcplan.IPTablesNFTShowCommand(), stdout: iptablesShowRule},
+			)
+			client := dockerClient{containerAPI: api, imageAPI: api}
+			state, err := client.InspectNetns(context.Background(), inspectReq(image))
+			require.NoError(t, err)
+			assert.Equal(t, []ctr.PumbaRule{
+				{RunID: "legacy1", Chain: "OUTPUT", Spec: "-A OUTPUT -m comment --comment pumba:legacy1 -j DROP"},
+				{RunID: "run1", Chain: "INPUT", Spec: "-A INPUT -i eth0 -m comment --comment \"pumba:run1\" -j DROP"},
+			}, state.Rules)
+		})
+	}
 }

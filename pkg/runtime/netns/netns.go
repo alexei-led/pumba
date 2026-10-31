@@ -64,10 +64,10 @@ func Inspect(run Runner) (*ctr.FaultState, error) {
 	return state, nil
 }
 
-// inspectRules lists the tagged iptables rules. iptables-legacy and
-// iptables-nft keep separate rule sets, so when iptables-nft reports legacy
-// tables the legacy backend is listed too. If that listing fails the
-// inspection is incomplete and is an error, never a clean state.
+// inspectRules establishes coverage of both independent iptables backends.
+// nft warns about legacy tables, but legacy never warns about nft rules, so
+// a legacy default always requires an explicit nft listing. Unknown backends
+// and failed listings are errors, never evidence of a clean namespace.
 func inspectRules(run Runner) ([]tc.TaggedRule, error) {
 	out, stderr, err := run(tc.IPTablesShowCommand())
 	if err != nil {
@@ -76,6 +76,25 @@ func inspectRules(run Runner) ([]tc.TaggedRule, error) {
 	parsed, err := tc.ParseTaggedRules(out)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse iptables rules: %w", err)
+	}
+	version, _, err := run(tc.IPTablesVersionCommand())
+	if err != nil {
+		return nil, fmt.Errorf("failed to identify iptables backend: %w", err)
+	}
+	nft, err := tc.IPTablesUsesNFT(version)
+	if err != nil {
+		return nil, err
+	}
+	if !nft {
+		nftOut, _, err := run(tc.IPTablesNFTShowCommand())
+		if err != nil {
+			return nil, fmt.Errorf("failed to list iptables-nft rules: %w", err)
+		}
+		nftRules, err := tc.ParseTaggedRules(nftOut)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse iptables-nft rules: %w", err)
+		}
+		return append(parsed.Rules, nftRules.Rules...), nil
 	}
 	if !parsed.LegacyTablesPresent && !tc.LegacyTablesPresent(stderr) {
 		return parsed.Rules, nil

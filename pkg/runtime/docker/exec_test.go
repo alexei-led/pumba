@@ -448,6 +448,9 @@ func Test_ExecContainer_interruptedByCancellation(t *testing.T) {
 func Test_runSidecarExec_ignoresCancellation(t *testing.T) {
 	resp, server := blockedAttach(t)
 	api := NewMockEngine(t)
+	attached := make(chan struct{})
+	inspected := make(chan struct{}, 1)
+	eofReleased := make(chan struct{})
 	notCancelled := func(ctx context.Context) {
 		if ctx.Err() != nil {
 			t.Errorf("fault exec got a cancelled context: %v", ctx.Err())
@@ -461,9 +464,18 @@ func Test_runSidecarExec_ignoresCancellation(t *testing.T) {
 	api.EXPECT().ContainerExecAttach(mock.Anything, "execID", ctypes.ExecAttachOptions{}).
 		RunAndReturn(func(ctx context.Context, _ string, _ ctypes.ExecAttachOptions) (types.HijackedResponse, error) {
 			notCancelled(ctx)
+			close(attached)
 			return resp, nil
 		}).Once()
-	api.EXPECT().ContainerExecInspect(mock.Anything, "execID").Return(ctypes.ExecInspect{ExitCode: 0}, nil).Once()
+	api.EXPECT().ContainerExecInspect(mock.Anything, "execID").
+		Run(func(context.Context, string) {
+			select {
+			case <-eofReleased:
+			default:
+				t.Error("fault exec inspected before EOF was released")
+			}
+			inspected <- struct{}{}
+		}).Return(ctypes.ExecInspect{ExitCode: 0}, nil).Once()
 	client := dockerClient{containerAPI: api, imageAPI: api}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -473,7 +485,19 @@ func Test_runSidecarExec_ignoresCancellation(t *testing.T) {
 		err := client.runSidecarExec(ctx, "sidecar", "sh", []string{"-ec", "true"})
 		errc <- err
 	}()
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-attached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("fault exec did not attach")
+	}
+	select {
+	case <-inspected:
+		t.Error("fault exec inspected while its stream was still open")
+	case err := <-errc:
+		t.Fatalf("fault exec returned before EOF: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(eofReleased)
 	server.Close() // the script finishes after the cancellation
 
 	select {

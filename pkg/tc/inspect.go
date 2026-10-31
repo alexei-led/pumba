@@ -2,6 +2,7 @@ package tc
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -25,6 +26,29 @@ func QdiscShowCommand() []string {
 // IPTablesShowCommand lists the filter table rules as iptables arguments.
 func IPTablesShowCommand() []string {
 	return []string{"iptables", "-S"}
+}
+
+// IPTablesVersionCommand identifies which backend the default iptables uses.
+func IPTablesVersionCommand() []string {
+	return []string{"iptables", "--version"}
+}
+
+// IPTablesNFTShowCommand lists the filter table rules of the iptables-nft
+// backend, which iptables-legacy cannot see or warn about.
+func IPTablesNFTShowCommand() []string {
+	return []string{"iptables-nft", "-S"}
+}
+
+var iptablesVersion = regexp.MustCompile(`^iptables v\d+\.\d+\.\d+ \((nf_tables|legacy)\)$`)
+
+// IPTablesUsesNFT identifies the backend from iptables --version. Unrecognized
+// output cannot establish backend coverage and must not imply an empty netns.
+func IPTablesUsesNFT(output string) (bool, error) {
+	match := iptablesVersion.FindStringSubmatch(strings.TrimSpace(output))
+	if match == nil {
+		return false, fmt.Errorf("unrecognized iptables version: %q", strings.TrimSpace(output))
+	}
+	return match[1] == "nf_tables", nil
 }
 
 // IPTablesLegacyShowCommand lists the filter table rules of the iptables-legacy

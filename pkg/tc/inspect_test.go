@@ -177,3 +177,30 @@ func TestParseTaggedRulesRejectsUnreadableOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestIPTablesUsesNFT(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		version string
+		nft     bool
+		wantErr bool
+	}{
+		{name: "nft", version: "iptables v1.8.13 (nf_tables)\n", nft: true},
+		{name: "legacy", version: "iptables v1.8.9 (legacy)\n"},
+		{name: "empty", wantErr: true},
+		{name: "older unspecified backend", version: "iptables v1.6.2", wantErr: true},
+		{name: "unknown backend", version: "iptables v1.8.13 (other)", wantErr: true},
+		{name: "malformed numeric version", version: "iptables vbad (nf_tables)", wantErr: true},
+		{name: "extra output", version: "iptables v1.8.13 (nf_tables)\nerror", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			nft, err := IPTablesUsesNFT(tt.version)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "unrecognized iptables version")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.nft, nft)
+		})
+	}
+}

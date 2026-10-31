@@ -89,6 +89,10 @@ func TestInspect(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.outputs == nil {
+				tt.outputs = map[string]string{}
+			}
+			tt.outputs["iptables --version"] = "iptables v1.8.13 (nf_tables)\n"
 			got, err := Inspect(fakeRunner(tt.outputs, tt.stderrs, tt.failures))
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -108,4 +112,55 @@ func TestIPTablesCommandsTranslatesRequest(t *testing.T) {
 		SrcIPs: []*net.IPNet{src}, RunID: "r",
 	})
 	assert.Equal(t, [][]string{{"-I", "INPUT", "-s", "10.0.0.0/8", "-m", "comment", "--comment", "pumba:r", "-j", "DROP"}}, got)
+}
+
+func TestInspectBackendCoverage(t *testing.T) {
+	nftRule := "-A INPUT -m comment --comment pumba:nft -j DROP\n"
+	tests := []struct {
+		name      string
+		version   string
+		nftOutput string
+		failures  map[string]error
+		wantErr   string
+	}{
+		{name: "legacy default finds nft rules", version: "iptables v1.8.13 (legacy)\n", nftOutput: nftRule},
+		{name: "legacy default clean in both backends", version: "iptables v1.8.13 (legacy)\n", nftOutput: "-P INPUT ACCEPT\n"},
+		{name: "legacy default missing nft tool", version: "iptables v1.8.13 (legacy)\n", failures: map[string]error{"iptables-nft -S": errors.New("not found")}, wantErr: "failed to list iptables-nft rules"},
+		{name: "legacy default nft denied", version: "iptables v1.8.13 (legacy)\n", failures: map[string]error{"iptables-nft -S": errors.New("permission denied")}, wantErr: "failed to list iptables-nft rules"},
+		{name: "legacy default unreadable nft output", version: "iptables v1.8.13 (legacy)\n", nftOutput: "Permission denied\n", wantErr: "failed to parse iptables-nft rules"},
+		{name: "nft default needs no absent legacy tool", version: "iptables v1.8.13 (nf_tables)\n", failures: map[string]error{"iptables-legacy -S": errors.New("not found")}},
+		{name: "version command fails", failures: map[string]error{"iptables --version": errors.New("not found")}, wantErr: "failed to identify iptables backend"},
+		{name: "empty version", wantErr: "unrecognized iptables version"},
+		{name: "old version without backend", version: "iptables v1.6.2\n", wantErr: "unrecognized iptables version"},
+		{name: "unknown backend", version: "iptables v1.8.13 (unknown)\n", wantErr: "unrecognized iptables version"},
+		{name: "malformed version", version: "not iptables (nf_tables)\n", wantErr: "unrecognized iptables version"},
+		{name: "trailing garbage", version: "iptables v1.8.13 (nf_tables)\nPermission denied\n", wantErr: "unrecognized iptables version"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputs := map[string]string{"iptables --version": tt.version, "iptables -S": "-P INPUT ACCEPT\n", "iptables-nft -S": tt.nftOutput}
+			var commands []string
+			run := fakeRunner(outputs, nil, tt.failures)
+			got, err := Inspect(func(argv []string) (string, string, error) {
+				commands = append(commands, strings.Join(argv, " "))
+				return run(argv)
+			})
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			if tt.nftOutput == nftRule {
+				assert.Equal(t, []ctr.PumbaRule{{RunID: "nft", Chain: "INPUT", Spec: strings.TrimSpace(nftRule)}}, got.Rules)
+			} else {
+				assert.Empty(t, got.Rules)
+			}
+			if strings.Contains(tt.version, "(legacy)") {
+				assert.Contains(t, commands, "iptables-nft -S")
+			} else {
+				assert.NotContains(t, commands, "iptables-legacy -S")
+			}
+		})
+	}
 }

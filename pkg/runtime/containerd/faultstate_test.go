@@ -3,6 +3,7 @@ package containerd
 import (
 	"context"
 	"net"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -64,14 +65,23 @@ func setupNetSidecarContainer(t *testing.T, labels map[string]string) (*MockapiC
 	return api, sidecarTask, sidecar
 }
 
+// nftVersionExecutor supplies the version stdout that the empty-output process
+// mocks cannot produce. Other commands still exercise the real exec lifecycle.
+func nftVersionExecutor(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, string, error) {
+	if slices.Equal(pspec.Args, []string{"iptables", "--version"}) {
+		return "iptables v1.8.13 (nf_tables)\n", "", nil
+	}
+	return execTaskOutput(ctx, task, pspec, execID, description)
+}
+
 func TestInspectNetnsInLabeledSidecar(t *testing.T) {
 	api, task := setupNetSidecar(t, ctr.SidecarLabels("status1", "c1", ctr.SidecarKindInspect))
 	task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
 	task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("iptables", "-S"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
 
-	state, err := newTestClient(api).InspectNetns(context.Background(), &ctr.InspectRequest{
+	state, err := newTestClient(api).inspectNetns(context.Background(), &ctr.InspectRequest{
 		Container: testContainer("c1"), Sidecar: ctr.SidecarSpec{Image: "nettools"}, RunID: "status1",
-	})
+	}, nftVersionExecutor)
 
 	require.NoError(t, err)
 	assert.Equal(t, &ctr.FaultState{}, state)
@@ -233,4 +243,17 @@ func TestInspectNetnsCancellation(t *testing.T) {
 			assert.Nil(t, state)
 		})
 	}
+}
+
+func TestInspectNetnsUnknownBackendIsAnError(t *testing.T) {
+	t.Parallel()
+	api, task := setupNetSidecar(t, ctr.SidecarLabels("", "c1", ctr.SidecarKindInspect))
+	for _, argv := range [][]string{{"tc", "qdisc", "show"}, {"iptables", "-S"}, {"iptables", "--version"}} {
+		task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs(argv...), mock.Anything).Return(newSuccessProcess(t), nil).Once()
+	}
+	state, err := newTestClient(api).InspectNetns(context.Background(), &ctr.InspectRequest{
+		Container: testContainer("c1"), Sidecar: ctr.SidecarSpec{Image: "nettools"},
+	})
+	require.ErrorContains(t, err, "unrecognized iptables version")
+	assert.Nil(t, state)
 }

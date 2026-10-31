@@ -22,7 +22,7 @@ tail -n1 events.ndjson | jq -r .status   # ok, failed, partial, cleanup_failed, 
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--output`, `-o` | `text` | `text`: logs only, stdout empty. `ndjson`: events on stdout; help and usage text move to stderr |
+| `--output`, `-o` | `text` | `text`: chaos logs only, stdout empty; `status` prints its table and optional verdict to stdout. `ndjson`: events on stdout; help and usage text move to stderr |
 | `--run-id` | generated | 1–48 characters from `[A-Za-z0-9_.-]`. Generated as 12 hex characters when empty. An invalid value is a usage error |
 | `--max-duration` | `0` (unlimited) | Time budget for active chaos and `--interval` scheduling. See [Run budget](#run-budget---max-duration) |
 
@@ -97,7 +97,7 @@ Emitted when the process finishes, also for usage errors that never reached `run
 | `aborted` | `--max-duration` expired (`timeout`, exit 1) or SIGINT/SIGTERM (`canceled`, exit 0) | see left |
 | `clean`, `dirty`, `unknown` | `status --check` only: the verdict | 0 for `clean`, else 1 |
 
-The first matching row wins, top to bottom in this order: `usage_error`, `refused`, `cleanup_failed`, `aborted` (timeout), `failed`/`partial`, `aborted` (canceled), `no_targets`, `ok`. A cleanup failure outranks a timeout because a leftover fault matters more.
+For chaos commands, the first matching row wins, top to bottom in this order: `usage_error`, `refused`, `cleanup_failed`, `aborted` (timeout), `failed`/`partial`, `aborted` (canceled), `no_targets`, `ok`. A cleanup failure outranks a timeout because a leftover fault matters more.
 
 When a usage error stops Pumba before `run.start`, `run.end` has `"action":""`. Its `run_id` is the `--run-id` value (or a generated one), and `""` when `--run-id` itself was invalid.
 
@@ -120,11 +120,12 @@ When a usage error stops Pumba before `run.start`, `run.end` has `"action":""`. 
 
 ## Exit codes
 
-Pumba keeps its `0`/`1` exit codes in every output mode: `1` exactly when the command returned an error. The exit code is authoritative even when `run.end` was lost.
+For chaos commands in every output mode, `1` means the command failed (unless suppressed by `--skip-error`). The exit code is authoritative even when `run.end` was lost.
 
-- No targets exits `0`.
+- No targets exits `0` for chaos commands.
 - A cleanup failure (netem or iptables rules not removed) exits `1`.
-- `--skip-error` hides failures from the exit code, not from the events.
+- `--skip-error` hides chaos failures from the exit code, not from the events; refusals and usage errors still exit `1`.
+- [`status --check`](#status-pumba-status---check) exits `0` only for `clean`, even with `--skip-error`. Dirty findings need not be command errors, and an empty selection is `unknown` (exit `1`).
 - In text mode an unknown command exits `3` (urfave/cli). In ndjson mode it is a usage error and exits `1`.
 
 ## Delivery
@@ -152,7 +153,7 @@ Limits:
 | `--random`, `--limit` | only selected targets produce events |
 | `--max-targets` | refusal: no target events, `run.end` `refused` |
 | `--dry-run` | `target.result` `planned`, no `target.applied`; returns without waiting for `--duration` |
-| `--skip-error` | failures still recorded in events; exit `0` |
+| `--skip-error` | chaos failures still recorded in events; exit `0` (not refusals, usage errors or a non-clean `status --check` verdict) |
 | SIGINT/SIGTERM | in-flight targets finish cleanup and emit `target.result`; `run.end` `aborted` unless something failed |
 
 `--help` and `--version` are not runs and emit no events. A top-level `pumba --help` still prints to stdout.
@@ -192,7 +193,7 @@ Each inspected container gets one `target.result` with `state`:
 
 `dirty` wins over `unknown`. `clean` is never vacuous: an empty selection is `unknown`.
 
-With `--check`, the verdict is the `run.end.status` and the exit code: `0` only for `clean`, also with `--skip-error`. A real error stays in `run.end.error`. A failed listing gives `unknown` with the reason `listing failed: ...`. A refused (`--max-targets`) or usage error keeps its own status. `--check` with `--interval` is a usage error. Without `--check`, `status` exits like any command (`1` only when an inspection or the listing failed) and the verdict is only in `coverage`.
+With `--check`, the verdict is the `run.end.status` and the exit code: `0` only for `clean`, also with `--skip-error`. A real error stays in `run.end.error`. A failed listing gives `unknown` unless already discovered sidecars establish `dirty`; either way it includes the reason `listing failed: ...`. A refused (`--max-targets`) or usage error keeps its own status. `--check` with `--interval` is a usage error. Without `--check`, `status` exits like any command (`1` only when an inspection or the listing failed) and the verdict is only in `coverage`.
 
 In text mode `status` prints a `TARGET KIND DETAIL RUN` table to stdout, plus a `verdict:` line with `--check`. In ndjson mode stdout carries only events.
 

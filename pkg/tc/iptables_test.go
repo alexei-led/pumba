@@ -81,7 +81,10 @@ func TestExplainIPTablesError(t *testing.T) {
 		{name: "nil", err: nil, tagged: true},
 		{name: "legacy missing extension", err: errors.New("iptables v1.8.9 (legacy): Couldn't load match `comment':No such file or directory"), tagged: true, wantComment: true},
 		{name: "nft missing kernel module", err: errors.New("Warning: Extension comment revision 0 not supported, missing kernel module?\niptables: No chain/target/match by that name."), tagged: true, wantComment: true},
-		{name: "generic no match", err: errors.New("exit code 1: iptables: No chain/target/match by that name."), tagged: true, wantComment: true},
+		{name: "generic no match", err: errors.New("exit code 1: iptables: No chain/target/match by that name."), tagged: true},
+		{name: "tagged argv with generic match error", err: errors.New("iptables -I INPUT -m comment --comment pumba:r -j DROP failed: No chain/target/match by that name."), tagged: true},
+		{name: "tagged argv with another missing match", err: errors.New("iptables -I INPUT -m comment --comment pumba:r -m statistic failed: Couldn't load match `statistic'"), tagged: true},
+		{name: "another missing match", err: errors.New("Couldn't load match `statistic'"), tagged: true},
 		{name: "untagged rule", err: errors.New("Couldn't load match `comment'"), tagged: false},
 		{name: "unrelated failure", err: errors.New("iptables: Permission denied (you must be root)"), tagged: true},
 	}

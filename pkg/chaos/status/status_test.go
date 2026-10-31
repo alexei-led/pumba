@@ -440,3 +440,49 @@ func TestStatusListingFailureRecordsUnknown(t *testing.T) {
 		})
 	}
 }
+
+func TestStatusTargetListingFailureRetainsEvidence(t *testing.T) {
+	for _, selection := range []string{"unscoped", "names", "pattern", "labels"} {
+		t.Run(selection, func(t *testing.T) {
+			client := container.NewMockClient(t)
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+				mock.MatchedBy(func(o container.ListOpts) bool { return o.All })).
+				RunAndReturn(func(_ context.Context, _ container.FilterFunc, opts container.ListOpts) ([]*container.Container, error) {
+					opts.OnSkip("unreadable", errors.New("task status unavailable"))
+					return []*container.Container{sidecar("s1", container.SidecarKindStress, "gone", "X", container.StateRunning)}, nil
+				}).Once()
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"),
+				mock.MatchedBy(func(o container.ListOpts) bool { return !o.All })).Return(nil, errors.New("socket closed")).Once()
+			sink := &recording{}
+			rec := chaos.NewRecorder(sink, "1.5.0")
+			gp := &chaos.GlobalParams{Events: rec, SkipErrors: true}
+			switch selection {
+			case "names":
+				gp.Names = []string{"web"}
+			case "pattern":
+				gp.Pattern = "^web"
+			case "labels":
+				gp.Labels = []string{"app=web"}
+			}
+			cmd := status.NewCommand(client, gp, status.Params{Check: true, RunFilter: "X"})
+			err := chaos.RunChaosCommand(context.Background(), cmd, gp)
+			require.NoError(t, err)
+			require.Len(t, sink.reports, 1)
+			cov := sink.reports[0].Coverage
+			assert.Equal(t, []chaos.ListingGap{{ID: "unreadable", Error: "task status unavailable"}}, cov.ListingGaps)
+			want := chaos.VerdictUnknown
+			if selection == "unscoped" {
+				want = chaos.VerdictDirty
+				require.Len(t, cov.OrphanSidecars, 1)
+				assert.Equal(t, "s1", cov.OrphanSidecars[0].ID)
+			} else {
+				assert.Empty(t, cov.OrphanSidecars, "a failed selection must not expose unrelated artifacts")
+			}
+			assert.Equal(t, want, cov.Verdict)
+			assert.Contains(t, cov.Reasons[len(cov.Reasons)-1], "listing failed: selecting targets:")
+			_, outcome := rec.RunEnd(err, false)
+			assert.Equal(t, chaos.RunStatus(want), outcome.Status)
+			assert.Equal(t, 1, outcome.ExitCode)
+		})
+	}
+}

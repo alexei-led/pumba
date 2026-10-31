@@ -170,3 +170,43 @@ status_ndjson() {
     assert_failure 1
     assert_run_end '.status == "usage_error"'
 }
+
+@test "Should inspect nft leftovers with legacy default tools and fail closed without nft tools" {
+    skip_if_dind
+    # This repository's Debian fixture ships both backends. Do not install new
+    # tools or pull another image just for this test; preload/build it to run.
+    local image="ghcr.io/alexei-led/pumba-debian-nettools:latest"
+    docker image inspect "$image" >/dev/null 2>&1 || skip "preload the repository Debian nettools image for mixed-backend coverage"
+    docker run -d --name status_victim --cap-add NET_ADMIN --label com.gaiaadm.pumba.skip=false \
+        --entrypoint sh "$image" -ec 'ln -sf /usr/sbin/iptables-legacy /usr/local/sbin/iptables; exec tail -f /dev/null'
+    wait_for_running docker status_victim
+    run docker exec status_victim iptables --version
+    assert_success
+    assert_output --partial '(legacy)'
+
+    # Legacy has no warning for this nft rule: an inspection of legacy alone
+    # would falsely report clean after the injection sidecar disappeared.
+    run docker exec status_victim iptables-nft -I INPUT -m comment --comment pumba:st-mixed -j DROP
+    assert_success
+    run docker exec status_victim iptables -S
+    assert_success
+    refute_output --partial 'pumba:st-mixed'
+
+    run --separate-stderr pumba -o ndjson status --check --tc-image "" --run-id st-mixed status_victim
+    assert_failure 1
+    assert_state '(.rules | length) == 1 and .rules[0].run_id == "st-mixed"'
+    assert_run_end '.status == "dirty"'
+
+    # A legacy-only target cannot establish nft coverage, even with no warning.
+    docker exec status_victim mv /usr/sbin/iptables-nft /tmp/iptables-nft
+    run --separate-stderr pumba -o ndjson status --check --tc-image "" --run-id st-mixed status_victim
+    assert_failure 1
+    assert_run_end '.status == "unknown" and .error.phase == "inspect"'
+    docker exec status_victim mv /tmp/iptables-nft /usr/sbin/iptables-nft
+
+    run docker exec status_victim iptables-nft -D INPUT -m comment --comment pumba:st-mixed -j DROP
+    assert_success
+    run --separate-stderr pumba -o ndjson status --check --tc-image "" --run-id st-mixed status_victim
+    assert_success
+    assert_run_end '.status == "clean"'
+}

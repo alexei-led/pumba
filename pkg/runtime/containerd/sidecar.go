@@ -105,12 +105,6 @@ func (c *containerdClient) withSidecar(ctx context.Context, target *ctr.Containe
 	return fn(ctx, task)
 }
 
-// runSidecarCmd executes a single command inside a running sidecar task and
-// returns its stdout.
-func (c *containerdClient) runSidecarCmd(ctx context.Context, task containerd.Task, command string, args []string) (string, string, error) {
-	return c.runSidecarCommand(ctx, task, command, args, execTaskOutput)
-}
-
 func (c *containerdClient) runSidecarCommand(ctx context.Context, task containerd.Task, command string, args []string, execute taskExecutor) (string, string, error) {
 	cmdArgs := make([]string, 0, 1+len(args))
 	cmdArgs = append(cmdArgs, command)
