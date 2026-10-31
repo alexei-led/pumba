@@ -76,11 +76,11 @@ type StressRequest struct {
 	RunID string
 }
 
-// StressResult bundles the sidecar identifier and the streaming output
-// channels emitted by a successful StressContainer call. SidecarID is the
-// runtime-specific handle the caller passes to StopContainerWithID for
-// premature cancellation; Output and Errors close once the stress workload
-// terminates.
+// StressResult reports a context-owned workload. Cancel the StressContainer
+// context to request shutdown; SidecarID is diagnostic only (empty for direct
+// exec). Callers must drain BOTH channels until closed: the runtime closes
+// them only after completion/cancellation and its bounded cleanup attempt.
+// Errors may contain a *StressCleanupError as well as a workload failure.
 type StressResult struct {
 	SidecarID string
 	Output    <-chan string

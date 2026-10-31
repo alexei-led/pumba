@@ -964,7 +964,7 @@ func TestStressContainer_Success(t *testing.T) {
 	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
-	assert.Equal(t, "c1", id)
+	assert.Empty(t, id)
 
 	out := requireStressOutput(t, outCh, errCh, 5*time.Second)
 	assert.Equal(t, "c1", out)
@@ -982,7 +982,7 @@ func TestStressContainer_ExecError(t *testing.T) {
 	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
-	assert.Equal(t, "c1", id)
+	assert.Empty(t, id)
 
 	requireStressError(t, outCh, errCh, 5*time.Second)
 }
@@ -1360,14 +1360,13 @@ func TestStressContainer_SidecarContextCanceled(t *testing.T) { //nolint:paralle
 
 	ctx, cancel := context.WithCancel(context.Background())
 	client := newTestClient(api)
-	_, _, errCh, err := stressIDOutErr(client.StressContainer(ctx,
+	_, outCh, errCh, err := stressIDOutErr(client.StressContainer(ctx,
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 
 	cancel()
 
-	err = requireStressError(t, nil, errCh, 5*time.Second)
-	assert.Contains(t, err.Error(), "exited with code 137")
+	requireStressOutput(t, outCh, errCh, 5*time.Second)
 }
 
 func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader

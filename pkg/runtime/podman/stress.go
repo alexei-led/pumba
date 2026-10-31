@@ -1,36 +1,18 @@
 package podman
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
-	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	imagetypes "github.com/docker/docker/api/types/image"
 	log "github.com/sirupsen/logrus"
 )
-
-// sidecarRemoveTimeout bounds the ContainerRemove call in error cleanup paths.
-// AutoRemove only fires on container exit, so attach/start failures must remove
-// the created-but-never-started sidecar explicitly.
-const sidecarRemoveTimeout = 10 * time.Second
-
-// removeOnError removes a created-but-not-started sidecar so it doesn't linger
-// as a dangling "created" container. AutoRemove only fires on container exit, so
-// error paths after ContainerCreate must clean up explicitly.
-func removeOnError(ctx context.Context, api apiBackend, id string, cause error) error {
-	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
-	defer cancel()
-	_ = api.ContainerRemove(rmCtx, id, ctypes.RemoveOptions{Force: true})
-	return cause
-}
 
 // StressContainer launches a stress-ng sidecar that targets req.Container's
 // cgroup. The target cgroup is resolved host-side from /proc/<pid>/cgroup —
@@ -91,14 +73,12 @@ func (p *podmanClient) StressContainer(ctx context.Context, req *ctr.StressReque
 		Stream: true,
 	})
 	if err != nil {
-		return nil, removeOnError(ctx, p.api, created.ID,
-			fmt.Errorf("podman runtime: attach stress-ng container: %w", err))
+		return nil, errors.Join(fmt.Errorf("podman runtime: attach stress-ng container: %w", err), removeStressSidecar(ctx, p.api, created.ID))
 	}
 
 	if err := p.api.ContainerStart(ctx, created.ID, ctypes.StartOptions{}); err != nil {
 		attach.Close()
-		return nil, removeOnError(ctx, p.api, created.ID,
-			fmt.Errorf("podman runtime: start stress-ng container: %w", err))
+		return nil, errors.Join(fmt.Errorf("podman runtime: start stress-ng container: %w", err), removeStressSidecar(ctx, p.api, created.ID))
 	}
 
 	output := make(chan string, 1)
@@ -204,7 +184,7 @@ func buildStressConfig(req *ctr.StressRequest, driver, fullPath, parent, procsPa
 			Entrypoint: []string{"/cg-inject"},
 			Cmd:        cmd,
 		}, ctypes.HostConfig{
-			AutoRemove:   true,
+			AutoRemove:   false,
 			CgroupnsMode: "host",
 			// CAP_SYS_ADMIN is required for cgroup v2 `cgroup.procs` writes
 			// outside the sidecar's own cgroup subtree. Without it Podman
@@ -228,7 +208,7 @@ func buildStressConfig(req *ctr.StressRequest, driver, fullPath, parent, procsPa
 		Entrypoint: []string{"/stress-ng"},
 		Cmd:        stressors,
 	}, ctypes.HostConfig{
-		AutoRemove:   true,
+		AutoRemove:   false,
 		CgroupParent: cgroupParent,
 	}
 }
@@ -262,32 +242,4 @@ type imagePullResponse struct {
 	Status   string `json:"status"`
 	Error    string `json:"error"`
 	Progress string `json:"progress"`
-}
-
-// drainStressOutput is the stress sidecar's attach-reader loop. Mirrors the
-// docker.go pattern: copy the muxed stdout/stderr frame stream to a buffer,
-// inspect the container for its exit code once the reader hits EOF, and emit
-// either the captured buffer on success or a wrapped error on non-zero exit.
-// The buffer is diagnostic only — it still contains 8-byte stream headers
-// from Docker's frame protocol and is not meant to be parsed programmatically.
-func drainStressOutput(ctx context.Context, api apiBackend, id string, attach types.HijackedResponse, output chan<- string, outerr chan<- error) {
-	defer close(output)
-	defer close(outerr)
-	defer attach.Close()
-
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, attach.Reader); err != nil {
-		outerr <- fmt.Errorf("podman runtime: drain stress-ng stdout: %w", err)
-		return
-	}
-	inspect, err := api.ContainerInspect(ctx, id)
-	if err != nil {
-		outerr <- fmt.Errorf("podman runtime: inspect stress-ng after exit: %w", err)
-		return
-	}
-	if inspect.State != nil && inspect.State.ExitCode != 0 {
-		outerr <- fmt.Errorf("podman runtime: stress-ng exited with code %d: %s", inspect.State.ExitCode, buf.String())
-		return
-	}
-	output <- buf.String()
 }

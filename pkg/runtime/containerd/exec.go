@@ -49,30 +49,44 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 
 	select {
 	case status, ok := <-exitCh:
-		if !ok {
-			if err := ctx.Err(); err != nil {
-				return "", "", fmt.Errorf("%s canceled: %w", description, err)
-			}
-			return "", "", fmt.Errorf("%s: wait channel closed without exit status", description)
-		}
-		code, _, err := status.Result()
-		if err != nil {
-			return "", "", fmt.Errorf("%s failed: %w", description, err)
-		}
-		drainErr := waitIO(ctx, execProcess, ioDrainTimeout)
-		if drainErr != nil && !errors.Is(drainErr, errIncompleteOutput) {
-			return "", "", fmt.Errorf("%s canceled: %w", description, drainErr)
-		}
-		if code != 0 {
-			return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
-		}
-		if drainErr != nil {
-			return "", "", fmt.Errorf("%s: %w", description, drainErr)
-		}
-		return stdout.String(), stderr.String(), nil
+		return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, terminateOnCancel)
 	case <-ctx.Done():
+		if terminateOnCancel {
+			select {
+			case status, ok := <-exitCh:
+				return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, true)
+			default:
+			}
+		}
 		return "", "", fmt.Errorf("%s canceled: %w", description, ctx.Err())
 	}
+}
+
+func taskExecResult(ctx context.Context, execProcess containerd.Process, status containerd.ExitStatus, ok bool, description string, stdout, stderr *bytes.Buffer, preserveFailure bool) (string, string, error) {
+	if !ok {
+		if err := ctx.Err(); err != nil {
+			return "", "", fmt.Errorf("%s canceled: %w", description, err)
+		}
+		return "", "", fmt.Errorf("%s: wait channel closed without exit status", description)
+	}
+	code, _, err := status.Result()
+	if err != nil {
+		return "", "", fmt.Errorf("%s failed: %w", description, err)
+	}
+	drainErr := waitIO(ctx, execProcess, ioDrainTimeout)
+	if preserveFailure && code != 0 {
+		return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+	}
+	if drainErr != nil && !errors.Is(drainErr, errIncompleteOutput) {
+		return "", "", fmt.Errorf("%s canceled: %w", description, drainErr)
+	}
+	if code != 0 {
+		return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+	}
+	if drainErr != nil {
+		return "", "", fmt.Errorf("%s: %w", description, drainErr)
+	}
+	return stdout.String(), stderr.String(), nil
 }
 
 // ioDrainTimeout bounds how long execTaskOutput waits for the exec's output

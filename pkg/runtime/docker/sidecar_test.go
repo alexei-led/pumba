@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_tcContainerCommands(t *testing.T) {
@@ -104,4 +106,24 @@ func TestRemoveSidecarKeepsDeadlineErrorWhenContainerStillRunning(t *testing.T) 
 	err := client.removeSidecar(context.TODO(), "sidecarID")
 
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestWithSidecarRetainsOperationAndRemovalFailures(t *testing.T) {
+	for _, stage := range []string{"start", "operation"} {
+		t.Run(stage, func(t *testing.T) {
+			api := NewMockEngine(t)
+			operationErr, cleanupErr := errors.New("sidecar operation failed"), errors.New("sidecar removal failed")
+			api.EXPECT().ContainerCreate(mock.Anything, mock.Anything, mock.Anything, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(ctypes.CreateResponse{ID: "owned-sidecar"}, nil).Once()
+			var startErr error
+			if stage == "start" {
+				startErr = operationErr
+			}
+			api.EXPECT().ContainerStart(mock.Anything, "owned-sidecar", ctypes.StartOptions{}).Return(startErr).Once()
+			api.EXPECT().ContainerRemove(mock.Anything, "owned-sidecar", ctypes.RemoveOptions{Force: true}).Return(cleanupErr).Once()
+			client := dockerClient{containerAPI: api}
+			err := client.withSidecar(context.Background(), &ctr.Container{ContainerID: "target"}, ctr.SidecarSpec{Image: "nettools"}, nil, "test", func(string) error { require.Equal(t, "operation", stage); return operationErr })
+			require.ErrorIs(t, err, operationErr)
+			require.ErrorIs(t, err, cleanupErr)
+		})
+	}
 }

@@ -3,9 +3,12 @@ package containerd
 import (
 	"context"
 	"errors"
+	"fmt"
+	"syscall"
 	"testing"
 	"time"
 
+	ctr "github.com/alexei-led/pumba/pkg/container"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/errdefs"
@@ -107,19 +110,115 @@ func TestCreateStressSidecarCleanupFailures(t *testing.T) { //nolint:paralleltes
 
 func TestStressDirectExecCancellation(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	proc := NewMockProcess(t)
-	proc.EXPECT().Wait(mock.Anything).Return(make(<-chan containerd.ExitStatus), nil).Once()
-	proc.EXPECT().Start(mock.Anything).Run(func(context.Context) { cancel() }).Return(nil).Once()
-	proc.EXPECT().Delete(mock.Anything).Return(nil, nil).Once()
-	task := newRunningTask(t)
-	setupExec(task, proc)
-	api := NewMockapiClient(t)
-	setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+	for _, mode := range []string{"cancel", "duration", "cleanup_failure", "natural_failure"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if mode == "duration" {
+				var stop context.CancelFunc
+				ctx, stop = context.WithTimeout(ctx, 10*time.Millisecond)
+				defer stop()
+			}
+			cleanupErr := errors.New("owned exec delete failed")
+			proc := NewMockProcess(t)
+			running, reaped := make(chan containerd.ExitStatus, 1), make(chan containerd.ExitStatus, 1)
+			if mode == "natural_failure" {
+				running <- *containerd.NewExitStatus(7, time.Now(), nil)
+			}
+			proc.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(running), nil).Once()
+			proc.EXPECT().Wait(mock.Anything).Run(func(cleanupCtx context.Context) {
+				assert.NoError(t, cleanupCtx.Err())
+				_, ok := cleanupCtx.Deadline()
+				assert.True(t, ok)
+			}).Return((<-chan containerd.ExitStatus)(reaped), nil).Once()
+			proc.EXPECT().Start(mock.Anything).Run(func(context.Context) {
+				if mode != "duration" {
+					cancel()
+				}
+			}).Return(nil).Once()
+			proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
+				reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
+			}).Return(nil).Once()
+			var deleteErr error
+			if mode == "cleanup_failure" {
+				deleteErr = cleanupErr
+			}
+			proc.EXPECT().Delete(mock.Anything).Run(func(cleanupCtx context.Context, _ ...containerd.ProcessDeleteOpts) {
+				assert.NoError(t, cleanupCtx.Err())
+				_, ok := cleanupCtx.Deadline()
+				assert.True(t, ok)
+			}).Return(nil, deleteErr).Once()
+			if mode == "natural_failure" {
+				proc.EXPECT().IO().Return(nil).Once()
+			}
+			task := newRunningTask(t)
+			setupExec(task, proc)
+			api := NewMockapiClient(t)
+			setupLoadContainer(api, "c1", newMockContainer(t, "c1", "nginx", nil, task))
+			result, err := newTestClient(api).StressContainer(ctx, stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, time.Hour, false, false))
+			require.NoError(t, err)
+			require.Empty(t, result.SidecarID)
+			switch mode {
+			case "cleanup_failure":
+				err = requireStressError(t, result.Output, result.Errors, time.Second)
+				require.ErrorIs(t, err, cleanupErr)
+				var cleanup *ctr.StressCleanupError
+				require.ErrorAs(t, err, &cleanup)
+			case "natural_failure":
+				require.ErrorContains(t, requireStressError(t, result.Output, result.Errors, time.Second), "exited with code 7")
+			default:
+				requireStressOutput(t, result.Output, result.Errors, time.Second)
+			}
+		})
+	}
+}
 
-	result, err := newTestClient(api).StressContainer(ctx, stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, time.Hour, false, false))
+func TestWaitStressSidecarCancellationRetainsFailures(t *testing.T) {
+	t.Parallel()
+	for _, code := range []uint32{1, 137} {
+		t.Run(fmt.Sprint(code), func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			task, cntr := NewMockTask(t), NewMockContainer(t)
+			cleanupErr := errors.New("sidecar cleanup failed")
+			task.EXPECT().Delete(mock.Anything).Run(func(ctx context.Context, _ ...containerd.ProcessDeleteOpts) { assert.NoError(t, ctx.Err()) }).Return(nil, cleanupErr).Once()
+			cntr.EXPECT().Delete(mock.Anything, mock.Anything).Return(nil).Once()
+			exited := make(chan containerd.ExitStatus, 1)
+			exited <- *containerd.NewExitStatus(code, time.Now(), nil)
+			output, errs := make(chan string, 1), make(chan error, 1)
+			newTestClient(nil).waitStressSidecar(ctx, "owned-stress", cntr, task, exited, output, errs)
+			err := requireStressError(t, output, errs, time.Second)
+			require.ErrorIs(t, err, cleanupErr)
+			require.ErrorContains(t, err, fmt.Sprintf("exited with code %d", code))
+			var cleanup *ctr.StressCleanupError
+			require.ErrorAs(t, err, &cleanup)
+		})
+	}
+}
 
-	require.NoError(t, err)
-	require.ErrorIs(t, requireStressError(t, result.Output, result.Errors, time.Second), context.Canceled)
+func TestWaitStressSidecarFailedKillDoesNotHideExit(t *testing.T) {
+	t.Parallel()
+	for _, killErr := range []error{errdefs.ErrNotFound, errors.New("kill failed")} {
+		t.Run(killErr.Error(), func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			task, cntr := NewMockTask(t), NewMockContainer(t)
+			exited := make(chan containerd.ExitStatus, 1)
+			task.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
+				exited <- *containerd.NewExitStatus(137, time.Now(), nil)
+			}).Return(killErr).Once()
+			task.EXPECT().Delete(mock.Anything).Return(nil, nil).Once()
+			cntr.EXPECT().Delete(mock.Anything, mock.Anything).Return(nil).Once()
+			output, errs := make(chan string, 1), make(chan error, 1)
+			newTestClient(nil).waitStressSidecar(ctx, "owned-stress", cntr, task, exited, output, errs)
+			err := requireStressError(t, output, errs, time.Second)
+			require.ErrorContains(t, err, "exited with code 137")
+			if !errdefs.IsNotFound(killErr) {
+				require.ErrorIs(t, err, killErr)
+			}
+		})
+	}
 }

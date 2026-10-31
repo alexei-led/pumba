@@ -20,6 +20,20 @@ This approach works with both **cgroups v1** and **cgroups v2**, and supports al
 
 > **Note:** For target-scoped stress on systemd-based Docker hosts, use `--inject-cgroup` mode. The default mode with the systemd driver places the sidecar as a sibling cgroup, not under the target's limits.
 
+## Completion and cleanup
+
+Natural completion, `--duration`, and SIGTERM all wait for Pumba's owned
+stress workload to stop and for bounded runtime cleanup. Docker and Podman
+sidecars are explicitly removed, including after attach/start failures;
+containerd direct-exec mode (`--stress-image ""`) terminates and reaps only
+its stress exec, never the target task/container.
+
+With `--output ndjson`, `target.result` is emitted after cleanup, not merely
+when output ends. A workload failure remains a failure even if cancellation
+arrives at the same time. Cleanup failures produce `cleanup_failed` and a
+nonzero exit; if runtime completion stalls after cancellation, Pumba reports
+a cleanup timeout after a 45-second completion wait rather than claiming success.
+
 ## Usage
 
 ```bash
