@@ -215,8 +215,16 @@ jobs:
         if: matrix.runtime == 'podman'
         run: |
           set -o pipefail
+          # skip=true also protects user containers, not just Pumba sidecars.
+          canary=$(sudo podman run -d --label com.gaiaadm.pumba.skip=true docker.io/library/alpine:latest top)
+          trap 'sudo podman rm -f "$canary" >/dev/null 2>&1 || true' EXIT
+          suite_status=0
           sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
-            tests/podman_*.bats 2>&1 | tee "$BATS_LOG"
+            tests/podman_*.bats 2>&1 | tee "$BATS_LOG" || suite_status=$?
+          canary_status=0
+          test "$(sudo podman inspect -f '{{.State.Running}}' "$canary")" = true || canary_status=1
+          if [ "$suite_status" -ne 0 ]; then exit "$suite_status"; fi
+          exit "$canary_status"
       # ── Failure diagnostics (shared across runtimes) ──────────────────────
       - name: Collect Diagnostics on Failure
         if: failure()

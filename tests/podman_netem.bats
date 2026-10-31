@@ -18,30 +18,25 @@
 load test_helper
 
 setup() {
+    PODMAN_FIXTURE_IDS=()
     require_podman
     # Skip when rootless — netem cannot succeed without CAP_NET_ADMIN on the
     # target's netns; the error-handling suite covers the failure path.
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — netem requires rootful mode"
     fi
-    podman_rm_force pdm-netem-ctr
-    podman_rm_force pdm-netem-peer
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
-    podman run -d --privileged --name pdm-netem-ctr docker.io/nicolaka/netshoot:latest \
+    podman_fixture_run -d --privileged --name pdm-netem-ctr docker.io/nicolaka/netshoot:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
     wait_for_running podman pdm-netem-ctr
 }
 
 teardown() {
+    [ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
     sudo pkill -f "pumba.*netem.*pdm-netem-ctr" 2>/dev/null || true
     kill %1 2>/dev/null || true
-    podman_rm_force pdm-netem-ctr
-    podman_rm_force pdm-netem-peer
-    # Reap any lingering sidecar containers (identified by pumba skip label)
-    for sc in $(podman ps -q --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
-        podman rm -f "$sc" >/dev/null 2>&1 || true
-    done
+    podman_fixture_cleanup
 }
 
 @test "Should apply netem delay via podman runtime" {
@@ -67,7 +62,7 @@ teardown() {
 }
 
 @test "Should resolve a target container name via podman runtime" {
-    podman run -d --name pdm-netem-peer docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
+    podman_fixture_run -d --name pdm-netem-peer docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
     wait_for_running podman pdm-netem-peer
 
     run pumba --runtime podman --log-level debug netem --interface dummy0 --pull-image=false --target pdm-netem-peer --duration 2s delay --time 100 pdm-netem-ctr
