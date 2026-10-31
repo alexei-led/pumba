@@ -148,6 +148,7 @@ jobs:
           docker pull alpine:latest &
           docker pull ghcr.io/alexei-led/pumba-alpine-nettools:latest &
           wait
+          docker pull ghcr.io/alexei-led/stress-ng:0.20.01
           # Warm up: exercise the nettools sidecar flow once so the first
           # netem test doesn't pay container-create latency.
           cid=$(docker create --rm alpine:latest sleep 10)
