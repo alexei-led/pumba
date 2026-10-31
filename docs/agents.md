@@ -137,12 +137,12 @@ For chaos commands in every output mode, `1` means the command failed (unless su
 
 ## Run budget (`--max-duration`)
 
-The budget starts before the first tick. When it expires, no new injection starts, in-flight work is canceled, and the usual cleanup runs. The run ends with `run.end` status `aborted`, code `timeout`, exit `1`.
+The budget starts before the first tick. When it expires, Pumba stops admitting new ticks and fault execs and requests cancellation of in-flight work. Already-admitted tc/iptables execs may continue under their separate two-minute timeout before cleanup. The run ends with `run.end` status `aborted`, code `timeout`, exit `1`.
 
 Limits:
 
 - It works only while Pumba is alive: it does not protect against `kill -9`.
-- It does not cap total wall time: cleanup can run past the budget.
+- It does not cap total wall time: admitted fault execs and cleanup can run past the budget.
 - It does not undo `kill`, `rm`, or `stop` without `--restart`.
 
 ## Interactions
