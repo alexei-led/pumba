@@ -46,11 +46,12 @@ func (f *eventFanout) Emit(ev *chaos.Event) {
 // in order, so a stalled consumer never blocks Emit. Events that do not fit,
 // arrive after stop, or fail to deliver are counted as dropped.
 type streamSink struct {
-	deliver func(*chaos.Event) error
-	onDrop  func() // optional, called on every drop
-	queue   chan *chaos.Event
-	done    chan struct{}
-	dropped atomic.Int64
+	deliver     func(*chaos.Event) error
+	onDrop      func()          // optional, must not block; called on every drop
+	warningDone <-chan struct{} // optional asynchronous warning completion
+	queue       chan *chaos.Event
+	done        chan struct{}
+	dropped     atomic.Int64
 
 	mu     sync.Mutex
 	closed bool
@@ -60,7 +61,7 @@ type streamSink struct {
 // newStreamSink writes events to w as NDJSON.
 func newStreamSink(w io.Writer, size int) *streamSink {
 	enc := newEventEncoder(w)
-	return startSink(func(ev *chaos.Event) error { return enc.Encode(ev) }, nil, size)
+	return startSink(func(ev *chaos.Event) error { return enc.Encode(ev) }, nil, size, nil)
 }
 
 func newEventEncoder(w io.Writer) *json.Encoder {
@@ -69,8 +70,8 @@ func newEventEncoder(w io.Writer) *json.Encoder {
 	return enc
 }
 
-func startSink(deliver func(*chaos.Event) error, onDrop func(), size int) *streamSink {
-	s := &streamSink{deliver: deliver, onDrop: onDrop, queue: make(chan *chaos.Event, size), done: make(chan struct{})}
+func startSink(deliver func(*chaos.Event) error, onDrop func(), size int, warningDone <-chan struct{}) *streamSink {
+	s := &streamSink{deliver: deliver, onDrop: onDrop, warningDone: warningDone, queue: make(chan *chaos.Event, size), done: make(chan struct{})}
 	go s.write()
 	return s
 }
@@ -109,6 +110,11 @@ func (s *streamSink) write() {
 			s.last.End.EventsDropped = s.dropped.Load()
 		}
 		s.send(s.last)
+	}
+	// Normal flush observes its warning; a blocked stderr remains bounded by
+	// the caller's existing flush timeout, never the event producer.
+	if s.warningDone != nil && s.dropped.Load() > 0 {
+		<-s.warningDone
 	}
 }
 

@@ -139,13 +139,13 @@ For chaos commands in every output mode, `1` means the command failed (unless su
 
 ### Webhook
 
-`--webhook URL` is a second, independent sink. It works in every `--output` mode; in text mode stdout stays empty.
+`--webhook URL` is a second, independent sink. It works in every `--output` mode without adding output to stdout.
 
 - One POST per event, `Content-Type: application/json`. The body is the event's ndjson line, trailing newline included.
 - Ordered: one sender, so events arrive in emit order.
 - Lossy: its own bounded queue (1024 events). When the receiver falls behind, events are dropped instead of stalling chaos.
 - A transport error, a timeout (5 seconds per request) or any non-2xx answer drops the event. No retries. Redirects are not followed and count as failures.
-- The first drop or failure prints one warning to stderr. The URL, the error text and the bodies are never printed or logged.
+- The first drop or failure requests one best-effort warning to stderr. A blocked stderr never holds injection, cleanup, or bounded shutdown; the warning can be lost at exit. The URL, the error text and the bodies are never printed or logged.
 - `run.end` is flushed for at most 5 seconds at exit, alongside the stdout flush. Its `events_dropped` is the webhook's own count. With a stalled `--slackhook` too, exit can take about 10 seconds (Slack flush first, then events).
 - No custom headers: put a token in the URL, and use HTTPS.
 

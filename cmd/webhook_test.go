@@ -95,6 +95,12 @@ func assertOneWarningWithoutSecrets(t *testing.T, stderr, url string) {
 	assert.NotContains(t, stderr, `"schema"`)
 }
 
+func assertAsyncWarningWithoutSecrets(t *testing.T, stderr *syncBuffer, url string) {
+	t.Helper()
+	require.Eventually(t, func() bool { return strings.Count(stderr.String(), "warning:") == 1 }, time.Second, time.Millisecond)
+	assertOneWarningWithoutSecrets(t, stderr.String(), url)
+}
+
 func TestWebhookPostsNDJSONEventsInOrder(t *testing.T) {
 	r := newReceiver(t, http.StatusNoContent)
 	var stderr syncBuffer
@@ -160,7 +166,7 @@ func TestWebhookDeliveryFailures(t *testing.T) {
 
 			assert.Equal(t, int64(3), hook.dropped.Load(), "every failed request counts")
 			assert.Empty(t, redirect.received(), "redirects are not followed")
-			assertOneWarningWithoutSecrets(t, stderr.String(), url)
+			assertAsyncWarningWithoutSecrets(t, &stderr, url)
 		})
 	}
 }
@@ -188,7 +194,7 @@ func TestWebhookStalledReceiverNeverBlocksEmit(t *testing.T) {
 
 	assert.Equal(t, int64(extra), hook.dropped.Load(), "events beyond the queue are dropped and counted")
 	assert.False(t, hook.flush(runEndEvent(), 20*time.Millisecond), "flush is bounded")
-	assertOneWarningWithoutSecrets(t, stderr.String(), server.URL)
+	assertAsyncWarningWithoutSecrets(t, &stderr, server.URL)
 }
 
 func TestFinishWebhookFlushIsBoundedAndOutcomeIndependent(t *testing.T) {
@@ -217,7 +223,7 @@ func TestFinishWebhookFlushIsBoundedAndOutcomeIndependent(t *testing.T) {
 			start := time.Now()
 			assert.Equal(t, tt.exitCode, o.finish(tt.err, false))
 			assert.Less(t, time.Since(start), time.Second)
-			assertOneWarningWithoutSecrets(t, stderr.String(), server.URL)
+			assertAsyncWarningWithoutSecrets(t, &stderr, server.URL)
 		})
 	}
 }
@@ -235,6 +241,8 @@ func TestValidateWebhookURL(t *testing.T) {
 		{url: "hooks.example.com/" + webhookToken},
 		{url: "localhost:8080"},
 		{url: "http://"},
+		{url: "http://:80/events"},
+		{url: "https://user@:443/events"},
 		{url: "http:///" + webhookToken},
 		{url: "://" + webhookToken},
 		{url: "http://bad host/" + webhookToken},

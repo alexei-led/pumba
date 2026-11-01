@@ -8,12 +8,20 @@ load test_helper
 bats_require_minimum_version 1.5.0
 
 setup() {
-    cleanup_containers "webhook_"
+    WEBHOOK_TARGET_ID=""
+    RECEIVER_PID=""
 }
 
 teardown() {
-    [ -n "${RECEIVER_PID:-}" ] && kill "$RECEIVER_PID" 2>/dev/null || true
-    cleanup_containers "webhook_"
+    if [ -n "${RECEIVER_PID:-}" ]; then
+        kill "$RECEIVER_PID" 2>/dev/null || true
+        wait "$RECEIVER_PID" 2>/dev/null || true
+    fi
+    [ -z "${WEBHOOK_TARGET_ID:-}" ] || docker rm -f "$WEBHOOK_TARGET_ID" >/dev/null 2>&1 || true
+}
+
+create_webhook_target() {
+    WEBHOOK_TARGET_ID=$(docker run -d --name "pumba-webhook-$BATS_TEST_NUMBER-$$-$RANDOM" alpine:latest top)
 }
 
 # Start a local HTTP receiver that appends each POST body to $BODIES and its
@@ -53,10 +61,10 @@ EOF
 }
 
 @test "Should POST the same events to --webhook as on stdout in ndjson mode" {
-    create_test_container webhook_victim alpine:latest top
+    create_webhook_target
     start_receiver
 
-    run --separate-stderr pumba -o ndjson --webhook "$WEBHOOK_URL" --dry-run kill webhook_victim
+    run --separate-stderr pumba -o ndjson --webhook "$WEBHOOK_URL" --dry-run kill "$WEBHOOK_TARGET_ID"
     assert_success
 
     assert_equal "$(cat "$BODIES")" "$output"
@@ -77,9 +85,9 @@ EOF
 }
 
 @test "Should keep the outcome and warn once without the URL when --webhook is unreachable" {
-    create_test_container webhook_victim alpine:latest top
+    create_webhook_target
 
-    run --separate-stderr pumba -o ndjson --webhook "http://127.0.0.1:9/events?token=s3cr3t" --dry-run kill webhook_victim
+    run --separate-stderr pumba -o ndjson --webhook "http://127.0.0.1:9/events?token=s3cr3t" --dry-run kill "$WEBHOOK_TARGET_ID"
     assert_success
 
     echo "$output" | jq -se 'last | .type == "run.end" and .status == "ok" and .events_dropped == 0' >/dev/null

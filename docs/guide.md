@@ -354,7 +354,8 @@ pumba --webhook "https://collector.example.com/pumba?token=$TOKEN" \
 
 - Best effort and ordered: a bounded queue, a 5-second timeout per request, no retries,
   redirects not followed. Events that do not fit or fail are dropped, and the first
-  drop prints one warning to stderr. Delivery never changes the exit code.
+  drop requests one best-effort warning to stderr. A blocked stderr cannot hold chaos
+  or extend shutdown; the warning can be lost at exit. Delivery never changes the exit code.
 - At exit, `run.end` is flushed for at most 5 seconds.
 - No custom headers: put a token in the URL. The URL and event bodies are never logged.
 - The URL must be absolute `http://` or `https://`; anything else is a usage error.

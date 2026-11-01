@@ -30,12 +30,13 @@ var (
 
 // webhook POSTs each event as its pumba.event/v1 JSON line. Delivery is best
 // effort: no retries, redirects are not followed, and the first drop or failure
-// prints one warning that names neither the URL nor a body.
+// requests one best-effort warning that names neither the URL nor a body.
 type webhook struct {
-	url      string
-	client   *http.Client
-	stderr   io.Writer
-	warnOnce sync.Once
+	url         string
+	client      *http.Client
+	stderr      io.Writer
+	warnOnce    sync.Once
+	warningDone chan struct{}
 }
 
 // newWebhookSink returns a sink that delivers events to rawURL in order from
@@ -48,9 +49,10 @@ func newWebhookSink(rawURL string, timeout time.Duration, stderr io.Writer, size
 			// Do not forward events to a redirect destination.
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 		},
-		stderr: stderr,
+		stderr:      stderr,
+		warningDone: make(chan struct{}),
 	}
-	return startSink(h.post, h.warn, size)
+	return startSink(h.post, h.warn, size, h.warningDone)
 }
 
 // enableWebhook validates --webhook and subscribes its sink to the fan-out.
@@ -68,7 +70,7 @@ func (o *eventOutput) enableWebhook(rawURL string) error {
 
 func validateWebhookURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 		return errWebhookURL
 	}
 	return nil
@@ -98,7 +100,12 @@ func (h *webhook) post(ev *chaos.Event) error {
 
 func (h *webhook) warn() {
 	h.warnOnce.Do(func() {
-		// Never print the delivery error: url.Error embeds the URL.
-		_, _ = fmt.Fprintln(h.stderr, "warning: result events could not be delivered to --webhook (further warnings suppressed)")
+		// At most one process-lifetime writer: arbitrary stderr cannot be
+		// canceled, but it must never hold Emit or extend bounded shutdown.
+		go func() {
+			defer close(h.warningDone)
+			// Never print the delivery error: url.Error embeds the URL.
+			_, _ = fmt.Fprintln(h.stderr, "warning: result events could not be delivered to --webhook (further warnings suppressed)")
+		}()
 	})
 }
