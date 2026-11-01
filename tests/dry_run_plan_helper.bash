@@ -50,8 +50,7 @@ plan_sidecars() {
             ;;
         containerd)
             sudo ctr -n "$PLAN_NAMESPACE" c ls -q \
-                'labels."com.gaiaadm.pumba.skip"==true' \
-                "labels.\"com.gaiaadm.pumba.target\"==$PLAN_TARGET_ID"
+                "labels.\"com.gaiaadm.pumba.skip\"==true,labels.\"com.gaiaadm.pumba.target\"==$PLAN_TARGET_ID"
             ;;
     esac
 }

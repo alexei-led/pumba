@@ -75,11 +75,22 @@ ctr() {
         't exec') echo 'unchanged network state' ;;
         'c rm') remove_fixture "$3" ;;
         'c ls')
+            # ctr ORs separate selectors; only comma-separated predicates AND.
             for arg in "$@"; do
-                case "$arg" in *com.gaiaadm.pumba.target*) target=${arg#*==} ;; esac
-            done
-            [ -n "$target" ] || { echo 'unscoped sidecar query' >&2; return 1; }
-            list_sidecars "$target"
+                case "$arg" in
+                    'labels."com.gaiaadm.pumba.skip"==true,labels."com.gaiaadm.pumba.target"=='*)
+                        target=${arg##*==}
+                        list_sidecars "$target"
+                        ;;
+                    'labels."com.gaiaadm.pumba.skip"==true')
+                        awk '$2 == "true" { print $1 }' "$STATE"
+                        ;;
+                    'labels."com.gaiaadm.pumba.target"=='*)
+                        target=${arg#*==}
+                        awk -v target="$target" '$3 == target { print $1 }' "$STATE"
+                        ;;
+                esac
+            done | sort -u
             ;;
         *) echo "unexpected ctr call: $*" >&2; return 1 ;;
     esac
