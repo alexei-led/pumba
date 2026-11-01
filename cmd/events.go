@@ -182,7 +182,13 @@ func (o *eventOutput) configure(c *cli.Context) error {
 	if err := c.GlobalSet("run-id", id); err != nil {
 		return err
 	}
-	return o.enableWebhook(c.GlobalString("webhook"))
+	if err := o.enableWebhook(c.GlobalString("webhook")); err != nil {
+		return err
+	}
+	if o.hook != nil {
+		c.App.ExitErrHandler = func(*cli.Context, error) {}
+	}
+	return nil
 }
 
 // enableNDJSON reserves stdout for events: help and usage text move to

@@ -14,6 +14,7 @@ import (
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
 )
 
 const webhookToken = "secret-token"
@@ -311,6 +312,29 @@ func TestRunWebhookFailureKeepsOutcome(t *testing.T) {
 	assert.Len(t, r.received(), len(lines), "every event was attempted")
 	assertOneWarningWithoutSecrets(t, stderr, url)
 	assert.NotContains(t, stdout, webhookToken)
+}
+
+func TestWebhookUsageErrorDoesNotExitBeforeFlush(t *testing.T) {
+	for _, output := range []string{outputText, outputNDJSON} {
+		t.Run(output, func(t *testing.T) {
+			var exits []int
+			exiter := cli.OsExiter
+			cli.OsExiter = func(code int) { exits = append(exits, code) }
+			t.Cleanup(func() { cli.OsExiter = exiter })
+			r := newReceiver(t, http.StatusNoContent)
+			client := ctr.NewMockClient(t)
+			client.EXPECT().Close().Return(nil).Maybe()
+			code, _, _ := runPumba(t, client, "-o", output, "--webhook", r.URL, "bogus")
+
+			require.Empty(t, exits, "urfave must return to finish instead of immediately exiting")
+			require.Equal(t, 1, code)
+			bodies := r.received()
+			require.Len(t, bodies, 1)
+			lines := parseNDJSON(t, bodies[0])
+			require.Equal(t, []chaos.EventType{chaos.EventRunEnd}, types(lines))
+			require.Equal(t, string(chaos.RunUsageError), lines[0].Status)
+		})
+	}
 }
 
 func TestRunInvalidWebhookIsUsageError(t *testing.T) {
