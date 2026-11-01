@@ -137,7 +137,7 @@ For chaos commands in every output mode, `1` means the command failed (unless su
 
 - Events are counted before delivery, so a slow or closed stdout or webhook never changes the outcome or the exit code.
 - The stdout writer has a bounded queue (1024 events). When the reader falls behind, events are dropped instead of stalling chaos; `run.end.events_dropped` counts them.
-- `run.end` is flushed for at most 2 seconds at exit. A missing `run.end` means the output is incomplete (crash, `kill -9`, closed pipe): treat the outcome as unknown and use the exit code.
+- `run.end` is flushed for at most 2 seconds at exit. Its timeout warning is best-effort and may be lost at exit; a blocked warning write does not extend the flush bound. A missing `run.end` means the output is incomplete (crash, `kill -9`, closed pipe): treat the outcome as unknown and use the exit code.
 - SIGPIPE is ignored in ndjson mode, so a closed stdout does not kill Pumba with faults still active.
 
 ### Webhook

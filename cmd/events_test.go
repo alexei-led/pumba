@@ -14,6 +14,7 @@ import (
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -359,32 +360,122 @@ func TestStreamSinkCountsWriteFailures(t *testing.T) {
 	assert.Equal(t, int64(2), s.dropped.Load())
 }
 
-func TestFinishOutcomeIgnoresStalledStdout(t *testing.T) {
-	tests := []struct {
-		name     string
-		status   chaos.TargetStatus
-		err      error
-		exitCode int
-	}{
-		{name: "ok", status: chaos.TargetOK},
-		{name: "failed", status: chaos.TargetFailed, err: errors.New("boom"), exitCode: 1},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := newEventOutput(newBlockingWriter(t), io.Discard, "v")
-			o.flushTimeout = 20 * time.Millisecond
-			o.enableNDJSON(cli.NewApp())
-			gp := &chaos.GlobalParams{RunID: "r1", Action: "kill", Events: o.rec}
-			gp.Emit(&chaos.Event{Type: chaos.EventRunStart, Start: &chaos.RunStart{}})
-			for range eventQueueSize + 10 {
-				gp.Emit(&chaos.Event{Type: chaos.EventTargetResult, Result: &chaos.TargetResult{Status: tt.status}})
-			}
+// stdoutWarningWriter observes the logrus write before forwarding it to a
+// possibly shared, blocked output. Tests release and join it before restoring
+// the global logger, including on the regression's failing path.
+type stdoutWarningWriter struct {
+	writer   io.Writer
+	entered  chan struct{}
+	done     chan struct{}
+	once     sync.Once
+	doneOnce sync.Once
+	writes   syncBuffer
+}
 
-			start := time.Now()
-			assert.Equal(t, tt.exitCode, o.finish(tt.err, false))
-			assert.Less(t, time.Since(start), time.Second)
-			_, outcome := o.rec.RunEnd(tt.err, false)
-			assert.NotEqual(t, chaos.RunNoTargets, outcome.Status, "dropped events still count")
+func (w *stdoutWarningWriter) Write(p []byte) (int, error) {
+	_, _ = w.writes.Write(p)
+	w.once.Do(func() { close(w.entered) })
+	n, err := w.writer.Write(p)
+	w.doneOnce.Do(func() { close(w.done) })
+	return n, err
+}
+
+func waitEventOutput(t *testing.T, done <-chan struct{}, what string) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for %s", what)
+	}
+}
+
+func TestFinishOutcomeIgnoresStalledStdoutAndStderr(t *testing.T) {
+	tests := []struct {
+		name      string
+		status    chaos.TargetStatus
+		err       error
+		runStatus chaos.RunStatus
+		exitCode  int
+	}{
+		{name: "ok", status: chaos.TargetOK, runStatus: chaos.RunOK},
+		{name: "failed", status: chaos.TargetFailed, err: errors.New("boom"), runStatus: chaos.RunFailed, exitCode: 1},
+		{name: "cleanup failed", status: chaos.TargetCleanupFailed, err: errors.New("cleanup failed"), runStatus: chaos.RunCleanupFailed, exitCode: 1},
+	}
+	for _, shared := range []bool{false, true} {
+		name := "separate writers"
+		if shared {
+			name = "shared writer"
+		}
+		t.Run(name, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					release := make(chan struct{})
+					stdout := &blockingWriter{entered: make(chan struct{}), release: release}
+					stderr := &blockingWriter{entered: make(chan struct{}), release: release}
+					if shared {
+						stderr = stdout // the same blocked destination, as with 2>&1
+					}
+					warning := &stdoutWarningWriter{writer: stderr, entered: make(chan struct{}), done: make(chan struct{})}
+					logger := log.StandardLogger()
+					oldOutput, oldFormatter, oldLevel := logger.Out, logger.Formatter, logger.GetLevel()
+					logger.SetOutput(warning)
+					logger.SetFormatter(&log.TextFormatter{DisableTimestamp: true, DisableColors: true})
+					logger.SetLevel(log.WarnLevel)
+
+					o := newEventOutput(stdout, stderr, "v")
+					o.flushTimeout = 20 * time.Millisecond
+					o.enableNDJSON(cli.NewApp())
+					// A healthy second sink must retain its own run.end drop count.
+					const results = eventQueueSize + 10
+					var hookEnd *chaos.Event
+					o.hook = startSink(func(ev *chaos.Event) error { hookEnd = ev; return nil }, nil, results+1, nil)
+					o.fan.subs = append(o.fan.subs, o.hook)
+					gp := &chaos.GlobalParams{RunID: "r1", Action: "kill", Events: o.rec}
+					gp.Emit(&chaos.Event{Type: chaos.EventRunStart, Start: &chaos.RunStart{}})
+					for range results {
+						gp.Emit(&chaos.Event{Type: chaos.EventTargetResult, Result: &chaos.TargetResult{Status: tt.status}})
+					}
+
+					finished := make(chan struct{})
+					var code int
+					go func() {
+						defer close(finished)
+						code = o.finish(tt.err, false)
+					}()
+					var releaseOnce sync.Once
+					releaseWriters := func() {
+						releaseOnce.Do(func() { close(release) })
+						waitEventOutput(t, finished, "finish after release")
+						waitEventOutput(t, o.stream.done, "stdout writer after release")
+						waitEventOutput(t, warning.done, "warning writer after release")
+					}
+					t.Cleanup(func() {
+						releaseWriters()
+						// SetOutput also waits for logrus to release its write lock.
+						logger.SetOutput(oldOutput)
+						logger.SetFormatter(oldFormatter)
+						logger.SetLevel(oldLevel)
+						assert.Equal(t, "level=warning msg=\"timed out writing result events to stdout\"\n", warning.writes.String(), "exactly one warning, with the existing format")
+					})
+
+					waitEventOutput(t, stdout.entered, "blocked stdout write")
+					waitEventOutput(t, warning.entered, "blocked warning write")
+					waitEventOutput(t, finished, "bounded finish with both outputs blocked")
+					assert.Equal(t, tt.exitCode, code)
+					end, outcome := o.rec.RunEnd(tt.err, false)
+					assert.Equal(t, tt.runStatus, outcome.Status)
+					assert.Equal(t, results, end.End.Counts.Selected, "dropped events still count")
+					assert.Positive(t, o.stream.dropped.Load())
+					releaseWriters()
+					waitEventOutput(t, o.hook.done, "healthy sink flush")
+					require.NotNil(t, hookEnd)
+					require.NotNil(t, hookEnd.End)
+					assert.Positive(t, o.stream.last.End.EventsDropped)
+					assert.Equal(t, tt.runStatus, hookEnd.End.Status)
+					assert.Equal(t, results, hookEnd.End.Counts.Selected)
+					assert.Zero(t, hookEnd.End.EventsDropped, "stdout drops never contaminate the other sink's copy")
+				})
+			}
 		})
 	}
 }
