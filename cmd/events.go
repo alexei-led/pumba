@@ -42,22 +42,36 @@ func (f *eventFanout) Emit(ev *chaos.Event) {
 	}
 }
 
-// streamSink writes events as NDJSON from its own goroutine through a bounded
-// queue, so a stalled writer never blocks Emit. Events that do not fit, arrive
-// after stop, or fail to write are counted as dropped.
+// streamSink delivers events from its own goroutine through a bounded queue,
+// in order, so a stalled consumer never blocks Emit. Events that do not fit,
+// arrive after stop, or fail to deliver are counted as dropped.
 type streamSink struct {
-	w       io.Writer
-	queue   chan *chaos.Event
-	done    chan struct{}
-	dropped atomic.Int64
+	deliver     func(*chaos.Event) error
+	onDrop      func()          // optional, must not block; called on every drop
+	warningDone <-chan struct{} // optional asynchronous warning completion
+	queue       chan *chaos.Event
+	done        chan struct{}
+	dropped     atomic.Int64
 
 	mu     sync.Mutex
 	closed bool
 	last   *chaos.Event
 }
 
+// newStreamSink writes events to w as NDJSON.
 func newStreamSink(w io.Writer, size int) *streamSink {
-	s := &streamSink{w: w, queue: make(chan *chaos.Event, size), done: make(chan struct{})}
+	enc := newEventEncoder(w)
+	return startSink(func(ev *chaos.Event) error { return enc.Encode(ev) }, nil, size, nil)
+}
+
+func newEventEncoder(w io.Writer) *json.Encoder {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	return enc
+}
+
+func startSink(deliver func(*chaos.Event) error, onDrop func(), size int, warningDone <-chan struct{}) *streamSink {
+	s := &streamSink{deliver: deliver, onDrop: onDrop, warningDone: warningDone, queue: make(chan *chaos.Event, size), done: make(chan struct{})}
 	go s.write()
 	return s
 }
@@ -66,37 +80,47 @@ func (s *streamSink) Emit(ev *chaos.Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		s.dropped.Add(1)
+		s.drop()
 		return
 	}
 	select {
 	case s.queue <- ev:
 	default:
-		s.dropped.Add(1)
+		s.drop()
+	}
+}
+
+func (s *streamSink) drop() {
+	s.dropped.Add(1)
+	if s.onDrop != nil {
+		s.onDrop()
 	}
 }
 
 func (s *streamSink) write() {
 	defer close(s.done)
-	enc := json.NewEncoder(s.w)
-	enc.SetEscapeHTML(false)
 	for ev := range s.queue {
-		s.encode(enc, ev)
+		s.send(ev)
 	}
 	// flush sets last before closing the queue, so it is visible here. The
 	// drop count is read only now so failures while draining the queue are in
-	// it; a failure writing this line itself cannot be.
+	// it; a failure delivering this event itself cannot be.
 	if s.last != nil {
 		if s.last.End != nil {
 			s.last.End.EventsDropped = s.dropped.Load()
 		}
-		s.encode(enc, s.last)
+		s.send(s.last)
+	}
+	// Normal flush observes its warning; a blocked stderr remains bounded by
+	// the caller's existing flush timeout, never the event producer.
+	if s.warningDone != nil && s.dropped.Load() > 0 {
+		<-s.warningDone
 	}
 }
 
-func (s *streamSink) encode(enc *json.Encoder, ev *chaos.Event) {
-	if err := enc.Encode(ev); err != nil {
-		s.dropped.Add(1)
+func (s *streamSink) send(ev *chaos.Event) {
+	if err := s.deliver(ev); err != nil {
+		s.drop()
 	}
 }
 
@@ -126,19 +150,21 @@ type eventOutput struct {
 	fan            eventFanout
 	rec            *chaos.Recorder
 	stream         *streamSink // stdout sink; nil in text mode
+	hook           *streamSink // --webhook sink; nil without --webhook
 	runID          string
 	flushTimeout   time.Duration
+	hookTimeout    time.Duration // per request and for the exit flush
 }
 
 func newEventOutput(stdout, stderr io.Writer, version string) *eventOutput {
-	o := &eventOutput{stdout: stdout, stderr: stderr, flushTimeout: eventFlushTimeout}
+	o := &eventOutput{stdout: stdout, stderr: stderr, flushTimeout: eventFlushTimeout, hookTimeout: webhookTimeout}
 	o.rec = chaos.NewRecorder(&o.fan, version)
 	return o
 }
 
-// configure applies --output and resolves --run-id, writing a generated ID
-// back so chaos.ParseGlobalParams sees the same value. before() calls it first,
-// so later usage errors still reach an ndjson consumer.
+// configure applies --output, resolves --run-id, writing a generated ID back
+// so chaos.ParseGlobalParams sees the same value, and applies --webhook.
+// before() calls it first, so later usage errors still reach event consumers.
 func (o *eventOutput) configure(c *cli.Context) error {
 	switch mode := c.GlobalString("output"); mode {
 	case outputText:
@@ -153,7 +179,16 @@ func (o *eventOutput) configure(c *cli.Context) error {
 		return chaos.NewUsageError(err)
 	}
 	o.runID = id
-	return c.GlobalSet("run-id", id)
+	if err := c.GlobalSet("run-id", id); err != nil {
+		return err
+	}
+	if err := o.enableWebhook(c.GlobalString("webhook")); err != nil {
+		return err
+	}
+	if o.hook != nil {
+		c.App.ExitErrHandler = func(*cli.Context, error) {}
+	}
+	return nil
 }
 
 // enableNDJSON reserves stdout for events: help and usage text move to
@@ -199,16 +234,37 @@ func (o *eventOutput) finish(err error, aborted bool) int {
 		err = chaos.NewUsageError(err)
 	}
 	ev, out := o.rec.RunEnd(err, aborted)
-	if o.stream == nil || (ev.RunID == "" && err == nil) {
+	if ev.RunID == "" && err == nil {
 		return out.ExitCode
 	}
 	if ev.RunID == "" {
 		ev.RunID = o.runID
 	}
-	if !o.stream.flush(&ev, o.flushTimeout) {
+	o.flush(&ev)
+	return out.ExitCode
+}
+
+// flush delivers run.end to every sink concurrently, each within its own
+// bound. The webhook gets its own copy: each sink writes its own drop count
+// into run.end.
+func (o *eventOutput) flush(end *chaos.Event) {
+	var wg sync.WaitGroup
+	if o.hook != nil {
+		hookEnd := *end
+		if end.End != nil {
+			body := *end.End
+			hookEnd.End = &body
+		}
+		wg.Go(func() {
+			if !o.hook.flush(&hookEnd, o.hookTimeout) {
+				o.hook.onDrop()
+			}
+		})
+	}
+	if o.stream != nil && !o.stream.flush(end, o.flushTimeout) {
 		log.Warn("timed out writing result events to stdout")
 	}
-	return out.ExitCode
+	wg.Wait()
 }
 
 // setUsageErrorHandler installs h on every command and subcommand.

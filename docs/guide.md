@@ -360,6 +360,32 @@ pumba --max-duration 1h --interval 5m --random kill 're2:^worker-'
 
 The full contract (fields, error codes, delivery, recipes) is in [Agents](agents.md).
 
+## Webhook
+
+`--webhook URL` POSTs every result event to an HTTP endpoint, one request per event,
+as `application/json`. The body is the same `pumba.event/v1` line that `--output ndjson`
+writes to stdout. It works in every `--output` mode:
+
+```bash
+pumba --webhook "https://collector.example.com/pumba?token=$TOKEN" \
+      --interval 5m --random kill 're2:^worker-'
+```
+
+- Best effort and ordered: a bounded queue, a 5-second timeout per request, no retries,
+  redirects not followed. Events that do not fit or fail are dropped, and the first
+  drop requests one best-effort warning to stderr. A blocked stderr cannot hold chaos
+  or extend shutdown; the warning can be lost at exit. Delivery never changes the exit code.
+- At exit, `run.end` is flushed for at most 5 seconds.
+- No custom headers: put a token in the URL. The URL and event bodies are never logged.
+- The URL must be absolute `http://` or `https://`; anything else is a usage error.
+
+**Security:** events include container names and IDs, the action and its parameters,
+and they leave the host. Use HTTPS, and send them only to a receiver you trust.
+
+`--webhook` vs `--slackhook`: `--webhook` sends structured result events for programs.
+`--slackhook` sends log lines to a Slack channel for people. They are independent and
+can be combined.
+
 ## Finding Leftovers
 
 A run that dies before its cleanup (`kill -9`, OOM, node loss) leaves its faults in place.
@@ -468,7 +494,7 @@ This is useful in recurring mode when target containers may temporarily not exis
 - [Network Chaos](network-chaos.md) - netem and iptables commands
 - [Stress Testing](stress-testing.md) - CPU, memory, and I/O stress (includes `--inject-cgroup` for same-cgroup injection)
 - [Deployment](deployment.md) - Docker, Kubernetes, and OpenShift
-- [Agents](agents.md) - Result events, run ID, `status --check`, exit codes and run budget for scripts and agents
+- [Agents](agents.md) - Result events, webhook, run ID, `status --check`, exit codes and run budget for scripts and agents
 - [Contributing](../CONTRIBUTING.md) - Building and contributing to Pumba
 
 ## Global safety options
