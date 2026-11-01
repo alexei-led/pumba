@@ -228,7 +228,7 @@ func TestStressContainer_DefaultSystemd_SetsCgroupParent(t *testing.T) {
 	require.Equal(t, []string{"--cpu", "2"}, []string(gotConfig.Cmd))
 
 	require.NotNil(t, gotHost)
-	require.True(t, gotHost.AutoRemove)
+	require.False(t, gotHost.AutoRemove)
 	require.Equal(t, "/machine.slice", gotHost.Resources.CgroupParent)
 	require.Empty(t, gotHost.Binds)
 	require.Empty(t, string(gotHost.CgroupnsMode))
@@ -285,7 +285,7 @@ func TestStressContainer_InjectCgroup_UsesFullPath(t *testing.T) {
 	require.Equal(t, ctypes.CgroupnsMode("host"), gotHost.CgroupnsMode)
 	require.Equal(t, []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}, gotHost.Binds)
 	require.Empty(t, gotHost.Resources.CgroupParent)
-	require.True(t, gotHost.AutoRemove)
+	require.False(t, gotHost.AutoRemove)
 }
 
 func TestStressContainer_PullError(t *testing.T) {
@@ -324,7 +324,7 @@ func TestStressContainer_AttachError(t *testing.T) {
 	api.EXPECT().ContainerAttach(mock.Anything, "sidecar1", mock.Anything).
 		Return(types.HijackedResponse{}, errors.New("attach boom")).Once()
 	// removeOnError must clean up the created-but-not-started container.
-	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
@@ -346,13 +346,10 @@ func TestStressContainer_Success_FullFlow(t *testing.T) {
 	api.EXPECT().ContainerAttach(mock.Anything, "sidecar1", mock.Anything).
 		Return(newAttachWith("stress-ng done\n"), nil).Once()
 	api.EXPECT().ContainerStart(mock.Anything, "sidecar1", mock.Anything).Return(nil).Once()
-	// drainStressOutput inspects post-EOF for exit code.
-	api.EXPECT().ContainerInspect(mock.Anything, "sidecar1").Return(ctypes.InspectResponse{
-		ContainerJSONBase: &ctypes.ContainerJSONBase{
-			ID:    "sidecar1",
-			State: &ctypes.State{ExitCode: 0},
-		},
-	}, nil).Once()
+	exited := make(chan ctypes.WaitResponse, 1)
+	exited <- ctypes.WaitResponse{}
+	api.EXPECT().ContainerWait(mock.Anything, "sidecar1", ctypes.WaitConditionNotRunning).Return((<-chan ctypes.WaitResponse)(exited), make(<-chan error)).Once()
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)))
@@ -382,8 +379,8 @@ func TestStressContainer_StartError(t *testing.T) {
 		Return(newAttachWith(""), nil).Once()
 	api.EXPECT().ContainerStart(mock.Anything, "sidecar1", mock.Anything).
 		Return(errors.New("start boom")).Once()
-	// removeOnError must clean up; no drain goroutine is launched after start failure.
-	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+	// Explicit removal must clean up; no drain goroutine is launched after start failure.
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
@@ -411,7 +408,7 @@ func TestBuildStressConfig_DefaultSystemd(t *testing.T) {
 	}, cfg.Labels)
 	require.Equal(t, []string{"/stress-ng"}, []string(cfg.Entrypoint))
 	require.Equal(t, []string{"--cpu", "1"}, []string(cfg.Cmd))
-	require.True(t, hc.AutoRemove)
+	require.False(t, hc.AutoRemove)
 	require.Equal(t, "/machine.slice", hc.Resources.CgroupParent)
 	require.Empty(t, hc.Binds)
 }
@@ -436,7 +433,7 @@ func TestBuildStressConfig_Inject(t *testing.T) {
 	require.Equal(t, []string{"label=disable"}, hc.SecurityOpt)
 	require.Equal(t, []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}, hc.Binds)
 	require.Empty(t, hc.Resources.CgroupParent)
-	require.True(t, hc.AutoRemove)
+	require.False(t, hc.AutoRemove)
 }
 
 // TestStressContainer_InjectCgroup_UsesNestedLeaf confirms cg-inject is

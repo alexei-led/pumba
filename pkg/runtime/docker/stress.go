@@ -1,10 +1,9 @@
 package docker
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
-	"io"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	ctypes "github.com/docker/docker/api/types/container"
@@ -58,7 +57,7 @@ func stressContainerConfig(req *ctr.StressRequest, driver, cgroupParent, cgroupP
 			Entrypoint: []string{"/cg-inject"},
 			Cmd:        cmd,
 		}, ctypes.HostConfig{
-			AutoRemove:   true,
+			AutoRemove:   false,
 			CgroupnsMode: "host",
 			Binds:        []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"},
 		}
@@ -71,7 +70,7 @@ func stressContainerConfig(req *ctr.StressRequest, driver, cgroupParent, cgroupP
 		Entrypoint: []string{"/stress-ng"},
 		Cmd:        stressors,
 	}, ctypes.HostConfig{
-		AutoRemove:   true,
+		AutoRemove:   false,
 		CgroupParent: cgroupParent,
 	}
 }
@@ -113,49 +112,16 @@ func (client dockerClient) stressContainerCommand(ctx context.Context, req *ctr.
 	}
 	attach, err := client.containerAPI.ContainerAttach(ctx, createResponse.ID, opts)
 	if err != nil {
-		// AutoRemove fires only on container exit; a never-attached container
-		// is leaked unless we remove it explicitly.
-		if rmErr := client.removeSidecar(ctx, createResponse.ID); rmErr != nil {
-			log.WithError(rmErr).WithField("id", createResponse.ID).Warn("failed to remove never-attached stress-ng sidecar")
-		}
-		return "", nil, nil, fmt.Errorf("failed to attach to stress-ng container: %w", err)
+		return "", nil, nil, errors.Join(fmt.Errorf("failed to attach to stress-ng container: %w", err), client.removeStressSidecar(ctx, createResponse.ID))
+	}
+	// Start before launching the reader or observing exit. A failed start must
+	// close the attachment without leaving a goroutine blocked in io.Copy.
+	if err := client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{}); err != nil {
+		attach.Close()
+		return createResponse.ID, nil, nil, errors.Join(fmt.Errorf("failed to start stress-ng container: %w", err), client.removeStressSidecar(ctx, createResponse.ID))
 	}
 	output := make(chan string, 1)
 	outerr := make(chan error, 1)
-	// copy stderr and stdout from attached reader
-	go func() {
-		defer close(output)
-		defer close(outerr)
-		defer attach.Close()
-		var stdout bytes.Buffer
-		_, e := io.Copy(&stdout, attach.Reader)
-		if e != nil {
-			outerr <- e
-			return
-		}
-		// inspect stress-ng container
-		inspect, e := client.containerAPI.ContainerInspect(ctx, createResponse.ID)
-		if e != nil {
-			outerr <- fmt.Errorf("failed to inspect stress-ng container: %w", e)
-			return
-		}
-		// get status of stress-ng command
-		if inspect.State.ExitCode != 0 {
-			outerr <- fmt.Errorf("stress-ng exited with error: %v", stdout.String())
-			return
-		}
-		output <- stdout.String()
-	}()
-	// start stress-ng container running stress-ng in target container cgroup
-	log.WithField("id", createResponse.ID).Debug("stress-ng container created, starting it")
-	err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{})
-	if err != nil {
-		// AutoRemove fires only on container exit; a never-started container
-		// is leaked unless we remove it explicitly.
-		if rmErr := client.removeSidecar(ctx, createResponse.ID); rmErr != nil {
-			log.WithError(rmErr).WithField("id", createResponse.ID).Warn("failed to remove never-started stress-ng sidecar")
-		}
-		return createResponse.ID, output, outerr, fmt.Errorf("failed to start stress-ng container: %w", err)
-	}
+	go client.drainStressOutput(ctx, createResponse.ID, attach, output, outerr)
 	return createResponse.ID, output, outerr, nil
 }
