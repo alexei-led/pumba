@@ -119,11 +119,11 @@ func (c *containerdClient) startSidecarTask(ctx, waitCtx context.Context, cntr c
 
 	waitCh, err := task.Wait(waitCtx)
 	if err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false).err))
+		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, nil).err))
 	}
 
 	if err := task.Start(ctx); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false).err))
+		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, terminateOwnedExec).err))
 	}
 
 	return task, waitCh, nil
@@ -143,6 +143,13 @@ func (c *containerdClient) waitStressSidecar(
 	defer close(errCh)
 
 	exit := waitStressTask(ctx, task, waitCh)
+	if !execStatusKnown(exit.status, exit.ok) && !exit.timedOut {
+		// A failed Wait RPC is not proof that the owned task stopped.
+		stopCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), sidecarKillTimeout)
+		termination := terminateOwnedExec(stopCtx, task)
+		stop()
+		exit.cleanupErr = errors.Join(exit.cleanupErr, termination.err)
+	}
 
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 	cleanupCtx = c.nsCtx(cleanupCtx)

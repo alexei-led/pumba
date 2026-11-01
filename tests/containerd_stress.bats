@@ -33,7 +33,7 @@ teardown() {
 
 assert_direct_stress_clean() {
     assert_container_running "$STRESS_TARGET_ID"
-    run docker exec "$STRESS_TARGET_ID" ps -o comm
+    run docker exec "$STRESS_TARGET_ID" ps -o pid,ppid,stat,comm
     assert_success
     refute_output --partial "stress-ng"
 }

@@ -25,7 +25,7 @@ func execFaultTaskOutput(ctx context.Context, task containerd.Task, pspec *specs
 func execFaultTaskOutputWithTimeout(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string, timeout time.Duration) (string, string, error) {
 	execCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
-	out, errOut, err := runTaskExec(execCtx, task, pspec, execID, description, true)
+	out, errOut, err := runTaskExec(execCtx, task, pspec, execID, description, terminateOwnedExec)
 	if execCtx.Err() != nil {
 		return "", "", fmt.Errorf("fault exec exceeded its internal deadline; shell descendants may require manual cleanup: %w", errors.Join(execCtx.Err(), err))
 	}

@@ -89,7 +89,7 @@ func (c *containerdClient) stressSidecar(ctx context.Context, req *ctr.StressReq
 // Stress owns only this exec process, never the target task. User exec keeps
 // its existing non-terminating cancellation behavior.
 func execStressTask(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, string, error) {
-	out, errOut, err := runTaskExec(ctx, task, pspec, execID, description, true)
+	out, errOut, err := runTaskExec(ctx, task, pspec, execID, description, terminateStressExec)
 	if errors.Is(err, errExecCleanup) {
 		return out, errOut, &ctr.StressCleanupError{Err: err}
 	}

@@ -21,11 +21,11 @@ func TestStressDirectExecWaitFailureReapsOwnedProcess(t *testing.T) {
 	proc.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(running), nil).Once()
 	proc.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(reaped), nil).Once()
 	proc.EXPECT().Start(mock.Anything).Return(nil).Once()
-	proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).
+	proc.EXPECT().Kill(mock.Anything, syscall.SIGTERM).
 		Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
-			reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
+			reaped <- *containerd.NewExitStatus(143, time.Now(), nil)
 		}).Return(nil).Once()
-	proc.EXPECT().Delete(mock.Anything).Return(containerd.NewExitStatus(137, time.Now(), nil), nil).Once()
+	proc.EXPECT().Delete(mock.Anything).Return(containerd.NewExitStatus(143, time.Now(), nil), nil).Once()
 	task := newRunningTask(t)
 	setupExec(task, proc)
 	api := NewMockapiClient(t)

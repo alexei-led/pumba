@@ -1273,6 +1273,10 @@ func TestStressContainer_SidecarStartError(t *testing.T) {
 	sidecarTask := NewMockTask(t)
 	sidecarTask.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	sidecarTask.EXPECT().Start(mock.Anything).Return(assert.AnError)
+	sidecarTask.EXPECT().Kill(mock.Anything, syscall.SIGKILL).
+		Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
+			exitCh <- *containerd.NewExitStatus(137, time.Now(), nil)
+		}).Return(nil).Once()
 	sidecarTask.EXPECT().Delete(mock.Anything).Return(nil, nil)
 	sidecarCntr := NewMockContainer(t)
 	sidecarCntr.EXPECT().NewTask(mock.Anything, mock.Anything).Return(sidecarTask, nil)
@@ -1375,6 +1379,7 @@ func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:parallelte
 	close(closedCh)
 	sidecarTask.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(closedCh), nil)
 	sidecarTask.EXPECT().Start(mock.Anything).Return(nil)
+	sidecarTask.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Return(nil).Once()
 	sidecarTask.EXPECT().Delete(mock.Anything).Return(nil, nil)
 
 	sidecarCntr := NewMockContainer(t)

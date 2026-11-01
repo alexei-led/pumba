@@ -20,10 +20,10 @@ type taskExecutor func(context.Context, containerd.Task, *specs.Process, string,
 // wait, start, collect exit status, delete. A non-zero exit is an error
 // carrying stderr.
 func execTaskOutput(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string) (string, string, error) {
-	return runTaskExec(ctx, task, pspec, execID, description, false)
+	return runTaskExec(ctx, task, pspec, execID, description, nil)
 }
 
-func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string, owned bool) (out, errOut string, resultErr error) {
+func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process, execID, description string, terminate execTerminator) (out, errOut string, resultErr error) {
 	var stdout, stderr bytes.Buffer
 	execProcess, err := task.Exec(ctx, execID, pspec, cio.NewCreator(
 		cio.WithStreams(nil, &stdout, &stderr),
@@ -33,8 +33,12 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	}
 	var observedExit bool
 	defer func() {
-		cleanup := cleanupTaskExec(ctx, execProcess, owned && !observedExit)
-		if owned && !observedExit {
+		policy := terminate
+		if observedExit {
+			policy = nil
+		}
+		cleanup := cleanupTaskExec(ctx, execProcess, policy)
+		if terminate != nil && !observedExit {
 			if exitErr := ownedExecResultError(description, cleanup); exitErr != nil {
 				resultErr = errors.Join(resultErr, exitErr)
 			}
@@ -57,9 +61,9 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	select {
 	case status, ok := <-exitCh:
 		observedExit = execStatusKnown(status, ok)
-		return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, owned)
+		return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, terminate != nil)
 	case <-ctx.Done():
-		if owned {
+		if terminate != nil {
 			select {
 			case status, ok := <-exitCh:
 				observedExit = execStatusKnown(status, ok)

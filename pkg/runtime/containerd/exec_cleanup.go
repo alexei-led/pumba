@@ -12,22 +12,27 @@ import (
 
 var errExecCleanup = errors.New("exec cleanup failed")
 
-const killedExitCode = 128 + uint32(syscall.SIGKILL)
+const (
+	signalExitBase = 128
+	killedExitCode = signalExitBase + uint32(syscall.SIGKILL)
+)
 
 type execCleanupResult struct {
-	exit   *containerd.ExitStatus
-	killed bool
-	err    error
+	exit             *containerd.ExitStatus
+	expectedExitCode uint32
+	err              error
 }
+
+type execTerminator func(context.Context, containerd.Process) execCleanupResult
 
 // Cleanup owns only this exec, never the target task. Delete's terminal status
 // remains authoritative when cancellation made the original wait unavailable.
-func cleanupTaskExec(ctx context.Context, process containerd.Process, terminate bool) execCleanupResult {
+func cleanupTaskExec(ctx context.Context, process containerd.Process, terminate execTerminator) execCleanupResult {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 	defer cancel()
 	var result execCleanupResult
-	if terminate {
-		result = terminateOwnedExec(cleanupCtx, process)
+	if terminate != nil {
+		result = terminate(cleanupCtx, process)
 		if result.err != nil {
 			result.err = fmt.Errorf("failed to terminate owned exec; subprocesses may remain: %w", result.err)
 		}
@@ -55,7 +60,10 @@ func terminateOwnedExec(ctx context.Context, process containerd.Process) execCle
 	if errdefs.IsNotFound(killErr) {
 		return execCleanupResult{err: waitErr}
 	}
-	result := execCleanupResult{killed: killErr == nil}
+	var result execCleanupResult
+	if killErr == nil {
+		result.expectedExitCode = killedExitCode
+	}
 	if waitErr != nil || killErr != nil {
 		result.err = errors.Join(waitErr, killErr)
 		return result
@@ -82,7 +90,7 @@ func ownedExecResultError(description string, cleanup execCleanupResult) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w: failed to observe terminal status: %w", description, errExecCleanup, err)
 	}
-	if code == 0 || (cleanup.killed && code == killedExitCode) {
+	if code == 0 || (cleanup.expectedExitCode != 0 && code == cleanup.expectedExitCode) {
 		return nil
 	}
 	return fmt.Errorf("%s exited with code %d", description, code)

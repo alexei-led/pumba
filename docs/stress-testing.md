@@ -24,9 +24,10 @@ This approach works with both **cgroups v1** and **cgroups v2**, and supports al
 
 Natural completion, `--duration`, and SIGTERM all wait for Pumba's owned
 stress workload to stop and for bounded runtime cleanup. Docker and Podman
-sidecars are explicitly removed, including after attach/start failures;
-containerd direct-exec mode (`--stress-image ""`) terminates and reaps only
-its stress exec, never the target task/container.
+sidecars and their anonymous volumes are explicitly removed, including after
+attach/start failures. Containerd direct-exec mode (`--stress-image ""`) first
+sends SIGTERM so stress-ng can reap its workers, then escalates to SIGKILL if
+needed after a bounded grace period. It never stops the target task/container.
 
 With `--output ndjson`, `target.result` is emitted after cleanup, not merely
 when output ends. A workload failure remains a failure even if cancellation
