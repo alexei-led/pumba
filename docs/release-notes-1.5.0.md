@@ -21,4 +21,4 @@ Status cannot find pre-1.5.0 untagged iptables rules. It classifies `504d:` qdis
 
 ## Security
 
-Acceptance covers only GO-2026-4887 and GO-2026-4883 for `github.com/docker/docker@v28.5.2+incompatible`; it is **not a vulnerability-free scan**. Affected daemon implementations are absent from the audited Pumba executable. This does not establish installed Docker Engine safety; update Engine to a patched release, especially with authorization or Docker plugins. See [the security applicability report](security.md).
+Acceptance covers only GO-2026-4887 and GO-2026-4883 for `github.com/docker/docker@v28.5.2+incompatible`; it is **not a vulnerability-free scan**. Affected daemon implementations are absent from the audited Pumba executable. This does not establish installed Docker Engine safety; update Engine to a patched release, especially with authorization or Docker plugins. See [the security applicability report](https://github.com/alexei-led/pumba/blob/1.5.0/docs/security.md).

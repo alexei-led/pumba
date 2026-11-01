@@ -49,8 +49,9 @@ make release
 Update `VERSION` and commit `docs/release-notes-X.Y.Z.md` in the release PR. Review
 user-visible changes since the previous published release, upgrade actions,
 compatibility changes, and security limitations. The notes file is required:
-the Release workflow uses it as the only authored release body, without generated
-notes.
+the Release workflow uses it as the authored body for a new release, without
+generated notes. Updates to an existing release preserve its current body;
+changing published notes requires a separately authorized notes repair.
 
 Validate the merged release candidate before requesting publication approval.
 For local version checks, pass `VERSION=X.Y.Z` explicitly to `make build`;
