@@ -623,6 +623,136 @@ func (_c *MockClient_PauseContainer_Call) RunAndReturn(run func(context1 context
 	return _c
 }
 
+// PlanIPTablesContainer provides a mock function for the type MockClient
+func (_mock *MockClient) PlanIPTablesContainer(add *IPTablesRequest, del *IPTablesRequest) (*CommandPlan, error) {
+	ret := _mock.Called(add, del)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PlanIPTablesContainer")
+	}
+
+	var r0 *CommandPlan
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*IPTablesRequest, *IPTablesRequest) (*CommandPlan, error)); ok {
+		return returnFunc(add, del)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*IPTablesRequest, *IPTablesRequest) *CommandPlan); ok {
+		r0 = returnFunc(add, del)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*CommandPlan)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*IPTablesRequest, *IPTablesRequest) error); ok {
+		r1 = returnFunc(add, del)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClient_PlanIPTablesContainer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PlanIPTablesContainer'
+type MockClient_PlanIPTablesContainer_Call struct {
+	*mock.Call
+}
+
+// PlanIPTablesContainer is a helper method to define mock.On call
+//   - add *IPTablesRequest
+//   - del *IPTablesRequest
+func (_e *MockClient_Expecter) PlanIPTablesContainer(add any, del any) *MockClient_PlanIPTablesContainer_Call {
+	return &MockClient_PlanIPTablesContainer_Call{Call: _e.mock.On("PlanIPTablesContainer", add, del)}
+}
+
+func (_c *MockClient_PlanIPTablesContainer_Call) Run(run func(add *IPTablesRequest, del *IPTablesRequest)) *MockClient_PlanIPTablesContainer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *IPTablesRequest
+		if args[0] != nil {
+			arg0 = args[0].(*IPTablesRequest)
+		}
+		var arg1 *IPTablesRequest
+		if args[1] != nil {
+			arg1 = args[1].(*IPTablesRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_PlanIPTablesContainer_Call) Return(commandPlan *CommandPlan, err error) *MockClient_PlanIPTablesContainer_Call {
+	_c.Call.Return(commandPlan, err)
+	return _c
+}
+
+func (_c *MockClient_PlanIPTablesContainer_Call) RunAndReturn(run func(add *IPTablesRequest, del *IPTablesRequest) (*CommandPlan, error)) *MockClient_PlanIPTablesContainer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PlanNetemContainer provides a mock function for the type MockClient
+func (_mock *MockClient) PlanNetemContainer(netemRequest *NetemRequest) (*CommandPlan, error) {
+	ret := _mock.Called(netemRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PlanNetemContainer")
+	}
+
+	var r0 *CommandPlan
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*NetemRequest) (*CommandPlan, error)); ok {
+		return returnFunc(netemRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*NetemRequest) *CommandPlan); ok {
+		r0 = returnFunc(netemRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*CommandPlan)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*NetemRequest) error); ok {
+		r1 = returnFunc(netemRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClient_PlanNetemContainer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PlanNetemContainer'
+type MockClient_PlanNetemContainer_Call struct {
+	*mock.Call
+}
+
+// PlanNetemContainer is a helper method to define mock.On call
+//   - netemRequest *NetemRequest
+func (_e *MockClient_Expecter) PlanNetemContainer(netemRequest any) *MockClient_PlanNetemContainer_Call {
+	return &MockClient_PlanNetemContainer_Call{Call: _e.mock.On("PlanNetemContainer", netemRequest)}
+}
+
+func (_c *MockClient_PlanNetemContainer_Call) Run(run func(netemRequest *NetemRequest)) *MockClient_PlanNetemContainer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *NetemRequest
+		if args[0] != nil {
+			arg0 = args[0].(*NetemRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_PlanNetemContainer_Call) Return(commandPlan *CommandPlan, err error) *MockClient_PlanNetemContainer_Call {
+	_c.Call.Return(commandPlan, err)
+	return _c
+}
+
+func (_c *MockClient_PlanNetemContainer_Call) RunAndReturn(run func(netemRequest *NetemRequest) (*CommandPlan, error)) *MockClient_PlanNetemContainer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RemoveContainer provides a mock function for the type MockClient
 func (_mock *MockClient) RemoveContainer(context1 context.Context, container *Container, removeOpts RemoveOpts) error {
 	ret := _mock.Called(context1, container, removeOpts)

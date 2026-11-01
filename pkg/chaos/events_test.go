@@ -126,6 +126,35 @@ func TestEventJSONContract(t *testing.T) {
 				`"sidecars":[{"id":"s1","name":"pumba-s1","kind":"netem","state":"exited","target_id":"a1b2","run_id":null}]}}`,
 		},
 		{
+			name: "target.result planned with plan",
+			ev: with(func(e *chaos.Event) {
+				e.Type = chaos.EventTargetResult
+				e.Result = &chaos.TargetResult{Tick: 1, Target: target, Started: at, Ended: at, Status: chaos.TargetPlanned, Plan: &chaos.Plan{
+					Via:    "sidecar",
+					Image:  "nettools",
+					Apply:  [][]string{{"iptables", "-I", "INPUT", "-m", "comment", "--comment", "pumba:r1", "-j", "DROP"}},
+					Revert: [][]string{{"iptables", "-D", "INPUT", "-m", "comment", "--comment", "pumba:r1", "-j", "DROP"}},
+				}}
+			}),
+			want: prefix + `"target.result",` + ids + `,"tick":1,"target":{"id":"a1b2","name":"web-1"},` +
+				`"started":"2026-10-29T10:00:00Z","ended":"2026-10-29T10:00:00Z","status":"planned","error":null,"cleanup":null,` +
+				`"plan":{"via":"sidecar","image":"nettools",` +
+				`"apply":[["iptables","-I","INPUT","-m","comment","--comment","pumba:r1","-j","DROP"]],` +
+				`"revert":[["iptables","-D","INPUT","-m","comment","--comment","pumba:r1","-j","DROP"]]}}`,
+		},
+		{
+			name: "target.result planned by exec",
+			ev: with(func(e *chaos.Event) {
+				e.Type = chaos.EventTargetResult
+				e.Result = &chaos.TargetResult{Tick: 1, Target: target, Started: at, Ended: at, Status: chaos.TargetPlanned, Plan: &chaos.Plan{
+					Via: "exec", Apply: [][]string{{"sh", "-ec", "start"}}, Revert: [][]string{{"sh", "-ec", "stop"}},
+				}}
+			}),
+			want: prefix + `"target.result",` + ids + `,"tick":1,"target":{"id":"a1b2","name":"web-1"},` +
+				`"started":"2026-10-29T10:00:00Z","ended":"2026-10-29T10:00:00Z","status":"planned","error":null,"cleanup":null,` +
+				`"plan":{"via":"exec","apply":[["sh","-ec","start"]],"revert":[["sh","-ec","stop"]]}}`,
+		},
+		{
 			name: "run.end with status coverage",
 			ev: with(func(e *chaos.Event) {
 				e.Type = chaos.EventRunEnd

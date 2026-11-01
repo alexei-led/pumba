@@ -41,17 +41,23 @@ type Executor interface {
 
 // Netem manages network emulation on containers. Requests are passed by
 // pointer because NetemRequest is large (~160 bytes) — value semantics would
-// cost a copy on every call.
+// cost a copy on every call. PlanNetemContainer returns the commands
+// NetemContainer (apply) and StopNetemContainer (revert) would run for the
+// request, without running anything.
 type Netem interface {
 	NetemContainer(context.Context, *NetemRequest) error
 	StopNetemContainer(context.Context, *NetemRequest) error
+	PlanNetemContainer(*NetemRequest) (*CommandPlan, error)
 }
 
 // IPTables manages iptables rules on containers. Requests are passed by
-// pointer for the same size reason as Netem.
+// pointer for the same size reason as Netem. PlanIPTablesContainer returns
+// the commands IPTablesContainer(add) and StopIPTablesContainer(del) would
+// run, without running anything.
 type IPTables interface {
 	IPTablesContainer(context.Context, *IPTablesRequest) error
 	StopIPTablesContainer(context.Context, *IPTablesRequest) error
+	PlanIPTablesContainer(add, del *IPTablesRequest) (*CommandPlan, error)
 }
 
 // Stressor manages stress testing on containers. Requests are passed by

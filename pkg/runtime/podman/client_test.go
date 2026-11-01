@@ -153,6 +153,25 @@ func TestPodmanClient_RootlessGuards_ReturnError(t *testing.T) {
 		require.Contains(t, err.Error(), "status requires rootful podman")
 		require.Contains(t, err.Error(), p.socketURI)
 	})
+
+	t.Run("PlanNetemContainer", func(t *testing.T) {
+		plan, err := p.PlanNetemContainer(&ctr.NetemRequest{Container: target, Interface: "eth0", DryRun: true})
+		require.Error(t, err)
+		require.Nil(t, plan)
+		require.Contains(t, err.Error(), "netem requires rootful podman")
+		require.Contains(t, err.Error(), p.socketURI)
+	})
+
+	t.Run("PlanIPTablesContainer", func(t *testing.T) {
+		plan, err := p.PlanIPTablesContainer(
+			&ctr.IPTablesRequest{Container: target, CmdPrefix: []string{"-I", "INPUT"}, DryRun: true},
+			&ctr.IPTablesRequest{Container: target, CmdPrefix: []string{"-D", "INPUT"}, DryRun: true},
+		)
+		require.Error(t, err)
+		require.Nil(t, plan)
+		require.Contains(t, err.Error(), "iptables requires rootful podman")
+		require.Contains(t, err.Error(), p.socketURI)
+	})
 }
 
 func TestPodmanClient_RootfulGuards_Delegate(t *testing.T) {
@@ -213,6 +232,18 @@ func TestPodmanClient_RootfulGuards_Delegate(t *testing.T) {
 	got, err := p.InspectNetns(ctx, inspectReq)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+
+	netemPlan := &ctr.CommandPlan{Via: ctr.ViaSidecar, Image: img, Apply: [][]string{{"sh", "-ec", "start"}}, Revert: [][]string{{"sh", "-ec", "stop"}}}
+	mockDelegate.EXPECT().PlanNetemContainer(netemReq).Return(netemPlan, nil).Once()
+	gotPlan, err := p.PlanNetemContainer(netemReq)
+	require.NoError(t, err)
+	require.Same(t, netemPlan, gotPlan)
+
+	ipPlan := &ctr.CommandPlan{Via: ctr.ViaSidecar, Image: img, Apply: [][]string{{"iptables", "-A", "INPUT", "-j", "DROP"}}, Revert: [][]string{{"iptables", "-D", "INPUT", "-j", "DROP"}}}
+	mockDelegate.EXPECT().PlanIPTablesContainer(ipReq, stopIPReq).Return(ipPlan, nil).Once()
+	gotPlan, err = p.PlanIPTablesContainer(ipReq, stopIPReq)
+	require.NoError(t, err)
+	require.Same(t, ipPlan, gotPlan)
 }
 
 func TestPodmanClient_PromotedMethodsDelegate(t *testing.T) {

@@ -48,8 +48,7 @@ func TestDuplicateCommand_Run_WithRandom(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil)
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
+	mockClient.EXPECT().PlanNetemContainer(mock.AnythingOfType("*container.NetemRequest")).Return(dryRunPlan, nil).Once()
 
 	cmd, err := NewDuplicateCommand(mockClient, gparams, nparams, 0, 10.0, 0.0)
 	require.NoError(t, err)
@@ -89,8 +88,7 @@ func TestDuplicateCommand_Run_DryRun(t *testing.T) {
 		DryRun:    true,
 		RunID:     "run1",
 	}
-	mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
+	mockClient.EXPECT().PlanNetemContainer(expectedReq).Return(dryRunPlan, nil)
 
 	cmd, err := NewDuplicateCommand(mockClient, gparams, nparams, 0, 10.0, 5.0)
 	require.NoError(t, err)

@@ -31,6 +31,21 @@ graph LR
 
 The helper container is created with the `NET_ADMIN` capability and attached to the target's network stack, so `tc` and `iptables` rules apply directly to the target's traffic.
 
+## Preview without injecting
+
+```bash
+pumba --dry-run netem --duration 30s --target 10.0.0.1 delay --time 100 web
+pumba --dry-run --run-id preview-1 -o ndjson iptables --duration 30s --source 10.0.0.1 loss --probability 0.2 web
+```
+
+Netem/iptables dry-runs print the exact apply/revert commands and sidecar image
+(or direct-exec mode) without pulling images, starting sidecars, executing
+probes or commands, or waiting for the duration. NDJSON carries the argv in
+`target.result.plan` instead of text; see [Dry-run plans](agents.md#dry-run-plans).
+Plans include the same ownership checks and iptables run comments as execution,
+but do not run those checks: a plan is not proof the real injection will succeed.
+Target selection still queries the runtime, and rootless Podman is unsupported.
+
 ## Network Tools Images
 
 Pumba needs `tc` (from `iproute2`) and/or `iptables` to be available. Netem also uses a POSIX `sh` to inspect, apply, verify, and roll back its owned qdisc. You have two options:

@@ -16,10 +16,44 @@ import (
 // and stderr. A non-zero exit must be an error.
 type Runner func(argv []string) (stdout, stderr string, err error)
 
-// IPTablesCommands returns the iptables argv list (without the binary) for
-// req, built by the single pkg/tc builder.
+// Binaries the netem and iptables commands run.
+const (
+	shellBinary    = "sh"
+	iptablesBinary = "iptables"
+)
+
+// NetemStart returns the argv that installs req's netem qdisc:
+// sh -ec <script>. Runtimes execute exactly this argv; NetemPlan reports it.
+func NetemStart(req *ctr.NetemRequest) []string {
+	return append([]string{shellBinary}, tc.Start(netemRequest(req))...)
+}
+
+// NetemStop returns the argv that removes req's netem qdisc after verifying
+// Pumba owns it: sh -ec <script>.
+func NetemStop(req *ctr.NetemRequest) []string {
+	return append([]string{shellBinary}, tc.Stop(netemRequest(req))...)
+}
+
+// NetemPlan returns the commands NetemStart and NetemStop build for req and
+// where they run.
+func NetemPlan(req *ctr.NetemRequest) *ctr.CommandPlan {
+	return newPlan(req.Sidecar, [][]string{NetemStart(req)}, [][]string{NetemStop(req)})
+}
+
+func netemRequest(req *ctr.NetemRequest) *tc.NetemRequest {
+	return &tc.NetemRequest{
+		Interface: req.Interface,
+		Command:   req.Command,
+		IPs:       cidrs(req.IPs),
+		SPorts:    req.SPorts,
+		DPorts:    req.DPorts,
+	}
+}
+
+// IPTablesCommands returns one iptables argv (binary first) per rule of req,
+// built by the single pkg/tc builder.
 func IPTablesCommands(req *ctr.IPTablesRequest) [][]string {
-	return tc.IPTablesCommands(&tc.IPTablesRequest{
+	commands := tc.IPTablesCommands(&tc.IPTablesRequest{
 		CmdPrefix: req.CmdPrefix,
 		CmdSuffix: req.CmdSuffix,
 		SrcIPs:    cidrs(req.SrcIPs),
@@ -28,6 +62,25 @@ func IPTablesCommands(req *ctr.IPTablesRequest) [][]string {
 		DPorts:    req.DPorts,
 		RunID:     req.RunID,
 	})
+	for i, args := range commands {
+		commands[i] = append([]string{iptablesBinary}, args...)
+	}
+	return commands
+}
+
+// IPTablesPlan returns the commands IPTablesCommands builds for add (apply)
+// and del (revert) and where they run. Both requests share the sidecar hint.
+func IPTablesPlan(add, del *ctr.IPTablesRequest) *ctr.CommandPlan {
+	return newPlan(add.Sidecar, IPTablesCommands(add), IPTablesCommands(del))
+}
+
+// newPlan places the commands in a sidecar when the request names an image,
+// as every runtime does when it executes them.
+func newPlan(sidecar ctr.SidecarSpec, apply, revert [][]string) *ctr.CommandPlan {
+	if sidecar.Image == "" {
+		return &ctr.CommandPlan{Via: ctr.ViaExec, Apply: apply, Revert: revert}
+	}
+	return &ctr.CommandPlan{Via: ctr.ViaSidecar, Image: sidecar.Image, Apply: apply, Revert: revert}
 }
 
 func cidrs(nets []*net.IPNet) []string {

@@ -103,6 +103,68 @@ func (_c *MockNetem_NetemContainer_Call) RunAndReturn(run func(context1 context.
 	return _c
 }
 
+// PlanNetemContainer provides a mock function for the type MockNetem
+func (_mock *MockNetem) PlanNetemContainer(netemRequest *NetemRequest) (*CommandPlan, error) {
+	ret := _mock.Called(netemRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PlanNetemContainer")
+	}
+
+	var r0 *CommandPlan
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*NetemRequest) (*CommandPlan, error)); ok {
+		return returnFunc(netemRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*NetemRequest) *CommandPlan); ok {
+		r0 = returnFunc(netemRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*CommandPlan)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*NetemRequest) error); ok {
+		r1 = returnFunc(netemRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockNetem_PlanNetemContainer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PlanNetemContainer'
+type MockNetem_PlanNetemContainer_Call struct {
+	*mock.Call
+}
+
+// PlanNetemContainer is a helper method to define mock.On call
+//   - netemRequest *NetemRequest
+func (_e *MockNetem_Expecter) PlanNetemContainer(netemRequest any) *MockNetem_PlanNetemContainer_Call {
+	return &MockNetem_PlanNetemContainer_Call{Call: _e.mock.On("PlanNetemContainer", netemRequest)}
+}
+
+func (_c *MockNetem_PlanNetemContainer_Call) Run(run func(netemRequest *NetemRequest)) *MockNetem_PlanNetemContainer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *NetemRequest
+		if args[0] != nil {
+			arg0 = args[0].(*NetemRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockNetem_PlanNetemContainer_Call) Return(commandPlan *CommandPlan, err error) *MockNetem_PlanNetemContainer_Call {
+	_c.Call.Return(commandPlan, err)
+	return _c
+}
+
+func (_c *MockNetem_PlanNetemContainer_Call) RunAndReturn(run func(netemRequest *NetemRequest) (*CommandPlan, error)) *MockNetem_PlanNetemContainer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StopNetemContainer provides a mock function for the type MockNetem
 func (_mock *MockNetem) StopNetemContainer(context1 context.Context, netemRequest *NetemRequest) error {
 	ret := _mock.Called(context1, netemRequest)
