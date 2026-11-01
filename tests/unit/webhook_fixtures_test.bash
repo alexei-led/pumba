@@ -7,6 +7,19 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
+# Shell functions do not intercept xargs or command-prefixed subprocesses.
+mkdir "$TMP/bin"
+for boundary in docker podman ctr sudo pkill killall; do
+    cat >"$TMP/bin/$boundary" <<'EOF'
+#!/usr/bin/env bash
+printf 'external %s' "${0##*/}" >>"$LOG"
+printf ' %s' "$@" >>"$LOG"
+printf '\n' >>"$LOG"
+exit 99
+EOF
+    chmod +x "$TMP/bin/$boundary"
+done
+export PATH="$TMP/bin:$PATH" LOG
 BATS_TEST_NUMBER=1
 
 # Do not load Bats libraries or execute any integration test bodies.
