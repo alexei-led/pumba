@@ -5,6 +5,7 @@ How a program runs Pumba and reads what happened, without parsing logs.
 - `--output ndjson`: result events on stdout, one JSON object per line (schema `pumba.event/v1`).
 - `--run-id`: names the run; every event carries it.
 - `--max-duration`: a time budget, so a forgotten `--interval` run stops by itself.
+- `--webhook`: the same events POSTed to an HTTP endpoint, in any output mode.
 - The exit code is `0` or `1`. The detail is in the last event, `run.end`.
 
 Logs stay on stderr in every mode. `--json` only changes the log format; it combines freely with `--output ndjson`.
@@ -24,6 +25,7 @@ tail -n1 events.ndjson | jq -r .status   # ok, failed, partial, cleanup_failed, 
 | `--output`, `-o` | `text` | `text`: logs only, stdout empty. `ndjson`: events on stdout; help and usage text move to stderr |
 | `--run-id` | generated | 1–48 characters from `[A-Za-z0-9_.-]`. Generated as 12 hex characters when empty. An invalid value is a usage error |
 | `--max-duration` | `0` (unlimited) | Time budget for active chaos and `--interval` scheduling. See [Run budget](#run-budget---max-duration) |
+| `--webhook` | empty | Absolute `http(s)` URL that receives each event as a POST. Anything else is a usage error. See [Webhook](#webhook) |
 
 One run ID per process: every `--interval` tick shares it.
 
@@ -80,7 +82,7 @@ Emitted when the process finishes, also for usage errors that never reached `run
 - `status`: see the table below.
 - `counts`: `selected` (number of `target.result` events), `ok`, `failed`, `cleanup_failed`, `planned`, `skipped`.
 - `error`: `null` or an [error object](#errors).
-- `events_dropped`: events lost on the way to stdout (see [Delivery](#delivery)).
+- `events_dropped`: events this sink lost: on stdout, the stdout count; on the webhook, the webhook count (see [Delivery](#delivery)).
 
 | `status` | When | Exit |
 |---|---|---|
@@ -126,10 +128,24 @@ Pumba keeps its `0`/`1` exit codes in every output mode: `1` exactly when the co
 
 ## Delivery
 
-- Events are counted before delivery, so a slow or closed stdout never changes the outcome or the exit code.
+- Events are counted before delivery, so a slow or closed stdout or webhook never changes the outcome or the exit code.
 - The stdout writer has a bounded queue (1024 events). When the reader falls behind, events are dropped instead of stalling chaos; `run.end.events_dropped` counts them.
 - `run.end` is flushed for at most 2 seconds at exit. A missing `run.end` means the output is incomplete (crash, `kill -9`, closed pipe): treat the outcome as unknown and use the exit code.
 - SIGPIPE is ignored in ndjson mode, so a closed stdout does not kill Pumba with faults still active.
+
+### Webhook
+
+`--webhook URL` is a second, independent sink. It works in every `--output` mode; in text mode stdout stays empty.
+
+- One POST per event, `Content-Type: application/json`. The body is the event's ndjson line, trailing newline included.
+- Ordered: one sender, so events arrive in emit order.
+- Lossy: its own bounded queue (1024 events). When the receiver falls behind, events are dropped instead of stalling chaos.
+- A transport error, a timeout (5 seconds per request) or any non-2xx answer drops the event. No retries. Redirects are not followed and count as failures.
+- The first drop or failure prints one warning to stderr. The URL, the error text and the bodies are never printed or logged.
+- `run.end` is flushed for at most 5 seconds at exit, alongside the stdout flush. Its `events_dropped` is the webhook's own count. With a stalled `--slackhook` too, exit can take about 10 seconds (Slack flush first, then events).
+- No custom headers: put a token in the URL, and use HTTPS.
+
+Events include container names and IDs, the action and its parameters, and they leave the host. Send them only to a receiver you trust.
 
 ## Run budget (`--max-duration`)
 

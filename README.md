@@ -190,6 +190,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 | `--output`, `-o` | `text` | — | `ndjson`: result events (`pumba.event/v1`) on stdout, one per line; logs stay on stderr |
 | `--run-id` | Generated | — | Name this run in result events; 1–48 characters from `[A-Za-z0-9_.-]` |
 | `--max-duration` | `0` (unlimited) | — | Time budget for active chaos and `--interval`; on expiry in-flight chaos is cleaned up and the run exits 1 |
+| `--webhook` | Empty | — | POST each result event as JSON to this `http(s)` URL; best effort, in every `--output` mode |
 | `--help`, `-h` | `false` | — | Show help (built-in) |
 | `--version`, `-v` | `false` | — | Print the version (built-in) |
 
@@ -223,7 +224,7 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 | **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
 | **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
 | **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
-| **[Agents](docs/agents.md)**                 | `--output ndjson` result events, run ID, exit codes, run budget |
+| **[Agents](docs/agents.md)**                 | `--output ndjson` and `--webhook` events, run ID, exit codes, run budget |
 | **[Architecture](docs/architecture.md)**     | Module boundaries and the archfit policy that enforces them    |
 | **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
 
