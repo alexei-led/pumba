@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
@@ -63,6 +65,9 @@ func (o *eventOutput) enableWebhook(rawURL string) error {
 	if err := validateWebhookURL(rawURL); err != nil {
 		return chaos.NewUsageError(err)
 	}
+	// A broken stderr pipe must fail its warning write, not kill text-mode
+	// chaos with SIGPIPE before detached cleanup can run.
+	signal.Ignore(syscall.SIGPIPE)
 	o.hook = newWebhookSink(rawURL, o.hookTimeout, o.stderr, eventQueueSize)
 	o.fan.subs = append(o.fan.subs, o.hook)
 	return nil
