@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"syscall"
-	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	containerd "github.com/containerd/containerd/v2/client"
@@ -54,7 +52,7 @@ func buildStressSpecOpts(image containerd.Image, stressors []string, cgroupPath,
 }
 
 // createStressSidecar resolves the target cgroup path, optionally pulls the image, and creates and starts the stress sidecar container.
-func (c *containerdClient) createStressSidecar(ctx context.Context, req *ctr.StressRequest) (string, containerd.Container, containerd.Task, <-chan containerd.ExitStatus, error) {
+func (c *containerdClient) createStressSidecar(ctx, waitCtx context.Context, req *ctr.StressRequest) (string, containerd.Container, containerd.Task, <-chan containerd.ExitStatus, error) {
 	target, sidecarImage, injectCgroup := req.Container, req.Sidecar.Image, req.InjectCgroup
 	targetTask, err := c.getTask(ctx, target.ID())
 	if err != nil {
@@ -101,31 +99,31 @@ func (c *containerdClient) createStressSidecar(ctx context.Context, req *ctr.Str
 		return "", nil, nil, nil, fmt.Errorf("failed to create stress sidecar: %w", err)
 	}
 
-	task, waitCh, err := c.startSidecarTask(ctx, sidecarContainer)
+	task, waitCh, err := c.startSidecarTask(ctx, waitCtx, sidecarContainer)
 	if err != nil {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 		cleanupErr := c.deleteContainer(c.nsCtx(cleanupCtx), sidecarContainer)
 		cancel()
-		return "", nil, nil, nil, errors.Join(err, cleanupErr)
+		return "", nil, nil, nil, errors.Join(err, wrapStressCleanup(cleanupErr))
 	}
 
 	return sidecarID, sidecarContainer, task, waitCh, nil
 }
 
 // startSidecarTask creates, registers wait, and starts a task on the given container.
-func (c *containerdClient) startSidecarTask(ctx context.Context, cntr containerd.Container) (containerd.Task, <-chan containerd.ExitStatus, error) {
+func (c *containerdClient) startSidecarTask(ctx, waitCtx context.Context, cntr containerd.Container) (containerd.Task, <-chan containerd.ExitStatus, error) {
 	task, err := cntr.NewTask(ctx, cio.NullIO)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create stress task: %w", err)
 	}
 
-	waitCh, err := task.Wait(ctx)
+	waitCh, err := task.Wait(waitCtx)
 	if err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), cleanupTaskExec(ctx, task, false))
+		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, nil).err))
 	}
 
 	if err := task.Start(ctx); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), cleanupTaskExec(ctx, task, false))
+		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, terminateOwnedExec).err))
 	}
 
 	return task, waitCh, nil
@@ -144,26 +142,13 @@ func (c *containerdClient) waitStressSidecar(
 	defer close(outCh)
 	defer close(errCh)
 
-	var status containerd.ExitStatus
-	var ok, killTimedOut bool
-	var killErr error
-	select {
-	case status, ok = <-waitCh:
-	case <-ctx.Done():
-		killCtx, killCancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarKillTimeout)
-		killErr = task.Kill(killCtx, syscall.SIGKILL)
-		killCancel()
-		if errdefs.IsNotFound(killErr) {
-			killErr = nil
-		}
-		killTimer := time.NewTimer(sidecarKillTimeout)
-		defer killTimer.Stop()
-		select {
-		case status, ok = <-waitCh:
-		case <-killTimer.C:
-			log.WithField("id", sidecarID).Warn("timed out waiting for stress task after kill")
-			killTimedOut = true
-		}
+	exit := waitStressTask(ctx, task, waitCh)
+	if !execStatusKnown(exit.status, exit.ok) && !exit.timedOut {
+		// A failed Wait RPC is not proof that the owned task stopped.
+		stopCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), sidecarKillTimeout)
+		termination := terminateOwnedExec(stopCtx, task)
+		stop()
+		exit.cleanupErr = errors.Join(exit.cleanupErr, termination.err)
 	}
 
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
@@ -175,7 +160,21 @@ func (c *containerdClient) waitStressSidecar(
 	containerErr := c.deleteContainer(cleanupCtx, sidecarContainer)
 	cancel()
 
-	err := errors.Join(stressSidecarExitError(sidecarID, status, ok, killTimedOut), killErr, deleteErr, containerErr)
+	exitErr := stressSidecarExitError(sidecarID, exit.status, exit.ok, exit.timedOut)
+	if exit.killed && exit.ok {
+		code, _, statusErr := exit.status.Result()
+		if code == killedExitCode && statusErr == nil {
+			exitErr = nil
+		}
+	}
+	cleanupErr := errors.Join(exit.cleanupErr, deleteErr, containerErr)
+	if exit.timedOut {
+		cleanupErr = errors.Join(cleanupErr, exitErr)
+	}
+	if cleanupErr != nil {
+		cleanupErr = &ctr.StressCleanupError{Err: cleanupErr}
+	}
+	err := errors.Join(exitErr, cleanupErr)
 	if err != nil {
 		errCh <- err
 		return

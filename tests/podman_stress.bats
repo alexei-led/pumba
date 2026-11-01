@@ -12,7 +12,7 @@
 #
 # Verification is indirect: the "resolved podman target cgroup" log confirms
 # the host-side resolver ran, pumba exits zero (which requires the sidecar to
-# create/start — systemd rejects an invalid scope parent), AutoRemove reaps
+# create/start — systemd rejects an invalid scope parent), explicit cleanup reaps
 # the sidecar, and the target stays running. A bad parent or leaf name would
 # fail sidecar create and surface here as a non-zero pumba exit.
 #
@@ -80,7 +80,7 @@ teardown() {
     assert_success
     assert_output --partial "resolved podman target cgroup"
 
-    # Verify sidecar was cleaned up (AutoRemove)
+    # Verify sidecar was explicitly removed before completion
     run podman_fixture_sidecars
     [ -z "$output" ]
 

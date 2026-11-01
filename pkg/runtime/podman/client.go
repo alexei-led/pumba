@@ -28,6 +28,7 @@ type apiBackend interface {
 	ContainerCreate(ctx context.Context, config *ctypes.Config, hostConfig *ctypes.HostConfig, networkingConfig *networktypes.NetworkingConfig, platform *v1.Platform, containerName string) (ctypes.CreateResponse, error)
 	ContainerAttach(ctx context.Context, container string, options ctypes.AttachOptions) (types.HijackedResponse, error)
 	ContainerStart(ctx context.Context, container string, options ctypes.StartOptions) error
+	ContainerWait(ctx context.Context, containerID string, condition ctypes.WaitCondition) (<-chan ctypes.WaitResponse, <-chan error)
 	ContainerRemove(ctx context.Context, container string, options ctypes.RemoveOptions) error
 	Close() error
 }

@@ -63,7 +63,7 @@ The fault is active on the target, so probes can start now. For one-shot actions
 
 ### `target.result`
 
-Terminal record per target and tick. For faults that are reverted (netem, iptables, pause, stop `--restart`, stress), it comes only after the revert finished.
+Terminal record per target and tick. For faults that are reverted (netem, iptables, pause, stop `--restart`, stress), it comes only after the revert finished. Stress waits for both runtime result channels to close after workload cleanup; output alone is not completion. Duration/SIGTERM request shutdown of the owned workload, with a bounded cleanup wait. Cleanup errors/timeouts remain `cleanup_failed` even during cancellation.
 
 | Field | Meaning |
 |---|---|

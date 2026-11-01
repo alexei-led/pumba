@@ -127,12 +127,10 @@ func (client dockerClient) withSidecar(ctx context.Context, target *ctr.Containe
 	}
 	log.WithField("id", createResponse.ID).Debugf("%s container created, starting it", name)
 	if err = client.containerAPI.ContainerStart(ctx, createResponse.ID, ctypes.StartOptions{}); err != nil {
-		_ = client.removeSidecar(ctx, createResponse.ID)
-		return fmt.Errorf("failed to start %s-container: %w", name, err)
+		return errors.Join(fmt.Errorf("failed to start %s-container: %w", name, err), client.removeSidecar(ctx, createResponse.ID))
 	}
 	if err = fn(createResponse.ID); err != nil {
-		_ = client.removeSidecar(ctx, createResponse.ID)
-		return err
+		return errors.Join(err, client.removeSidecar(ctx, createResponse.ID))
 	}
 	if err = client.removeSidecar(ctx, createResponse.ID); err != nil {
 		return fmt.Errorf("failed to remove %s-container: %w", name, err)

@@ -191,6 +191,7 @@ jobs:
       - name: Run Containerd Integration Tests
         if: matrix.runtime == 'containerd'
         run: |
+          set -o pipefail
           test -S /run/containerd/containerd.sock
           sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
             tests/containerd_*.bats 2>&1 | tee "$BATS_LOG"
