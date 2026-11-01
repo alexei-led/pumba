@@ -9,7 +9,7 @@
 - **Race detector:** `make test-race` (linux/amd64 only)
 - **Lint:** `make lint` (runs golangci-lint with `.golangci.yaml`)
 - **Format:** `make fmt`
-- **Cross-compile:** `make release` (darwin/linux/windows × amd64/arm64)
+- **Cross-compile:** `make release` (darwin/linux × amd64/arm64; Windows is not supported or built)
 - **Integration tests:** `make integration-tests` (requires Docker, uses bats)
 - **All integration tests:** `make integration-tests-all` (includes stress tests)
 - **Advanced Go integration tests:** `make integration-tests-advanced` (Go-based tests in `tests/integration/`)
