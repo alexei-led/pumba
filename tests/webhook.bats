@@ -27,7 +27,10 @@ create_webhook_target() {
 # Start a local HTTP receiver that appends each POST body to $BODIES and its
 # Content-Type to $BODIES.ct, answers 204, and sets $WEBHOOK_URL.
 start_receiver() {
-    command -v python3 >/dev/null 2>&1 || skip "python3 not available for the webhook receiver"
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "python3 is required for the webhook HTTP receiver" >&2
+        return 1
+    fi
     BODIES="$BATS_TEST_TMPDIR/bodies.ndjson"
     local port_file="$BATS_TEST_TMPDIR/port"
     cat >"$BATS_TEST_TMPDIR/receiver.py" <<'EOF'

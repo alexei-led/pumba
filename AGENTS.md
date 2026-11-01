@@ -20,7 +20,9 @@
 
 Integration tests use [bats](https://github.com/bats-core/bats-core):
 
-- Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`; result-event tests (`tests/output.bats`, `tests/*status.bats`, ndjson smoke in `*_global_flags.bats`) need `jq` and use `run --separate-stderr` to assert on stdout alone
+- Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`; install Bats >= 1.5.0 and the `bats-support`/`bats-assert` libraries at `/usr/local/lib/`
+- Result-event tests (`tests/output.bats`, `tests/webhook.bats`, `tests/*status.bats`, ndjson smoke in `*_global_flags.bats`) need `jq` and use `run --separate-stderr` to assert on stdout alone
+- Webhook HTTP acceptance (`tests/webhook.bats`) requires `python3` (stdlib only); missing Python fails rather than skips. The `integration-tests` Docker stage includes it; the release image does not. Run fixture safety checks offline with `bash tests/unit/webhook_fixtures_test.bash` (no runtime needed)
 - **Run all tests locally (recommended):** `colima ssh -- sudo bats tests/*.bats tests/containerd_*.bats`
   - Colima VM has native Docker + containerd sockets; `sudo` is required for containerd sidecar tests
 - **Docker tests only (via Docker image):** `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --entrypoint bats pumba:test tests/*.bats`
