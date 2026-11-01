@@ -1,12 +1,14 @@
-# Machine-readable plan, schema, MCP server
+# CLI schema and MCP server
 
-Tags: agent · Effort: M (plan/schema S, MCP M)
+Tags: agent · Effort: M (schema S, MCP M)
 
 ## Why
 Agents must discover the CLI and preview effects without parsing `--help` or running the fault.
 
-## Approach
-- `--dry-run --output json`: resolved targets plus exact tc/iptables argv that would run (dry-run today never prints rules; see #363).
+Shipped: netem/iptables dry-run argv plans in text mode and `--output ndjson`
+([contract](../agents.md#dry-run-plans), #363). Lifecycle/stress argv expansion is not planned here.
+
+## Remaining approach
 - `pumba schema`/`describe`: all commands, flags, types, defaults, constraints, examples as JSON Schema.
 - `pumba mcp`: tools `list_targets`, `plan`, `inject`, `status`, `revert`, `verify_clean`. Mandatory duration and blast-radius cap on every call.
 

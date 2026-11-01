@@ -7,7 +7,7 @@ Deferred ideas, one file per item. Not commitments.
 
 | File | Tag | Summary |
 |---|---|---|
-| [agent-plan-schema-mcp.md](agent-plan-schema-mcp.md) | agent | Machine-readable plan, schema, MCP server |
+| [agent-plan-schema-mcp.md](agent-plan-schema-mcp.md) | agent | CLI schema and MCP server (dry-run plans shipped) |
 | [arch-otel-sidecar-images.md](arch-otel-sidecar-images.md) | arch | OpenTelemetry spans and sidecar image consolidation |
 | [chaos-experiments-probes.md](chaos-experiments-probes.md) | chaos, agent | Experiment files, steady-state probes, scenario library |
 | [chaos-time-and-syscalls.md](chaos-time-and-syscalls.md) | chaos | Clock skew and syscall fault injection |

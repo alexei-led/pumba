@@ -3,8 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	ctr "github.com/alexei-led/pumba/pkg/container"
@@ -136,4 +140,87 @@ func TestRunDryRunNDJSONCarriesPlanOnly(t *testing.T) {
 		Apply:  [][]string{{"iptables", "-I", "INPUT", "-i", "eth0", "-m", "comment", "--comment", "pumba:r1", "-m", "statistic", "--mode", "random", "--probability", "0.20", "-j", "DROP"}},
 		Revert: [][]string{{"iptables", "-D", "INPUT", "-i", "eth0", "-m", "comment", "--comment", "pumba:r1", "-m", "statistic", "--mode", "random", "--probability", "0.20", "-j", "DROP"}},
 	}, result.Plan)
+}
+
+func TestRunNetemDryRunPlans(t *testing.T) {
+	for _, mode := range []string{"text", "ndjson"} {
+		t.Run(mode, func(t *testing.T) {
+			client := ctr.NewMockClient(t)
+			web := &ctr.Container{ContainerID: "web-id", ContainerName: "web", State: ctr.StateRunning}
+			client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ctr.ListOpts{}).Return([]*ctr.Container{web}, nil).Once()
+			client.EXPECT().PlanNetemContainer(&ctr.NetemRequest{
+				Container: web, Interface: "eth0", Command: []string{"delay", "100ms"}, IPs: []*net.IPNet{},
+				Duration: time.Hour, DryRun: true, RunID: "r1", Sidecar: ctr.SidecarSpec{Pull: true},
+			}).RunAndReturn(func(req *ctr.NetemRequest) (*ctr.CommandPlan, error) { return netns.NetemPlan(req), nil }).Once()
+			client.EXPECT().Close().Return(nil).Maybe()
+			code, stdout, _ := runPumba(t, client, "--dry-run", "--run-id", "r1", "-o", mode,
+				"netem", "--duration", "1h", "--tc-image", "", "delay", "--time", "100", "--jitter", "0", "--correlation", "0", "web")
+			require.Equal(t, 0, code)
+			if mode == "text" {
+				assert.Contains(t, stdout, "would run on web via exec in the target:")
+				assert.Contains(t, stdout, "apply:  sh -ec ")
+				assert.Contains(t, stdout, "revert: sh -ec ")
+				return
+			}
+			assert.Equal(t, []chaos.EventType{chaos.EventRunStart, chaos.EventTargetResult, chaos.EventRunEnd}, types(parseNDJSON(t, stdout)))
+			var result struct {
+				Status  chaos.TargetStatus `json:"status"`
+				Cleanup *chaos.Cleanup     `json:"cleanup"`
+				Plan    *chaos.Plan        `json:"plan"`
+			}
+			require.NoError(t, json.Unmarshal([]byte(strings.Split(stdout, "\n")[1]), &result))
+			assert.Equal(t, chaos.TargetPlanned, result.Status)
+			assert.Nil(t, result.Cleanup)
+			require.NotNil(t, result.Plan)
+			assert.Equal(t, "exec", result.Plan.Via)
+			assert.Empty(t, result.Plan.Image)
+			assert.Equal(t, []string{"sh", "-ec"}, result.Plan.Apply[0][:2])
+			assert.Equal(t, []string{"sh", "-ec"}, result.Plan.Revert[0][:2])
+		})
+	}
+}
+
+func TestRunDryRunPlanSelectionGuards(t *testing.T) {
+	for _, action := range [][]string{
+		{"netem", "--duration", "1h", "delay", "--time", "100"},
+		{"iptables", "--duration", "1h", "loss", "--probability", "0.2"},
+	} {
+		for _, count := range []int{0, 2} {
+			t.Run(fmt.Sprintf("%s/%d targets", action[0], count), func(t *testing.T) {
+				client := ctr.NewMockClient(t)
+				targets := []*ctr.Container{}
+				for i := range count {
+					targets = append(targets, &ctr.Container{ContainerID: fmt.Sprintf("web-%d", i)})
+				}
+				client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ctr.ListOpts{}).Return(targets, nil).Once()
+				client.EXPECT().Close().Return(nil).Maybe()
+				args := append([]string{"--dry-run", "-o", "ndjson", "--max-targets", "1"}, action...)
+				code, stdout, _ := runPumba(t, client, append(args, "re2:^web-")...)
+				lines := parseNDJSON(t, stdout)
+				assert.Equal(t, []chaos.EventType{chaos.EventRunStart, chaos.EventRunEnd}, types(lines))
+				if count == 0 {
+					assert.Equal(t, 0, code)
+					assert.Equal(t, string(chaos.RunNoTargets), lines[1].Status)
+				} else {
+					assert.Equal(t, 1, code)
+					assert.Equal(t, string(chaos.RunRefused), lines[1].Status)
+				}
+			})
+		}
+	}
+}
+
+func TestRunDryRunPlanFailure(t *testing.T) {
+	client := ctr.NewMockClient(t)
+	web := &ctr.Container{ContainerID: "web-id", ContainerName: "web", State: ctr.StateRunning}
+	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ctr.ListOpts{}).Return([]*ctr.Container{web}, nil).Once()
+	client.EXPECT().PlanNetemContainer(mock.AnythingOfType("*container.NetemRequest")).Return(nil, errors.New("planning unavailable")).Once()
+	client.EXPECT().Close().Return(nil).Maybe()
+	code, stdout, _ := runPumba(t, client, "--dry-run", "-o", "ndjson", "netem", "--duration", "1h", "delay", "--time", "100", "web")
+	assert.Equal(t, 1, code)
+	lines := parseNDJSON(t, stdout)
+	assert.Equal(t, []chaos.EventType{chaos.EventRunStart, chaos.EventTargetResult, chaos.EventRunEnd}, types(lines))
+	assert.Equal(t, "failed", lines[1].Status)
+	assert.Equal(t, chaos.CodeCommandFailed, lines[1].Error.Code)
+	assert.NotContains(t, stdout, `"plan":`)
 }

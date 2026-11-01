@@ -90,13 +90,15 @@ func TestPlanNetemContainerMatchesExecuted(t *testing.T) {
 			req := tt.req
 			req.Container = target
 
-			plan, err := client.PlanNetemContainer(&req)
+			plan, err := (dockerClient{containerAPI: NewMockEngine(t), imageAPI: NewMockEngine(t)}).PlanNetemContainer(&req)
 			require.NoError(t, err)
 
 			require.NoError(t, client.NetemContainer(context.Background(), &req))
 			via, image, apply := rec.executed()
 			require.NoError(t, client.StopNetemContainer(context.Background(), &req))
-			_, _, revert := rec.executed()
+			revertVia, revertImage, revert := rec.executed()
+			assert.Equal(t, via, revertVia)
+			assert.Equal(t, image, revertImage)
 
 			assert.Equal(t, &ctr.CommandPlan{Via: via, Image: image, Apply: apply, Revert: revert}, plan)
 		})
@@ -109,6 +111,21 @@ func TestPlanIPTablesContainerMatchesExecuted(t *testing.T) {
 		name string
 		req  ctr.IPTablesRequest
 	}{
+		{name: "unfiltered untagged in sidecar", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, Sidecar: ctr.SidecarSpec{Image: "nettools"},
+		}},
+		{name: "unfiltered tagged by exec", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, RunID: "r1",
+		}},
+		{name: "filtered untagged by exec", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, SrcIPs: []*net.IPNet{ipNet("10.0.0.1/32")},
+			DstIPs: []*net.IPNet{ipNet("10.0.0.0/24")}, SPorts: []string{"53"}, DPorts: []string{"80"},
+		}},
+		{name: "filtered untagged in sidecar", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, SrcIPs: []*net.IPNet{ipNet("10.0.0.1/32")},
+			DstIPs: []*net.IPNet{ipNet("10.0.0.0/24")}, SPorts: []string{"53"}, DPorts: []string{"80"},
+			Sidecar: ctr.SidecarSpec{Image: "nettools"},
+		}},
 		{name: "unfiltered untagged by exec", req: ctr.IPTablesRequest{
 			CmdSuffix: []string{"-m", "statistic", "--mode", "random", "--probability", "0.20", "-j", "DROP"},
 		}},
@@ -133,13 +150,15 @@ func TestPlanIPTablesContainerMatchesExecuted(t *testing.T) {
 			del := add
 			del.CmdPrefix = []string{"-D", "INPUT", "-i", "eth0"}
 
-			plan, err := client.PlanIPTablesContainer(&add, &del)
+			plan, err := (dockerClient{containerAPI: NewMockEngine(t), imageAPI: NewMockEngine(t)}).PlanIPTablesContainer(&add, &del)
 			require.NoError(t, err)
 
 			require.NoError(t, client.IPTablesContainer(context.Background(), &add))
 			via, image, apply := rec.executed()
 			require.NoError(t, client.StopIPTablesContainer(context.Background(), &del))
-			_, _, revert := rec.executed()
+			revertVia, revertImage, revert := rec.executed()
+			assert.Equal(t, via, revertVia)
+			assert.Equal(t, image, revertImage)
 
 			assert.Equal(t, &ctr.CommandPlan{Via: via, Image: image, Apply: apply, Revert: revert}, plan)
 		})

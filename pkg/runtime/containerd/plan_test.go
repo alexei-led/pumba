@@ -102,6 +102,8 @@ func TestPlanNetemContainerMatchesExecuted(t *testing.T) {
 			apply := runRecorded(t, sidecar, func(c *containerdClient) error { return c.NetemContainer(context.Background(), &req) })
 			revert := runRecorded(t, sidecar, func(c *containerdClient) error { return c.StopNetemContainer(context.Background(), &req) })
 
+			assert.Equal(t, apply.via, revert.via)
+			assert.Equal(t, apply.image, revert.image)
 			assert.Equal(t, &ctr.CommandPlan{Via: apply.via, Image: apply.image, Apply: apply.commands, Revert: revert.commands}, plan)
 		})
 	}
@@ -112,6 +114,21 @@ func TestPlanIPTablesContainerMatchesExecuted(t *testing.T) {
 		name string
 		req  ctr.IPTablesRequest
 	}{
+		{name: "unfiltered untagged in sidecar", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, Sidecar: ctr.SidecarSpec{Image: "nettools"},
+		}},
+		{name: "unfiltered tagged by exec", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, RunID: "r1",
+		}},
+		{name: "filtered untagged by exec", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, SrcIPs: []*net.IPNet{cidr("10.0.0.1/32")},
+			DstIPs: []*net.IPNet{cidr("10.0.0.0/24")}, SPorts: []string{"53"}, DPorts: []string{"80"},
+		}},
+		{name: "filtered untagged in sidecar", req: ctr.IPTablesRequest{
+			CmdSuffix: []string{"-j", "DROP"}, SrcIPs: []*net.IPNet{cidr("10.0.0.1/32")},
+			DstIPs: []*net.IPNet{cidr("10.0.0.0/24")}, SPorts: []string{"53"}, DPorts: []string{"80"},
+			Sidecar: ctr.SidecarSpec{Image: "nettools"},
+		}},
 		{name: "unfiltered untagged by exec", req: ctr.IPTablesRequest{
 			CmdSuffix: []string{"-m", "statistic", "--mode", "random", "--probability", "0.20", "-j", "DROP"},
 		}},
@@ -142,6 +159,8 @@ func TestPlanIPTablesContainerMatchesExecuted(t *testing.T) {
 			apply := runRecorded(t, sidecar, func(c *containerdClient) error { return c.IPTablesContainer(context.Background(), &add) })
 			revert := runRecorded(t, sidecar, func(c *containerdClient) error { return c.StopIPTablesContainer(context.Background(), &del) })
 
+			assert.Equal(t, apply.via, revert.via)
+			assert.Equal(t, apply.image, revert.image)
 			assert.Equal(t, &ctr.CommandPlan{Via: apply.via, Image: apply.image, Apply: apply.commands, Revert: revert.commands}, plan)
 		})
 	}
