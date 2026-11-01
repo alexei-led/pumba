@@ -165,6 +165,12 @@ test_required_protocol() {
         '.[3].finding.trace = [{module:"github.com/docker/docker",function:"init"}]' \
         '.[3].finding.trace = [{module:"github.com/docker/docker",package:42}]' \
         '.[3].finding.trace[0].function = ""' '.[3].finding.trace[0].version = "v99.0.0"' \
+        '.[3].finding.trace[0].position = 42' '.[3].finding.trace[0].position = null' \
+        '.[3].finding.trace[0].position = {}' \
+        '.[3].finding.trace[0].position = {filename:42,offset:0,line:1,column:1}' \
+        '.[3].finding.trace[0].position = {offset:"0",line:1,column:1}' \
+        '.[3].finding.trace[0].position = {offset:0,line:1.5,column:1}' \
+        '.[3].finding.trace[0].position = {offset:0,line:1,column:null}' \
         '.[3].finding.trace = [{module:"github.com/docker/docker"},{module:"github.com/docker/docker",package:"github.com/docker/docker",function:"init"}]' \
         '. + [{progress:null}]' '. + [{progress:{},finding:{}}]' \
         '.[3].finding.trace[0] |= del(.function) | .[3].finding.trace[0].receiver = "Client"'; do
@@ -176,18 +182,23 @@ test_required_protocol() {
 test_unknown_fields_and_order() {
     stream GO-2026-4887:symbol
     cp "$MOCK_SCAN_JSON" "$TMP/valid.json"
-    mutate '.[0].config.future_info = "harmless" | .[3].finding.future_info = "NaN +1 01" | [.[0], .[3], {progress:{message:"working",number:-1.5e2,extra:[{key:1},{key:2}],empty:{},other:{}}}, .[2], .[1]]'
+    mutate '.[0].config.future_info = "harmless" | .[3].finding.trace[0].position = {filename:"source.go",offset:0,line:1,column:1,future:true} | .[3].finding.future_info = "NaN +1 01" | [.[0], .[3], {progress:{message:"working",number:-1.5e2,extra:[{key:1},{key:2}],empty:{},other:{}}}, .[2], .[1]]'
     run_gate pass
 }
 test_missing_scanner() {
     stream
     mv "$TMP/bin/govulncheck" "$TMP/bin/scanner.saved"
-    # An empty PATH also excludes any real scanner installed on the host.
-    local saved_path=$PATH
-    PATH="$TMP/bin" RUN_COMMAND=(/bin/bash "$SCRIPT_DIR/govulncheck.bash")
+    # Isolate only the scanner; keep the parser and path helper usable.
+    local dependency
+    mkdir -p "$TMP/missing-scanner"
+    for dependency in dirname jq; do
+        ln -s "$(command -v "$dependency")" "$TMP/missing-scanner/$dependency"
+    done
+    RUN_COMMAND=(env PATH="$TMP/missing-scanner" /bin/bash "$SCRIPT_DIR/govulncheck.bash")
     run_gate fail
-    PATH=$saved_path RUN_COMMAND=(bash "$SCRIPT_DIR/govulncheck.bash")
-    contains 'gate failed'
+    RUN_COMMAND=(bash "$SCRIPT_DIR/govulncheck.bash")
+    contains 'raw JSON scanner exit: 127'
+    contains 'JSON mode requires exit 0; scanner failed or exit contract changed'
     mv "$TMP/bin/scanner.saved" "$TMP/bin/govulncheck"
 }
 test_actual_workflow_pipeline() {

@@ -36,7 +36,12 @@ def text: type == "string" and test("\\S");
       and all(["version", "package", "function", "receiver"][];
         . as $key | if $frame | has($key) then $frame[$key] | text else true end)
       and (if has("function") then has("package") else true end)
-      and (if has("receiver") then has("function") else true end))
+      and (if has("receiver") then has("function") else true end)
+      and (if has("position") then .position | type == "object"
+        and (. as $position | all(["offset", "line", "column"][];
+          $position[.] | type == "number" and . >= 0 and floor == .))
+        and (if has("filename") then .filename | type == "string" else true end)
+        else true end))
     and (.trace[0] as $first
       | any($sbom.modules[]; .path == $first.module and (.version // "") == ($first.version // "")))
     and (if .trace[0] | has("function") then true
