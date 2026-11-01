@@ -12,8 +12,6 @@ import (
 	"github.com/containerd/errdefs"
 )
 
-const stressKilledExitCode = 128 + uint32(syscall.SIGKILL)
-
 func wrapStressCleanup(err error) error {
 	if err == nil {
 		return nil

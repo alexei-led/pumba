@@ -119,11 +119,11 @@ func (c *containerdClient) startSidecarTask(ctx, waitCtx context.Context, cntr c
 
 	waitCh, err := task.Wait(waitCtx)
 	if err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false)))
+		return nil, nil, errors.Join(fmt.Errorf("failed to set up stress task wait: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false).err))
 	}
 
 	if err := task.Start(ctx); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false)))
+		return nil, nil, errors.Join(fmt.Errorf("failed to start stress task: %w", err), wrapStressCleanup(cleanupTaskExec(ctx, task, false).err))
 	}
 
 	return task, waitCh, nil
@@ -156,7 +156,7 @@ func (c *containerdClient) waitStressSidecar(
 	exitErr := stressSidecarExitError(sidecarID, exit.status, exit.ok, exit.timedOut)
 	if exit.killed && exit.ok {
 		code, _, statusErr := exit.status.Result()
-		if code == stressKilledExitCode && statusErr == nil {
+		if code == killedExitCode && statusErr == nil {
 			exitErr = nil
 		}
 	}

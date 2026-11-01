@@ -114,7 +114,7 @@ func TestCreateStressSidecarCleanupFailures(t *testing.T) { //nolint:paralleltes
 
 func TestStressDirectExecCancellation(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"cancel", "duration", "grpc_cancel", "cleanup_failure", "natural_failure"} {
+	for _, mode := range []string{"cancel", "duration", "grpc_cancel", "cleanup_failure", "natural_failure", "late_failure", "late_success"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
@@ -144,18 +144,30 @@ func TestStressDirectExecCancellation(t *testing.T) {
 					running <- *containerd.NewExitStatus(0, time.Now(), grpcstatus.Error(codes.Canceled, "wait canceled"))
 				}
 			}).Return(nil).Once()
+			var killErr error
+			if mode == "late_failure" || mode == "late_success" {
+				killErr = errdefs.ErrNotFound
+			}
 			proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
-				reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
-			}).Return(nil).Once()
+				if killErr == nil {
+					reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
+				}
+			}).Return(killErr).Once()
 			var deleteErr error
 			if mode == "cleanup_failure" {
 				deleteErr = cleanupErr
+			}
+			code := uint32(137)
+			if mode == "late_failure" {
+				code = 7
+			} else if mode == "late_success" {
+				code = 0
 			}
 			proc.EXPECT().Delete(mock.Anything).Run(func(cleanupCtx context.Context, _ ...containerd.ProcessDeleteOpts) {
 				assert.NoError(t, cleanupCtx.Err())
 				_, ok := cleanupCtx.Deadline()
 				assert.True(t, ok)
-			}).Return(nil, deleteErr).Once()
+			}).Return(containerd.NewExitStatus(code, time.Now(), nil), deleteErr).Once()
 			if mode == "natural_failure" {
 				proc.EXPECT().IO().Return(newHeldIO()).Once()
 			}
@@ -172,7 +184,7 @@ func TestStressDirectExecCancellation(t *testing.T) {
 				require.ErrorIs(t, err, cleanupErr)
 				var cleanup *ctr.StressCleanupError
 				require.ErrorAs(t, err, &cleanup)
-			case "natural_failure":
+			case "natural_failure", "late_failure":
 				require.ErrorContains(t, requireStressError(t, result.Output, result.Errors, time.Second), "exited with code 7")
 			default:
 				requireStressOutput(t, result.Output, result.Errors, time.Second)

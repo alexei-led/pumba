@@ -31,10 +31,17 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	if err != nil {
 		return "", "", fmt.Errorf("failed to exec %s: %w", description, err)
 	}
+	var observedExit bool
 	defer func() {
-		if cleanupErr := cleanupTaskExec(ctx, execProcess, terminateOnCancel && ctx.Err() != nil); cleanupErr != nil {
+		cleanup := cleanupTaskExec(ctx, execProcess, terminateOnCancel && ctx.Err() != nil)
+		if terminateOnCancel && ctx.Err() != nil && !observedExit {
+			if exitErr := canceledExecResultError(description, cleanup); exitErr != nil {
+				resultErr = errors.Join(resultErr, exitErr)
+			}
+		}
+		if cleanup.err != nil {
 			out, errOut = "", ""
-			resultErr = errors.Join(resultErr, fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanupErr))
+			resultErr = errors.Join(resultErr, fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanup.err))
 		}
 	}()
 
@@ -49,11 +56,13 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 
 	select {
 	case status, ok := <-exitCh:
+		observedExit = execStatusKnown(status, ok)
 		return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, terminateOnCancel)
 	case <-ctx.Done():
 		if terminateOnCancel {
 			select {
 			case status, ok := <-exitCh:
+				observedExit = execStatusKnown(status, ok)
 				return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, true)
 			default:
 			}

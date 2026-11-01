@@ -12,47 +12,86 @@ import (
 
 var errExecCleanup = errors.New("exec cleanup failed")
 
-// cleanupTaskExec only terminates an exec when a fault command exceeds its
-// internal deadline. It never signals the target task or unrelated execs.
-func cleanupTaskExec(ctx context.Context, process containerd.Process, terminate bool) error {
+const killedExitCode = 128 + uint32(syscall.SIGKILL)
+
+type execCleanupResult struct {
+	exit   *containerd.ExitStatus
+	killed bool
+	err    error
+}
+
+// Cleanup owns only this exec, never the target task. Delete's terminal status
+// remains authoritative when cancellation made the original wait unavailable.
+func cleanupTaskExec(ctx context.Context, process containerd.Process, terminate bool) execCleanupResult {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarCleanupTimeout)
 	defer cancel()
-	var terminationErr error
+	var result execCleanupResult
 	if terminate {
-		if err := terminateFaultExec(cleanupCtx, process); err != nil {
-			terminationErr = fmt.Errorf("failed to terminate fault exec; fault subprocesses may remain: %w", err)
+		result = terminateOwnedExec(cleanupCtx, process)
+		if result.err != nil {
+			result.err = fmt.Errorf("failed to terminate owned exec; subprocesses may remain: %w", result.err)
 		}
 	}
-	_, deleteErr := process.Delete(cleanupCtx)
+	exit, deleteErr := process.Delete(cleanupCtx)
+	if exit != nil {
+		result.exit = exit
+	}
 	if errdefs.IsNotFound(deleteErr) {
 		deleteErr = nil
 	}
 	if deleteErr != nil {
 		deleteErr = fmt.Errorf("failed to delete exec process: %w", deleteErr)
 	}
-	return errors.Join(terminationErr, deleteErr)
+	result.err = errors.Join(result.err, deleteErr)
+	return result
 }
 
-func terminateFaultExec(ctx context.Context, process containerd.Process) error {
+func terminateOwnedExec(ctx context.Context, process containerd.Process) execCleanupResult {
 	waitCh, waitErr := process.Wait(ctx)
 	if errdefs.IsNotFound(waitErr) {
-		return nil
+		return execCleanupResult{}
 	}
 	killErr := process.Kill(ctx, syscall.SIGKILL)
 	if errdefs.IsNotFound(killErr) {
-		return nil
+		return execCleanupResult{err: waitErr}
 	}
+	result := execCleanupResult{killed: killErr == nil}
 	if waitErr != nil || killErr != nil {
-		return errors.Join(waitErr, killErr)
+		result.err = errors.Join(waitErr, killErr)
+		return result
 	}
 	select {
 	case status, ok := <-waitCh:
 		if !ok {
-			return errors.New("fault exec wait channel closed without exit status")
+			result.err = errors.New("owned exec wait channel closed without exit status")
+		} else {
+			result.exit = &status
+			_, _, result.err = status.Result()
 		}
-		_, _, err := status.Result()
-		return err
 	case <-ctx.Done():
-		return fmt.Errorf("waiting for fault exec after SIGKILL: %w", ctx.Err())
+		result.err = fmt.Errorf("waiting for owned exec after SIGKILL: %w", ctx.Err())
 	}
+	return result
+}
+
+func canceledExecResultError(description string, cleanup execCleanupResult) error {
+	if cleanup.exit == nil {
+		return fmt.Errorf("%s: %w: terminal status unavailable after cancellation", description, errExecCleanup)
+	}
+	code, _, err := cleanup.exit.Result()
+	if err != nil {
+		return fmt.Errorf("%s: %w: failed to observe terminal status: %w", description, errExecCleanup, err)
+	}
+	if code == 0 || (cleanup.killed && code == killedExitCode) {
+		return nil
+	}
+	return fmt.Errorf("%s exited with code %d", description, code)
+}
+
+func execStatusKnown(status containerd.ExitStatus, ok bool) bool {
+	if !ok {
+		return false
+	}
+	_, _, err := status.Result()
+	return err == nil
 }

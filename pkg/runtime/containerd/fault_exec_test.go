@@ -87,7 +87,7 @@ func TestExecFaultTaskOutputInternalDeadline(t *testing.T) {
 			switch failure {
 			case "wait", "kill":
 				assert.ErrorIs(t, err, terminationErr)
-				assert.ErrorContains(t, err, "fault subprocesses may remain")
+				assert.ErrorContains(t, err, "subprocesses may remain")
 			case "delete":
 				assert.ErrorIs(t, err, deletionErr)
 			case "closed_wait":
@@ -105,8 +105,8 @@ func TestTerminateFaultExecWaitIsBounded(t *testing.T) {
 	proc.EXPECT().Wait(mock.Anything).Return(make(<-chan containerd.ExitStatus), nil).Once()
 	proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Return(nil).Once()
 
-	err := terminateFaultExec(ctx, proc)
+	result := terminateOwnedExec(ctx, proc)
 
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.ErrorContains(t, err, "waiting for fault exec after SIGKILL")
+	require.ErrorIs(t, result.err, context.DeadlineExceeded)
+	assert.ErrorContains(t, result.err, "waiting for owned exec after SIGKILL")
 }
