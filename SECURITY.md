@@ -80,6 +80,7 @@ This repository uses:
 
 - **CodeQL** (`security-extended`, `security-and-quality`) on every PR and weekly
 - **golangci-lint** with `gosec` for static analysis
+- **govulncheck** with a fail-closed symbol gate; see [applicability and existing acceptance](docs/security.md)
 - **GitHub Actions** with least-privilege `permissions:` blocks
 
 Thank you for helping keep Pumba and its users safe.
