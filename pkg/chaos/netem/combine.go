@@ -157,6 +157,7 @@ func (n *combinedCommand) Run(ctx context.Context, random bool) error {
 			defer cancel()
 			req := *resolvedReq
 			req.Container = target
+			req.RunID = n.gp.RunID
 			req.Command = command
 			if err := runNetem(netemCtx, n.client, &req, t); err != nil {
 				return fmt.Errorf("failed to apply combined network effects: %w", err)

@@ -110,6 +110,40 @@ func TestEventJSONContract(t *testing.T) {
 				`"started":"2026-10-29T10:00:00Z","ended":"2026-10-29T10:00:00Z","status":"skipped","error":null,"cleanup":null}`,
 		},
 		{
+			name: "target.result with status state",
+			ev: with(func(e *chaos.Event) {
+				e.Type = chaos.EventTargetResult
+				e.Result = &chaos.TargetResult{Tick: 1, Target: target, Started: at, Ended: at, Status: chaos.TargetOK, State: &chaos.TargetState{
+					Rules:    []chaos.StateRule{{RunID: "r1", Chain: "INPUT", Spec: "-A INPUT -j DROP"}},
+					Qdiscs:   []chaos.StateQdisc{{Device: "eth0", Kind: "netem", Ownership: "pumba-owned"}},
+					Sidecars: []chaos.StateSidecar{{ID: "s1", Name: "pumba-s1", Kind: "netem", State: "exited", TargetID: "a1b2"}},
+				}}
+			}),
+			want: prefix + `"target.result",` + ids + `,"tick":1,"target":{"id":"a1b2","name":"web-1"},` +
+				`"started":"2026-10-29T10:00:00Z","ended":"2026-10-29T10:00:00Z","status":"ok","error":null,"cleanup":null,` +
+				`"state":{"rules":[{"run_id":"r1","chain":"INPUT","spec":"-A INPUT -j DROP"}],` +
+				`"qdiscs":[{"device":"eth0","kind":"netem","ownership":"pumba-owned","run_id":null}],` +
+				`"sidecars":[{"id":"s1","name":"pumba-s1","kind":"netem","state":"exited","target_id":"a1b2","run_id":null}]}}`,
+		},
+		{
+			name: "run.end with status coverage",
+			ev: with(func(e *chaos.Event) {
+				e.Type = chaos.EventRunEnd
+				e.End = &chaos.RunEnd{Status: chaos.RunUnknown, Coverage: &chaos.StatusCoverage{
+					Verdict:        chaos.VerdictUnknown,
+					Reasons:        []string{"ghost: not found or not running"},
+					RunFilter:      "r1",
+					OrphanSidecars: []chaos.StateSidecar{},
+					MissingTargets: []string{"ghost"},
+					ListingGaps:    []chaos.ListingGap{},
+				}}
+			}),
+			want: prefix + `"run.end",` + ids + `,"status":"unknown",` +
+				`"counts":{"selected":0,"ok":0,"failed":0,"cleanup_failed":0,"planned":0,"skipped":0},"error":null,"events_dropped":0,` +
+				`"coverage":{"verdict":"unknown","reasons":["ghost: not found or not running"],"run_filter":"r1",` +
+				`"orphan_sidecars":[],"missing_targets":["ghost"],"listing_gaps":[]}}`,
+		},
+		{
 			name: "run.end",
 			ev: with(func(e *chaos.Event) {
 				e.Type = chaos.EventRunEnd

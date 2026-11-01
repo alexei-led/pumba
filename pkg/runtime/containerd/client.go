@@ -106,6 +106,9 @@ func (c *containerdClient) ListContainers(ctx context.Context, fn ctr.FilterFunc
 		pc, skip, err := toContainer(ctx, cntr, opts.All)
 		if err != nil {
 			log.WithError(err).WithField("id", cntr.ID()).Warn("skipping container")
+			if opts.OnSkip != nil {
+				opts.OnSkip(cntr.ID(), err)
+			}
 			continue
 		}
 		if skip {
@@ -241,5 +244,5 @@ func (c *containerdClient) ExecContainer(ctx context.Context, container *ctr.Con
 			command, args = fields[0], fields[1:]
 		}
 	}
-	return c.execInContainer(c.nsCtx(ctx), container.ID(), command, args)
+	return c.execUserCommand(c.nsCtx(ctx), container.ID(), command, args)
 }

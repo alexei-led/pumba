@@ -254,7 +254,7 @@ func TestStressContainerConfigNoCgroupsV1Artifacts(t *testing.T) {
 	assert.Empty(t, capturedHostConfig.CapAdd)
 	assert.Empty(t, capturedHostConfig.SecurityOpt)
 	assert.Equal(t, "/docker/abc123", capturedHostConfig.Resources.CgroupParent)
-	assert.True(t, capturedHostConfig.AutoRemove)
+	assert.False(t, capturedHostConfig.AutoRemove)
 
 	api.AssertExpectations(t)
 }
@@ -299,7 +299,7 @@ func TestStressContainerInjectCgroupCgroupfs(t *testing.T) {
 	assert.Equal(t, []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}, capturedHostConfig.Binds)
 	assert.Empty(t, capturedHostConfig.Resources.CgroupParent)
 	assert.Empty(t, capturedHostConfig.CapAdd)
-	assert.True(t, capturedHostConfig.AutoRemove)
+	assert.False(t, capturedHostConfig.AutoRemove)
 
 	api.AssertExpectations(t)
 }
@@ -344,7 +344,7 @@ func TestStressContainerInjectCgroupSystemd(t *testing.T) {
 	assert.Equal(t, []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}, capturedHostConfig.Binds)
 	assert.Empty(t, capturedHostConfig.Resources.CgroupParent)
 	assert.Empty(t, capturedHostConfig.CapAdd)
-	assert.True(t, capturedHostConfig.AutoRemove)
+	assert.False(t, capturedHostConfig.AutoRemove)
 
 	api.AssertExpectations(t)
 }
@@ -487,7 +487,7 @@ func TestStressContainerInjectCgroupWithK8sPath(t *testing.T) {
 	assert.Equal(t, container.CgroupnsMode("host"), capturedHostConfig.CgroupnsMode)
 	assert.Equal(t, []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}, capturedHostConfig.Binds)
 	assert.Empty(t, capturedHostConfig.Resources.CgroupParent)
-	assert.True(t, capturedHostConfig.AutoRemove)
+	assert.False(t, capturedHostConfig.AutoRemove)
 
 	api.AssertExpectations(t)
 }
@@ -581,7 +581,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 					},
 				}
 				conn.On("Close").Return(nil)
-				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil)
+				expectStressExit(t, engine, ctx, int64(inspect.State.ExitCode), nil)
 			},
 			want:       "000",
 			wantOutput: "stress completed",
@@ -619,7 +619,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 						State: &container.State{},
 					},
 				}
-				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil)
+				expectStressExit(t, engine, ctx, int64(inspect.State.ExitCode), nil)
 				conn.On("Close").Return(nil)
 			},
 			want:       "000",
@@ -645,13 +645,13 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 					},
 				}
 				conn.On("Close").Return(nil)
-				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil)
+				expectStressExit(t, engine, ctx, int64(inspect.State.ExitCode), nil)
 			},
 			want:      "000",
 			wantErrCh: true,
 		},
 		{
-			name: "fail to inspect stress-ng container",
+			name: "fail to wait for stress-ng container",
 			args: args{
 				ctx: context.TODO(),
 			},
@@ -665,7 +665,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				}, nil)
 				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(nil)
 				conn.On("Close").Return(nil)
-				engine.EXPECT().ContainerInspect(ctx, "000").Return(container.InspectResponse{}, errors.New("filed to inspect"))
+				expectStressExit(t, engine, ctx, 0, errors.New("failed to wait"))
 			},
 			want:       "000",
 			wantOutput: "stress completed",
@@ -687,12 +687,6 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				engine.EXPECT().ContainerStart(ctx, "000", mock.Anything).Return(errors.New("failed to start"))
 				engine.EXPECT().ContainerRemove(mock.Anything, "000", mock.Anything).Return(nil).Maybe()
 				conn.On("Close").Return(nil).Maybe()
-				inspect := container.InspectResponse{
-					ContainerJSONBase: &container.ContainerJSONBase{
-						State: &container.State{},
-					},
-				}
-				engine.EXPECT().ContainerInspect(ctx, "000").Return(inspect, nil).Maybe()
 			},
 			want:    "000",
 			wantErr: true,
@@ -734,7 +728,12 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				systemAPI:    mockClient,
 			}
 			tt.mockInit(tt.args.ctx, mockClient, mConn, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
-			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull, false)
+			mockClient.EXPECT().ContainerRemove(mock.Anything, "000", container.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Maybe()
+			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, &ctr.StressRequest{
+				Container: &ctr.Container{ContainerID: tt.args.targetID},
+				Stressors: tt.args.stressors,
+				Sidecar:   ctr.SidecarSpec{Image: tt.args.image, Pull: tt.args.pull},
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("dockerClient.stressContainerCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -743,23 +742,27 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				t.Errorf("dockerClient.stressContainerCommand() got = %v, want %v", got, tt.want)
 			}
 			if err == nil && (got1 != nil || got2 != nil) {
-				select {
-				case output := <-got1:
-					if output != tt.wantOutput {
-						t.Errorf("dockerClient.stressContainerCommand() got = %v, from output channel, want %v", output, tt.wantOutput)
-					}
-				case err = <-got2:
-					if (err != nil) != tt.wantErrCh {
-						t.Errorf("dockerClient.stressContainerCommand() error in error channel = %v, wantErrCh %v", err, tt.wantErrCh)
-					}
-				}
-				for range got1 {
-				}
-				for range got2 {
+				output, resultErr := collectStressResult(t, &ctr.StressResult{Output: got1, Errors: got2})
+				if tt.wantErrCh {
+					assert.Error(t, resultErr)
+				} else {
+					assert.NoError(t, resultErr)
+					assert.Equal(t, tt.wantOutput, output)
 				}
 			}
 			mockClient.AssertExpectations(t)
 			mConn.AssertExpectations(t)
 		})
 	}
+}
+
+func expectStressExit(t *testing.T, engine *mocks.APIClient, ctx context.Context, code int64, err error) {
+	t.Helper()
+	exited, errs := make(chan container.WaitResponse, 1), make(chan error, 1)
+	if err != nil {
+		errs <- err
+	} else {
+		exited <- container.WaitResponse{StatusCode: code}
+	}
+	engine.EXPECT().ContainerWait(mock.Anything, "000", container.WaitConditionNotRunning).Return((<-chan container.WaitResponse)(exited), (<-chan error)(errs)).Once()
 }

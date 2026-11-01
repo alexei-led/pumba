@@ -23,17 +23,6 @@ event_types() {
     echo "$output" | jq -sc '[.[].type]'
 }
 
-# Run jq filter $1 on the slurped event array in $output; fail unless true.
-assert_events() {
-    echo "$output" | jq -se "$1" >/dev/null || fail "events do not match '$1':
-$output"
-}
-
-# Run jq filter $1 on the last event (run.end) in $output; fail unless true.
-assert_run_end() {
-    assert_events "last | .type == \"run.end\" and ($1)"
-}
-
 @test "Should emit run.start, planned target.result and run.end for dry-run kill" {
     create_test_container output_victim alpine:latest top
 

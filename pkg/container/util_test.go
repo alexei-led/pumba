@@ -175,7 +175,7 @@ func TestListNContainers_ProtectLabel(t *testing.T) {
 			{name: "label", labels: []string{"role=api"}},
 		} {
 			t.Run(fmt.Sprintf("%s/all=%t", selector.name, all), func(t *testing.T) {
-				protected := &Container{ContainerName: "protected", Labels: map[string]string{pumbaSkipLabel: trueValue, "role": "api"}}
+				protected := &Container{ContainerName: "protected", Labels: map[string]string{SkipLabel: trueValue, "role": "api"}}
 				allowed := &Container{ContainerName: "allowed", Labels: map[string]string{"role": "api"}}
 				client := NewMockClient(t)
 				client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ListOpts{All: all, Labels: selector.labels}).RunAndReturn(func(_ context.Context, filter FilterFunc, _ ListOpts) ([]*Container, error) {

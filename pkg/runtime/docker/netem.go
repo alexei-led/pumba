@@ -37,7 +37,8 @@ func (client dockerClient) runNetemPlan(ctx context.Context, req *ctr.NetemReque
 	if req.Sidecar.Image == "" {
 		return client.execOnContainer(ctx, req.Container, "sh", args, true)
 	}
-	return client.runSidecar(ctx, req.Container, [][]string{args}, req.Sidecar.Image, "sh", req.Sidecar.Pull)
+	labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindNetem)
+	return client.runSidecar(ctx, req.Container, req.Sidecar, labels, "sh", [][]string{args})
 }
 
 func netemPlanRequest(req *ctr.NetemRequest) *tcplan.NetemRequest {

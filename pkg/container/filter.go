@@ -35,7 +35,7 @@ func matchPattern(pattern, containerName string) bool {
 }
 
 // applyContainerFilter creates a FilterFunc from a filter config.
-func applyContainerFilter(flt filter) FilterFunc {
+func applyContainerFilter(flt *filter) FilterFunc {
 	return func(c *Container) bool {
 		// skip Pumba label
 		if c.IsPumba() || c.IsPumbaSkip() {

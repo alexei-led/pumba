@@ -34,6 +34,8 @@ These tests verify Pumba functionality by running against real Docker and contai
 - `global.bats`: Help output, version flag
 - `global_params.bats`: Global flags (--label, --random, --dry-run, --interval, --json, --log-level, --skip-error)
 - `error_handling.bats`: Invalid inputs, missing arguments, edge cases
+- `output.bats`: `--output ndjson` result events, `--run-id`, `--max-duration` (needs `jq`)
+- `status.bats`: `pumba status [--check]` finds tagged iptables rules, `504d:` qdiscs and labeled stress sidecars; dirty after `kill -9`, clean after manual cleanup (needs `jq`)
 
 ### Containerd Tests
 
@@ -44,6 +46,7 @@ These tests verify Pumba functionality by running against real Docker and contai
 - `containerd_sidecar.bats`: Sidecar container approach (--tc-image) for containers without tc tools
 - `containerd_stress.bats`: Stress testing via containerd runtime
 - `containerd_global_flags.bats`: Global flags via containerd (dry-run, regex, --random, --label)
+- `containerd_status.bats`: `pumba status [--check]` via containerd (tagged rule, qdisc, stress sidecar labels)
 - `skip_ci/stress.bats`: Docker stress test (excluded from CI — long-running)
 - `skip_ci/stress_inject_cgroup.bats`: Docker inject-cgroup stress (excluded from CI — requires stress image with `/cg-inject`)
 - `skip_ci/podman_stress_inject_cgroup.bats`: Podman inject-cgroup stress (excluded from CI — Ubuntu 24.04 ships Podman 4.9.x which rmdir's the libpod init `/container` sub-cgroup mid-flight, racing cg-inject's write. Passes on Podman 5.x.)

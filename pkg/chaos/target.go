@@ -1,6 +1,7 @@
 package chaos
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -23,6 +24,7 @@ type Target struct {
 	revertErr  error
 	deferred   bool
 	terminated bool
+	state      *TargetState
 }
 
 func newTarget(gp *GlobalParams, tick int64, c *container.Container) *Target {
@@ -51,6 +53,13 @@ func (t *Target) Reverted(err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.reverted, t.revertErr = true, err
+}
+
+// SetState attaches what `pumba status` found on the target to its result.
+func (t *Target) SetState(s *TargetState) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.state = s
 }
 
 // DeferResult is for actions that revert in a batch after fanout (pause,
@@ -103,6 +112,7 @@ func (t *Target) terminate(err error) {
 		Status:  status,
 		Error:   evErr,
 		Cleanup: cleanup,
+		State:   t.state,
 	}})
 }
 
@@ -115,6 +125,9 @@ func (t *Target) status(err error) (TargetStatus, *EventError) {
 		}
 		return TargetCleanupFailed, newEventError(CodeCleanupFailed, PhaseCleanup, cause)
 	case err != nil:
+		if coded, ok := errors.AsType[*codedError](err); ok {
+			return TargetFailed, newEventError(coded.code, coded.phase, err)
+		}
 		return TargetFailed, newEventError(CodeCommandFailed, PhaseInject, err)
 	case t.gp.DryRun:
 		return TargetPlanned, nil

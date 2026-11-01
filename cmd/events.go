@@ -142,6 +142,7 @@ func newEventOutput(stdout, stderr io.Writer, version string) *eventOutput {
 func (o *eventOutput) configure(c *cli.Context) error {
 	switch mode := c.GlobalString("output"); mode {
 	case outputText:
+		o.fan.subs = append(o.fan.subs, statusText{w: o.stdout})
 	case outputNDJSON:
 		o.enableNDJSON(c.App)
 	default:

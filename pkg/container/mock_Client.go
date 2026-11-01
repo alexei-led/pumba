@@ -18,10 +18,19 @@ func NewMockClient(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockClient {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockClient{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -279,6 +288,74 @@ func (_c *MockClient_IPTablesContainer_Call) Return(err error) *MockClient_IPTab
 }
 
 func (_c *MockClient_IPTablesContainer_Call) RunAndReturn(run func(context1 context.Context, iPTablesRequest *IPTablesRequest) error) *MockClient_IPTablesContainer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InspectNetns provides a mock function for the type MockClient
+func (_mock *MockClient) InspectNetns(context1 context.Context, inspectRequest *InspectRequest) (*FaultState, error) {
+	ret := _mock.Called(context1, inspectRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InspectNetns")
+	}
+
+	var r0 *FaultState
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *InspectRequest) (*FaultState, error)); ok {
+		return returnFunc(context1, inspectRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *InspectRequest) *FaultState); ok {
+		r0 = returnFunc(context1, inspectRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*FaultState)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *InspectRequest) error); ok {
+		r1 = returnFunc(context1, inspectRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClient_InspectNetns_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InspectNetns'
+type MockClient_InspectNetns_Call struct {
+	*mock.Call
+}
+
+// InspectNetns is a helper method to define mock.On call
+//   - context1 context.Context
+//   - inspectRequest *InspectRequest
+func (_e *MockClient_Expecter) InspectNetns(context1 any, inspectRequest any) *MockClient_InspectNetns_Call {
+	return &MockClient_InspectNetns_Call{Call: _e.mock.On("InspectNetns", context1, inspectRequest)}
+}
+
+func (_c *MockClient_InspectNetns_Call) Run(run func(context1 context.Context, inspectRequest *InspectRequest)) *MockClient_InspectNetns_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *InspectRequest
+		if args[1] != nil {
+			arg1 = args[1].(*InspectRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_InspectNetns_Call) Return(faultState *FaultState, err error) *MockClient_InspectNetns_Call {
+	_c.Call.Return(faultState, err)
+	return _c
+}
+
+func (_c *MockClient_InspectNetns_Call) RunAndReturn(run func(context1 context.Context, inspectRequest *InspectRequest) (*FaultState, error)) *MockClient_InspectNetns_Call {
 	_c.Call.Return(run)
 	return _c
 }

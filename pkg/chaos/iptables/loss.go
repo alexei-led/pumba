@@ -91,6 +91,7 @@ func (n *lossCommand) Run(ctx context.Context, random bool) error {
 			defer cancel()
 			addReq := *n.req
 			addReq.Container = c
+			addReq.RunID = n.gp.RunID
 			addReq.CmdPrefix = addCmdPrefix
 			addReq.CmdSuffix = cmdSuffix
 			delReq := addReq

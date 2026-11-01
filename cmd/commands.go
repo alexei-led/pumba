@@ -7,6 +7,7 @@ import (
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
+	statusCmd "github.com/alexei-led/pumba/pkg/chaos/status/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/urfave/cli"
 )
@@ -21,6 +22,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 		*cmd.NewPauseCLICommand(topContext, runtime, events),
 		*cmd.NewRemoveCLICommand(topContext, runtime, events),
 		*stressCmd.NewStressCLICommand(topContext, runtime, events),
+		*statusCmd.NewStatusCLICommand(topContext, runtime, events),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
