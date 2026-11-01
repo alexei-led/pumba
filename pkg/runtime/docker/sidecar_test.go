@@ -113,7 +113,11 @@ func TestWithSidecarRetainsOperationAndRemovalFailures(t *testing.T) {
 		t.Run(stage, func(t *testing.T) {
 			api := NewMockEngine(t)
 			operationErr, cleanupErr := errors.New("sidecar operation failed"), errors.New("sidecar removal failed")
-			api.EXPECT().ContainerCreate(mock.Anything, mock.Anything, mock.Anything, (*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "").Return(ctypes.CreateResponse{ID: "owned-sidecar"}, nil).Once()
+			api.EXPECT().ContainerCreate(mock.Anything,
+				&ctypes.Config{Entrypoint: []string{"tail"}, Cmd: []string{"-f", "/dev/null"}, Image: "nettools", StopSignal: "SIGKILL"},
+				&ctypes.HostConfig{CapAdd: []string{"NET_ADMIN"}, NetworkMode: "container:target", PortBindings: nat.PortMap{}, DNS: []string{}, DNSOptions: []string{}, DNSSearch: []string{}},
+				(*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "",
+			).Return(ctypes.CreateResponse{ID: "owned-sidecar"}, nil).Once()
 			var startErr error
 			if stage == "start" {
 				startErr = operationErr
