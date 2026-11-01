@@ -33,6 +33,11 @@ const (
 	TargetSkipped       TargetStatus = "skipped"
 )
 
+// TargetStatuses lists every target.result status, in declaration order.
+func TargetStatuses() []TargetStatus {
+	return []TargetStatus{TargetOK, TargetFailed, TargetCleanupFailed, TargetPlanned, TargetSkipped}
+}
+
 // RunStatus is the final status of a run reported in run.end.
 type RunStatus string
 
@@ -47,6 +52,11 @@ const (
 	RunUsageError    RunStatus = "usage_error"
 	RunAborted       RunStatus = "aborted"
 )
+
+// RunStatuses lists every run.end status, in declaration order.
+func RunStatuses() []RunStatus {
+	return []RunStatus{RunOK, RunFailed, RunPartial, RunCleanupFailed, RunNoTargets, RunRefused, RunUsageError, RunAborted}
+}
 
 // ErrorCode is the stable, machine-readable error classification. Agents
 // branch on it; the message is for humans.
@@ -64,6 +74,14 @@ const (
 	CodeTimeout             ErrorCode = "timeout"
 	CodeCanceled            ErrorCode = "canceled"
 )
+
+// ErrorCodes lists every stable error code, in declaration order.
+func ErrorCodes() []ErrorCode {
+	return []ErrorCode{
+		CodeInvalidArgument, CodeNoTargets, CodeMaxTargetsExceeded, CodeRuntimeUnavailable,
+		CodeRootlessUnsupported, CodeCommandFailed, CodeCleanupFailed, CodeTimeout, CodeCanceled,
+	}
+}
 
 // Phase names the stage of a run an error belongs to.
 type Phase string

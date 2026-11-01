@@ -6,6 +6,7 @@ How a program runs Pumba and reads what happened, without parsing logs.
 - `--run-id`: names the run; every event carries it.
 - `--max-duration`: a time budget, so a forgotten `--interval` run stops by itself.
 - The exit code is `0` or `1`. The detail is in the last event, `run.end`.
+- `pumba schema`: the CLI itself as JSON (schema `pumba.cli/v1`): commands, flags, types, defaults, error codes. See [Discovering the CLI](#discovering-the-cli-pumba-schema).
 
 Logs stay on stderr in every mode. `--json` only changes the log format; it combines freely with `--output ndjson`.
 
@@ -188,6 +189,44 @@ pumba -o ndjson --max-duration 10m --interval 1m kill --signal SIGTERM 're2:^wor
 
 See also [examples/pumba_agent_output.sh](../examples/pumba_agent_output.sh).
 
+## Discovering the CLI (`pumba schema`)
+
+`pumba schema` prints one JSON document (`pumba.cli/v1`) to stdout and exits `0`. It needs no container runtime: no socket is opened, so it works on a machine without Docker. The output is the same in `--output text` and `ndjson` modes, and on success it emits no events. A failure exits `1` and, in ndjson mode, writes only `run.end`.
+
+The document is built from the running binary, so it always matches its version.
+
+| Field | Meaning |
+|---|---|
+| `schema` | `pumba.cli/v1` |
+| `pumba_version` | same value as `run.start.pumba_version` |
+| `event_schema` | `pumba.event/v1` |
+| `error_codes` | every `error.code` value (see [Errors](#errors)) |
+| `run_statuses`, `target_statuses` | every `run.end.status` and `target.result.status` value |
+| `usage`, `args_usage` | top-level help text |
+| `global_flags` | flags valid before the command name |
+| `commands` | command tree, in `--help` order |
+
+Each command: `name`, `path` (as in event `action`, e.g. `netem delay`), `usage`, `description`, `args_usage`, `flags`, `subcommands`. Flags on a parent command (`netem --duration`) go before the subcommand name.
+
+Each flag: `name`, `aliases`, `type`, `default`, `env_vars`, `repeatable`, `usage`.
+
+- `type`: `string`, `bool`, `int`, `number`, `duration` (Go duration string, e.g. `"30s"`), `string[]`.
+- `repeatable`: the flag may be given more than once (`string[]` flags).
+- Lists are `[]` when empty, never `null`. Hidden flags, `--help` and the `help` command are left out.
+- `tlscacert`, `tlscert` and `tlskey` defaults follow `DOCKER_CERT_PATH`, so they vary by machine.
+
+```bash
+pumba schema | jq -r '.. | objects | select(has("path")) | .path'           # every command path
+pumba schema | jq '.commands[] | select(.name=="netem") | .subcommands[]
+  | select(.name=="delay") | .flags[] | {name, type, default}'                # flags of one command
+pumba schema | jq -r '.global_flags[] | select(.env_vars != []) | "\(.name)\t\(.env_vars[0])"'
+pumba schema | jq -e '.event_schema == "pumba.event/v1"'                       # check before parsing events
+```
+
+Enum values and constraints (allowed signals, ranges) are not described yet; `usage` carries them as text.
+
 ## Versioning
 
 Within `pumba.event/v1`, fields and event types may be added; ignore what you do not know. Renaming, removing or re-meaning a field, or adding a `status` or `code` value, bumps the schema to `v2`.
+
+`pumba.cli/v1` follows the same rule for its own fields. Commands and flags it describes may be added in any release; read `pumba schema` from the binary you run.

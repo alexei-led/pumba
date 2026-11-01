@@ -95,12 +95,14 @@ func TestNewOutcome(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := chaos.NewOutcome(tt.counts, tt.err, tt.aborted)
 			assert.Equal(t, tt.status, got.Status)
+			assert.Contains(t, chaos.RunStatuses(), got.Status, "published in pumba schema")
 			assert.Equal(t, tt.exitCode, got.ExitCode)
 			if tt.wantNoErr {
 				assert.Nil(t, got.Error)
 				return
 			}
 			require.NotNil(t, got.Error)
+			assert.Contains(t, chaos.ErrorCodes(), got.Error.Code, "published in pumba schema")
 			assert.Equal(t, chaos.EventError{Code: tt.code, Phase: tt.phase, Message: tt.message}, *got.Error)
 		})
 	}
