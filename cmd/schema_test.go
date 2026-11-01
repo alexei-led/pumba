@@ -143,6 +143,8 @@ func TestSchemaKnownFlags(t *testing.T) {
 		{"netem delay", cliflags.FlagInfo{Name: "time", Aliases: []string{"t"}, Type: "int", Default: float64(100), EnvVars: []string{}, Usage: "delay time; in milliseconds"}},
 		{"netem loss", cliflags.FlagInfo{Name: "percent", Aliases: []string{"p"}, Type: "number", Default: float64(0), EnvVars: []string{}, Usage: "packet loss percentage"}},
 		{"iptables", cliflags.FlagInfo{Name: "source", Aliases: []string{"src", "s"}, Type: "string[]", Default: []any{}, EnvVars: []string{}, Repeatable: true, Usage: "source IP filter; supports multiple IPs; supports CIDR notation"}},
+		{"status", cliflags.FlagInfo{Name: "check", Aliases: []string{}, Type: "bool", Default: false, EnvVars: []string{}, Usage: "print a clean/dirty/unknown verdict and exit 0 only when clean; cannot be combined with --interval"}},
+		{"status", cliflags.FlagInfo{Name: "run-id", Aliases: []string{}, Type: "string", Default: "", EnvVars: []string{}, Usage: "only report iptables rules and sidecars of this run (qdiscs carry no run and are always reported); unlike the global --run-id, this filters"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path+" --"+tt.want.Name, func(t *testing.T) {
@@ -261,6 +263,22 @@ func TestSchemaReportsWriteFailure(t *testing.T) {
 	err := writeSchema(failingWriter{}, &cli.App{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "write schema:")
+}
+
+func TestSchemaFailureEmitsOnlyRunEnd(t *testing.T) {
+	noRuntime(t)
+	var stdout bytes.Buffer
+	out := newEventOutput(&stdout, io.Discard, version)
+	app := newApp(out)
+	app.Flags = append(app.Flags, cli.UintFlag{Name: "unknown-type"})
+	err := app.Run([]string{"pumba", "-o", "ndjson", "--run-id", "schema-failure", "schema"})
+	require.ErrorIs(t, err, cliflags.ErrUnsupportedFlagType)
+	assert.Equal(t, 1, out.finish(err, false))
+	lines := parseNDJSON(t, stdout.String())
+	require.Len(t, lines, 1)
+	assert.Equal(t, chaos.EventRunEnd, lines[0].Type)
+	assert.Equal(t, "schema-failure", lines[0].RunID)
+	assert.Equal(t, string(chaos.RunFailed), lines[0].Status)
 }
 
 func TestSchemaFailsOnUnknownFlagType(t *testing.T) {
