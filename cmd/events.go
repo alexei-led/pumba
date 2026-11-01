@@ -228,35 +228,40 @@ func (o *eventOutput) onUsageError(c *cli.Context, err error, isSubcommand bool)
 
 // finish computes the outcome from the recorded results and err, delivers
 // run.end best-effort, and returns the exit code. Delivery never changes the
-// outcome. Help or version output without an error is not a run: no run.end.
+// outcome. Successful help, version and schema output are not runs: no run.end.
 func (o *eventOutput) finish(err error, aborted bool) int {
 	if _, ok := errors.AsType[cli.ExitCoder](err); ok { // urfave help errors, e.g. an unknown command
 		err = chaos.NewUsageError(err)
 	}
 	ev, out := o.rec.RunEnd(err, aborted)
-	if ev.RunID == "" && err == nil {
-		return out.ExitCode
+	var last *chaos.Event
+	if ev.RunID != "" || err != nil {
+		if ev.RunID == "" {
+			ev.RunID = o.runID
+		}
+		last = &ev
 	}
-	if ev.RunID == "" {
-		ev.RunID = o.runID
-	}
-	o.flush(&ev)
+	o.flush(last)
 	return out.ExitCode
 }
 
 // flush delivers run.end to every sink concurrently, each within its own
-// bound. The webhook gets its own copy: each sink writes its own drop count
-// into run.end.
+// bound. A nil end closes unused sinks without emitting an event. The webhook
+// gets its own copy: each sink writes its own drop count into run.end.
 func (o *eventOutput) flush(end *chaos.Event) {
 	var wg sync.WaitGroup
 	if o.hook != nil {
-		hookEnd := *end
-		if end.End != nil {
-			body := *end.End
-			hookEnd.End = &body
+		var hookEnd *chaos.Event
+		if end != nil {
+			event := *end
+			if end.End != nil {
+				body := *end.End
+				event.End = &body
+			}
+			hookEnd = &event
 		}
 		wg.Go(func() {
-			if !o.hook.flush(&hookEnd, o.hookTimeout) {
+			if !o.hook.flush(hookEnd, o.hookTimeout) {
 				o.hook.onDrop()
 			}
 		})

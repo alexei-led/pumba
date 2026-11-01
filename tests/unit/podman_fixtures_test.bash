@@ -24,7 +24,10 @@ podman() {
     info) echo "$ROOTLESS" ;;
     pull) : ;;
     run)
-        [ "$SCENARIO" != failed-create ] || return 23
+        if [ "$SCENARIO" = failed-create ]; then
+            echo "fixture startup failed" >&2
+            return 23
+        fi
         local id=fixture-id
         if grep -q '^fixture-id ' "$STATE"; then id=fixture-peer; fi
         echo "$id false -" >>"$STATE"
@@ -85,13 +88,16 @@ for suite in status sidecar netem iptables combined stress stress_inject_cgroup;
                 echo 'fixture-peer-sidecar true fixture-peer' >>"$STATE"
                 [ "$(podman_fixture_sidecars)" = "$(printf '%s\n' fixture-sidecar fixture-peer-sidecar)" ]
             fi
-        )
+        ) 2>"$TMP/$suite-$SCENARIO.stderr"
         result=$?
         set -e
         case "$SCENARIO" in
         normal) [ "$result" = 0 ] ;;
         rootless | unavailable) [ "$result" = 77 ] ;;
-        failed-create) [ "$result" = 23 ] ;;
+        failed-create)
+            [ "$result" = 23 ]
+            grep -q "fixture startup failed" "$TMP/$suite-$SCENARIO.stderr"
+            ;;
         esac
         for id in protected unrelated wrong-target prefix-target; do
             grep -q "^$id " "$STATE" || {

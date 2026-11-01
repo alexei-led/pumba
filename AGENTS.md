@@ -21,7 +21,7 @@
 Integration tests use [bats](https://github.com/bats-core/bats-core):
 
 - Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`; install Bats >= 1.5.0 and the `bats-support`/`bats-assert` libraries at `/usr/local/lib/`
-- Result-event tests (`tests/output.bats`, `tests/webhook.bats`, `tests/*status.bats`, ndjson smoke in `*_global_flags.bats`) need `jq` and use `run --separate-stderr` to assert on stdout alone
+- Result-event and schema tests (`tests/output.bats`, `tests/webhook.bats`, `tests/*status.bats`, `tests/schema.bats`, ndjson smoke in `*_global_flags.bats`) need `jq` and use `run --separate-stderr` to assert on stdout alone
 - Webhook HTTP acceptance (`tests/webhook.bats`) requires `python3` (stdlib only); missing Python fails rather than skips. The `integration-tests` Docker stage includes it; the release image does not. Run fixture safety checks offline with `bash tests/unit/webhook_fixtures_test.bash` (no runtime needed)
 - **Run all tests locally (recommended):** `colima ssh -- sudo bats tests/*.bats tests/containerd_*.bats`
   - Colima VM has native Docker + containerd sockets; `sudo` is required for containerd sidecar tests
@@ -60,6 +60,7 @@ cmd/
   plan.go              — text-mode netem/iptables dry-run renderer (would run/apply/revert); NDJSON stays event-only
   status.go            — text-mode `pumba status` table (TARGET KIND DETAIL RUN) + verdict line; a StatusRecorder subscribed in text mode only
   flags.go             — globalFlags(rootCertPath) builder (+ resultFlags: --run-id, --output, --webhook, --max-duration)
+  schema.go            — `pumba schema` command: pumba.cli/v1 document walked from the live app
   commands.go          — initializeCLICommands wiring chaos cmd builders into urfave/cli commands
 pkg/
   chaos/
@@ -71,7 +72,7 @@ pkg/
     runid.go           — run ID generation and validation
     status.go          — status wire types (TargetState on target.result, StatusCoverage on run.end), Verdict, StatusReport + StatusRecorder hook
     cmd/               — Generic NewAction[P] CLI builder shared across all chaos packages
-    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context; DescribeV1 is the single flag-type switch behind run.start params (`V1.CommandParams`) and the future `pumba schema`
+    cliflags/          — urfave/cli v1 adapter (Flags interface + V1, NewV1FromApp for app-level context) decoupling cmd builders from cli.Context; DescribeV1 is the single flag-type switch behind run.start params (`V1.CommandParams`) and `pumba schema` (`DescribeFlagsV1`/`DescribeCommandsV1`)
     lifecycle/         — Runtime-agnostic lifecycle chaos actions (kill, stop, pause, rm, exec, restart); revert.go holds the batch wait-then-revert for pause/stop --restart
     lifecycle/cmd/     — CLI command builders for lifecycle chaos actions
     netem/             — Network emulation (combine, delay, loss, corrupt, duplicate, rate, loss_ge, loss_state)
@@ -111,6 +112,7 @@ Module boundaries are enforced by archfit; see [docs/architecture.md](docs/archi
 - **Shared cmd parsing** (`pkg/chaos/{netem,iptables}/parse.go::ParseRequestBase`): per-action cmd parsers (`delay.go`, `loss.go`, …) call `ParseRequestBase` first to read parent-level flags via `c.Parent()` and build the populated base request (`*NetemRequest` for netem; iptables returns a small `RequestBase` carrying `*IPTablesRequest` + iface/protocol/limit). Per-action parsers then fill only their action-specific fields. New netem/iptables subcommands MUST follow this pattern — never re-parse the parent flag set inline.
 - **Result events** (`--output ndjson`, schema `pumba.event/v1`, contract in [docs/agents.md](docs/agents.md)): `run.start` is emitted by `NewAction` after Build; `target.applied` / `target.result` only by `RunOnContainers` through the `*chaos.Target` it passes to each `ContainerAction`; `run.end` only by `cmd/events.go` when the app returns. `chaos.Recorder` counts `target.result` synchronously before delivery, and `chaos.NewOutcome` maps counts + returned error to `run.end.status` and the exit code (0/1 only). Delivering events (stdout, `--webhook`) happens only in `cmd`: each sink has its own bounded queue and goroutine, counts its own drops and writes that count into its `run.end`; chaos code never does I/O for events.
 - **CLI flags adapter** (`pkg/chaos/cliflags/`): `Flags` interface wraps `urfave/cli` v1 via `V1`. Future v3 migration is a one-file swap (`v3.go` + wiring change in `cmd/main.go`).
+- **CLI schema** (`pumba schema`, `pumba.cli/v1`, `cmd/schema.go`): walks the live `c.App` at run time through `cliflags.DescribeFlagsV1`/`DescribeCommandsV1`, so new commands and flags appear without schema edits. A new urfave flag type must be added to the `DescribeV1` switch, else `schema` fails with `cliflags.ErrUnsupportedFlagType`. `before()` in `cmd/main.go` returns before `createRuntimeClient` when the command is `schema` (no socket needed). Error codes and statuses come from `chaos.ErrorCodes()`/`RunStatuses()`/`TargetStatuses()`: a new code or status constant must be added there and to the pinned list in `pkg/chaos/events_test.go`.
 - **Docker runtime** (`pkg/runtime/docker/`): Docker SDK implementation of container.Client; split per-concern across `client.go`, `http_client.go`, `inspect.go`, `lifecycle.go`, `exec.go`, `sidecar.go`, `netem.go`, `iptables.go`, `faultstate.go`, `stress.go`, `cgroup.go`, `pull.go` (no monolith — every file < 350 LOC)
 - **Containerd runtime** (`pkg/runtime/containerd/`): Containerd implementation of container.Client (socket: `/run/containerd/containerd.sock`, namespace: `k8s.io`); split per-concern across `client.go`, `api.go`, `container.go`, `task.go`, `exec.go`, `cgroup.go`, `sidecar.go`, `netem.go`, `iptables.go`, `faultstate.go`, `stress.go`, `stress_sidecar.go` (every production file ≤ 250 LOC)
 - **Podman runtime** (`pkg/runtime/podman/`): Podman implementation of container.Client; reuses the Docker SDK against Podman's Docker-compat socket and overrides only what diverges: `StressContainer` (cgroup resolution + rootless guard) and rootless guards on `NetemContainer`/`StopNetemContainer`/`IPTablesContainer`/`StopIPTablesContainer`/`PlanNetemContainer`/`PlanIPTablesContainer`/`InspectNetns`. When `container.Client` grows a method that needs the target netns or a cgroup, add the override and update the list in `client.go` and `doc.go`. Socket auto-detected from `$CONTAINER_HOST`, `$PODMAN_SOCK`, `podman machine inspect`, `/run/podman/podman.sock`, and `$XDG_RUNTIME_DIR/podman/podman.sock`; override via `--podman-socket`. Cgroup parent/leaf derived host-side from `/proc/<pid>/cgroup` of the target container (see `pkg/runtime/podman/cgroup.go`) — pumba must run on the same kernel as the targets.
@@ -146,7 +148,7 @@ Module boundaries are enforced by archfit; see [docs/architecture.md](docs/archi
 ## Unit Test Coverage Strategy
 
 - **Skip from unit tests** (covered by integration tests or untestable without real runtime):
-  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`), `cmd/events_test.go` (NDJSON stream, run.end per outcome, stalled-writer drops, usage errors), `cmd/plan_test.go` (text and NDJSON dry-run plans), `cmd/webhook_test.go` (httptest receiver: body/order, failures as drops, warning without URL, bounded flush) and `cmd/slackhook_test.go` (webhook payload, thresholds, failure handling, and shutdown drain), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
+  `cmd/main.go` and the rest of `cmd/*.go` except `cmd/main_test.go` (which exercises the `createRuntimeClient` seam in `cmd/runtime.go`), `cmd/events_test.go` (NDJSON stream, run.end per outcome, stalled-writer drops, usage errors), `cmd/plan_test.go` (text and NDJSON dry-run plans), `cmd/schema_test.go` (schema document, no runtime), `cmd/webhook_test.go` (httptest receiver: body/order, failures as drops, warning without URL, bounded flush) and `cmd/slackhook_test.go` (webhook payload, thresholds, failure handling, and shutdown drain), `mocks/`, `NewClient`/`Close`, `sidecar.go` (real container API for create/start/exec/remove), `*/cmd/` flag builders
 - **Run() method variants:** Always add NoContainers + DryRun + WithRandom test cases
 - **Run unit tests in sandbox:** `CGO_ENABLED=0 go test ./...` (no CGO needed outside CI)
 

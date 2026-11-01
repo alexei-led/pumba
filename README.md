@@ -72,6 +72,7 @@ Pumba targets **Linux containers** — every chaos action depends on Linux primi
 | **Stress Testing**  | `stress`                                  | CPU, memory, I/O stress via stress-ng (child cgroup or same-cgroup injection) |
 | **Targeting**       | names, regex (`re2:`), labels, `--random` | Flexible container selection                                                  |
 | **Scheduling**      | `--interval`                              | Recurring chaos at fixed intervals                                            |
+| **Agents**          | `schema`, `--output ndjson`               | CLI description as JSON; result events on stdout                              |
 | **Leftover check**  | `status [--check]`                        | Find iptables rules, qdiscs and sidecars a run left behind                    |
 
 ## Quick Start
@@ -201,7 +202,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 TLS certificate defaults use `DOCKER_CERT_PATH` instead of `/etc/ssl/docker` when set.
 `--interval=0` runs once. Use `--skip-error` with intervals to continue after transient failures.
 Safety-cap refusals are never suppressed by `--skip-error`.
-Agents and scripts: see [docs/agents.md](docs/agents.md) for the result event contract, error codes and exit codes.
+Agents and scripts: `pumba schema` prints every command and flag as JSON (`pumba.cli/v1`) without a runtime socket; see [docs/agents.md](docs/agents.md) for it, the result event contract, error codes and exit codes.
 
 ### Run with Docker
 
@@ -228,7 +229,7 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 | **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
 | **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
 | **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
-| **[Agents](docs/agents.md)**                 | NDJSON/webhook events, run ID, `status --check`, exit codes, run budget |
+| **[Agents](docs/agents.md)**                 | NDJSON/webhook events, `pumba schema`, `status --check`, exit codes, run budget |
 | **[Architecture](docs/architecture.md)**     | Module boundaries and the archfit policy that enforces them    |
 | **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
 

@@ -29,7 +29,7 @@ setup() {
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — stress sidecar requires rootful mode"
     fi
-    podman_fixture_run -d --name pdm_stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity" >/dev/null 2>&1
+    podman_fixture_run -d --name pdm_stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity" >/dev/null
     wait_for 30 "podman exec pdm_stress_victim which stress-ng >/dev/null 2>&1" "stress-ng to be installed"
     podman pull "${STRESS_IMAGE}" >/dev/null 2>&1 || true
 }
