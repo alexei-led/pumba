@@ -4,7 +4,7 @@ import (
 	"context"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
-	tcplan "github.com/alexei-led/pumba/pkg/tc"
+	"github.com/alexei-led/pumba/pkg/runtime/netns"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,7 +14,7 @@ func (c *containerdClient) NetemContainer(ctx context.Context, req *ctr.NetemReq
 	if req.DryRun {
 		return nil
 	}
-	return c.runNetemPlan(ctx, req, tcplan.Start(containerdNetemPlanRequest(req)))
+	return c.runNetemCommand(ctx, req, netns.NetemStart(req))
 }
 
 // StopNetemContainer removes only a verified Pumba-owned netem topology.
@@ -23,27 +23,19 @@ func (c *containerdClient) StopNetemContainer(ctx context.Context, req *ctr.Nete
 	if req.DryRun {
 		return nil
 	}
-	return c.runNetemPlan(ctx, req, tcplan.Stop(containerdNetemPlanRequest(req)))
+	return c.runNetemCommand(ctx, req, netns.NetemStop(req))
 }
 
-func (c *containerdClient) runNetemPlan(ctx context.Context, req *ctr.NetemRequest, args []string) error {
+// PlanNetemContainer returns the argv NetemContainer and StopNetemContainer
+// run for req.
+func (c *containerdClient) PlanNetemContainer(req *ctr.NetemRequest) (*ctr.CommandPlan, error) {
+	return netns.NetemPlan(req), nil
+}
+
+func (c *containerdClient) runNetemCommand(ctx context.Context, req *ctr.NetemRequest, argv []string) error {
 	if req.Sidecar.Image != "" {
 		labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindNetem)
-		return c.sidecarExec(ctx, req.Container, req.Sidecar, labels, "sh", [][]string{args})
+		return c.sidecarExec(ctx, req.Container, req.Sidecar, labels, [][]string{argv})
 	}
-	return c.execFaultInContainer(c.nsCtx(ctx), req.Container.ID(), "sh", args)
-}
-
-func containerdNetemPlanRequest(req *ctr.NetemRequest) *tcplan.NetemRequest {
-	ips := make([]string, 0, len(req.IPs))
-	for _, ip := range req.IPs {
-		ips = append(ips, ip.String())
-	}
-	return &tcplan.NetemRequest{
-		Interface: req.Interface,
-		Command:   req.Command,
-		IPs:       ips,
-		SPorts:    req.SPorts,
-		DPorts:    req.DPorts,
-	}
+	return c.execFaultInContainer(c.nsCtx(ctx), req.Container.ID(), argv[0], argv[1:])
 }

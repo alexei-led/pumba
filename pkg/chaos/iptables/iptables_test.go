@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,6 +19,7 @@ import (
 type fakeReport struct {
 	calls     []string
 	revertErr error
+	plan      *container.CommandPlan
 }
 
 func (f *fakeReport) Applied() { f.calls = append(f.calls, "applied") }
@@ -24,6 +27,11 @@ func (f *fakeReport) Applied() { f.calls = append(f.calls, "applied") }
 func (f *fakeReport) Reverted(err error) {
 	f.calls = append(f.calls, "reverted")
 	f.revertErr = err
+}
+
+func (f *fakeReport) SetPlan(p *container.CommandPlan) {
+	f.calls = append(f.calls, "planned")
+	f.plan = p
 }
 
 func Test_runIPTables(t *testing.T) {
@@ -238,15 +246,69 @@ func Test_runIPTables_rollbackIgnoresCallerCancel(t *testing.T) {
 	assert.Error(t, runIPTables(ctx, mockClient, addReq, delReq, &fakeReport{}))
 }
 
-func Test_runIPTables_dryRunReturnsWithoutWaiting(t *testing.T) {
-	mockClient := container.NewMockClient(t)
-	ctr := &container.Container{ContainerName: "c1"}
-	addReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-I", "INPUT"}, Duration: time.Hour, DryRun: true}
-	delReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-D", "INPUT"}, Duration: time.Hour, DryRun: true}
-	mockClient.EXPECT().IPTablesContainer(mock.Anything, addReq).Return(nil).Once()
-	mockClient.EXPECT().StopIPTablesContainer(mock.Anything, delReq).Return(nil).Once()
+// resultSink keeps the target.result events of a run.
+type resultSink struct {
+	mu      sync.Mutex
+	results []*chaos.TargetResult
+}
 
-	start := time.Now()
-	require.NoError(t, runIPTables(context.Background(), mockClient, addReq, delReq, &fakeReport{}))
-	assert.Less(t, time.Since(start), time.Second, "dry-run must not sleep for --duration")
+func (s *resultSink) Emit(ev *chaos.Event) {
+	if ev.Type != chaos.EventTargetResult {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.results = append(s.results, ev.Result)
+}
+
+// plannedResult is the target.result of a dry-run that planned dryRunPlan.
+var plannedResult = &chaos.Plan{
+	Via:    "sidecar",
+	Image:  "nettools",
+	Apply:  [][]string{{"iptables", "-I", "INPUT", "-j", "DROP"}},
+	Revert: [][]string{{"iptables", "-D", "INPUT", "-j", "DROP"}},
+}
+
+// dryRunPlan is what the mocked runtime plans for dry-run tests.
+var dryRunPlan = &container.CommandPlan{
+	Via:    container.ViaSidecar,
+	Image:  "nettools",
+	Apply:  [][]string{{"iptables", "-I", "INPUT", "-j", "DROP"}},
+	Revert: [][]string{{"iptables", "-D", "INPUT", "-j", "DROP"}},
+}
+
+func Test_runIPTables_dryRunPlansWithoutRunning(t *testing.T) {
+	planErr := errors.New("rootless")
+	tests := []struct {
+		name     string
+		plan     *container.CommandPlan
+		err      error
+		wantPlan *container.CommandPlan
+		wantErr  error
+	}{
+		{name: "plan reported", plan: dryRunPlan, wantPlan: dryRunPlan},
+		{name: "plan failure returned", err: planErr, wantErr: planErr},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := container.NewMockClient(t)
+			ctr := &container.Container{ContainerName: "c1"}
+			addReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-I", "INPUT"}, Duration: time.Hour, DryRun: true}
+			delReq := &container.IPTablesRequest{Container: ctr, CmdPrefix: []string{"-D", "INPUT"}, Duration: time.Hour, DryRun: true}
+			mockClient.EXPECT().PlanIPTablesContainer(addReq, delReq).Return(tt.plan, tt.err).Once()
+
+			report := &fakeReport{}
+			start := time.Now()
+			err := runIPTables(context.Background(), mockClient, addReq, delReq, report)
+			assert.Less(t, time.Since(start), time.Second, "dry-run must not sleep for --duration")
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Empty(t, report.calls)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, []string{"planned"}, report.calls)
+			assert.Same(t, tt.wantPlan, report.plan)
+		})
+	}
 }

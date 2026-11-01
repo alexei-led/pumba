@@ -5,6 +5,7 @@ How a program runs Pumba and reads what happened, without parsing logs.
 - `--output ndjson`: result events on stdout, one JSON object per line (schema `pumba.event/v1`).
 - `--run-id`: names the run; every event carries it, and it tags the sidecars and iptables rules the run creates.
 - `pumba status --check`: did a run leave faults behind? A `clean`/`dirty`/`unknown` verdict.
+- `--dry-run`: preview netem/iptables apply and revert argv without running them.
 - `--max-duration`: a time budget, so a forgotten `--interval` run stops by itself.
 - The exit code is `0` or `1`. The detail is in the last event, `run.end`.
 
@@ -22,7 +23,7 @@ tail -n1 events.ndjson | jq -r .status   # ok, failed, partial, cleanup_failed, 
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--output`, `-o` | `text` | `text`: chaos logs only, stdout empty; `status` prints its table and optional verdict to stdout. `ndjson`: events on stdout; help and usage text move to stderr |
+| `--output`, `-o` | `text` | `text`: chaos logs on stderr; netem/iptables dry-run plans and `status` tables/verdicts on stdout. `ndjson`: events on stdout; help and usage text move to stderr |
 | `--run-id` | generated | 1–48 characters from `[A-Za-z0-9_.-]`. Generated as 12 hex characters when empty. An invalid value is a usage error |
 | `--max-duration` | `0` (unlimited) | Time budget for active chaos and `--interval` scheduling. See [Run budget](#run-budget---max-duration) |
 
@@ -73,6 +74,7 @@ Terminal record per target and tick. For faults that are reverted (netem, iptabl
 | `status` | `ok`, `failed`, `cleanup_failed`, `planned` (dry-run), `skipped` (serial run stopped by an earlier failure) |
 | `error` | `null` or an [error object](#errors) |
 | `cleanup` | `null` when nothing was reverted (one-shot actions, dry-run); else `{"ok":true}` or `{"ok":false,"error":"…"}` |
+| `plan` | netem/iptables dry-run only: exact apply/revert argv and execution location, see [Dry-run plans](#dry-run-plans) |
 | `state` | `status` only: what was found on the target, see [Status](#status-pumba-status---check) |
 
 ### `run.end`
@@ -134,6 +136,46 @@ For chaos commands in every output mode, `1` means the command failed (unless su
 - The stdout writer has a bounded queue (1024 events). When the reader falls behind, events are dropped instead of stalling chaos; `run.end.events_dropped` counts them.
 - `run.end` is flushed for at most 2 seconds at exit. A missing `run.end` means the output is incomplete (crash, `kill -9`, closed pipe): treat the outcome as unknown and use the exit code.
 - SIGPIPE is ignored in ndjson mode, so a closed stdout does not kill Pumba with faults still active.
+
+## Dry-run plans
+
+```bash
+pumba --dry-run --run-id preview-1 -o ndjson iptables --duration 30s loss --probability 0.2 web
+```
+
+A successful netem/iptables dry-run emits `run.start`, a `target.result` with
+`status: "planned"` per selected target, then `run.end`. It emits no
+`target.applied`, reports `cleanup: null`, and does not wait for `--duration`.
+Selection, caps and interval scheduling are unchanged. Lifecycle/stress
+results carry resolved targets and `run.start.params`, not argv plans.
+
+The additive `target.result.plan` field in `pumba.event/v1` is:
+
+```json
+{"via":"sidecar","image":"ghcr.io/alexei-led/pumba-alpine-nettools:latest","apply":[["iptables","-I","INPUT","-i","eth0","-m","comment","--comment","pumba:preview-1","-m","statistic","--mode","random","--probability","0.20","-j","DROP"]],"revert":[["iptables","-D","INPUT","-i","eth0","-m","comment","--comment","pumba:preview-1","-m","statistic","--mode","random","--probability","0.20","-j","DROP"]]}
+```
+
+- `via`: `sidecar` (with `image`) or `exec` in the target (`image` omitted).
+- `apply`, `revert`: ordered argv arrays, binary first. Netem uses
+  `["sh", "-ec", "<ownership-checking tc script>"]`; iptables has one argv per
+  rule, with matching apply/delete specs and run comments.
+- These are the same argv builders execution uses, not reconstructed display
+  strings. Tool probes such as `which sh`, image setup, and sidecar lifecycle
+  are excluded.
+- Planning performs no network-namespace inspection or mutating runtime calls.
+  Target listing and optional container-name resolution still happen. A plan
+  does not verify image/tool availability, permissions, interfaces or qdisc
+  ownership. Rootless Podman refuses plans just as it refuses execution.
+- With the default `--output text`, plans instead print shell-quoted **would
+  run**, **apply** and **revert** lines on stdout, visible at warning log level.
+  Do not parse those human-facing lines; use NDJSON for automation.
+
+Go API: `container.Netem`/`container.IPTables` (and composed `container.Client`)
+add pure `PlanNetemContainer(*NetemRequest)` and
+`PlanIPTablesContainer(add, del *IPTablesRequest)` methods returning
+`(*CommandPlan, error)`. Implementers must use the same argv builders for
+planning and execution; the iptables pair must describe the same target and
+sidecar, with the delete request mirroring the add request.
 
 ## Run budget (`--max-duration`)
 

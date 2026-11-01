@@ -182,8 +182,7 @@ func TestDelayCommand_Run_WithRandom(t *testing.T) {
 		container.ListOpts{All: false, Labels: nil}).
 		Return([]*container.Container{c1, c2}, nil)
 
-	mockClient.EXPECT().NetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Once()
+	mockClient.EXPECT().PlanNetemContainer(mock.AnythingOfType("*container.NetemRequest")).Return(dryRunPlan, nil).Once()
 
 	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, 100, 0, 0, "")
 	require.NoError(t, err)
@@ -228,8 +227,7 @@ func TestDelayCommand_Run_TargetContainerNameResolvedOnce(t *testing.T) {
 	resolvedRequest := mock.MatchedBy(func(req *container.NetemRequest) bool {
 		return len(req.IPs) == 1 && req.IPs[0].String() == "10.5.0.9/32" && len(req.TargetNames) == 0
 	})
-	mockClient.EXPECT().NetemContainer(mock.Anything, resolvedRequest).Return(nil).Twice()
-	mockClient.EXPECT().StopNetemContainer(mock.Anything, mock.AnythingOfType("*container.NetemRequest")).Return(nil).Twice()
+	mockClient.EXPECT().PlanNetemContainer(resolvedRequest).Return(dryRunPlan, nil).Twice()
 
 	cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, 100, 0, 0, "")
 	require.NoError(t, err)
@@ -302,7 +300,8 @@ func TestDelayCommand_Run_DryRun(t *testing.T) {
 				Labels:        map[string]string{},
 				Networks:      map[string]container.NetworkLink{},
 			}
-			gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1"}
+			sink := &resultSink{}
+			gparams := &chaos.GlobalParams{Names: []string{"target"}, DryRun: true, RunID: "run1", Events: sink}
 			nparams := &container.NetemRequest{
 				Interface: "eth0",
 				Duration:  100 * time.Millisecond,
@@ -324,15 +323,17 @@ func TestDelayCommand_Run_DryRun(t *testing.T) {
 				DryRun:    true,
 				RunID:     "run1",
 			}
-			mockClient.EXPECT().NetemContainer(mock.Anything, expectedReq).Return(nil)
-			mockClient.EXPECT().StopNetemContainer(mock.Anything, expectedReq).Return(nil)
+			mockClient.EXPECT().PlanNetemContainer(expectedReq).Return(dryRunPlan, nil)
 
 			cmd, err := NewDelayCommand(mockClient, gparams, nparams, 0, tt.delay, tt.jitter, tt.correlation, tt.dist)
 			require.NoError(t, err)
 
 			err = cmd.Run(context.Background(), false)
-			assert.NoError(t, err)
-			mockClient.AssertExpectations(t)
+			require.NoError(t, err)
+			require.Len(t, sink.results, 1)
+			assert.Equal(t, chaos.TargetPlanned, sink.results[0].Status)
+			assert.Nil(t, sink.results[0].Cleanup)
+			assert.Equal(t, plannedResult, sink.results[0].Plan)
 		})
 	}
 }

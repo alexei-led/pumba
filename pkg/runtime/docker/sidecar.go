@@ -65,19 +65,19 @@ func (client dockerClient) sidecarRemovalComplete(ctx context.Context, id string
 	return inspect.State.Status == "removing" || inspect.State.Status == "dead" || inspect.State.Dead
 }
 
-// runSidecar runs argsList through `tool` (sh or iptables) in an ephemeral
-// sidecar that joins target's network namespace. Used by both netem and
-// iptables paths.
-func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, tool string, argsList [][]string) error {
+// runSidecar runs commands (argv, binary first: sh or iptables) in order in
+// an ephemeral sidecar that joins target's network namespace. Used by both
+// netem and iptables paths; name labels log and error messages.
+func (client dockerClient) runSidecar(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, name string, commands [][]string) error {
 	log.WithFields(log.Fields{
 		"container": target.ID(),
 		"img":       spec.Image,
-		"tool":      tool,
 		"pull":      spec.Pull,
-		"args-list": argsList,
-	}).Debugf("executing %s command in a separate container joining target container network namespace", tool)
-	return client.withSidecar(ctx, target, spec, labels, tool, func(sidecarID string) error {
-		for _, args := range argsList {
+		"commands":  commands,
+	}).Debugf("executing %s commands in a separate container joining target container network namespace", name)
+	return client.withSidecar(ctx, target, spec, labels, name, func(sidecarID string) error {
+		for _, argv := range commands {
+			tool, args := argv[0], argv[1:]
 			if err := client.runSidecarExec(ctx, sidecarID, tool, args); err != nil {
 				return fmt.Errorf("error running %s command on container: %v: %w", tool, strings.Join(args, " "), err)
 			}

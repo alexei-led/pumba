@@ -87,8 +87,7 @@ func TestCombinedCommandRunBuildsOneNetemCommand(t *testing.T) {
 		DryRun:   true,
 		RunID:    "run1",
 	}
-	client.EXPECT().NetemContainer(mock.Anything, expected).Return(nil)
-	client.EXPECT().StopNetemContainer(mock.Anything, expected).Return(nil)
+	client.EXPECT().PlanNetemContainer(expected).Return(dryRunPlan, nil)
 
 	cmd, err := NewCombinedCommand(client, gp, req, 0, CombinedSpec{
 		Delay:     &DelayEffect{Time: 200, Jitter: 50, Correlation: 25.5, Distribution: "normal"},
@@ -118,8 +117,7 @@ func TestCombinedCommandRunResolvesNamedTrafficTarget(t *testing.T) {
 	combinedRequest := mock.MatchedBy(func(actual *container.NetemRequest) bool {
 		return len(actual.IPs) == 1 && actual.IPs[0].String() == "10.0.0.9/32" && len(actual.TargetNames) == 0
 	})
-	client.EXPECT().NetemContainer(mock.Anything, combinedRequest).Return(nil)
-	client.EXPECT().StopNetemContainer(mock.Anything, combinedRequest).Return(nil)
+	client.EXPECT().PlanNetemContainer(combinedRequest).Return(dryRunPlan, nil)
 	cmd, err := NewCombinedCommand(client, gp, req, 0, CombinedSpec{
 		Delay: &DelayEffect{Time: 100},
 		Loss:  &LossEffect{Percent: 10},
@@ -141,8 +139,7 @@ func TestCombinedCommandRunWithRandom(t *testing.T) {
 		return (actual.Container == first || actual.Container == second) &&
 			slices.Equal([]string{"delay", "100ms", "loss", "10.00"}, actual.Command)
 	})
-	client.EXPECT().NetemContainer(mock.Anything, combinedRequest).Return(nil).Once()
-	client.EXPECT().StopNetemContainer(mock.Anything, combinedRequest).Return(nil).Once()
+	client.EXPECT().PlanNetemContainer(combinedRequest).Return(dryRunPlan, nil).Once()
 	cmd, err := NewCombinedCommand(client, gp, req, 0, CombinedSpec{
 		Delay: &DelayEffect{Time: 100},
 		Loss:  &LossEffect{Percent: 10},

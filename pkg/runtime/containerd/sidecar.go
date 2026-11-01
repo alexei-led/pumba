@@ -26,11 +26,11 @@ const (
 var networkCapabilities = []string{"CAP_NET_ADMIN", "CAP_NET_RAW"}
 
 // sidecarExec creates a short-lived sidecar container that shares the target
-// container's network namespace and runs the given command+args inside it.
-func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, command string, argsList [][]string) error {
+// container's network namespace and runs commands (argv, binary first) in order.
+func (c *containerdClient) sidecarExec(ctx context.Context, target *ctr.Container, spec ctr.SidecarSpec, labels map[string]string, commands [][]string) error {
 	return c.withSidecar(ctx, target, spec, labels, func(ctx context.Context, task containerd.Task) error {
-		for _, args := range argsList {
-			if _, _, err := c.runSidecarCommand(ctx, task, command, args, execFaultTaskOutput); err != nil {
+		for _, argv := range commands {
+			if _, _, err := c.runSidecarCommand(ctx, task, argv[0], argv[1:], execFaultTaskOutput); err != nil {
 				return err
 			}
 		}
