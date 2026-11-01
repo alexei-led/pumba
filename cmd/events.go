@@ -193,19 +193,23 @@ func (o *eventOutput) onUsageError(c *cli.Context, err error, isSubcommand bool)
 
 // finish computes the outcome from the recorded results and err, delivers
 // run.end best-effort, and returns the exit code. Delivery never changes the
-// outcome. Help or version output without an error is not a run: no run.end.
+// outcome. Successful help, version and schema output are not runs: no run.end.
 func (o *eventOutput) finish(err error, aborted bool) int {
 	if _, ok := errors.AsType[cli.ExitCoder](err); ok { // urfave help errors, e.g. an unknown command
 		err = chaos.NewUsageError(err)
 	}
 	ev, out := o.rec.RunEnd(err, aborted)
-	if o.stream == nil || (ev.RunID == "" && err == nil) {
+	if o.stream == nil {
 		return out.ExitCode
 	}
-	if ev.RunID == "" {
-		ev.RunID = o.runID
+	var last *chaos.Event
+	if ev.RunID != "" || err != nil {
+		if ev.RunID == "" {
+			ev.RunID = o.runID
+		}
+		last = &ev
 	}
-	if !o.stream.flush(&ev, o.flushTimeout) {
+	if !o.stream.flush(last, o.flushTimeout) {
 		log.Warn("timed out writing result events to stdout")
 	}
 	return out.ExitCode

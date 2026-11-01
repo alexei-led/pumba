@@ -182,6 +182,7 @@ func TestRecorderStatusReport(t *testing.T) {
 			assert.Equal(t, []*chaos.StatusReport{rep}, next.reports, "the report is forwarded")
 			assert.Same(t, rep.Coverage, end.End.Coverage)
 			assert.Equal(t, tt.status, o.Status)
+			assert.Contains(t, chaos.RunStatuses(), o.Status, "published in pumba schema")
 			assert.Equal(t, tt.exitCode, o.ExitCode)
 			if tt.code == "" {
 				assert.Nil(t, o.Error)

@@ -19,7 +19,7 @@ $output"
 
     assert_schema '.schema == "pumba.cli/v1" and .event_schema == "pumba.event/v1"'
     assert_schema '.error_codes | index("max_targets_exceeded") and index("cleanup_failed")'
-    assert_schema '.run_statuses | index("ok") and index("refused")'
+    assert_schema '.run_statuses | index("ok") and index("refused") and index("clean") and index("dirty") and index("unknown")'
     assert_schema '[.global_flags[].name] | index("max-targets") and index("output") and (index("help") | not)'
 }
 
@@ -27,7 +27,7 @@ $output"
     run --separate-stderr pumba schema
     assert_success
 
-    assert_schema '[.. | objects | select(has("path")) | .path] | index("netem delay") and index("iptables loss") and index("schema")'
+    assert_schema '[.. | objects | select(has("path")) | .path] | index("netem delay") and index("iptables loss") and index("status") and index("schema")'
     assert_schema '.commands[] | select(.name == "netem") | .subcommands[] | select(.name == "delay")
         | .flags[] | select(.name == "time") | .type == "int" and .default == 100'
     assert_schema '.commands[] | select(.name == "netem") | .flags[] | select(.name == "duration") | .type == "duration"'
@@ -49,6 +49,10 @@ $output"
     assert_schema '.schema == "pumba.cli/v1"'
 
     run --separate-stderr pumba --runtime containerd --containerd-socket /nonexistent/containerd.sock schema
+    assert_success
+    assert_schema '.schema == "pumba.cli/v1"'
+
+    run --separate-stderr pumba --runtime podman --podman-socket unix:///nonexistent/podman.sock schema
     assert_success
     assert_schema '.schema == "pumba.cli/v1"'
 }

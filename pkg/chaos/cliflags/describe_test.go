@@ -2,6 +2,7 @@ package cliflags_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
 	"github.com/stretchr/testify/assert"
@@ -49,6 +50,27 @@ func TestDescribeV1(t *testing.T) {
 			got, _, ok := cliflags.DescribeV1(tt.flag)
 			assert.Equal(t, tt.ok, ok)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestDescribeV1DefaultsMatchReaders(t *testing.T) {
+	flags := []cli.Flag{
+		cli.StringFlag{Name: "text", Value: "default"},
+		cli.BoolFlag{Name: "disabled"},
+		cli.BoolTFlag{Name: "enabled"},
+		cli.IntFlag{Name: "integer", Value: 12},
+		cli.Float64Flag{Name: "number", Value: 0.5},
+		cli.DurationFlag{Name: "duration", Value: 30 * time.Second},
+		cli.StringSliceFlag{Name: "empty-list"},
+		cli.StringSliceFlag{Name: "list", Value: &cli.StringSlice{"a", "b"}},
+	}
+	ctx := newCtx(t, flags, nil)
+	for _, flag := range flags {
+		t.Run(flag.GetName(), func(t *testing.T) {
+			info, read, ok := cliflags.DescribeV1(flag)
+			require.True(t, ok)
+			assert.Equal(t, info.Default, read(ctx, info.Name))
 		})
 	}
 }

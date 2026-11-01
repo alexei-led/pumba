@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alexei-led/pumba/pkg/chaos"
 	"github.com/alexei-led/pumba/pkg/chaos/cliflags"
@@ -91,8 +92,9 @@ func TestSchemaRunsWithoutRuntime(t *testing.T) {
 	for _, args := range [][]string{
 		{"schema"},
 		{"-o", "ndjson", "schema"},
-		{"--runtime", "containerd", "schema"},
-		{"--runtime", "podman", "--json", "schema"},
+		{"--runtime", "docker", "--host", "unix:///nonexistent/docker.sock", "schema"},
+		{"--runtime", "containerd", "--containerd-socket", "/nonexistent/containerd.sock", "schema"},
+		{"--runtime", "podman", "--podman-socket", "unix:///nonexistent/podman.sock", "--json", "schema"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			doc := decodeSchema(t, runSchema(t, args...))
@@ -121,7 +123,7 @@ func TestSchemaCoversEveryCommand(t *testing.T) {
 	got := commandPaths(doc.Commands)
 
 	assert.Equal(t, want, got, "every command in declaration order, help omitted")
-	assert.Subset(t, got, []string{"kill", "stress", "netem", "netem delay", "netem loss-gemodel", "iptables loss", "schema"})
+	assert.Subset(t, got, []string{"kill", "stress", "netem", "netem delay", "netem loss-gemodel", "iptables loss", "status", "schema"})
 	assert.NotContains(t, got, "help")
 }
 
@@ -171,6 +173,94 @@ func TestSchemaOmitsHelpAndHiddenFlags(t *testing.T) {
 func TestSchemaIsDeterministic(t *testing.T) {
 	first := runSchema(t, "schema")
 	assert.Equal(t, first, runSchema(t, "schema"))
+	assert.Equal(t, first, runSchema(t, "-o", "ndjson", "--run-id", "schema-test", "--label", "app=test", "schema"))
+}
+
+func TestSchemaClosesUnusedEventStream(t *testing.T) {
+	noRuntime(t)
+	var stdout bytes.Buffer
+	out := newEventOutput(&stdout, io.Discard, version)
+	require.NoError(t, newApp(out).Run([]string{"pumba", "-o", "ndjson", "schema"}))
+	require.NotNil(t, out.stream)
+	require.Zero(t, out.finish(nil, false))
+	select {
+	case <-out.stream.done:
+	case <-time.After(time.Second):
+		t.Fatal("successful schema left the event stream open")
+	}
+	decodeSchema(t, stdout.String()) // exactly one document, no success events
+}
+
+func TestSchemaPreservesGlobalValidation(t *testing.T) {
+	for _, args := range [][]string{
+		{"--max-targets", "-1"},
+		{"--run-id", "invalid/run"},
+		{"--output", "invalid"},
+		{"--interval", "not-a-duration"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			noRuntime(t)
+			var stdout bytes.Buffer
+			out := newEventOutput(&stdout, io.Discard, version)
+			err := newApp(out).Run(append(append([]string{"pumba", "--output", "ndjson"}, args...), "schema"))
+			require.Error(t, err)
+			assert.Equal(t, 1, out.finish(err, false))
+			assert.NotContains(t, stdout.String(), `"schema": "pumba.cli/v1"`)
+		})
+	}
+}
+
+func TestSchemaDoesNotSkipRuntimeForChaos(t *testing.T) {
+	for _, command := range []string{"kill", "status"} {
+		t.Run(command, func(t *testing.T) {
+			restoreFactories(t)
+			called := false
+			newDockerClient = func(string, *tls.Config) (ctr.Client, error) {
+				called = true
+				return nil, assert.AnError
+			}
+			out := newEventOutput(io.Discard, io.Discard, version)
+			require.Error(t, newApp(out).Run([]string{"pumba", command}))
+			assert.True(t, called, "only schema bypasses runtime creation")
+		})
+	}
+}
+
+func TestSchemaWalksLiveApp(t *testing.T) {
+	app := newApp(newEventOutput(io.Discard, io.Discard, version))
+	app.Flags = append(app.Flags, cli.StringFlag{Name: "new-global"})
+	app.Commands = append(app.Commands, cli.Command{
+		Name: "new-command",
+		Subcommands: []cli.Command{{Name: "child", Flags: []cli.Flag{
+			cli.BoolTFlag{Name: "enabled"},
+		}}},
+	})
+	doc, err := describeApp(app)
+	require.NoError(t, err)
+	assert.Equal(t, "new-global", doc.GlobalFlags[len(doc.GlobalFlags)-1].Name)
+	child := findCommand(doc.Commands, "new-command child")
+	require.NotNil(t, child)
+	require.Len(t, child.Flags, 1)
+	assert.Equal(t, true, child.Flags[0].Default)
+	assert.Empty(t, child.Subcommands)
+	assert.NotNil(t, child.Subcommands)
+}
+
+func TestSchemaEmptyLists(t *testing.T) {
+	var out bytes.Buffer
+	require.NoError(t, writeSchema(&out, &cli.App{Commands: []cli.Command{{Name: "empty"}}}))
+	assert.NotContains(t, out.String(), "null")
+	doc := decodeSchema(t, out.String())
+	assert.Empty(t, doc.GlobalFlags)
+	require.Len(t, doc.Commands, 1)
+	assert.Empty(t, doc.Commands[0].Flags)
+	assert.Empty(t, doc.Commands[0].Subcommands)
+}
+
+func TestSchemaReportsWriteFailure(t *testing.T) {
+	err := writeSchema(failingWriter{}, &cli.App{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write schema:")
 }
 
 func TestSchemaFailsOnUnknownFlagType(t *testing.T) {

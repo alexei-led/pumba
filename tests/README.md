@@ -36,6 +36,7 @@ These tests verify Pumba functionality by running against real Docker and contai
 - `error_handling.bats`: Invalid inputs, missing arguments, edge cases
 - `output.bats`: `--output ndjson` result events, `--run-id`, `--max-duration` (needs `jq`)
 - `status.bats`: `pumba status [--check]` finds tagged iptables rules, `504d:` qdiscs and labeled stress sidecars; dirty after `kill -9`, clean after manual cleanup (needs `jq`)
+- `schema.bats`: deterministic `pumba.cli/v1` discovery, typed flags and socket-free operation for every runtime (needs `jq`, no running runtime required)
 
 ### Containerd Tests
 

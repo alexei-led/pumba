@@ -59,7 +59,10 @@ const (
 
 // RunStatuses lists every run.end status, in declaration order.
 func RunStatuses() []RunStatus {
-	return []RunStatus{RunOK, RunFailed, RunPartial, RunCleanupFailed, RunNoTargets, RunRefused, RunUsageError, RunAborted}
+	return []RunStatus{
+		RunOK, RunFailed, RunPartial, RunCleanupFailed, RunNoTargets, RunRefused, RunUsageError, RunAborted,
+		RunClean, RunDirty, RunUnknown,
+	}
 }
 
 // ErrorCode is the stable, machine-readable error classification. Agents
