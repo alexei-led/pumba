@@ -17,7 +17,7 @@ import (
 func (client dockerClient) removeStressSidecar(ctx context.Context, id string) error {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
 	defer cancel()
-	if err := client.containerAPI.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true}); err != nil && !errdefs.IsNotFound(err) {
+	if err := client.containerAPI.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true, RemoveVolumes: true}); err != nil && !errdefs.IsNotFound(err) {
 		return &ctr.StressCleanupError{Err: err}
 	}
 	return nil

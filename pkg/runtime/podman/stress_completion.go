@@ -20,7 +20,7 @@ const sidecarRemoveTimeout = 10 * time.Second
 func removeStressSidecar(ctx context.Context, api apiBackend, id string) error {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
 	defer cancel()
-	if err := api.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true}); err != nil && !errdefs.IsNotFound(err) {
+	if err := api.ContainerRemove(cleanupCtx, id, ctypes.RemoveOptions{Force: true, RemoveVolumes: true}); err != nil && !errdefs.IsNotFound(err) {
 		return &ctr.StressCleanupError{Err: err}
 	}
 	return nil

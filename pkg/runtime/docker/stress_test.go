@@ -728,7 +728,7 @@ func Test_dockerClient_stressContainerCommand(t *testing.T) {
 				systemAPI:    mockClient,
 			}
 			tt.mockInit(tt.args.ctx, mockClient, mConn, tt.args.targetID, tt.args.stressors, tt.args.image, tt.args.pull)
-			mockClient.EXPECT().ContainerRemove(mock.Anything, "000", container.RemoveOptions{Force: true}).Return(nil).Maybe()
+			mockClient.EXPECT().ContainerRemove(mock.Anything, "000", container.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Maybe()
 			got, got1, got2, err := client.stressContainerCommand(tt.args.ctx, &ctr.StressRequest{
 				Container: &ctr.Container{ContainerID: tt.args.targetID},
 				Stressors: tt.args.stressors,

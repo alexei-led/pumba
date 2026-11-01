@@ -122,7 +122,7 @@ func TestStressContainer_OperationAndRemovalFailures(t *testing.T) {
 					api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(errs)).Once()
 				}
 			}
-			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Run(func(ctx context.Context, _ string, _ ctypes.RemoveOptions) {
+			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Run(func(ctx context.Context, _ string, _ ctypes.RemoveOptions) {
 				assert.NoError(t, ctx.Err())
 				deadline, ok := ctx.Deadline()
 				assert.True(t, ok)
@@ -158,7 +158,7 @@ func TestStressContainer_ExitAndRemovalPrecedeCompletion(t *testing.T) {
 	waiting := make(chan struct{})
 	api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).Run(func(context.Context, string, ctypes.WaitCondition) { close(waiting) }).Return((<-chan ctypes.WaitResponse)(exited), make(<-chan error)).NotBefore(started).Once()
 	removing, release := make(chan struct{}), make(chan struct{})
-	api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Run(func(context.Context, string, ctypes.RemoveOptions) { close(removing); <-release }).Return(nil).Once()
+	api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Run(func(context.Context, string, ctypes.RemoveOptions) { close(removing); <-release }).Return(nil).Once()
 	result, err := start(context.Background())
 	require.NoError(t, err)
 	<-waiting
@@ -197,7 +197,7 @@ func TestStressContainer_CancellationClosesAttachAndRemovesOwnedSidecar(t *testi
 			close(waiting)
 		}).Return(make(<-chan ctypes.WaitResponse), (<-chan error)(waitErrors)).Once()
 	removeErr := errors.New("cancel cleanup failed")
-	api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Run(func(ctx context.Context, _ string, _ ctypes.RemoveOptions) {
+	api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Run(func(ctx context.Context, _ string, _ ctypes.RemoveOptions) {
 		assert.NoError(t, ctx.Err())
 		_, ok := ctx.Deadline()
 		assert.True(t, ok)
@@ -273,7 +273,7 @@ func TestStressContainerDrainsUnbufferedWait(t *testing.T) {
 			t.Cleanup(func() { close(abort); <-publisherDone })
 			api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
 				Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
-			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 			result, err := start(ctx)
 			require.NoError(t, err)
@@ -319,7 +319,7 @@ func TestStressContainerCancellationWaitsForRelayedFailure(t *testing.T) {
 		api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
 			Run(func(context.Context, string, ctypes.WaitCondition) { close(waiting) }).
 			Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
-		api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+		api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 		result, err := start(ctx)
 		require.NoError(t, err)

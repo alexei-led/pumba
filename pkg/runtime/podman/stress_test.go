@@ -324,7 +324,7 @@ func TestStressContainer_AttachError(t *testing.T) {
 	api.EXPECT().ContainerAttach(mock.Anything, "sidecar1", mock.Anything).
 		Return(types.HijackedResponse{}, errors.New("attach boom")).Once()
 	// removeOnError must clean up the created-but-not-started container.
-	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
@@ -349,7 +349,7 @@ func TestStressContainer_Success_FullFlow(t *testing.T) {
 	exited := make(chan ctypes.WaitResponse, 1)
 	exited <- ctypes.WaitResponse{}
 	api.EXPECT().ContainerWait(mock.Anything, "sidecar1", ctypes.WaitConditionNotRunning).Return((<-chan ctypes.WaitResponse)(exited), make(<-chan error)).Once()
-	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false)))
@@ -380,7 +380,7 @@ func TestStressContainer_StartError(t *testing.T) {
 	api.EXPECT().ContainerStart(mock.Anything, "sidecar1", mock.Anything).
 		Return(errors.New("start boom")).Once()
 	// Explicit removal must clean up; no drain goroutine is launched after start failure.
-	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+	api.EXPECT().ContainerRemove(mock.Anything, "sidecar1", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
 	p := &podmanClient{api: api}
 	id, outCh, errCh, err := stressIDOutErr(p.StressContainer(t.Context(), stressReq(newStressTarget(), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
