@@ -114,7 +114,7 @@ func TestCreateStressSidecarCleanupFailures(t *testing.T) { //nolint:paralleltes
 
 func TestStressDirectExecCancellation(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"cancel", "duration", "grpc_cancel", "cleanup_failure", "natural_failure", "late_failure", "late_success"} {
+	for _, mode := range []string{"cancel", "duration", "grpc_cancel", "cleanup_failure", "natural_failure", "late_failure", "late_success", "late_killed"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
@@ -131,11 +131,13 @@ func TestStressDirectExecCancellation(t *testing.T) {
 				running <- *containerd.NewExitStatus(7, time.Now(), nil)
 			}
 			proc.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(running), nil).Once()
-			proc.EXPECT().Wait(mock.Anything).Run(func(cleanupCtx context.Context) {
-				assert.NoError(t, cleanupCtx.Err())
-				_, ok := cleanupCtx.Deadline()
-				assert.True(t, ok)
-			}).Return((<-chan containerd.ExitStatus)(reaped), nil).Once()
+			if mode != "natural_failure" {
+				proc.EXPECT().Wait(mock.Anything).Run(func(cleanupCtx context.Context) {
+					assert.NoError(t, cleanupCtx.Err())
+					_, ok := cleanupCtx.Deadline()
+					assert.True(t, ok)
+				}).Return((<-chan containerd.ExitStatus)(reaped), nil).Once()
+			}
 			proc.EXPECT().Start(mock.Anything).Run(func(context.Context) {
 				if mode != "duration" {
 					cancel()
@@ -145,20 +147,22 @@ func TestStressDirectExecCancellation(t *testing.T) {
 				}
 			}).Return(nil).Once()
 			var killErr error
-			if mode == "late_failure" || mode == "late_success" {
+			if mode == "late_failure" || mode == "late_success" || mode == "late_killed" {
 				killErr = errdefs.ErrNotFound
 			}
-			proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
-				if killErr == nil {
-					reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
-				}
-			}).Return(killErr).Once()
+			if mode != "natural_failure" {
+				proc.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
+					if killErr == nil {
+						reaped <- *containerd.NewExitStatus(137, time.Now(), nil)
+					}
+				}).Return(killErr).Once()
+			}
 			var deleteErr error
 			if mode == "cleanup_failure" {
 				deleteErr = cleanupErr
 			}
 			code := uint32(137)
-			if mode == "late_failure" {
+			if mode == "late_failure" || mode == "natural_failure" {
 				code = 7
 			} else if mode == "late_success" {
 				code = 0
@@ -186,6 +190,8 @@ func TestStressDirectExecCancellation(t *testing.T) {
 				require.ErrorAs(t, err, &cleanup)
 			case "natural_failure", "late_failure":
 				require.ErrorContains(t, requireStressError(t, result.Output, result.Errors, time.Second), "exited with code 7")
+			case "late_killed":
+				require.ErrorContains(t, requireStressError(t, result.Output, result.Errors, time.Second), "exited with code 137")
 			default:
 				requireStressOutput(t, result.Output, result.Errors, time.Second)
 			}

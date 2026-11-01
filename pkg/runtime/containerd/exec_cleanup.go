@@ -74,9 +74,9 @@ func terminateOwnedExec(ctx context.Context, process containerd.Process) execCle
 	return result
 }
 
-func canceledExecResultError(description string, cleanup execCleanupResult) error {
+func ownedExecResultError(description string, cleanup execCleanupResult) error {
 	if cleanup.exit == nil {
-		return fmt.Errorf("%s: %w: terminal status unavailable after cancellation", description, errExecCleanup)
+		return fmt.Errorf("%s: %w: terminal status unavailable after cleanup", description, errExecCleanup)
 	}
 	code, _, err := cleanup.exit.Result()
 	if err != nil {
