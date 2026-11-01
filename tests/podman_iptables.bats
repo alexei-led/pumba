@@ -25,7 +25,7 @@ setup() {
     fi
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
-    podman_fixture_run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
+    podman_fixture_run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null
     wait_for_running podman pdm-ipt-ctr
 }
 
