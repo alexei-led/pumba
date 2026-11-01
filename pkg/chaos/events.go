@@ -130,7 +130,8 @@ type TargetApplied struct {
 }
 
 // TargetResult is the body of target.result, the terminal record per target
-// and tick. It is emitted only after the fault was reverted.
+// and tick, emitted after the action and any cleanup attempt finish. Status
+// and Cleanup describe the outcome; dry-runs do not apply or revert a fault.
 type TargetResult struct {
 	Tick    int64        `json:"tick"`
 	Target  TargetRef    `json:"target"`
