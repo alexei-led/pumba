@@ -70,17 +70,17 @@ func waitStressExit(ctx context.Context, exited <-chan ctypes.WaitResponse, wait
 	case err := <-waitErrors:
 		return stressWaitError(ctx, err, exited)
 	case <-ctx.Done():
-		// Recheck so a genuine failure already delivered is never erased.
+		// The relay may have received a failure but not published it yet.
+		// Cancellation must await that terminal result, not infer success.
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sidecarRemoveTimeout)
+		defer cancel()
 		select {
 		case status, ok := <-exited:
 			return stressExitError(status, ok)
-		default:
-		}
-		select {
 		case err := <-waitErrors:
 			return stressWaitError(ctx, err, exited)
-		default:
-			return nil
+		case <-cleanupCtx.Done():
+			return &ctr.StressCleanupError{Err: fmt.Errorf("waiting for stress exit after cancellation: %w", cleanupCtx.Err())}
 		}
 	}
 }

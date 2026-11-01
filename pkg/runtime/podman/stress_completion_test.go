@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/alexei-led/pumba/mocks"
@@ -253,6 +254,8 @@ func TestStressContainerDrainsUnbufferedWait(t *testing.T) {
 			publish, delivered, abort, publisherDone := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
 			if mode == "read_error" {
 				close(publish)
+			} else {
+				context.AfterFunc(ctx, func() { close(publish) })
 			}
 			go func() {
 				defer close(publisherDone)
@@ -269,12 +272,7 @@ func TestStressContainerDrainsUnbufferedWait(t *testing.T) {
 			t.Cleanup(func() { close(abort); <-publisherDone })
 			api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
 				Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
-			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).
-				Run(func(context.Context, string, ctypes.RemoveOptions) {
-					if mode == "canceled" {
-						close(publish)
-					}
-				}).Return(nil).Once()
+			api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
 
 			result, err := start(ctx)
 			require.NoError(t, err)
@@ -291,4 +289,52 @@ func TestStressContainerDrainsUnbufferedWait(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStressContainerCancellationWaitsForRelayedFailure(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		api, start := completionRuntime(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		conn, peer := net.Pipe()
+		defer peer.Close()
+		defer conn.Close()
+		api.EXPECT().ContainerAttach(mock.Anything, "owned-stress", ctypes.AttachOptions{Stdout: true, Stderr: true, Stream: true}).
+			Return(types.HijackedResponse{Conn: conn, Reader: bufio.NewReader(strings.NewReader("done"))}, nil).Once()
+		api.EXPECT().ContainerStart(mock.Anything, "owned-stress", ctypes.StartOptions{}).Return(nil).Once()
+		exited, waitErrors := make(chan ctypes.WaitResponse), make(chan error, 1)
+		waiting, release := make(chan struct{}), make(chan struct{})
+		defer func() {
+			select {
+			case <-release:
+			default:
+				close(release)
+			}
+		}()
+		go func() {
+			<-release
+			exited <- ctypes.WaitResponse{StatusCode: 7}
+		}()
+		api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
+			Run(func(context.Context, string, ctypes.WaitCondition) { close(waiting) }).
+			Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
+		api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true}).Return(nil).Once()
+
+		result, err := start(ctx)
+		require.NoError(t, err)
+		<-waiting
+		synctest.Wait()
+		cancel()
+		synctest.Wait()
+		select {
+		case <-result.Output:
+			t.Fatal("output completed before the SDK terminal result")
+		case <-result.Errors:
+			t.Fatal("errors completed before the SDK terminal result")
+		default:
+		}
+		close(release)
+		_, err = collectStressResult(t, result)
+		require.ErrorContains(t, err, "exited with code 7")
+	})
 }
