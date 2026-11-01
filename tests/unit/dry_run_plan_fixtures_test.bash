@@ -32,7 +32,7 @@ list_sidecars() {
 }
 
 engine() {
-    local arg target='' id
+    local arg target='' id has_skip=false
     case "$1" in
         info) echo "${ROOTLESS:-false}" ;;
         run)
@@ -45,9 +45,12 @@ engine() {
         exec) echo 'unchanged network state' ;;
         ps)
             for arg in "$@"; do
-                case "$arg" in label=com.gaiaadm.pumba.target=*) target=${arg#*=}; target=${target#*=} ;; esac
+                case "$arg" in
+                    label=com.gaiaadm.pumba.target=*) target=${arg#*=}; target=${target#*=} ;;
+                    label=com.gaiaadm.pumba.skip=true) has_skip=true ;;
+                esac
             done
-            [ -n "$target" ] || { echo 'unscoped sidecar query' >&2; return 1; }
+            [ -n "$target" ] && [ "$has_skip" = true ] || { echo 'unscoped sidecar query' >&2; return 1; }
             list_sidecars "$target"
             ;;
         rm)
