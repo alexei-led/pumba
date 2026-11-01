@@ -161,6 +161,7 @@ assert_direct_stress_clean() {
         --stressors="--cpu 1 --cpu-method loop --timeout 30s" "$STRESS_TARGET_ID" >"$events" 2>"$logs" 3>&- &
     local process=$!
     wait_for 10 "jq -es 'any(.[]; .type == \"target.applied\")' '$events' >/dev/null" "direct stress applied"
+    wait_for 10 "docker exec $STRESS_TARGET_ID ps -o comm | grep -q stress-ng" "direct stress worker running"
     sudo pkill -TERM -f "^pumba .*--run-id ctr-stress-direct-signal.*$STRESS_TARGET_ID"
     local result=0
     wait "$process" || result=$?
