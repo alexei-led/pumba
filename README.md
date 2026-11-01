@@ -189,7 +189,7 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 | `--label` | Empty list | — | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic); unsupported for containerd |
 | `--max-targets` | `unset` | — | Refuse before any injection when targets exceed N after `--limit`/`--random`; `0` disables the cap; applies to dry-run and every interval tick |
 | `--random`, `-r` | `false` | — | Pick one matching container at random |
-| `--dry-run` | `false` | `DRY-RUN` | Log planned chaos actions without executing them |
+| `--dry-run` | `false` | `DRY-RUN` | Preview without chaos or duration waits; netem/iptables print apply/revert commands to stdout |
 | `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
 | `--output`, `-o` | `text` | — | `ndjson`: result events (`pumba.event/v1`) on stdout, one per line; logs stay on stderr |
 | `--run-id` | Generated | — | Name this run in result events and tag what it creates (sidecar labels, iptables comments); 1–48 characters from `[A-Za-z0-9_.-]` |

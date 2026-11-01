@@ -63,6 +63,9 @@ var (
 //     stop-without-start on a rootless socket fails with the same diagnostic.
 //   - IPTablesContainer     — same rootless constraint as NetemContainer.
 //   - StopIPTablesContainer — mirrors the IPTablesContainer rootless guard.
+//   - PlanNetemContainer,
+//     PlanIPTablesContainer — same rootless guards, so a dry-run fails the
+//     same way the real run would.
 //   - InspectNetns          — same rootless guard; the inspect sidecar needs
 //     NET_ADMIN in the target's netns to read iptables rules.
 //   - StressContainer       — diverges in cgroup leaf naming
@@ -172,6 +175,25 @@ func (p *podmanClient) StopIPTablesContainer(ctx context.Context, req *ctr.IPTab
 		return rootlessError("iptables", p.socketURI)
 	}
 	return p.Client.StopIPTablesContainer(ctx, req)
+}
+
+// PlanNetemContainer returns the netem commands a run would execute. Same
+// rootless guard as NetemContainer: a dry-run must not promise a plan the
+// real run cannot carry out.
+func (p *podmanClient) PlanNetemContainer(req *ctr.NetemRequest) (*ctr.CommandPlan, error) {
+	if p.rootless {
+		return nil, rootlessError("netem", p.socketURI)
+	}
+	return p.Client.PlanNetemContainer(req)
+}
+
+// PlanIPTablesContainer returns the iptables commands a run would execute.
+// Same rootless guard as IPTablesContainer.
+func (p *podmanClient) PlanIPTablesContainer(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
+	if p.rootless {
+		return nil, rootlessError("iptables", p.socketURI)
+	}
+	return p.Client.PlanIPTablesContainer(add, del)
 }
 
 // InspectNetns reads the Pumba fault state of the target's netns. Same

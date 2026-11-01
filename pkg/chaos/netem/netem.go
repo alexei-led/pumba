@@ -21,6 +21,7 @@ type netemClient interface {
 type targetReport interface {
 	Applied()
 	Reverted(err error)
+	SetPlan(p *container.CommandPlan)
 }
 
 // cleanupTimeout caps how long the netem-cleanup sidecar cycle is allowed
@@ -30,7 +31,8 @@ const cleanupTimeout = 30 * time.Second
 
 // run network emulation command, stop netem on timeout or abort. Reports to t
 // when the qdisc is installed and how its removal went; a failed install is
-// reported by the returned error alone. Dry-runs do not wait for the duration.
+// reported by the returned error alone. A dry-run runs nothing: it reports the
+// runtime's plan of the commands to t and returns at once.
 func runNetem(ctx context.Context, client netemClient, req *container.NetemRequest, t targetReport) error {
 	// Each per-action Run already resolves --target container names/IDs
 	// once, before matched containers are enumerated (see e.g. delay.go).
@@ -54,6 +56,9 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 		"tc-image": req.Sidecar.Image,
 		"pull":     req.Sidecar.Pull,
 	})
+	if req.DryRun {
+		return planNetem(client, req, t, logger)
+	}
 	logger.Debug("running netem command")
 	if err := client.NetemContainer(ctx, req); err != nil {
 		// Best-effort rollback of a partial install. Not reported as a revert:
@@ -66,14 +71,23 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	}
 	logger.Debug("netem command started")
 	t.Applied()
-	if !req.DryRun {
-		waitNetem(ctx, req.Duration, logger)
-	}
+	waitNetem(ctx, req.Duration, logger)
 	err := stopNetem(ctx, client, req)
 	t.Reverted(err)
 	if err != nil {
 		return fmt.Errorf("stopping netem: %w", err)
 	}
+	return nil
+}
+
+// planNetem reports the commands a netem run would execute on the target.
+func planNetem(client netemClient, req *container.NetemRequest, t targetReport, logger *log.Entry) error {
+	plan, err := client.PlanNetemContainer(req)
+	if err != nil {
+		return fmt.Errorf("planning netem: %w", err)
+	}
+	logger.WithFields(log.Fields{"via": plan.Via, "apply": plan.Apply, "revert": plan.Revert}).Info("dry-run: planned netem commands")
+	t.SetPlan(plan)
 	return nil
 }
 

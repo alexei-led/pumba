@@ -103,6 +103,74 @@ func (_c *MockIPTables_IPTablesContainer_Call) RunAndReturn(run func(context1 co
 	return _c
 }
 
+// PlanIPTablesContainer provides a mock function for the type MockIPTables
+func (_mock *MockIPTables) PlanIPTablesContainer(add *IPTablesRequest, del *IPTablesRequest) (*CommandPlan, error) {
+	ret := _mock.Called(add, del)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PlanIPTablesContainer")
+	}
+
+	var r0 *CommandPlan
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*IPTablesRequest, *IPTablesRequest) (*CommandPlan, error)); ok {
+		return returnFunc(add, del)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*IPTablesRequest, *IPTablesRequest) *CommandPlan); ok {
+		r0 = returnFunc(add, del)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*CommandPlan)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*IPTablesRequest, *IPTablesRequest) error); ok {
+		r1 = returnFunc(add, del)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockIPTables_PlanIPTablesContainer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PlanIPTablesContainer'
+type MockIPTables_PlanIPTablesContainer_Call struct {
+	*mock.Call
+}
+
+// PlanIPTablesContainer is a helper method to define mock.On call
+//   - add *IPTablesRequest
+//   - del *IPTablesRequest
+func (_e *MockIPTables_Expecter) PlanIPTablesContainer(add any, del any) *MockIPTables_PlanIPTablesContainer_Call {
+	return &MockIPTables_PlanIPTablesContainer_Call{Call: _e.mock.On("PlanIPTablesContainer", add, del)}
+}
+
+func (_c *MockIPTables_PlanIPTablesContainer_Call) Run(run func(add *IPTablesRequest, del *IPTablesRequest)) *MockIPTables_PlanIPTablesContainer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *IPTablesRequest
+		if args[0] != nil {
+			arg0 = args[0].(*IPTablesRequest)
+		}
+		var arg1 *IPTablesRequest
+		if args[1] != nil {
+			arg1 = args[1].(*IPTablesRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockIPTables_PlanIPTablesContainer_Call) Return(commandPlan *CommandPlan, err error) *MockIPTables_PlanIPTablesContainer_Call {
+	_c.Call.Return(commandPlan, err)
+	return _c
+}
+
+func (_c *MockIPTables_PlanIPTablesContainer_Call) RunAndReturn(run func(add *IPTablesRequest, del *IPTablesRequest) (*CommandPlan, error)) *MockIPTables_PlanIPTablesContainer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StopIPTablesContainer provides a mock function for the type MockIPTables
 func (_mock *MockIPTables) StopIPTablesContainer(context1 context.Context, iPTablesRequest *IPTablesRequest) error {
 	ret := _mock.Called(context1, iPTablesRequest)

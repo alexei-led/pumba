@@ -25,6 +25,7 @@ type Target struct {
 	deferred   bool
 	terminated bool
 	state      *TargetState
+	plan       *Plan
 }
 
 func newTarget(gp *GlobalParams, tick int64, c *container.Container) *Target {
@@ -60,6 +61,14 @@ func (t *Target) SetState(s *TargetState) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.state = s
+}
+
+// SetPlan attaches the commands a dry-run would run on the target to its
+// result.
+func (t *Target) SetPlan(p *container.CommandPlan) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.plan = &Plan{Via: string(p.Via), Image: p.Image, Apply: p.Apply, Revert: p.Revert}
 }
 
 // DeferResult is for actions that revert in a batch after fanout (pause,
@@ -113,6 +122,7 @@ func (t *Target) terminate(err error) {
 		Error:   evErr,
 		Cleanup: cleanup,
 		State:   t.state,
+		Plan:    t.plan,
 	}})
 }
 

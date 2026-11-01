@@ -290,11 +290,30 @@ When using `--interval` with commands that have a `--duration` (like `pause` or 
 Use `--dry-run` to see what Pumba would do without actually creating chaos:
 
 ```bash
-pumba --dry-run kill "re2:^test"
+pumba --dry-run --log-level info kill "re2:^test"
+pumba --dry-run netem --duration 30s delay --time 100 web
+pumba --dry-run -o ndjson --run-id preview-1 iptables --duration 30s loss --probability 0.2 web
 ```
 
-This logs the planned actions without executing them. Useful for verifying your targeting before running for real.
-Dry-run returns right away; it does not wait for `--duration`.
+Dry-run returns right away; it does not wait for `--duration`. Target selection,
+`--random`, `--limit` and `--max-targets` behave as in a real run.
+
+For netem and iptables, text mode prints visible **would run**, **apply** and
+**revert** lines to stdout, even at the default warning log level. Each plan
+names the resolved target and the sidecar image (or exec in the target).
+`-o ndjson` instead includes a `plan` object on each `planned` `target.result`;
+there are no text lines or `target.applied` events. See the [plan contract](agents.md#dry-run-plans).
+Lifecycle and stress dry-runs retain their existing logs and target/parameter
+events; they do not include command argv plans.
+
+Planning does not pull images, create sidecars, exec commands, or inspect the
+network namespace. Listing targets and resolving `netem --target` container
+names still require a runtime connection. A plan is not a preflight check: it
+cannot prove that tools, images, interfaces, privileges or a clean qdisc exist.
+Rootless Podman still refuses netem/iptables dry-runs.
+
+**1.5.0 compatibility:** netem/iptables dry-runs now write their plan to stdout
+in text mode. All dry-runs return without sleeping for `--duration`.
 
 ## Logging
 

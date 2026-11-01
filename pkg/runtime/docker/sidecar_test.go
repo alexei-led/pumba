@@ -76,7 +76,7 @@ func Test_tcContainerCommands(t *testing.T) {
 
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
 	labels := ctr.SidecarLabels("run1", "targetID", ctr.SidecarKindNetem)
-	err := client.runSidecar(context.TODO(), c, ctr.SidecarSpec{Image: "pumba/tcimage", Pull: true}, labels, "tc", [][]string{{"test", "one"}, {"test", "two"}})
+	err := client.runSidecar(context.TODO(), c, ctr.SidecarSpec{Image: "pumba/tcimage", Pull: true}, labels, ctr.SidecarKindNetem, [][]string{{"tc", "test", "one"}, {"tc", "test", "two"}})
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
