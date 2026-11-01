@@ -18,24 +18,22 @@
 load test_helper
 
 setup() {
+    PODMAN_FIXTURE_IDS=()
     require_podman
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — iptables requires rootful mode"
     fi
-    podman_rm_force pdm-ipt-ctr
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
-    podman run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
+    podman_fixture_run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
     wait_for_running podman pdm-ipt-ctr
 }
 
 teardown() {
+    [ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
     sudo pkill -f "pumba.*iptables.*pdm-ipt-ctr" 2>/dev/null || true
     kill %1 2>/dev/null || true
-    podman_rm_force pdm-ipt-ctr
-    for sc in $(podman ps -q --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
-        podman rm -f "$sc" >/dev/null 2>&1 || true
-    done
+    podman_fixture_cleanup
 }
 
 @test "Should apply iptables packet loss via podman runtime" {

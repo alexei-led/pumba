@@ -18,26 +18,23 @@ load test_helper
 NETTOOLS_IMAGE="ghcr.io/alexei-led/pumba-alpine-nettools:latest"
 
 setup() {
+    PODMAN_FIXTURE_IDS=()
     require_podman
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — netem/iptables require rootful mode"
     fi
-    podman_rm_force pdm-combined-ctr
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull "$NETTOOLS_IMAGE" >/dev/null 2>&1 || true
-    podman run -d --privileged --name pdm-combined-ctr docker.io/nicolaka/netshoot:latest \
+    podman_fixture_run -d --privileged --name pdm-combined-ctr docker.io/nicolaka/netshoot:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
     wait_for_running podman pdm-combined-ctr
 }
 
 teardown() {
+    [ -n "${PODMAN_FIXTURE_IDS[*]:-}" ] || return 0
     sudo pkill -f "pumba.*pdm-combined-ctr" 2>/dev/null || true
     kill %1 2>/dev/null || true
-    podman_rm_force pdm-combined-ctr
-    # Reap any lingering sidecar containers (identified by pumba skip label)
-    for sc in $(podman ps -aq --filter "label=com.gaiaadm.pumba.skip=true" 2>/dev/null); do
-        podman rm -f "$sc" >/dev/null 2>&1 || true
-    done
+    podman_fixture_cleanup
 }
 
 @test "Should apply netem then iptables on same container via podman runtime" {

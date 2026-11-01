@@ -28,6 +28,7 @@ type apiBackend interface {
 	ContainerCreate(ctx context.Context, config *ctypes.Config, hostConfig *ctypes.HostConfig, networkingConfig *networktypes.NetworkingConfig, platform *v1.Platform, containerName string) (ctypes.CreateResponse, error)
 	ContainerAttach(ctx context.Context, container string, options ctypes.AttachOptions) (types.HijackedResponse, error)
 	ContainerStart(ctx context.Context, container string, options ctypes.StartOptions) error
+	ContainerWait(ctx context.Context, containerID string, condition ctypes.WaitCondition) (<-chan ctypes.WaitResponse, <-chan error)
 	ContainerRemove(ctx context.Context, container string, options ctypes.RemoveOptions) error
 	Close() error
 }
@@ -62,6 +63,8 @@ var (
 //     stop-without-start on a rootless socket fails with the same diagnostic.
 //   - IPTablesContainer     — same rootless constraint as NetemContainer.
 //   - StopIPTablesContainer — mirrors the IPTablesContainer rootless guard.
+//   - InspectNetns          — same rootless guard; the inspect sidecar needs
+//     NET_ADMIN in the target's netns to read iptables rules.
 //   - StressContainer       — diverges in cgroup leaf naming
 //     (libpod-<id>.scope vs Docker's docker-<id>.scope) and in the
 //     `--cgroup-parent` host-config path; see stress.go and cgroup.go.
@@ -169,4 +172,14 @@ func (p *podmanClient) StopIPTablesContainer(ctx context.Context, req *ctr.IPTab
 		return rootlessError("iptables", p.socketURI)
 	}
 	return p.Client.StopIPTablesContainer(ctx, req)
+}
+
+// InspectNetns reads the Pumba fault state of the target's netns. Same
+// rootless constraint as NetemContainer: the inspect sidecar needs NET_ADMIN
+// in the target's netns to list iptables rules.
+func (p *podmanClient) InspectNetns(ctx context.Context, req *ctr.InspectRequest) (*ctr.FaultState, error) {
+	if p.rootless {
+		return nil, rootlessError("status", p.socketURI)
+	}
+	return p.Client.InspectNetns(ctx, req)
 }

@@ -20,6 +20,21 @@ This approach works with both **cgroups v1** and **cgroups v2**, and supports al
 
 > **Note:** For target-scoped stress on systemd-based Docker hosts, use `--inject-cgroup` mode. The default mode with the systemd driver places the sidecar as a sibling cgroup, not under the target's limits.
 
+## Completion and cleanup
+
+Natural completion, `--duration`, and SIGTERM all wait for Pumba's owned
+stress workload to stop and for bounded runtime cleanup. Docker and Podman
+sidecars and their anonymous volumes are explicitly removed, including after
+attach/start failures. Containerd direct-exec mode (`--stress-image ""`) first
+sends SIGTERM so stress-ng can reap its workers, then escalates to SIGKILL if
+needed after a bounded grace period. It never stops the target task/container.
+
+With `--output ndjson`, `target.result` is emitted after cleanup, not merely
+when output ends. A workload failure remains a failure even if cancellation
+arrives at the same time. Cleanup failures produce `cleanup_failed` and a
+nonzero exit; if runtime completion stalls after cancellation, Pumba reports
+a cleanup timeout after a 45-second completion wait rather than claiming success.
+
 ## Usage
 
 ```bash
@@ -229,6 +244,27 @@ For `--inject-cgroup` mode, the [`cg-inject`](https://github.com/alexei-led/stre
 | v1             | systemd  | `/sys/fs/cgroup/cpu/system.slice/docker-<id>.scope/cgroup.procs` |
 
 When Pumba passes `--cgroup-path` (as it does on Kubernetes), these driver-based paths are not used — `cg-inject` writes directly to the provided path.
+
+## Sidecar Labels
+
+Every stress sidecar carries these labels, so a sidecar left by a crashed run can be found:
+
+| Label | Value |
+| ----- | ----- |
+| `com.gaiaadm.pumba.run-id` | the run ID (`--run-id`, or generated) |
+| `com.gaiaadm.pumba.target` | target container ID |
+| `com.gaiaadm.pumba.kind` | `stress` |
+| `com.gaiaadm.pumba.skip` | `true` (Pumba never targets its own sidecars) |
+
+`pumba status` reports such sidecars per target, and `pumba status --check` counts them as `dirty`
+(see [Finding Leftovers](guide.md#finding-leftovers)). To remove them by hand:
+
+```bash
+docker rm -f $(docker ps -aq --filter label=com.gaiaadm.pumba.run-id=<run-id>)
+```
+
+On containerd, `--stress-image ""` runs stress-ng by exec in the target instead; that leaves no
+container behind for `status` to find.
 
 ## Tips
 

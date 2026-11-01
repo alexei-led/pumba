@@ -46,6 +46,10 @@ const (
 	RunRefused       RunStatus = "refused"
 	RunUsageError    RunStatus = "usage_error"
 	RunAborted       RunStatus = "aborted"
+	// status --check verdicts
+	RunClean   RunStatus = RunStatus(VerdictClean)
+	RunDirty   RunStatus = RunStatus(VerdictDirty)
+	RunUnknown RunStatus = RunStatus(VerdictUnknown)
 )
 
 // ErrorCode is the stable, machine-readable error classification. Agents
@@ -136,6 +140,8 @@ type TargetResult struct {
 	Error   *EventError  `json:"error"`
 	// Cleanup is nil when the action leaves nothing to revert.
 	Cleanup *Cleanup `json:"cleanup"`
+	// State is what `pumba status` found on the target; nil for other actions.
+	State *TargetState `json:"state,omitempty"`
 }
 
 // Cleanup is the outcome of reverting a fault on one target.
@@ -150,6 +156,9 @@ type RunEnd struct {
 	Counts        Counts      `json:"counts"`
 	Error         *EventError `json:"error"`
 	EventsDropped int64       `json:"events_dropped"`
+	// Coverage is set by `pumba status`: findings outside every inspected
+	// target, and the verdict.
+	Coverage *StatusCoverage `json:"coverage,omitempty"`
 }
 
 // Counts tallies target.result statuses over the whole run.

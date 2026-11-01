@@ -145,6 +145,14 @@ func TestPodmanClient_RootlessGuards_ReturnError(t *testing.T) {
 		require.Contains(t, err.Error(), "iptables")
 		require.Contains(t, err.Error(), p.socketURI)
 	})
+
+	t.Run("InspectNetns", func(t *testing.T) {
+		state, err := p.InspectNetns(ctx, &ctr.InspectRequest{Container: target, Sidecar: ctr.SidecarSpec{Image: "img"}})
+		require.Error(t, err)
+		require.Nil(t, state)
+		require.Contains(t, err.Error(), "status requires rootful podman")
+		require.Contains(t, err.Error(), p.socketURI)
+	})
 }
 
 func TestPodmanClient_RootfulGuards_Delegate(t *testing.T) {
@@ -198,6 +206,13 @@ func TestPodmanClient_RootfulGuards_Delegate(t *testing.T) {
 	}
 	mockDelegate.EXPECT().StopIPTablesContainer(ctx, stopIPReq).Return(nil).Once()
 	require.NoError(t, p.StopIPTablesContainer(ctx, stopIPReq))
+
+	inspectReq := &ctr.InspectRequest{Container: target, Sidecar: ctr.SidecarSpec{Image: img}, RunID: "r"}
+	want := &ctr.FaultState{Rules: []ctr.PumbaRule{{RunID: "r", Chain: "INPUT", Spec: "-A INPUT -j DROP"}}}
+	mockDelegate.EXPECT().InspectNetns(ctx, inspectReq).Return(want, nil).Once()
+	got, err := p.InspectNetns(ctx, inspectReq)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
 }
 
 func TestPodmanClient_PromotedMethodsDelegate(t *testing.T) {

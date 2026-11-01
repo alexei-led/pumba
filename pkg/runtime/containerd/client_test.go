@@ -3,7 +3,6 @@ package containerd
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"syscall"
 	"testing"
@@ -148,6 +147,7 @@ func newSuccessProcess(t *testing.T) *MockProcess {
 	exitCh <- *containerd.NewExitStatus(0, time.Now(), nil)
 	p.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	p.EXPECT().Start(mock.Anything).Return(nil)
+	p.EXPECT().IO().Return(nil).Maybe()
 	p.EXPECT().Delete(mock.Anything).Return(nil, nil)
 	return p
 }
@@ -158,6 +158,7 @@ func newFailProcess(t *testing.T, code uint32) *MockProcess {
 	exitCh <- *containerd.NewExitStatus(code, time.Now(), nil)
 	p.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	p.EXPECT().Start(mock.Anything).Return(nil)
+	p.EXPECT().IO().Return(nil).Maybe()
 	p.EXPECT().Delete(mock.Anything).Return(nil, nil)
 	return p
 }
@@ -326,6 +327,28 @@ func TestListContainers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListContainers_ReportsUnreadableContainers(t *testing.T) {
+	broken := NewMockContainer(t)
+	broken.EXPECT().ID().Return("broken")
+	broken.EXPECT().Info(mock.Anything).Return(containers.Container{}, assert.AnError)
+	api := NewMockapiClient(t)
+	api.EXPECT().Containers(mock.Anything).Return([]containerd.Container{
+		broken,
+		newMockContainer(t, "ok", "nginx:latest", nil, newRunningTask(t)),
+	}, nil)
+
+	var skipped []string
+	result, err := newTestClient(api).ListContainers(context.Background(), nil, ctr.ListOpts{
+		All:    true,
+		OnSkip: func(id string, err error) { skipped = append(skipped, id+": "+err.Error()) },
+	})
+
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	assert.Equal(t, "ok", result[0].ID())
+	assert.Equal(t, []string{"broken: failed to get container info for broken: " + assert.AnError.Error()}, skipped)
 }
 
 func TestStopContainer_Dryrun(t *testing.T) {
@@ -941,7 +964,7 @@ func TestStressContainer_Success(t *testing.T) {
 	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
-	assert.Equal(t, "c1", id)
+	assert.Empty(t, id)
 
 	out := requireStressOutput(t, outCh, errCh, 5*time.Second)
 	assert.Equal(t, "c1", out)
@@ -959,7 +982,7 @@ func TestStressContainer_ExecError(t *testing.T) {
 	id, outCh, errCh, err := stressIDOutErr(client.StressContainer(context.Background(),
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
-	assert.Equal(t, "c1", id)
+	assert.Empty(t, id)
 
 	requireStressError(t, outCh, errCh, 5*time.Second)
 }
@@ -1250,6 +1273,10 @@ func TestStressContainer_SidecarStartError(t *testing.T) {
 	sidecarTask := NewMockTask(t)
 	sidecarTask.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil)
 	sidecarTask.EXPECT().Start(mock.Anything).Return(assert.AnError)
+	sidecarTask.EXPECT().Kill(mock.Anything, syscall.SIGKILL).
+		Run(func(context.Context, syscall.Signal, ...containerd.KillOpts) {
+			exitCh <- *containerd.NewExitStatus(137, time.Now(), nil)
+		}).Return(nil).Once()
 	sidecarTask.EXPECT().Delete(mock.Anything).Return(nil, nil)
 	sidecarCntr := NewMockContainer(t)
 	sidecarCntr.EXPECT().NewTask(mock.Anything, mock.Anything).Return(sidecarTask, nil)
@@ -1337,14 +1364,13 @@ func TestStressContainer_SidecarContextCanceled(t *testing.T) { //nolint:paralle
 
 	ctx, cancel := context.WithCancel(context.Background())
 	client := newTestClient(api)
-	_, _, errCh, err := stressIDOutErr(client.StressContainer(ctx,
+	_, outCh, errCh, err := stressIDOutErr(client.StressContainer(ctx,
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", false, 10*time.Second, false, false)))
 	require.NoError(t, err)
 
 	cancel()
 
-	err = requireStressError(t, nil, errCh, 5*time.Second)
-	assert.Contains(t, err.Error(), "exited with code 137")
+	requireStressOutput(t, outCh, errCh, 5*time.Second)
 }
 
 func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:paralleltest // mutates package-level cgroupReader
@@ -1353,6 +1379,7 @@ func TestStressContainer_SidecarWaitChClosed(t *testing.T) { //nolint:parallelte
 	close(closedCh)
 	sidecarTask.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(closedCh), nil)
 	sidecarTask.EXPECT().Start(mock.Anything).Return(nil)
+	sidecarTask.EXPECT().Kill(mock.Anything, syscall.SIGKILL).Return(nil).Once()
 	sidecarTask.EXPECT().Delete(mock.Anything).Return(nil, nil)
 
 	sidecarCntr := NewMockContainer(t)
@@ -1380,60 +1407,4 @@ func TestStressContainer_SidecarPullImageError(t *testing.T) {
 		stressReq(testContainer("c1"), []string{"--cpu", "1"}, "stress-ng:latest", true, 10*time.Second, false, false))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to pull image")
-}
-
-func TestBuildIPTablesCommands(t *testing.T) {
-	t.Parallel()
-
-	_, srcNet, _ := net.ParseCIDR("10.0.0.0/8")
-	_, dstNet, _ := net.ParseCIDR("192.168.1.0/24")
-
-	tests := []struct {
-		name     string
-		flags    []string
-		target   []string
-		srcIPs   []*net.IPNet
-		dstIPs   []*net.IPNet
-		srcPorts []string
-		dstPorts []string
-		want     [][]string
-	}{
-		{
-			name:   "basic_rule",
-			flags:  []string{"-A", "INPUT"},
-			target: []string{"-j", "DROP"},
-			want:   [][]string{{"-A", "INPUT", "-j", "DROP"}},
-		},
-		{
-			name:   "with_src_and_dst_ips",
-			flags:  []string{"-A", "INPUT"},
-			target: []string{"-j", "DROP"},
-			srcIPs: []*net.IPNet{srcNet},
-			dstIPs: []*net.IPNet{dstNet},
-			want: [][]string{
-				{"-A", "INPUT", "-s", "10.0.0.0/8", "-j", "DROP"},
-				{"-A", "INPUT", "-d", "192.168.1.0/24", "-j", "DROP"},
-			},
-		},
-		{
-			name:     "with_src_and_dst_ports",
-			flags:    []string{"-A", "INPUT"},
-			target:   []string{"-j", "DROP"},
-			srcPorts: []string{"80", "443"},
-			dstPorts: []string{"8080"},
-			want: [][]string{
-				{"-A", "INPUT", "--sport", "80", "-j", "DROP"},
-				{"-A", "INPUT", "--sport", "443", "-j", "DROP"},
-				{"-A", "INPUT", "--dport", "8080", "-j", "DROP"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			cmds := buildIPTablesCommands(tt.flags, tt.target, tt.srcIPs, tt.dstIPs, tt.srcPorts, tt.dstPorts)
-			assert.Equal(t, tt.want, cmds)
-		})
-	}
 }

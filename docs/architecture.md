@@ -13,7 +13,7 @@ graph below. A pull request that changes it fails the architecture check.
 | `pkg_chaos`     | `pkg/chaos/`     | core  | Chaos actions (netem, iptables, lifecycle, stress) and their CLI  |
 | `pkg_container` | `pkg/container/` | core  | Container model and the `container.Client` interfaces             |
 | `pkg_runtime`   | `pkg/runtime/`   | core  | Docker, containerd and Podman adapters for `container.Client`     |
-| `pkg_tc`        | `pkg/tc/`        | core  | `tc` command builder                                              |
+| `pkg_tc`        | `pkg/tc/`        | core  | `tc` and `iptables` commands Pumba runs in a target netns, and parsing of their output |
 | `pkg_util`      | `pkg/util/`      | core  | Domain-agnostic parsing helpers                                   |
 
 ## Approved dependencies

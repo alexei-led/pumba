@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_tcContainerCommands(t *testing.T) {
@@ -23,7 +25,12 @@ func Test_tcContainerCommands(t *testing.T) {
 	}
 
 	config := ctypes.Config{
-		Labels:     map[string]string{"com.gaiaadm.pumba.skip": "true"},
+		Labels: map[string]string{
+			"com.gaiaadm.pumba.skip":   "true",
+			"com.gaiaadm.pumba.run-id": "run1",
+			"com.gaiaadm.pumba.target": "targetID",
+			"com.gaiaadm.pumba.kind":   "netem",
+		},
 		Entrypoint: []string{"tail"},
 		Cmd:        []string{"-f", "/dev/null"},
 		Image:      "pumba/tcimage",
@@ -68,7 +75,8 @@ func Test_tcContainerCommands(t *testing.T) {
 	engineClient.EXPECT().ContainerRemove(ctx, "tcID", ctypes.RemoveOptions{Force: true}).Return(nil)
 
 	client := dockerClient{containerAPI: engineClient, imageAPI: engineClient}
-	err := client.runSidecar(context.TODO(), c, [][]string{{"test", "one"}, {"test", "two"}}, "pumba/tcimage", "tc", true)
+	labels := ctr.SidecarLabels("run1", "targetID", ctr.SidecarKindNetem)
+	err := client.runSidecar(context.TODO(), c, ctr.SidecarSpec{Image: "pumba/tcimage", Pull: true}, labels, "tc", [][]string{{"test", "one"}, {"test", "two"}})
 
 	assert.NoError(t, err)
 	engineClient.AssertExpectations(t)
@@ -98,4 +106,28 @@ func TestRemoveSidecarKeepsDeadlineErrorWhenContainerStillRunning(t *testing.T) 
 	err := client.removeSidecar(context.TODO(), "sidecarID")
 
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestWithSidecarRetainsOperationAndRemovalFailures(t *testing.T) {
+	for _, stage := range []string{"start", "operation"} {
+		t.Run(stage, func(t *testing.T) {
+			api := NewMockEngine(t)
+			operationErr, cleanupErr := errors.New("sidecar operation failed"), errors.New("sidecar removal failed")
+			api.EXPECT().ContainerCreate(mock.Anything,
+				&ctypes.Config{Entrypoint: []string{"tail"}, Cmd: []string{"-f", "/dev/null"}, Image: "nettools", StopSignal: "SIGKILL"},
+				&ctypes.HostConfig{CapAdd: []string{"NET_ADMIN"}, NetworkMode: "container:target", PortBindings: nat.PortMap{}, DNS: []string{}, DNSOptions: []string{}, DNSSearch: []string{}},
+				(*network.NetworkingConfig)(nil), (*specs.Platform)(nil), "",
+			).Return(ctypes.CreateResponse{ID: "owned-sidecar"}, nil).Once()
+			var startErr error
+			if stage == "start" {
+				startErr = operationErr
+			}
+			api.EXPECT().ContainerStart(mock.Anything, "owned-sidecar", ctypes.StartOptions{}).Return(startErr).Once()
+			api.EXPECT().ContainerRemove(mock.Anything, "owned-sidecar", ctypes.RemoveOptions{Force: true}).Return(cleanupErr).Once()
+			client := dockerClient{containerAPI: api}
+			err := client.withSidecar(context.Background(), &ctr.Container{ContainerID: "target"}, ctr.SidecarSpec{Image: "nettools"}, nil, "test", func(string) error { require.Equal(t, "operation", stage); return operationErr })
+			require.ErrorIs(t, err, operationErr)
+			require.ErrorIs(t, err, cleanupErr)
+		})
+	}
 }
