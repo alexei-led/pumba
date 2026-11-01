@@ -46,6 +46,9 @@ func (client dockerClient) drainStressOutput(ctx context.Context, id string, att
 	}
 	err := errors.Join(readErr, exitErr, client.removeStressSidecar(ctx, id))
 	if err != nil {
+		if buf.Len() > 0 {
+			err = fmt.Errorf("%w; stress-ng output: %s", err, buf.String())
+		}
 		outerr <- err
 	} else {
 		output <- buf.String()

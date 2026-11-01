@@ -49,6 +49,9 @@ func drainStressOutput(ctx context.Context, api apiBackend, id string, attach ty
 	}
 	err := errors.Join(readErr, exitErr, removeStressSidecar(ctx, api, id))
 	if err != nil {
+		if buf.Len() > 0 {
+			err = fmt.Errorf("%w; stress-ng output: %s", err, buf.String())
+		}
 		outerr <- err
 	} else {
 		output <- buf.String()

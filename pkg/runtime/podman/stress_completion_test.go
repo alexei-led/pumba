@@ -139,6 +139,7 @@ func TestStressContainer_OperationAndRemovalFailures(t *testing.T) {
 			require.ErrorAs(t, err, &cleanup)
 			if stage == "exit" {
 				require.ErrorContains(t, err, "exited with code 7")
+				require.ErrorContains(t, err, "done")
 			} else {
 				require.ErrorIs(t, err, operationErr)
 			}
