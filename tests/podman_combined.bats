@@ -26,7 +26,7 @@ setup() {
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull "$NETTOOLS_IMAGE" >/dev/null 2>&1 || true
     podman_fixture_run -d --privileged --name pdm-combined-ctr docker.io/nicolaka/netshoot:latest \
-        sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
+        sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null
     wait_for_running podman pdm-combined-ctr
 }
 

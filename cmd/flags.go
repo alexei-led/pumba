@@ -102,8 +102,8 @@ func globalFlags(rootCertPath string) []cli.Flag {
 	}, resultFlags()...)
 }
 
-// resultFlags are the global flags for run identity, result output and the
-// run budget.
+// resultFlags are the global flags for run identity, result output (stdout and
+// webhook) and the run budget.
 func resultFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
@@ -114,6 +114,10 @@ func resultFlags() []cli.Flag {
 			Name:  "output, o",
 			Usage: "result output: text (logs only) or ndjson (pumba.event/v1 events on stdout, one per line)",
 			Value: outputText,
+		},
+		cli.StringFlag{
+			Name:  "webhook",
+			Usage: "POST each pumba.event/v1 result event as JSON to this http(s) URL; best effort, in every --output mode",
 		},
 		cli.DurationFlag{
 			Name:  "max-duration",

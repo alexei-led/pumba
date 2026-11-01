@@ -28,7 +28,7 @@ setup() {
     podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
     podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
     podman_fixture_run -d --privileged --name pdm-netem-ctr docker.io/nicolaka/netshoot:latest \
-        sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null 2>&1
+        sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null
     wait_for_running podman pdm-netem-ctr
 }
 
@@ -62,7 +62,7 @@ teardown() {
 }
 
 @test "Should resolve a target container name via podman runtime" {
-    podman_fixture_run -d --name pdm-netem-peer docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null 2>&1
+    podman_fixture_run -d --name pdm-netem-peer docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null
     wait_for_running podman pdm-netem-peer
 
     run pumba --runtime podman --log-level debug netem --interface dummy0 --pull-image=false --target pdm-netem-peer --duration 2s delay --time 100 pdm-netem-ctr

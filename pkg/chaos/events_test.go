@@ -222,3 +222,14 @@ func TestGlobalParamsEmitWithoutSinkDiscards(t *testing.T) {
 	gp := &chaos.GlobalParams{}
 	assert.NotPanics(t, func() { gp.Emit(&chaos.Event{Type: chaos.EventRunStart}) })
 }
+
+// TestEventVocabularyIsStable pins the published status and code lists: adding
+// or changing a value is a pumba.event schema version bump.
+func TestEventVocabularyIsStable(t *testing.T) {
+	assert.Equal(t, []chaos.TargetStatus{"ok", "failed", "cleanup_failed", "planned", "skipped"}, chaos.TargetStatuses())
+	assert.Equal(t, []chaos.RunStatus{"ok", "failed", "partial", "cleanup_failed", "no_targets", "refused", "usage_error", "aborted", "clean", "dirty", "unknown"}, chaos.RunStatuses())
+	assert.Equal(t, []chaos.ErrorCode{
+		"invalid_argument", "no_targets", "max_targets_exceeded", "runtime_unavailable",
+		"rootless_unsupported", "command_failed", "cleanup_failed", "timeout", "canceled",
+	}, chaos.ErrorCodes())
+}

@@ -106,7 +106,7 @@ func newApp(out *eventOutput) *cli.App {
 		return nil
 	}
 	app.OnUsageError = out.onUsageError
-	app.Commands = initializeCLICommands(func() ctr.Client { return runtimeClient }, out.rec)
+	app.Commands = append(initializeCLICommands(func() ctr.Client { return runtimeClient }, out.rec), newSchemaCommand(out.stdout))
 	setUsageErrorHandler(app.Commands, out.onUsageError)
 	app.Flags = globalFlags(rootCertPath)
 	return app
@@ -120,6 +120,9 @@ func before(c *cli.Context, out *eventOutput) error {
 		return chaos.ErrNegativeMaxTargets
 	}
 	setupLogging(cliflags.NewV1FromApp(c))
+	if c.Args().First() == schemaCommandName {
+		return nil // schema only describes the CLI: no runtime socket needed
+	}
 	client, err := createRuntimeClient(c)
 	if err != nil {
 		return err

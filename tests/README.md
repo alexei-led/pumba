@@ -9,7 +9,9 @@ These tests verify Pumba functionality by running against real Docker and contai
 ## Requirements
 
 - Docker engine running
-- [bats-core](https://github.com/bats-core/bats-core) installed
+- [bats-core](https://github.com/bats-core/bats-core) >= 1.5.0 installed, with [bats-support](https://github.com/bats-core/bats-support) and [bats-assert](https://github.com/bats-core/bats-assert) at `/usr/local/lib/bats-support` and `/usr/local/lib/bats-assert`
+- `jq` for result-event tests (`output.bats`, `webhook.bats`, `*status.bats`, and NDJSON smoke tests in `*_global_flags.bats`); these use `run --separate-stderr` to check stdout independently of logs
+- `python3` for the local HTTP receiver in `webhook.bats` (standard library only). Missing Python fails HTTP acceptance tests rather than skipping them. The `integration-tests` Docker image includes these test prerequisites; Python is not an application dependency or included in the release image
 - For containerd tests: containerd socket access and `sudo` (overlayfs mounts for sidecar containers)
 - On macOS: [Colima](https://github.com/abrahmsas/colima) VM provides both Docker and containerd sockets
 
@@ -35,7 +37,9 @@ These tests verify Pumba functionality by running against real Docker and contai
 - `global_params.bats`: Global flags (--label, --random, --dry-run, --interval, --json, --log-level, --skip-error)
 - `error_handling.bats`: Invalid inputs, missing arguments, edge cases
 - `output.bats`: `--output ndjson` result events, `--run-id`, `--max-duration` (needs `jq`)
+- `webhook.bats`: `--webhook` HTTP event delivery, text/NDJSON parity, unreachable receiver and URL validation (needs `jq` and `python3`)
 - `status.bats`: `pumba status [--check]` finds tagged iptables rules, `504d:` qdiscs and labeled stress sidecars; dirty after `kill -9`, clean after manual cleanup (needs `jq`)
+- `schema.bats`: deterministic `pumba.cli/v1` discovery, typed flags and socket-free operation for every runtime (needs `jq`, no running runtime required)
 
 ### Containerd Tests
 
@@ -96,6 +100,13 @@ bats tests/*.bats
 
 # Run containerd tests (requires sudo for netem/iptables)
 sudo bats tests/containerd_*.bats
+```
+
+### Offline webhook fixture safety
+
+```bash
+# Checks exact target-ID and receiver-child cleanup without a runtime or Bats libraries
+bash tests/unit/webhook_fixtures_test.bash
 ```
 
 ### Using the test runner
