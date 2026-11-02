@@ -267,7 +267,9 @@ func (o *eventOutput) flush(end *chaos.Event) {
 		})
 	}
 	if o.stream != nil && !o.stream.flush(end, o.flushTimeout) {
-		log.Warn("timed out writing result events to stdout")
+		// One best-effort warning per run: stderr may share stdout's stalled
+		// destination, so its write must not extend bounded shutdown.
+		go log.Warn("timed out writing result events to stdout")
 	}
 	wg.Wait()
 }
