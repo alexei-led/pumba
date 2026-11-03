@@ -107,7 +107,11 @@ ifeq ($(GOOS)$(GOARCH),linuxamd64)
 endif
 $(TEST_TARGETS): NAME=$(MAKECMDGOALS:test-%=%)
 $(TEST_TARGETS): test
-check test tests: ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
+.PHONY: test-shell
+test-shell: ; $(info $(M) running offline shell tests...) @ ## Run offline shell regression tests
+	$Q set -euo pipefail; for test in tests/unit/*_test.bash; do bash "$$test"; done
+
+check test tests: test-shell ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
 	$Q env CGO_ENABLED=1 GOOS= GOARCH= $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
 COVERAGE_MODE    = atomic
