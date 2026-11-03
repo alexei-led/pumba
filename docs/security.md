@@ -39,7 +39,7 @@ bash .github/scripts/test_govulncheck.bash
 
 ## Existing two-advisory acceptance
 
-The [1.5.0 plan, §6](plans/20261029-1.5.0-agent-ready.md#6-delivery-pr-sequence)
+The [1.5.0 plan, §6](plans/completed/20261029-1.5.0-agent-ready.md#6-delivery-pr-sequence)
 accepts only **GO-2026-4887** and **GO-2026-4883**. The gate restricts that
 acceptance to `github.com/docker/docker@v28.5.2+incompatible`, the audited
 legacy dependency. A different advisory, module or version is not accepted.

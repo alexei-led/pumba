@@ -38,6 +38,7 @@ jobs:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          cleanup: true
       - name: Build Release Binaries
         env:
           GOPROXY: https://proxy.golang.org
