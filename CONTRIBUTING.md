@@ -62,7 +62,8 @@ The default Docker context is never changed.
 
 The wrapper streams unchanged policy, baseline and optional labels into the
 container. The working tree is writable for analyzers; use an isolated worktree.
-Shared Git metadata is mounted read-only, including linked worktrees. Caches use the container's
+Shared Git metadata is mounted read-only, including linked worktrees. Temporary
+Git registrations use a private in-container copy. Caches use the container's
 temporary input directory. Report redirection should point outside the repository.
 
 The wrapper disables the optional base-tree comparison, not the stored-baseline

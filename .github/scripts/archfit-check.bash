@@ -35,9 +35,17 @@ esac
     exit 1
 }
 
-# Stream inputs so remote Docker contexts need no host temporary-directory mount.
-# Keep absolute paths for linked-worktree .git pointers and protect shared Git metadata.
-tar -C "$root" -cf - "${inputs[@]}" |
+# Git needs temporary registrations even for its policy comparison. Give the
+# container a private copy, never write access to shared worktree registrations.
+[[ ! -L "$common/worktrees" ]] || {
+    printf 'Git worktrees directory must not be a symlink\n' >&2
+    exit 1
+}
+mkdir -p "$common/worktrees"
+
+# Stream inputs and registrations; remote contexts need no host temporary mount.
+# Absolute paths preserve linked-worktree .git pointers.
+tar -C "$root" -cf - "${inputs[@]}" -C "$common" worktrees |
     docker run --rm -i --platform linux/amd64 \
         --user "$(id -u):$(id -g)" \
         --cap-drop ALL --security-opt no-new-privileges \
@@ -46,11 +54,14 @@ tar -C "$root" -cf - "${inputs[@]}" |
         --env GIT_CONFIG_KEY_0=safe.directory \
         --env "GIT_CONFIG_VALUE_0=$root" \
         --volume "$root:$root" --volume "$common:$common:ro" \
+        --tmpfs "$common/worktrees:rw,nosuid,nodev,noexec,mode=1777" \
         --workdir "$root" --entrypoint /bin/sh "$image" -c '
             set -eu
             root=$1
-            shift
+            common=$2
+            shift 2
             inputs=$(mktemp -d)
             tar -xf - -C "$inputs"
+            cp -R "$inputs/worktrees/." "$common/worktrees/"
             exec /usr/local/bin/archfit check --config "$inputs/.archfit.yaml" --root "$root" --base= "$@"
-        ' archfit-check "$root" "$@"
+        ' archfit-check "$root" "$common" "$@"

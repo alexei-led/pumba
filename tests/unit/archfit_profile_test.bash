@@ -10,7 +10,7 @@ mkdir -p "$root/.github/scripts" "$root/.git" "$bin"
 cp .github/scripts/archfit-check.bash "$root/.github/scripts/"
 printf 'policy bytes\n' >"$root/.archfit.yaml"
 printf 'baseline bytes\n' >"$root/.archfit-baseline.json"
-for tool in bash tar cat id; do ln -s "$(command -v "$tool")" "$bin/$tool"; done
+for tool in bash tar cat id mkdir; do ln -s "$(command -v "$tool")" "$bin/$tool"; done
 cat >"$bin/git" <<'STUB'
 #!/usr/bin/env bash
 [[ ${FAKE_GIT_FAIL:-0} == 0 ]] || exit "$FAKE_GIT_FAIL"
@@ -47,11 +47,15 @@ has_arg() {
 for common in "$root/.git" "$tmp/shared git"; do
     mkdir -p "$common"
     FIXTURE_COMMON="$common"
+    mkdir -p "$common/worktrees/current"
+    printf 'ref: refs/heads/fixture\n' >"$common/worktrees/current/HEAD"
     run_check
     has_arg linux/amd64
     has_arg ghcr.io/alexei-led/archfit@sha256:bdcfe29bf9def9a4f0ae544923bc3e755fdec2c2cd6c46ec353c01e60642896b
     has_arg "$root:$root"
     has_arg "$common:$common:ro"
+    has_arg "$common/worktrees:rw,nosuid,nodev,noexec,mode=1777"
+    tar -xOf "$CAPTURE_TAR" worktrees/current/HEAD | cmp - "$common/worktrees/current/HEAD"
     has_arg no-new-privileges
     has_arg json
     tar -xOf "$CAPTURE_TAR" .archfit.yaml | cmp - "$root/.archfit.yaml"
