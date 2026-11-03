@@ -35,3 +35,34 @@ Both registries publish Linux amd64 and arm64, with matching runnable child mani
 Each registry's `latest` matches its 1.5.0 index at verification time. Both platforms have SLSA provenance bound to this repository, tag commit and workflow run, plus nonempty SPDX-2.3 SBOMs. These are BuildKit attestations, not a claim of independent signature verification.
 
 The immutable GHCR image passed an arm64 version/schema smoke test in the isolated acceptance VM. The existing default VM and Docker context were not changed.
+
+## Post-publication review evidence (2026-11-03)
+
+The review requested the exact commit-range diff and current-head test results. With Git and execution access available, the requested range is `4532d9fce0b5f2757f3f4c382fa1145ab94b6758..687c549837da9f940dc3306dccb4827d6cc41222` (10 commits). With rename detection disabled as below, the patch contains 189 file entries, 12,964 insertions and 1,568 deletions. Generate the exact patch with:
+
+```sh
+git diff --no-ext-diff --no-textconv --binary --full-index --no-renames --no-color \
+  4532d9fce0b5f2757f3f4c382fa1145ab94b6758 \
+  687c549837da9f940dc3306dccb4827d6cc41222
+```
+
+That output is 832,396 bytes (18,368 lines), SHA-256 `a3448bc9371107543a218fc32b9c7147a6ad75b68aa4e387c6b43102a2182733`. The range passes `git diff --check`.
+
+Fresh verification on clean `687c549837da9f940dc3306dccb4827d6cc41222`, using Go 1.27.3 on darwin/arm64:
+
+| Command / scope | Result |
+|---|---|
+| `CGO_ENABLED=0 go test ./... -count=1 -timeout=120s` | All 22 packages passed. |
+| `CGO_ENABLED=1 go test -race ./... -count=1 -timeout=180s` | All 22 packages passed. |
+| golangci-lint v2.15.0, `run -c .golangci.yaml ./...` | Zero issues. |
+| `bash .github/scripts/test_govulncheck.bash` | All 13 regression groups passed. |
+| `bash` on each `tests/unit/*_test.bash` | All four offline fixture suites passed. |
+| `shellcheck -x .github/scripts/*.bash tests/unit/*_test.bash`; `actionlint` | Passed (v0.11.0 / v1.7.12). Sourced helpers must be followed with `-x`. |
+| `bash .github/scripts/govulncheck.bash` with govulncheck v1.9.0 | Passed the existing exact symbol acceptance; see below. |
+| `make release VERSION=1.5.0 BIN=<temporary-directory>/build` | All four darwin/linux × amd64/arm64 builds passed; every build records the reviewed revision and `vcs.modified=false`. |
+| Native release binary, schema with nonexistent Docker/containerd sockets | Valid `pumba.cli/v1`, version 1.5.0; text/NDJSON documents byte-identical. |
+| `archfit check --format agent` (v3.4.0, unchanged policy) | `change.status: pass`, `next_action: none`, zero blockers/evidence gaps, exit 2. The existing three measurement-profile-drift ratchets remain unmeasured. |
+
+The fresh vulnerability scan used database timestamp `2026-11-02T22:01:43Z`. JSON scanner exit was 0 **with findings**: only GO-2026-4883 and GO-2026-4887 at `github.com/docker/docker@v28.5.2+incompatible` reached symbol level and matched the pre-approved tuples. GO-2026-5617, GO-2026-5668 and GO-2026-5746 appeared only in module inventory; there were no package-only or unexpected symbol findings. This is not a vulnerability-free scan and adds no exception.
+
+This evidence addresses the review tooling limitation, not a product-code defect or a claim that a comprehensive independent review has passed. Runtime integration suites and published assets were not rerun in this follow-up; their earlier acceptance/publication evidence above and in the completed plan remains separately scoped. No product source or tests were changed.
