@@ -44,6 +44,35 @@ DOCKER_BUILDKIT=1 docker build -t pumba -f docker/Dockerfile .
 make release
 ```
 
+## Architecture checks
+
+The Archfit Action is the architecture gate of record. Local Homebrew tools can
+produce a different measurement profile, even with the same engine version.
+
+Use the same immutable Linux/amd64 engine image as the pinned Action:
+
+```sh
+DOCKER_CONTEXT=<chosen-context> make archfit-check
+DOCKER_CONTEXT=<chosen-context> bash .github/scripts/archfit-check.bash --format json
+```
+
+This starts an analysis container, not Pumba or a chaos workload. Select the
+Docker context explicitly. The check needs network access for Go dependencies.
+The default Docker context is never changed.
+
+The wrapper streams unchanged policy, baseline and optional labels into the
+container. The working tree is writable for analyzers; use an isolated worktree.
+Shared Git metadata is mounted read-only, including linked worktrees. Caches use the container's
+temporary input directory. Report redirection should point outside the repository.
+
+The wrapper disables the optional base-tree comparison, not the stored-baseline
+metric checks. It preserves engine exit codes: 2 means attention, not a clean
+result. Read the report's reference comparability and missing required checks.
+
+The PR workflow tests this entry point on native amd64 and requires an exact
+match with the accepted measurement profile. Update the local image pin together
+with an approved Action upgrade. Do not replace the baseline to hide drift.
+
 ## Preparing a Release
 
 Update `VERSION` and commit `docs/release-notes-X.Y.Z.md` in the release PR. Review

@@ -3,6 +3,7 @@
 ## Build & Test Commands
 
 - **Build:** `make build` (builds for current TARGETOS/TARGETARCH)
+- **Architecture with CI tools:** `DOCKER_CONTEXT=<chosen-context> make archfit-check` (pinned Linux/amd64 image; preserves attention exit 2; never refresh policy/baseline to hide drift)
 - **Full pipeline:** `make all` (format → lint → test → build)
 - **Unit tests:** `make test` (requires `CGO_ENABLED=1` for race detector)
 - **Test with coverage:** `make test-coverage`
