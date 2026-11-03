@@ -84,6 +84,17 @@ func TestRunChaosCommand_SingleRun(t *testing.T) {
 	assert.Equal(t, 1, cmd.calls)
 }
 
+func TestRunChaosCommand_ExpiredBudgetNeverStarts(t *testing.T) {
+	ctx, cancel := context.WithDeadlineCause(context.Background(), time.Time{}, ErrMaxDurationExceeded)
+	defer cancel()
+	cmd := &mockCommand{}
+
+	err := RunChaosCommand(ctx, cmd, &GlobalParams{MaxDuration: time.Hour, Interval: time.Hour})
+
+	require.ErrorIs(t, err, ErrMaxDurationExceeded)
+	assert.Zero(t, cmd.calls)
+}
+
 func TestRunChaosCommand_Error(t *testing.T) {
 	cmd := &mockCommand{err: errors.New("chaos failed")}
 	params := &GlobalParams{Interval: 0}
