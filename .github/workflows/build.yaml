@@ -59,6 +59,9 @@ jobs:
         run: |
           make lint
           make test-coverage
+      - name: Run Offline Shell Tests
+        if: steps.changes.outputs.docs_only != 'true'
+        run: make test-shell
       - name: Test govulncheck Gate
         if: steps.changes.outputs.docs_only != 'true'
         run: bash .github/scripts/test_govulncheck.bash

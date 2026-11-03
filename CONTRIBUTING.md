@@ -68,8 +68,11 @@ separately; local candidate checks do not validate published artifacts.
 ### Unit tests
 
 ```sh
-# Run all unit tests (requires CGO_ENABLED=1 for race detector)
+# Run all unit tests, including offline shell regressions
 make test
+
+# Run only the offline shell regressions (no container runtime needed)
+make test-shell
 
 # Run with race detector (linux/amd64 only)
 make test-race
