@@ -81,10 +81,21 @@ func collectStressResult(t *testing.T, result *ctr.StressResult) (string, error)
 }
 
 func TestStressContainer_LateWaitFailurePrecedesCompletion(t *testing.T) {
-	for _, stage := range []string{"exit", "wait"} {
-		t.Run(stage, func(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		cancel      bool
+		waitFailure bool
+	}{
+		{name: "exit"},
+		{name: "wait", waitFailure: true},
+		{name: "exit_after_cancel", cancel: true},
+		{name: "wait_after_cancel", cancel: true, waitFailure: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				api, start := completionRuntime(t)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
 				conn, peer := net.Pipe()
 				defer peer.Close()
 				defer conn.Close()
@@ -96,9 +107,13 @@ func TestStressContainer_LateWaitFailurePrecedesCompletion(t *testing.T) {
 					Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
 				api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
 
-				result, err := start(context.Background())
+				result, err := start(ctx)
 				require.NoError(t, err)
 				synctest.Wait()
+				if tc.cancel {
+					cancel()
+					synctest.Wait()
+				}
 				select {
 				case <-result.Output:
 					t.Fatal("output completed before the SDK terminal result")
@@ -108,16 +123,16 @@ func TestStressContainer_LateWaitFailurePrecedesCompletion(t *testing.T) {
 				}
 
 				waitErr := errors.New("late wait failure")
-				if stage == "exit" {
-					exited <- ctypes.WaitResponse{StatusCode: 7}
-				} else {
+				if tc.waitFailure {
 					waitErrors <- waitErr
+				} else {
+					exited <- ctypes.WaitResponse{StatusCode: 7}
 				}
 				_, err = collectStressResult(t, result)
-				if stage == "exit" {
-					require.ErrorContains(t, err, "exited with code 7")
-				} else {
+				if tc.waitFailure {
 					require.ErrorIs(t, err, waitErr)
+				} else {
+					require.ErrorContains(t, err, "exited with code 7")
 				}
 			})
 		})
