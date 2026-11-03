@@ -306,8 +306,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          generateReleaseNotes: true
+          name: ${{ github.ref_name }}
+          bodyFile: docs/release-notes-${{ github.ref_name }}.md
           prerelease: false
           artifacts: ${{ github.workspace }}/.bin/*
           # Update existing release if user pre-created with `gh release create`.

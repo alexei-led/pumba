@@ -44,6 +44,25 @@ DOCKER_BUILDKIT=1 docker build -t pumba -f docker/Dockerfile .
 make release
 ```
 
+## Preparing a Release
+
+Update `VERSION` and commit `docs/release-notes-X.Y.Z.md` in the release PR. Review
+user-visible changes since the previous published release, upgrade actions,
+compatibility changes, and security limitations. The notes file is required:
+the Release workflow uses it as the authored body for a new release, without
+generated notes. Updates to an existing release preserve its current body;
+changing published notes requires a separately authorized notes repair.
+
+Validate the merged release candidate before requesting publication approval.
+For local version checks, pass `VERSION=X.Y.Z` explicitly to `make build`;
+otherwise Git-derived metadata can override the `VERSION` file.
+
+Only after explicit release authorization, tag the intended commit `X.Y.Z`
+(without a `v` prefix). Pushing that tag triggers the owning Release workflow;
+it publishes the exact tag as the title and reads the matching notes file.
+Verify the workflow result and the shipped binaries and image identities
+separately; local candidate checks do not validate published artifacts.
+
 ## Running Tests
 
 ### Unit tests
