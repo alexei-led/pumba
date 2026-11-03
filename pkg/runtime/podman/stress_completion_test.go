@@ -80,6 +80,50 @@ func collectStressResult(t *testing.T, result *ctr.StressResult) (string, error)
 	return text, failure
 }
 
+func TestStressContainer_LateWaitFailurePrecedesCompletion(t *testing.T) {
+	for _, stage := range []string{"exit", "wait"} {
+		t.Run(stage, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				api, start := completionRuntime(t)
+				conn, peer := net.Pipe()
+				defer peer.Close()
+				defer conn.Close()
+				api.EXPECT().ContainerAttach(mock.Anything, "owned-stress", ctypes.AttachOptions{Stdout: true, Stderr: true, Stream: true}).
+					Return(types.HijackedResponse{Conn: conn, Reader: bufio.NewReader(strings.NewReader("done"))}, nil).Once()
+				api.EXPECT().ContainerStart(mock.Anything, "owned-stress", ctypes.StartOptions{}).Return(nil).Once()
+				exited, waitErrors := make(chan ctypes.WaitResponse), make(chan error)
+				api.EXPECT().ContainerWait(mock.Anything, "owned-stress", ctypes.WaitConditionNotRunning).
+					Return((<-chan ctypes.WaitResponse)(exited), (<-chan error)(waitErrors)).Once()
+				api.EXPECT().ContainerRemove(mock.Anything, "owned-stress", ctypes.RemoveOptions{Force: true, RemoveVolumes: true}).Return(nil).Once()
+
+				result, err := start(context.Background())
+				require.NoError(t, err)
+				synctest.Wait()
+				select {
+				case <-result.Output:
+					t.Fatal("output completed before the SDK terminal result")
+				case <-result.Errors:
+					t.Fatal("errors completed before the SDK terminal result")
+				default:
+				}
+
+				waitErr := errors.New("late wait failure")
+				if stage == "exit" {
+					exited <- ctypes.WaitResponse{StatusCode: 7}
+				} else {
+					waitErrors <- waitErr
+				}
+				_, err = collectStressResult(t, result)
+				if stage == "exit" {
+					require.ErrorContains(t, err, "exited with code 7")
+				} else {
+					require.ErrorIs(t, err, waitErr)
+				}
+			})
+		})
+	}
+}
+
 func TestStressContainer_OperationAndRemovalFailures(t *testing.T) {
 	for _, stage := range []string{"attach", "start", "read", "read_cancel", "wait", "exit"} {
 		t.Run(stage, func(t *testing.T) {
