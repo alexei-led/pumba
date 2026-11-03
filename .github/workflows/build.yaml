@@ -59,9 +59,9 @@ jobs:
         run: |
           make lint
           make test-coverage
-      - name: Test Archfit Profile Wrapper
+      - name: Run Offline Shell Tests
         if: steps.changes.outputs.docs_only != 'true'
-        run: bash tests/unit/archfit_profile_test.bash
+        run: make test-shell
       - name: Test govulncheck Gate
         if: steps.changes.outputs.docs_only != 'true'
         run: bash .github/scripts/test_govulncheck.bash

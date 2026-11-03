@@ -5,7 +5,8 @@
 - **Build:** `make build` (builds for current TARGETOS/TARGETARCH)
 - **Architecture with CI tools:** `DOCKER_CONTEXT=<chosen-context> make archfit-check` (pinned Linux/amd64 image; preserves attention exit 2; never refresh policy/baseline to hide drift)
 - **Full pipeline:** `make all` (format → lint → test → build)
-- **Unit tests:** `make test` (requires `CGO_ENABLED=1` for race detector)
+- **Unit tests:** `make test` (includes offline shell regressions; requires a CGO toolchain)
+- **Offline shell regressions:** `make test-shell` (no container runtime needed)
 - **Test with coverage:** `make test-coverage`
 - **Race detector:** `make test-race` (linux/amd64 only)
 - **Lint:** `make lint` (runs golangci-lint with `.golangci.yaml`)
@@ -23,7 +24,7 @@ Integration tests use [bats](https://github.com/bats-core/bats-core):
 
 - Tests are in `tests/*.bats` with helpers in `tests/test_helper.bash`; install Bats >= 1.5.0 and the `bats-support`/`bats-assert` libraries at `/usr/local/lib/`
 - Result-event and schema tests (`tests/output.bats`, `tests/webhook.bats`, `tests/*status.bats`, `tests/schema.bats`, ndjson smoke in `*_global_flags.bats`) need `jq` and use `run --separate-stderr` to assert on stdout alone
-- Webhook HTTP acceptance (`tests/webhook.bats`) requires `python3` (stdlib only); missing Python fails rather than skips. The `integration-tests` Docker stage includes it; the release image does not. Run fixture safety checks offline with `bash tests/unit/webhook_fixtures_test.bash` (no runtime needed)
+- Webhook HTTP acceptance (`tests/webhook.bats`) requires `python3` (stdlib only); missing Python fails rather than skips. The `integration-tests` Docker stage includes it; the release image does not. Run fixture safety checks and all other offline shell regressions with `make test-shell` (no runtime needed)
 - **Run all tests locally (recommended):** `colima ssh -- sudo bats tests/*.bats tests/containerd_*.bats`
   - Colima VM has native Docker + containerd sockets; `sudo` is required for containerd sidecar tests
 - **Docker tests only (via Docker image):** `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --entrypoint bats pumba:test tests/*.bats`

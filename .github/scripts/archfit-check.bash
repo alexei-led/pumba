@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Match the Linux/amd64 measurement environment of the pinned Archfit Action.
-# Pins: archfit-action@7ade3b8fc989ec416ea5d570e7e236f47f7845fc, scripts/lib.sh.
+# Pins: archfit-action@2221f4bfece0725a657414fed751cdc090ba1bd4, scripts/lib.sh.
 set -euo pipefail
 
 : "${DOCKER_CONTEXT:?Set DOCKER_CONTEXT explicitly; this check starts an analysis container.}"
