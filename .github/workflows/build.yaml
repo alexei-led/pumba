@@ -101,14 +101,14 @@ jobs:
           # Exact daemon advisory applicability and JSON exit contract: docs/security.md.
           bash .github/scripts/govulncheck.bash 2>&1 | tee govulncheck.txt
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2
         if: always() && needs.changes.outputs.docs_only != 'true'
         with:
           files: .cover/tests.xml
           commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
         if: needs.changes.outputs.docs_only != 'true'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -158,7 +158,7 @@ jobs:
           make build TARGETARCH="$(dpkg --print-architecture)"
           sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
       - name: Install Bats
-        uses: bats-core/bats-action@4.0.0
+        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # 4.0.0
         with:
           support-path: /usr/local/lib/bats-support
           assert-path: /usr/local/lib/bats-assert
@@ -279,7 +279,7 @@ jobs:
           [ -f "$BATS_LOG" ] && cp "$BATS_LOG" "$DIAG/bats.log" || true
       - name: Upload Diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Artifact names forbid `/` — use runner tag (already encodes arch).
           name: integration-${{ matrix.runtime }}-${{ matrix.runner }}-${{ matrix.shard }}-diag

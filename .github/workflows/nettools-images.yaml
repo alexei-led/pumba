@@ -90,6 +90,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to GitHub Container Registry
@@ -124,9 +125,11 @@ jobs:
           provenance: true
           sbom: true
       - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
+          digest="$DIGEST"
           touch "/tmp/digests/${digest#sha256:}"
       - name: Upload digest
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -187,6 +190,8 @@ jobs:
           done <<< "$META_TAGS"
           docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
       - name: Inspect image
+        env:
+          META_TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          tag=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | cut -d, -f1)
+          tag=$(printf '%s\n' "$META_TAGS" | head -n1 | cut -d, -f1)
           docker buildx imagetools inspect "$tag"
