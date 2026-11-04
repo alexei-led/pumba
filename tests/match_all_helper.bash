@@ -16,7 +16,10 @@ match_all_setup() {
 	docker) skip_if_dind ;;
 	containerd)
 		require_containerd
-		MA_PUMBA=(sudo pumba --runtime containerd --containerd-namespace moby)
+		MA_PUMBA+=(--containerd-namespace moby)
+		if [[ "$EUID" -ne 0 ]]; then
+			MA_PUMBA=(sudo "${MA_PUMBA[@]}")
+		fi
 		ctr_pull_image moby docker.io/library/alpine:latest
 		ctr_pull_image moby ghcr.io/alexei-led/pumba-alpine-nettools:latest
 		;;
@@ -28,15 +31,17 @@ match_all_setup() {
 		fi
 		;;
 	esac
-	local server='ip link set lo up; mkdir -p /tmp/http; printf "match-all-ok\n" >/tmp/http/index.html; httpd -p 8080 -h /tmp/http; httpd -p 8081 -h /tmp/http; exec sleep infinity'
+	# Namespace identity and positional parameters are checked inside the fixture.
+	# shellcheck disable=SC2016
+	local server='[ "$(readlink /proc/self/ns/net)" != "$1" ] || exit 1; ip link set lo up; mkdir -p /tmp/http; printf "match-all-ok\n" >/tmp/http/index.html; httpd -p 8080 -h /tmp/http; httpd -p 8081 -h /tmp/http; exec sleep infinity'
 	if [[ "$MA_RUNTIME" == containerd ]]; then
 		MA_TARGET="$MA_RUN-target"
-		sudo ctr -n moby run -d --privileged docker.io/library/alpine:latest "$MA_TARGET" sh -ec "$server" || return
+		sudo ctr -n moby run -d --privileged docker.io/library/alpine:latest "$MA_TARGET" sh -ec "$server" sh "$(readlink /proc/self/ns/net)" || return
 	else
 		"$MA_CLI" image inspect alpine:latest >/dev/null 2>&1 || "$MA_CLI" pull alpine:latest >/dev/null
 		"$MA_CLI" image inspect ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 ||
 			"$MA_CLI" pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null
-		MA_TARGET=$("$MA_CLI" run -d --network none --cap-add NET_ADMIN --name "$MA_RUN-target" alpine:latest sh -ec "$server") || return
+		MA_TARGET=$("$MA_CLI" run -d --network none --cap-add NET_ADMIN --name "$MA_RUN-target" alpine:latest sh -ec "$server" sh "$(readlink /proc/self/ns/net)") || return
 	fi
 	MA_IDS+=("$MA_TARGET")
 	local target_ns
@@ -74,7 +79,7 @@ match_all_request() {
 
 match_all_stop() {
 	[ -n "$MA_PID" ] || return 0
-	if [[ "$MA_RUNTIME" == containerd ]]; then
+	if [[ "$MA_RUNTIME" == containerd && "$EUID" -ne 0 ]]; then
 		sudo pkill -TERM -f "^pumba .*--run-id ${MA_RUN} " 2>/dev/null || true
 	else
 		kill -TERM "$MA_PID" 2>/dev/null || true
