@@ -35,6 +35,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 					Usage: "network interface to apply delay on",
 					Value: defaultInterface,
 				},
+				cli.BoolFlag{Name: "match-all", Usage: "require a packet to match every supplied filter dimension"},
 				cli.StringSliceFlag{
 					Name:  "target, t",
 					Usage: "target filter; repeatable IPv4/CIDR or running container name/ID; IPv6 is not supported",
@@ -49,7 +50,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
-					Usage: "nettools image with sh, grep, which, tail, sleep, tc, and iptables",
+					Usage: "nettools image with sh, grep, awk, which, tail, sleep, tc, and iptables",
 					Value: "ghcr.io/alexei-led/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
@@ -93,6 +94,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 					Usage: "protocol to apply input rules on (any, udp, tcp or icmp)",
 					Value: "any",
 				},
+				cli.BoolFlag{Name: "match-all", Usage: "require a packet to match every supplied filter dimension"},
 				cli.StringSliceFlag{
 					Name:  "source, src, s",
 					Usage: "source IP filter; supports multiple IPs; supports CIDR notation",

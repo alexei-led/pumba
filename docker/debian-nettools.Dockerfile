@@ -8,7 +8,8 @@ LABEL org.opencontainers.image.description="Debian-based image with iproute2 (tc
 RUN apt-get update && \
     apt-get install -y \
     iproute2 \
-    iptables && \
+    iptables \
+    mawk && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

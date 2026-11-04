@@ -108,10 +108,11 @@ func TestInspect(t *testing.T) {
 
 func TestIPTablesCommandsTranslatesRequest(t *testing.T) {
 	_, src, _ := net.ParseCIDR("10.0.0.0/8")
-	got := IPTablesCommands(&ctr.IPTablesRequest{
+	got, err := IPTablesCommands(&ctr.IPTablesRequest{
 		CmdPrefix: []string{"-I", "INPUT"}, CmdSuffix: []string{"-j", "DROP"},
 		SrcIPs: []*net.IPNet{src}, RunID: "r",
 	})
+	require.NoError(t, err)
 	assert.Equal(t, [][]string{{"iptables", "-I", "INPUT", "-s", "10.0.0.0/8", "-m", "comment", "--comment", "pumba:r", "-j", "DROP"}}, got)
 }
 
@@ -171,8 +172,16 @@ func TestNetemCommandsTranslateRequest(t *testing.T) {
 	req := &ctr.NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}, IPs: []*net.IPNet{dst}, DPorts: []string{"80"}}
 	want := &tc.NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}, IPs: []string{"10.0.0.0/8"}, DPorts: []string{"80"}}
 
-	assert.Equal(t, append([]string{"sh"}, tc.Start(want)...), NetemStart(req))
-	assert.Equal(t, append([]string{"sh"}, tc.Stop(want)...), NetemStop(req))
+	wantStart, err := tc.Start(want)
+	require.NoError(t, err)
+	wantStop, err := tc.Stop(want)
+	require.NoError(t, err)
+	start, err := NetemStart(req)
+	require.NoError(t, err)
+	stop, err := NetemStop(req)
+	require.NoError(t, err)
+	assert.Equal(t, append([]string{"sh"}, wantStart...), start)
+	assert.Equal(t, append([]string{"sh"}, wantStop...), stop)
 }
 
 func TestNetemPlan(t *testing.T) {
@@ -188,10 +197,16 @@ func TestNetemPlan(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &ctr.NetemRequest{Interface: "eth0", Command: []string{"loss", "10%"}, Sidecar: tt.sidecar}
+			start, err := NetemStart(req)
+			require.NoError(t, err)
+			stop, err := NetemStop(req)
+			require.NoError(t, err)
+			plan, err := NetemPlan(req)
+			require.NoError(t, err)
 			assert.Equal(t, &ctr.CommandPlan{
 				Via: tt.wantVia, Image: tt.wantImage,
-				Apply: [][]string{NetemStart(req)}, Revert: [][]string{NetemStop(req)},
-			}, NetemPlan(req))
+				Apply: [][]string{start}, Revert: [][]string{stop},
+			}, plan)
 		})
 	}
 }
@@ -234,7 +249,9 @@ func TestIPTablesPlan(t *testing.T) {
 			}
 			del := *add
 			del.CmdPrefix = []string{"-D", "INPUT"}
-			assert.Equal(t, &ctr.CommandPlan{Via: tt.wantVia, Image: tt.wantImage, Apply: tt.wantApply, Revert: tt.wantRevert}, IPTablesPlan(add, &del))
+			plan, err := IPTablesPlan(add, &del)
+			require.NoError(t, err)
+			assert.Equal(t, &ctr.CommandPlan{Via: tt.wantVia, Image: tt.wantImage, Apply: tt.wantApply, Revert: tt.wantRevert}, plan)
 		})
 	}
 }

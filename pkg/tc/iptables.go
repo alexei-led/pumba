@@ -24,6 +24,7 @@ type IPTablesRequest struct {
 	DstIPs    []string
 	SPorts    []string
 	DPorts    []string
+	MatchAll  bool
 	// RunID tags every rule with "-m comment --comment pumba:<RunID>". Empty
 	// means untagged.
 	RunID string
@@ -34,7 +35,10 @@ type IPTablesRequest struct {
 // order, or a single argv when there are no filters. The run comment sits
 // between the filter and CmdSuffix, so an add spec and its delete spec built
 // from the same request match the same rule.
-func IPTablesCommands(r *IPTablesRequest) [][]string {
+func IPTablesCommands(r *IPTablesRequest) ([][]string, error) {
+	if r.MatchAll {
+		return matchAllIPTablesCommands(r)
+	}
 	var commands [][]string
 	for _, filter := range []struct {
 		flag   string
@@ -52,7 +56,28 @@ func IPTablesCommands(r *IPTablesRequest) [][]string {
 	if len(commands) == 0 {
 		commands = append(commands, r.command())
 	}
-	return commands
+	return commands, nil
+}
+
+func matchAllIPTablesCommands(r *IPTablesRequest) ([][]string, error) {
+	groups, err := compileSelectors(
+		selectorDimension{"-s", r.SrcIPs, true},
+		selectorDimension{"-d", r.DstIPs, true},
+		selectorDimension{"--sport", r.SPorts, false},
+		selectorDimension{"--dport", r.DPorts, false},
+	)
+	if err != nil {
+		return nil, err
+	}
+	commands := make([][]string, 0, len(groups))
+	for _, group := range groups {
+		var filter []string
+		for _, match := range group {
+			filter = append(filter, match.flag, match.value)
+		}
+		commands = append(commands, r.command(filter...))
+	}
+	return commands, nil
 }
 
 func (r *IPTablesRequest) command(filter ...string) []string {

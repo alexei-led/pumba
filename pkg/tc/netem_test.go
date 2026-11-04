@@ -12,7 +12,7 @@ import (
 )
 
 func TestStartScopedInstallsOnlyPumbaTopology(t *testing.T) {
-	script := Start(&NetemRequest{
+	script := startArgs(t, &NetemRequest{
 		Interface: "eth0",
 		Command:   []string{"delay", "100ms"},
 		IPs:       []string{"10.0.0.1/32"},
@@ -26,7 +26,7 @@ func TestStartScopedInstallsOnlyPumbaTopology(t *testing.T) {
 }
 
 func TestStartUnscopedBuildsOneRootCommand(t *testing.T) {
-	script := Start(&NetemRequest{
+	script := startArgs(t, &NetemRequest{
 		Interface: "eth0",
 		Command:   []string{"loss", "50.00"},
 	})[1]
@@ -36,14 +36,14 @@ func TestStartUnscopedBuildsOneRootCommand(t *testing.T) {
 }
 
 func TestStartAllowsFQDefaultRoot(t *testing.T) {
-	log, err := runScript(t, Start(&NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}}), "qdisc fq 0: root refcnt 2")
+	log, err := runScript(t, startArgs(t, &NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}}), "qdisc fq 0: root refcnt 2")
 
 	require.NoError(t, err)
 	assert.Contains(t, log, "qdisc add dev eth0 root handle 504d: netem delay 100ms")
 }
 
 func TestStartRejectsForeignRootBeforeMutation(t *testing.T) {
-	log, err := runScript(t, Start(&NetemRequest{
+	log, err := runScript(t, startArgs(t, &NetemRequest{
 		Interface: "eth0",
 		Command:   []string{"loss", "10%"},
 	}), "qdisc netem 1: root refcnt 2")
@@ -53,7 +53,7 @@ func TestStartRejectsForeignRootBeforeMutation(t *testing.T) {
 }
 
 func TestStartRejectsStalePumbaRootBeforeMutation(t *testing.T) {
-	log, err := runScript(t, Start(&NetemRequest{
+	log, err := runScript(t, startArgs(t, &NetemRequest{
 		Interface: "eth0",
 		Command:   []string{"delay", "100ms"},
 		IPs:       []string{"10.0.0.1/32"},
@@ -64,14 +64,14 @@ func TestStartRejectsStalePumbaRootBeforeMutation(t *testing.T) {
 }
 
 func TestStartRejectsMultiqueueRootBeforeMutation(t *testing.T) {
-	log, err := runScript(t, Start(&NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}}), "qdisc mq 0: root")
+	log, err := runScript(t, startArgs(t, &NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}}), "qdisc mq 0: root")
 
 	require.Error(t, err)
 	assert.Empty(t, log)
 }
 
 func TestStartScopedRollsBackPartialTopology(t *testing.T) {
-	log, err := runScriptWithFailure(t, Start(&NetemRequest{
+	log, err := runScriptWithFailure(t, startArgs(t, &NetemRequest{
 		Interface: "eth0",
 		Command:   []string{"delay", "100ms"},
 		IPs:       []string{"10.0.0.1/32"},
@@ -89,7 +89,7 @@ func TestStopScopedVerifiesAndDeletesCompleteRoot(t *testing.T) {
 		"qdisc sfq 504f: parent 504d:2 limit 127p",
 		"qdisc netem 5050: parent 504d:3 limit 1000",
 	}, "\n")
-	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state)
+	log, err := runScript(t, stopArgs(t, &NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state)
 
 	require.NoError(t, err)
 	assert.Equal(t, "qdisc del dev eth0 root handle 504d:\n", log)
@@ -104,14 +104,14 @@ func TestStopScopedRejectsChangedFilterPredicate(t *testing.T) {
 		"qdisc sfq 504f: parent 504d:2 limit 127p",
 		"qdisc netem 5050: parent 504d:3 limit 1000",
 	}, "\n")
-	log, err := runScriptWithFailureAndFilter(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state, "", "match 0a000002/ffffffff at 16")
+	log, err := runScriptWithFailureAndFilter(t, stopArgs(t, &NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state, "", "match 0a000002/ffffffff at 16")
 
 	require.Error(t, err)
 	assert.Empty(t, log)
 }
 
 func TestStopScopedVerifiesRequestedPredicates(t *testing.T) {
-	script := Stop(&NetemRequest{
+	script := stopArgs(t, &NetemRequest{
 		Interface: "eth0",
 		IPs:       []string{"10.0.0.0/24"},
 		SPorts:    []string{"80"},
@@ -129,28 +129,28 @@ func TestStopScopedRejectsIncompleteTopology(t *testing.T) {
 		"qdisc sfq 504e: parent 504d:1 limit 127p",
 		"qdisc netem 5050: parent 504d:3 limit 1000",
 	}, "\n")
-	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state)
+	log, err := runScript(t, stopArgs(t, &NetemRequest{Interface: "eth0", IPs: []string{"10.0.0.1/32"}}), state)
 
 	require.Error(t, err)
 	assert.Empty(t, log)
 }
 
 func TestStopMissingStateIsSuccess(t *testing.T) {
-	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0"}), "qdisc noqueue 0: root refcnt 2")
+	log, err := runScript(t, stopArgs(t, &NetemRequest{Interface: "eth0"}), "qdisc noqueue 0: root refcnt 2")
 
 	require.NoError(t, err)
 	assert.Empty(t, log)
 }
 
 func TestStopUnscopedRejectsForeignRoot(t *testing.T) {
-	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0"}), "qdisc prio 1: root refcnt 2")
+	log, err := runScript(t, stopArgs(t, &NetemRequest{Interface: "eth0"}), "qdisc prio 1: root refcnt 2")
 
 	require.Error(t, err)
 	assert.Empty(t, log)
 }
 
 func TestStopUnscopedRemovesVerifiedPumbaRoot(t *testing.T) {
-	log, err := runScript(t, Stop(&NetemRequest{Interface: "eth0"}), "qdisc netem 504d: root refcnt 2")
+	log, err := runScript(t, stopArgs(t, &NetemRequest{Interface: "eth0"}), "qdisc netem 504d: root refcnt 2")
 
 	require.NoError(t, err)
 	assert.Equal(t, "qdisc del dev eth0 root handle 504d:\n", log)

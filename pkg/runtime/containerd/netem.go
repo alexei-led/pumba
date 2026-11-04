@@ -14,7 +14,11 @@ func (c *containerdClient) NetemContainer(ctx context.Context, req *ctr.NetemReq
 	if req.DryRun {
 		return nil
 	}
-	return c.runNetemCommand(ctx, req, netns.NetemStart(req))
+	argv, err := netns.NetemStart(req)
+	if err != nil {
+		return err
+	}
+	return c.runNetemCommand(ctx, req, argv)
 }
 
 // StopNetemContainer removes only a verified Pumba-owned netem topology.
@@ -23,13 +27,17 @@ func (c *containerdClient) StopNetemContainer(ctx context.Context, req *ctr.Nete
 	if req.DryRun {
 		return nil
 	}
-	return c.runNetemCommand(ctx, req, netns.NetemStop(req))
+	argv, err := netns.NetemStop(req)
+	if err != nil {
+		return err
+	}
+	return c.runNetemCommand(ctx, req, argv)
 }
 
 // PlanNetemContainer returns the argv NetemContainer and StopNetemContainer
 // run for req.
 func (c *containerdClient) PlanNetemContainer(req *ctr.NetemRequest) (*ctr.CommandPlan, error) {
-	return netns.NetemPlan(req), nil
+	return netns.NetemPlan(req)
 }
 
 func (c *containerdClient) runNetemCommand(ctx context.Context, req *ctr.NetemRequest, argv []string) error {

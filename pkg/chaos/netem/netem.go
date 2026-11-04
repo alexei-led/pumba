@@ -44,6 +44,11 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 		return fmt.Errorf("failed to resolve --target: %w", err)
 	}
 
+	if req.MatchAll && !req.DryRun {
+		if _, err := client.PlanNetemContainer(req); err != nil {
+			return fmt.Errorf("planning netem: %w", err)
+		}
+	}
 	logger := log.WithFields(log.Fields{
 		"id":       req.Container.ID(),
 		"name":     req.Container.Name(),

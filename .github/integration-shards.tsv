@@ -4,6 +4,7 @@ containerd	1	tests/containerd_dry_run_plan.bats
 containerd	1	tests/containerd_error_handling.bats
 containerd	1	tests/containerd_global_flags.bats
 containerd	1	tests/containerd_iptables.bats
+containerd	1	tests/containerd_match_all.bats
 containerd	1	tests/containerd_lifecycle.bats
 containerd	1	tests/containerd_netem.bats
 containerd	1	tests/containerd_sidecar.bats
@@ -24,6 +25,7 @@ docker	2	tests/dry_run_plan.bats
 docker	2	tests/global.bats
 docker	2	tests/global_params.bats
 docker	2	tests/iptables.bats
+docker	2	tests/match_all.bats
 docker	2	tests/kill.bats
 docker	2	tests/netem.bats
 docker	2	tests/output.bats
@@ -33,6 +35,7 @@ docker	2	tests/webhook.bats
 podman	1	tests/podman_netem.bats
 podman	2	tests/podman_stop_pause_remove.bats
 podman	2	tests/podman_iptables.bats
+podman	2	tests/podman_match_all.bats
 podman	1	tests/podman_global_flags.bats
 podman	2	tests/podman_combined.bats
 podman	1	tests/podman_error_handling.bats

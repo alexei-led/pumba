@@ -28,6 +28,7 @@ type NetemRequest struct {
 	IPs       []string
 	SPorts    []string
 	DPorts    []string
+	MatchAll  bool
 }
 
 // HasFilters reports whether this request needs Pumba's scoped prio topology.
@@ -37,33 +38,40 @@ func (r *NetemRequest) HasFilters() bool {
 
 // Start returns arguments for `sh -ec` that inspect the root qdisc before any
 // mutation and install only Pumba-owned qdiscs. A foreign root fails closed.
-func Start(r *NetemRequest) []string {
-	if r.HasFilters() {
-		return []string{"-ec", scopedStartScript(r)}
+func Start(r *NetemRequest) ([]string, error) {
+	if r.MatchAll {
+		start, _, err := matchAllNetemScripts(r)
+		if err != nil {
+			return nil, err
+		}
+		return []string{"-ec", start}, nil
 	}
-	return []string{"-ec", unscopedStartScript(r)}
+	if r.HasFilters() {
+		return []string{"-ec", scopedStartScript(r)}, nil
+	}
+	return []string{"-ec", unscopedStartScript(r)}, nil
 }
 
 // Stop returns arguments for `sh -ec` that verify Pumba ownership before
 // cleanup. An absent/default qdisc has no Pumba state and succeeds.
-func Stop(r *NetemRequest) []string {
-	if r.HasFilters() {
-		return []string{"-ec", scopedStopScript(r)}
+func Stop(r *NetemRequest) ([]string, error) {
+	if r.MatchAll {
+		_, stop, err := matchAllNetemScripts(r)
+		if err != nil {
+			return nil, err
+		}
+		return []string{"-ec", stop}, nil
 	}
-	return []string{"-ec", unscopedStopScript(r.Interface)}
+	if r.HasFilters() {
+		return []string{"-ec", scopedStopScript(r)}, nil
+	}
+	return []string{"-ec", unscopedStopScript(r.Interface)}, nil
 }
 
 func scopedStartScript(r *NetemRequest) string {
 	iface := shellQuote(r.Interface)
 	var script strings.Builder
-	writeRootInspection(&script, iface, "prio")
-	fmt.Fprintf(&script, "rollback() { tc qdisc del dev %s root handle %s >/dev/null 2>&1 || true; }\n", iface, PumbaRootHandle)
-	writeRollbackCommand(&script, fmt.Sprintf("tc qdisc add dev %s parent %s1 handle %s sfq", iface, PumbaRootHandle, firstBandHandle))
-	writeRollbackCommand(&script, fmt.Sprintf("tc qdisc add dev %s parent %s2 handle %s sfq", iface, PumbaRootHandle, secondBandHandle))
-	var netem strings.Builder
-	fmt.Fprintf(&netem, "tc qdisc add dev %s parent %s3 handle %s netem", iface, PumbaRootHandle, netemBandHandle)
-	writeQuotedArgs(&netem, r.Command)
-	writeRollbackCommand(&script, netem.String())
+	writeScopedTopology(&script, r)
 	for _, ip := range r.IPs {
 		writeRollbackCommand(&script, fmt.Sprintf("tc filter add dev %s protocol ip parent %s prio 1 u32 match ip dst %s flowid %s3", iface, PumbaRootHandle, shellQuote(ip), PumbaRootHandle))
 	}
@@ -102,18 +110,7 @@ func scopedStopScript(r *NetemRequest) string {
 	iface := shellQuote(r.Interface)
 	expectedFilters := len(r.IPs) + len(r.SPorts) + len(r.DPorts)
 	var script strings.Builder
-	fmt.Fprintf(&script, "state=$(tc qdisc show dev %s)\n", iface)
-	script.WriteString("if [ -z \"$state\" ] || printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq|fq_codel|pfifo_fast) 0: root'; then\n  exit 0\nfi\n")
-	for _, topology := range []string{
-		"^qdisc prio 504d: root",
-		"^qdisc sfq 504e: parent 504d:1",
-		"^qdisc sfq 504f: parent 504d:2",
-		"^qdisc netem 5050: parent 504d:3",
-	} {
-		fmt.Fprintf(&script, "printf '%%s\\n' \"$state\" | grep -Eq '%s' || { echo 'refusing to remove unverified Pumba qdisc topology' >&2; exit 1; }\n", topology)
-	}
-	script.WriteString("children=$(printf '%s\\n' \"$state\" | grep -Ec '^qdisc .* parent 504d:' || true)\n")
-	script.WriteString("[ \"$children\" -eq 3 ] || { echo 'refusing to remove unverified Pumba qdisc topology' >&2; exit 1; }\n")
+	writeScopedInspection(&script, iface)
 	fmt.Fprintf(&script, "filters=$(tc filter show dev %s parent %s)\n", iface, PumbaRootHandle)
 	script.WriteString("filter_count=$(printf '%s\\n' \"$filters\" | grep -c 'flowid 504d:3' || true)\n")
 	fmt.Fprintf(&script, "[ \"$filter_count\" -eq %d ] || { echo 'refusing to remove unverified Pumba filters' >&2; exit 1; }\n", expectedFilters)

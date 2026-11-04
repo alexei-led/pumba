@@ -33,6 +33,7 @@ type NetemRequest struct {
 	TargetNames []string
 	SPorts      []string
 	DPorts      []string
+	MatchAll    bool
 	Duration    time.Duration
 	Sidecar     SidecarSpec
 	DryRun      bool
@@ -51,6 +52,7 @@ type IPTablesRequest struct {
 	DstIPs    []*net.IPNet
 	SPorts    []string
 	DPorts    []string
+	MatchAll  bool
 	Duration  time.Duration
 	Sidecar   SidecarSpec
 	DryRun    bool

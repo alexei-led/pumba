@@ -24,54 +24,70 @@ const (
 
 // NetemStart returns the argv that installs req's netem qdisc:
 // sh -ec <script>. Runtimes execute exactly this argv; NetemPlan reports it.
-func NetemStart(req *ctr.NetemRequest) []string {
-	return append([]string{shellBinary}, tc.Start(netemRequest(req))...)
+func NetemStart(req *ctr.NetemRequest) ([]string, error) {
+	args, err := tc.Start(netemRequest(req))
+	if err != nil {
+		return nil, err
+	}
+	return append([]string{shellBinary}, args...), nil
 }
 
-// NetemStop returns the argv that removes req's netem qdisc after verifying
-// Pumba owns it: sh -ec <script>.
-func NetemStop(req *ctr.NetemRequest) []string {
-	return append([]string{shellBinary}, tc.Stop(netemRequest(req))...)
+// NetemStop returns the ownership-verifying cleanup argv.
+func NetemStop(req *ctr.NetemRequest) ([]string, error) {
+	args, err := tc.Stop(netemRequest(req))
+	if err != nil {
+		return nil, err
+	}
+	return append([]string{shellBinary}, args...), nil
 }
 
-// NetemPlan returns the commands NetemStart and NetemStop build for req and
-// where they run.
-func NetemPlan(req *ctr.NetemRequest) *ctr.CommandPlan {
-	return newPlan(req.Sidecar, [][]string{NetemStart(req)}, [][]string{NetemStop(req)})
+// NetemPlan validates both scripts before returning exact apply/revert argv.
+func NetemPlan(req *ctr.NetemRequest) (*ctr.CommandPlan, error) {
+	start, err := NetemStart(req)
+	if err != nil {
+		return nil, err
+	}
+	stop, err := NetemStop(req)
+	if err != nil {
+		return nil, err
+	}
+	return newPlan(req.Sidecar, [][]string{start}, [][]string{stop}), nil
 }
 
 func netemRequest(req *ctr.NetemRequest) *tc.NetemRequest {
 	return &tc.NetemRequest{
-		Interface: req.Interface,
-		Command:   req.Command,
-		IPs:       cidrs(req.IPs),
-		SPorts:    req.SPorts,
-		DPorts:    req.DPorts,
+		Interface: req.Interface, Command: req.Command, IPs: cidrs(req.IPs),
+		SPorts: req.SPorts, DPorts: req.DPorts, MatchAll: req.MatchAll,
 	}
 }
 
-// IPTablesCommands returns one iptables argv (binary first) per rule of req,
-// built by the single pkg/tc builder.
-func IPTablesCommands(req *ctr.IPTablesRequest) [][]string {
-	commands := tc.IPTablesCommands(&tc.IPTablesRequest{
-		CmdPrefix: req.CmdPrefix,
-		CmdSuffix: req.CmdSuffix,
-		SrcIPs:    cidrs(req.SrcIPs),
-		DstIPs:    cidrs(req.DstIPs),
-		SPorts:    req.SPorts,
-		DPorts:    req.DPorts,
-		RunID:     req.RunID,
+// IPTablesCommands translates the request through the single validated tc builder.
+func IPTablesCommands(req *ctr.IPTablesRequest) ([][]string, error) {
+	commands, err := tc.IPTablesCommands(&tc.IPTablesRequest{
+		CmdPrefix: req.CmdPrefix, CmdSuffix: req.CmdSuffix,
+		SrcIPs: cidrs(req.SrcIPs), DstIPs: cidrs(req.DstIPs),
+		SPorts: req.SPorts, DPorts: req.DPorts, MatchAll: req.MatchAll, RunID: req.RunID,
 	})
+	if err != nil {
+		return nil, err
+	}
 	for i, args := range commands {
 		commands[i] = append([]string{iptablesBinary}, args...)
 	}
-	return commands
+	return commands, nil
 }
 
-// IPTablesPlan returns the commands IPTablesCommands builds for add (apply)
-// and del (revert) and where they run. Both requests share the sidecar hint.
-func IPTablesPlan(add, del *ctr.IPTablesRequest) *ctr.CommandPlan {
-	return newPlan(add.Sidecar, IPTablesCommands(add), IPTablesCommands(del))
+// IPTablesPlan validates both operations before returning their exact argv.
+func IPTablesPlan(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
+	apply, err := IPTablesCommands(add)
+	if err != nil {
+		return nil, err
+	}
+	revert, err := IPTablesCommands(del)
+	if err != nil {
+		return nil, err
+	}
+	return newPlan(add.Sidecar, apply, revert), nil
 }
 
 // newPlan places the commands in a sidecar when the request names an image,
