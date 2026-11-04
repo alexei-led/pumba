@@ -66,9 +66,12 @@ func runNetem(ctx context.Context, client netemClient, req *container.NetemReque
 	}
 	logger.Debug("running netem command")
 	if err := client.NetemContainer(ctx, req); err != nil {
-		// Best-effort rollback of a partial install. Not reported as a revert:
-		// the stop script also refuses when the install never happened (foreign
-		// root qdisc, failed image pull), which would mask the install error.
+		// A proven pre-mutation refusal must not remove a sibling's active
+		// fault in a shared namespace. Unknown/partial failures still roll back.
+		if errors.Is(err, container.ErrNetemNotApplied) {
+			return fmt.Errorf("netem failed: %w", err)
+		}
+		// Best-effort rollback is not reported as a successful apply/revert.
 		if cleanupErr := stopNetem(ctx, client, req); cleanupErr != nil {
 			return errors.Join(fmt.Errorf("netem failed: %w", err), fmt.Errorf("stopping netem after failure: %w", cleanupErr))
 		}

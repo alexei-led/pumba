@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/runtime/netns"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -61,13 +62,13 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	select {
 	case status, ok := <-exitCh:
 		observedExit = execStatusKnown(status, ok)
-		return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, terminate != nil)
+		return taskExecResult(ctx, execProcess, status, ok, description, pspec.Args, &stdout, &stderr, terminate != nil)
 	case <-ctx.Done():
 		if terminate != nil {
 			select {
 			case status, ok := <-exitCh:
 				observedExit = execStatusKnown(status, ok)
-				return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, true)
+				return taskExecResult(ctx, execProcess, status, ok, description, pspec.Args, &stdout, &stderr, true)
 			default:
 			}
 		}
@@ -75,7 +76,7 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	}
 }
 
-func taskExecResult(ctx context.Context, execProcess containerd.Process, status containerd.ExitStatus, ok bool, description string, stdout, stderr *bytes.Buffer, preserveFailure bool) (string, string, error) {
+func taskExecResult(ctx context.Context, execProcess containerd.Process, status containerd.ExitStatus, ok bool, description string, argv []string, stdout, stderr *bytes.Buffer, preserveFailure bool) (string, string, error) {
 	if !ok {
 		if err := ctx.Err(); err != nil {
 			return "", "", fmt.Errorf("%s canceled: %w", description, err)
@@ -88,13 +89,13 @@ func taskExecResult(ctx context.Context, execProcess containerd.Process, status 
 	}
 	drainErr := waitIO(ctx, execProcess, ioDrainTimeout)
 	if preserveFailure && code != 0 {
-		return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+		return "", "", errors.Join(&netns.ExecExitError{Code: int(code), Argv: argv, Message: fmt.Sprintf("%s exited with code %d: %s", description, code, stderr.String())}, drainErr)
 	}
 	if drainErr != nil && !errors.Is(drainErr, errIncompleteOutput) {
 		return "", "", fmt.Errorf("%s canceled: %w", description, drainErr)
 	}
 	if code != 0 {
-		return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+		return "", "", &netns.ExecExitError{Code: int(code), Argv: argv, Message: fmt.Sprintf("%s exited with code %d: %s", description, code, stderr.String())}
 	}
 	if drainErr != nil {
 		return "", "", fmt.Errorf("%s: %w", description, drainErr)

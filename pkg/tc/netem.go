@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	// NetemRefusedExitCode is reserved for startup checks that have not mutated
+	// the namespace. Subcommand failures must not propagate this status.
+	NetemRefusedExitCode = 78
+
 	// PumbaRootHandle identifies a qdisc tree owned by Pumba. It is deliberately
 	// unusual so Pumba never mistakes a user-managed qdisc for its own state.
 	PumbaRootHandle = "504d:"
@@ -92,18 +96,18 @@ func unscopedStartScript(r *NetemRequest) string {
 }
 
 func writeRootInspection(script *strings.Builder, iface, kind string, command ...[]string) {
-	fmt.Fprintf(script, "state=$(tc qdisc show dev %s)\n", iface)
+	fmt.Fprintf(script, "state=$(tc qdisc show dev %s) || exit 1\n", iface)
 	script.WriteString("if printf '%s\\n' \"$state\" | grep -Eq '^qdisc (noqueue|fq|fq_codel|pfifo_fast) 0: root'; then\n")
 	if kind == "prio" {
-		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1\n", iface, PumbaRootHandle)
+		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 || exit 1\n", iface, PumbaRootHandle)
 	} else {
 		fmt.Fprintf(script, "  tc qdisc add dev %s root handle %s %s", iface, PumbaRootHandle, kind)
 		if len(command) > 0 {
 			writeQuotedArgs(script, command[0])
 		}
-		script.WriteString("\n")
+		script.WriteString(" || exit 1\n")
 	}
-	script.WriteString("else\n  echo 'refusing to replace a foreign or stale root qdisc' >&2\n  exit 1\nfi\n")
+	fmt.Fprintf(script, "else\n  echo 'refusing to replace a foreign or stale root qdisc' >&2\n  exit %d\nfi\n", NetemRefusedExitCode)
 }
 
 func scopedStopScript(r *NetemRequest) string {

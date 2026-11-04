@@ -22,7 +22,7 @@ func (client dockerClient) NetemContainer(ctx context.Context, req *ctr.NetemReq
 	if err != nil {
 		return err
 	}
-	return client.runNetemCommand(ctx, req, argv)
+	return netns.NetemApplyError(argv, client.runNetemCommand(ctx, req, argv))
 }
 
 // StopNetemContainer removes only a verified Pumba-owned netem topology.

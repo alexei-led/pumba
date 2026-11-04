@@ -30,7 +30,7 @@ func matchAllNetemScripts(r *NetemRequest) (start, stop string, err error) {
 func matchAllStartScript(r *NetemRequest, groups [][]selector) string {
 	var script strings.Builder
 	// Verify the cleanup verifier exists before installing anything.
-	script.WriteString("command -v awk >/dev/null 2>&1 || { echo 'match-all requires awk' >&2; exit 1; }\n")
+	fmt.Fprintf(&script, "command -v awk >/dev/null 2>&1 || { echo 'match-all requires awk' >&2; exit %d; }\n", NetemRefusedExitCode)
 	writeScopedTopology(&script, r)
 	iface := shellQuote(r.Interface)
 	for _, group := range groups {
