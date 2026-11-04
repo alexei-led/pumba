@@ -5,6 +5,7 @@ How a program runs Pumba and reads what happened, without parsing logs.
 - `--output ndjson`: result events on stdout, one JSON object per line (schema `pumba.event/v1`).
 - `--run-id`: names the run; every event carries it, and it tags the sidecars and iptables rules the run creates.
 - `pumba status --check`: did a run leave faults behind? A `clean`/`dirty`/`unknown` verdict.
+- `pumba revert --run-id FILTER`: recover validated tagged iptables rules and labeled netem/iptables/stress sidecars from a stopped run; see [Run-scoped recovery](#run-scoped-recovery-pumba-revert).
 - `--dry-run`: preview netem/iptables apply and revert argv without running them.
 - `--max-duration`: a time budget, so a forgotten `--interval` run stops by itself.
 - `--webhook`: the same events POSTed to an HTTP endpoint, in any output mode.
@@ -23,12 +24,12 @@ tail -n1 events.ndjson | jq -r .status   # ok, failed, partial, cleanup_failed, 
 
 ## Flags
 
-| Flag | Default | Meaning |
-|---|---|---|
-| `--output`, `-o` | `text` | `text`: chaos logs on stderr; netem/iptables dry-run plans and `status` tables/verdicts on stdout. `ndjson`: events on stdout; help and usage text move to stderr |
-| `--run-id` | generated | 1–48 characters from `[A-Za-z0-9_.-]`. Generated as 12 hex characters when empty. An invalid value is a usage error |
-| `--max-duration` | `0` (unlimited) | Time budget for active chaos and `--interval` scheduling. See [Run budget](#run-budget---max-duration) |
-| `--webhook` | empty | Absolute `http(s)` URL that receives each event as a POST. Anything else is a usage error. See [Webhook](#webhook) |
+| Flag             | Default         | Meaning                                                                                                                                                           |
+| ---------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--output`, `-o` | `text`          | `text`: chaos logs on stderr; netem/iptables dry-run plans and `status` tables/verdicts on stdout. `ndjson`: events on stdout; help and usage text move to stderr |
+| `--run-id`       | generated       | 1–48 characters from `[A-Za-z0-9_.-]`. Generated as 12 hex characters when empty. An invalid value is a usage error                                               |
+| `--max-duration` | `0` (unlimited) | Time budget for active chaos and `--interval` scheduling. See [Run budget](#run-budget---max-duration)                                                            |
+| `--webhook`      | empty           | Absolute `http(s)` URL that receives each event as a POST. Anything else is a usage error. See [Webhook](#webhook)                                                |
 
 One run ID per process: every `--interval` tick shares it.
 
@@ -36,12 +37,12 @@ One run ID per process: every `--interval` tick shares it.
 
 Every event has these fields:
 
-| Field | Meaning |
-|---|---|
-| `schema` | `pumba.event/v1` |
-| `type` | `run.start`, `target.applied`, `target.result`, `run.end` |
-| `run_id` | the `--run-id` value or the generated ID |
-| `time` | RFC 3339, UTC |
+| Field    | Meaning                                                   |
+| -------- | --------------------------------------------------------- |
+| `schema` | `pumba.event/v1`                                          |
+| `type`   | `run.start`, `target.applied`, `target.result`, `run.end` |
+| `run_id` | the `--run-id` value or the generated ID                  |
+| `time`   | RFC 3339, UTC                                             |
 | `action` | command path, e.g. `kill`, `netem delay`, `iptables loss` |
 
 Order: one `run.start`, then per tick and target `target.applied` (fault active) and `target.result` (terminal), then one `run.end`.
@@ -69,16 +70,16 @@ The fault is active on the target, so probes can start now. For one-shot actions
 
 Terminal record per target and tick. For faults that are reverted (netem, iptables, pause, stop `--restart`, stress), it comes only after the revert finished. Stress waits for both runtime result channels to close after workload cleanup; output alone is not completion. Duration/SIGTERM request shutdown of the owned workload, with a bounded cleanup wait. Cleanup errors/timeouts remain `cleanup_failed` even during cancellation.
 
-| Field | Meaning |
-|---|---|
-| `tick` | interval iteration, starting at 1 |
-| `target` | `id` and `name` as the runtime reports them (Docker names start with `/`) |
-| `started`, `ended` | when work on this target started and finished |
-| `status` | `ok`, `failed`, `cleanup_failed`, `planned` (dry-run), `skipped` (serial run stopped by an earlier failure) |
-| `error` | `null` or an [error object](#errors) |
-| `cleanup` | `null` when nothing was reverted (one-shot actions, dry-run); else `{"ok":true}` or `{"ok":false,"error":"…"}` |
-| `plan` | netem/iptables dry-run only: exact apply/revert argv and execution location, see [Dry-run plans](#dry-run-plans) |
-| `state` | `status` only: what was found on the target, see [Status](#status-pumba-status---check) |
+| Field              | Meaning                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `tick`             | interval iteration, starting at 1                                                                                |
+| `target`           | `id` and `name` as the runtime reports them (Docker names start with `/`)                                        |
+| `started`, `ended` | when work on this target started and finished                                                                    |
+| `status`           | `ok`, `failed`, `cleanup_failed`, `planned` (dry-run), `skipped` (serial run stopped by an earlier failure)      |
+| `error`            | `null` or an [error object](#errors)                                                                             |
+| `cleanup`          | `null` when nothing was reverted (one-shot actions, dry-run); else `{"ok":true}` or `{"ok":false,"error":"…"}`   |
+| `plan`             | netem/iptables dry-run only: exact apply/revert argv and execution location, see [Dry-run plans](#dry-run-plans) |
+| `state`            | `status` only: what was found on the target, see [Status](#status-pumba-status---check)                          |
 
 ### `run.end`
 
@@ -90,17 +91,17 @@ Emitted when the process finishes, also for usage errors that never reached `run
 - `events_dropped`: events this sink lost: on stdout, the stdout count; on the webhook, the webhook count (see [Delivery](#delivery)).
 - `coverage`: `status` only, see [Status](#status-pumba-status---check).
 
-| `status` | When | Exit |
-|---|---|---|
-| `ok` | every target `ok` or `planned` | 0 |
-| `no_targets` | nothing matched; `error.code` is `no_targets` | 0 |
-| `failed` | an error, and no target succeeded | 1 (0 with `--skip-error`) |
-| `partial` | an error, and some targets succeeded | 1 (0 with `--skip-error`) |
-| `cleanup_failed` | a revert failed; the fault may still be active | 1 (0 with `--skip-error`) |
-| `refused` | `--max-targets` exceeded; nothing was injected | 1 |
-| `usage_error` | bad flag, argument or `--run-id` | 1 |
-| `aborted` | `--max-duration` expired (`timeout`, exit 1) or SIGINT/SIGTERM (`canceled`, exit 0) | see left |
-| `clean`, `dirty`, `unknown` | `status --check` only: the verdict | 0 for `clean`, else 1 |
+| `status`                    | When                                                                                | Exit                      |
+| --------------------------- | ----------------------------------------------------------------------------------- | ------------------------- |
+| `ok`                        | every target `ok` or `planned`                                                      | 0                         |
+| `no_targets`                | nothing matched; `error.code` is `no_targets`                                       | 0                         |
+| `failed`                    | an error, and no target succeeded                                                   | 1 (0 with `--skip-error`) |
+| `partial`                   | an error, and some targets succeeded                                                | 1 (0 with `--skip-error`) |
+| `cleanup_failed`            | a revert failed; the fault may still be active                                      | 1 (0 with `--skip-error`) |
+| `refused`                   | `--max-targets` exceeded; nothing was injected                                      | 1                         |
+| `usage_error`               | bad flag, argument or `--run-id`                                                    | 1                         |
+| `aborted`                   | `--max-duration` expired (`timeout`, exit 1) or SIGINT/SIGTERM (`canceled`, exit 0) | see left                  |
+| `clean`, `dirty`, `unknown` | `status --check` only: the verdict                                                  | 0 for `clean`, else 1     |
 
 For chaos commands, the first matching row wins, top to bottom in this order: `usage_error`, `refused`, `cleanup_failed`, `aborted` (timeout), `failed`/`partial`, `aborted` (canceled), `no_targets`, `ok`. A cleanup failure outranks a timeout because a leftover fault matters more.
 
@@ -110,18 +111,18 @@ When a usage error stops Pumba before `run.start`, `run.end` has `"action":""`. 
 
 `error` is `{"code","phase","message"}`. Branch on `code`; `message` is for humans and may change.
 
-| `code` | `phase` | Meaning |
-|---|---|---|
-| `invalid_argument` | `usage` | bad flags or arguments |
-| `no_targets` | `select` | no container matched |
-| `max_targets_exceeded` | `select` | selection is larger than `--max-targets` |
-| `runtime_unavailable` | `runtime`, `select` | cannot create the runtime client, or listing containers failed |
-| `command_failed` | `inject` | the chaos action failed |
-| `command_failed` | `inspect` | `status` could not read a target's netns |
-| `cleanup_failed` | `cleanup` | reverting the fault failed |
-| `timeout` | `runtime` | `--max-duration` expired |
-| `canceled` | `runtime` | SIGINT/SIGTERM |
-| `rootless_unsupported` | — | reserved; rootless Podman failures currently report `command_failed` |
+| `code`                 | `phase`             | Meaning                                                              |
+| ---------------------- | ------------------- | -------------------------------------------------------------------- |
+| `invalid_argument`     | `usage`             | bad flags or arguments                                               |
+| `no_targets`           | `select`            | no container matched                                                 |
+| `max_targets_exceeded` | `select`            | selection is larger than `--max-targets`                             |
+| `runtime_unavailable`  | `runtime`, `select` | cannot create the runtime client, or listing containers failed       |
+| `command_failed`       | `inject`            | the chaos action failed                                              |
+| `command_failed`       | `inspect`           | `status` could not read a target's netns                             |
+| `cleanup_failed`       | `cleanup`           | reverting the fault failed                                           |
+| `timeout`              | `runtime`           | `--max-duration` expired                                             |
+| `canceled`             | `runtime`           | SIGINT/SIGTERM                                                       |
+| `rootless_unsupported` | —                   | reserved; rootless Podman failures currently report `command_failed` |
 
 ## Exit codes
 
@@ -169,7 +170,52 @@ results carry resolved targets and `run.start.params`, not argv plans.
 The additive `target.result.plan` field in `pumba.event/v1` is:
 
 ```json
-{"via":"sidecar","image":"ghcr.io/alexei-led/pumba-alpine-nettools:latest","apply":[["iptables","-I","INPUT","-i","eth0","-m","comment","--comment","pumba:preview-1","-m","statistic","--mode","random","--probability","0.20","-j","DROP"]],"revert":[["iptables","-D","INPUT","-i","eth0","-m","comment","--comment","pumba:preview-1","-m","statistic","--mode","random","--probability","0.20","-j","DROP"]]}
+{
+  "via": "sidecar",
+  "image": "ghcr.io/alexei-led/pumba-alpine-nettools:latest",
+  "apply": [
+    [
+      "iptables",
+      "-I",
+      "INPUT",
+      "-i",
+      "eth0",
+      "-m",
+      "comment",
+      "--comment",
+      "pumba:preview-1",
+      "-m",
+      "statistic",
+      "--mode",
+      "random",
+      "--probability",
+      "0.20",
+      "-j",
+      "DROP"
+    ]
+  ],
+  "revert": [
+    [
+      "iptables",
+      "-D",
+      "INPUT",
+      "-i",
+      "eth0",
+      "-m",
+      "comment",
+      "--comment",
+      "pumba:preview-1",
+      "-m",
+      "statistic",
+      "--mode",
+      "random",
+      "--probability",
+      "0.20",
+      "-j",
+      "DROP"
+    ]
+  ]
+}
 ```
 
 - `via`: `sidecar` (with `image`) or `exec` in the target (`image` omitted).
@@ -206,16 +252,36 @@ Limits:
 
 ## Interactions
 
-| Flag | Effect on events |
-|---|---|
-| `--interval` | one `run.start` and `run.end` per process; `target.*` per target per tick |
-| `--random`, `--limit` | only selected targets produce events |
-| `--max-targets` | refusal: no target events, `run.end` `refused` |
-| `--dry-run` | `target.result` `planned`, no `target.applied`; returns without waiting for `--duration` |
-| `--skip-error` | chaos failures still recorded in events; exit `0` (not refusals, usage errors or a non-clean `status --check` verdict) |
-| SIGINT/SIGTERM | in-flight targets finish cleanup and emit `target.result`; `run.end` `aborted` unless something failed |
+| Flag                  | Effect on events                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--interval`          | one `run.start` and `run.end` per process; `target.*` per target per tick                                              |
+| `--random`, `--limit` | only selected targets produce events                                                                                   |
+| `--max-targets`       | refusal: no target events, `run.end` `refused`                                                                         |
+| `--dry-run`           | `target.result` `planned`, no `target.applied`; returns without waiting for `--duration`                               |
+| `--skip-error`        | chaos failures still recorded in events; exit `0` (not refusals, usage errors or a non-clean `status --check` verdict) |
+| SIGINT/SIGTERM        | in-flight targets finish cleanup and emit `target.result`; `run.end` `aborted` unless something failed                 |
 
 `--help` and `--version` are not runs and emit no events. A top-level `pumba --help` still prints to stdout.
+
+## Run-scoped recovery (`pumba revert`)
+
+Stop the original Pumba process before recovery; sidecar labels do not prove that
+its writer is dead. `revert --run-id FILTER` requires the original run ID as a
+local command flag (distinct from the invocation's global `--run-id`). It
+inspects selected running targets and separately lists sidecars, then deletes
+only rules and sidecars that pass identity/label revalidation. Orphan sidecars
+are eligible; with target selectors they are included only when exact target-ID
+membership is proven. It never removes targets, volumes, qdiscs, untagged rules,
+or lifecycle faults. `--dry-run` inventories and prints typed plans without
+mutation. It rejects interval, random selection and skip-error.
+
+Recovery is serial and bounded, but cannot guarantee complete cleanup: listing
+gaps, missing target namespaces, suspicious/unattributable qdiscs, or a failure
+produce unresolved/nonzero results, even if eligible artifacts were removed.
+Successful removal of an orphan does not prove its former namespace is clean.
+An empty complete inventory is an idempotent no-op. Use the additive
+`artifact.result` events and `artifact_counts` in `run.end` for orphan work;
+recovery does not emit a fake `target.applied`.
 
 ## Status (`pumba status [--check]`)
 
@@ -224,9 +290,33 @@ Limits:
 Each inspected container gets one `target.result` with `state`:
 
 ```json
-{"rules":[{"run_id":"ci-42","chain":"INPUT","spec":"-A INPUT -i eth0 -m comment --comment \"pumba:ci-42\" -m statistic --mode random --probability 1.00000000000 -j DROP"}],
- "qdiscs":[{"device":"eth0","kind":"netem","ownership":"pumba-owned","run_id":null}],
- "sidecars":[{"id":"f965…","name":"/vigilant_mahavira","kind":"stress","state":"running","target_id":"72c5…","run_id":"ci-42"}]}
+{
+  "rules": [
+    {
+      "run_id": "ci-42",
+      "chain": "INPUT",
+      "spec": "-A INPUT -i eth0 -m comment --comment \"pumba:ci-42\" -m statistic --mode random --probability 1.00000000000 -j DROP"
+    }
+  ],
+  "qdiscs": [
+    {
+      "device": "eth0",
+      "kind": "netem",
+      "ownership": "pumba-owned",
+      "run_id": null
+    }
+  ],
+  "sidecars": [
+    {
+      "id": "f965…",
+      "name": "/vigilant_mahavira",
+      "kind": "stress",
+      "state": "running",
+      "target_id": "72c5…",
+      "run_id": "ci-42"
+    }
+  ]
+}
 ```
 
 - `qdiscs[].ownership`: `pumba-owned` (Pumba's topology) or `suspicious` (Pumba's handle, other topology). qdiscs have no comment field: `run_id` is always `null` and the run filter never hides them.
@@ -235,19 +325,19 @@ Each inspected container gets one `target.result` with `state`:
 
 `run.end.coverage` holds the verdict and what belongs to no inspected target:
 
-| Field | Meaning |
-|---|---|
-| `verdict` | `clean`, `dirty` or `unknown`; present with or without `--check` |
-| `reasons` | why `dirty` or `unknown`; `[]` when clean |
-| `run_filter` | the status `--run-id`, omitted when unset |
+| Field             | Meaning                                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `verdict`         | `clean`, `dirty` or `unknown`; present with or without `--check`                                                                          |
+| `reasons`         | why `dirty` or `unknown`; `[]` when clean                                                                                                 |
+| `run_filter`      | the status `--run-id`, omitted when unset                                                                                                 |
 | `orphan_sidecars` | sidecars whose target was not inspected (gone or stopped); only when the selection is empty: no names, no `re2:` pattern and no `--label` |
-| `missing_targets` | named containers that do not exist or are not running |
-| `listing_gaps` | containers the runtime could not read (`id`, `error`) |
+| `missing_targets` | named containers that do not exist or are not running                                                                                     |
+| `listing_gaps`    | containers the runtime could not read (`id`, `error`)                                                                                     |
 
-| Verdict | When |
-|---|---|
-| `clean` | every selected target was inspected, coverage has no gaps, nothing matched |
-| `dirty` | a tagged rule or labeled sidecar matched (or an orphan sidecar); without a run filter, also a `pumba-owned` qdisc |
+| Verdict   | When                                                                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clean`   | every selected target was inspected, coverage has no gaps, nothing matched                                                                            |
+| `dirty`   | a tagged rule or labeled sidecar matched (or an orphan sidecar); without a run filter, also a `pumba-owned` qdisc                                     |
 | `unknown` | a listing or an inspection failed, a target is missing, a listing gap, a `suspicious` qdisc, nothing selected, or with a run filter only qdiscs found |
 
 `dirty` wins over `unknown`. `clean` is never vacuous: an empty selection is `unknown`.
@@ -306,16 +396,16 @@ See also [examples/pumba_agent_output.sh](../examples/pumba_agent_output.sh).
 
 With `--webhook`, schema also emits no success events; the unused sender is closed before exit. The document is built from the running binary, so it always matches its version.
 
-| Field | Meaning |
-|---|---|
-| `schema` | `pumba.cli/v1` |
-| `pumba_version` | same value as `run.start.pumba_version` |
-| `event_schema` | `pumba.event/v1` |
-| `error_codes` | every `error.code` value (see [Errors](#errors)) |
+| Field                             | Meaning                                                 |
+| --------------------------------- | ------------------------------------------------------- |
+| `schema`                          | `pumba.cli/v1`                                          |
+| `pumba_version`                   | same value as `run.start.pumba_version`                 |
+| `event_schema`                    | `pumba.event/v1`                                        |
+| `error_codes`                     | every `error.code` value (see [Errors](#errors))        |
 | `run_statuses`, `target_statuses` | every `run.end.status` and `target.result.status` value |
-| `usage`, `args_usage` | top-level help text |
-| `global_flags` | flags valid before the command name |
-| `commands` | command tree, in `--help` order |
+| `usage`, `args_usage`             | top-level help text                                     |
+| `global_flags`                    | flags valid before the command name                     |
+| `commands`                        | command tree, in `--help` order                         |
 
 Each command: `name`, `path` (as in event `action`, e.g. `netem delay`), `usage`, `description`, `args_usage`, `flags`, `subcommands`. Flags on a parent command (`netem --duration`) go before the subcommand name.
 

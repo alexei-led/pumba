@@ -299,7 +299,11 @@ Dry-run returns right away; it does not wait for `--duration`. Target selection,
 `--random`, `--limit` and `--max-targets` behave as in a real run.
 
 For netem and iptables, text mode prints visible **would run**, **apply** and
-**revert** lines to stdout, even at the default warning log level. Each plan
+**revert** lines to stdout, even at the default warning log level. `--match-all`
+on either parent command combines configured address/port selector dimensions
+with AND (values within each dimension remain alternatives); the default remains
+OR. Selector expansion is capped at 256 combinations and each rendered script
+at 64 KiB, with oversized requests refused before injection. Each plan
 names the resolved target and the sidecar image (or exec in the target).
 `-o ndjson` instead includes a `plan` object on each `planned` `target.result`;
 there are no text lines or `target.applied` events. See the [plan contract](agents.md#dry-run-plans).
@@ -414,11 +418,11 @@ pumba status --check web             # prints a verdict; exit 0 only when clean
 
 `status --run-id` filters; the global `--run-id` only names the status run itself.
 
-| Verdict | When | Exit |
-|---|---|---|
-| `clean` | every selected container was inspected and nothing matched | 0 |
-| `dirty` | a tagged rule or labeled sidecar matched; without `--run-id`, also a `pumba-owned` qdisc | 1 |
-| `unknown` | an inspection failed, a named container is missing, a container could not be read, a `suspicious` qdisc, nothing selected, or (with `--run-id`) only qdiscs found | 1 |
+| Verdict   | When                                                                                                                                                              | Exit |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| `clean`   | every selected container was inspected and nothing matched                                                                                                        | 0    |
+| `dirty`   | a tagged rule or labeled sidecar matched; without `--run-id`, also a `pumba-owned` qdisc                                                                          | 1    |
+| `unknown` | an inspection failed, a named container is missing, a container could not be read, a `suspicious` qdisc, nothing selected, or (with `--run-id`) only qdiscs found | 1    |
 
 `dirty` wins over `unknown`. `--check` cannot be combined with `--interval`; `--random` and
 `--dry-run` are ignored; `--max-targets` applies.
@@ -462,7 +466,6 @@ Delivery is best effort and asynchronous, with a 5-second HTTP timeout and at mo
 chaos. Normal shutdown waits up to 5 seconds for pending sends; abrupt exits can
 lose them. Delivery failures print one warning to stderr, without exposing the
 webhook URL or response body.
-
 
 ## TLS Configuration
 
