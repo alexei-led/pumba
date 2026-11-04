@@ -141,7 +141,16 @@ func (client dockerClient) runExec(ctx context.Context, containerID string, argv
 	if err := ctx.Err(); err != nil {
 		return "", "", err
 	}
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
+	return client.runExecContext(context.WithoutCancel(ctx), containerID, argv, privileged)
+}
+
+// runExecContext preserves a supplied operation deadline. Recovery already
+// detaches admitted delete-and-verify work and must not get a fresh two minutes.
+func (client dockerClient) runExecContext(ctx context.Context, containerID string, argv []string, privileged bool) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, faultExecTimeout)
 	defer cancel()
 	created, err := client.containerAPI.ContainerExecCreate(ctx, containerID, ctypes.ExecOptions{
 		AttachStdout: true,

@@ -29,7 +29,7 @@ func (client dockerClient) RecoverRules(ctx context.Context, req *ctr.RuleRecove
 	}
 	recoverIn := func(id string, privileged bool) error {
 		return netns.RecoverRules(ctx, req, func(op context.Context, argv []string) (string, string, error) {
-			return client.runExec(op, id, argv, privileged)
+			return client.runExecContext(op, id, argv, privileged)
 		})
 	}
 	if req.Sidecar.Image == "" {
