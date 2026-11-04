@@ -17,8 +17,8 @@ teardown() {
     # Given a container
     docker run -d --name restart_test alpine tail -f /dev/null
     
-    # Stop the container
-    docker stop restart_test
+    # Fixture preparation, not a graceful-stop test.
+    docker stop --time=0 restart_test
     
     # Verify container is stopped
     run docker inspect -f {{.State.Status}} restart_test
@@ -40,8 +40,8 @@ teardown() {
     # Given a container
     docker run -d --name restart_test alpine tail -f /dev/null
     
-    # Stop the container
-    docker stop restart_test
+    # Fixture preparation, not a graceful-stop test.
+    docker stop --time=0 restart_test
     
     # Verify container is stopped
     run docker inspect -f {{.State.Status}} restart_test
@@ -101,8 +101,7 @@ teardown() {
     run pumba restart --timeout 3s restart_test
     assert_success
     
-    # Wait for restart to complete
-    sleep 5
+    wait_for 5 "docker inspect -f '{{.State.StartedAt}}' restart_test | grep -v '$start_time'" "container to have new start time"
     
     # Verify container was restarted
     run docker inspect -f {{.State.Status}} restart_test
@@ -131,7 +130,6 @@ teardown() {
     run pumba restart --limit 1 "re2:restart_test_.*"
     assert_success
 
-    sleep 3
     local restarted=0
     local new_time_1 new_time_2
     new_time_1=$(docker inspect -f '{{.State.StartedAt}}' restart_test_1)

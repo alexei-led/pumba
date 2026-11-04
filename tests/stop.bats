@@ -151,7 +151,6 @@ teardown() {
     run pumba stop --limit 1 "re2:stopping_victim_.*"
     assert_success
 
-    sleep 2
     local running=0
     docker inspect -f '{{.State.Status}}' stopping_victim_1 2>/dev/null | grep -q running && running=$((running+1))
     docker inspect -f '{{.State.Status}}' stopping_victim_2 2>/dev/null | grep -q running && running=$((running+1))

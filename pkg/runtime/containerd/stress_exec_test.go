@@ -50,7 +50,8 @@ func TestTerminateStressExecGracefulAndEscalation(t *testing.T) {
 					require.Equal(t, killedExitCode, result.expectedExitCode)
 					require.Equal(t, sidecarKillTimeout, time.Since(start))
 				} else {
-					require.Equal(t, uint32(signalExitBase+syscall.SIGTERM), result.expectedExitCode)
+					wantExitCode := uint32(signalExitBase + syscall.SIGTERM)
+					require.Equal(t, wantExitCode, result.expectedExitCode)
 				}
 				err := ownedExecResultError("stress", result)
 				if tt.wantErr {

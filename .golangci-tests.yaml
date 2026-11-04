@@ -1,0 +1,22 @@
+version: "2"
+run:
+  timeout: 5m
+  tests: true
+linters:
+  default: none
+  enable:
+    - testifylint
+    - tparallel
+  settings:
+    testifylint:
+      # Check assertion correctness, not whether independent checks must abort.
+      disable-all: true
+      enable:
+        - expected-actual
+        - error-is-as
+        - go-require
+        - useless-assert
+  exclusions:
+    generated: lax
+    paths:
+      - mocks

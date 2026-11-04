@@ -22,6 +22,7 @@ podman() {
     echo "$*" >>"$LOG"
     case "$1" in
     info) echo "$ROOTLESS" ;;
+    image) [ "$2" = exists ] ;;
     pull) : ;;
     run)
         if [ "$SCENARIO" = failed-create ]; then
@@ -48,7 +49,7 @@ podman() {
         local id
         shift
         for id in "$@"; do
-            [ "$id" != -f ] || continue
+            case "$id" in -f | --time=0) continue ;; esac
             awk -v id="$id" '$1 != id' "$STATE" >"$STATE.next"
             mv "$STATE.next" "$STATE"
         done
@@ -114,8 +115,12 @@ for suite in status sidecar netem iptables combined stress stress_inject_cgroup;
                 echo 'unscoped sidecar listing' >&2
                 exit 1
             fi
+            if grep -q '^pull ' "$LOG"; then
+                echo 'cached images were pulled again' >&2
+                exit 1
+            fi
             # Sidecars must be enumerated before the recorded target is removed.
-            awk '/^ps / { listed=1 } /^rm -f fixture-id$/ { if (!listed) exit 1; removed=1 } END { if (!removed) exit 1 }' "$LOG"
+            awk '/^ps / { listed=1 } /^rm -f --time=0 fixture-id$/ { if (!listed) exit 1; removed=1 } END { if (!removed) exit 1 }' "$LOG"
         else
             if grep -Eq '^(rm |ps |pkill$|kill$)' "$LOG"; then
                 echo 'cleanup without fixtures' >&2

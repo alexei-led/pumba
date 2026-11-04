@@ -1,0 +1,149 @@
+suite	test	name	before_ms	after_ms
+docker	1	Should use same nettools image for both netem and iptables	22793	21660
+docker	2	Should apply complex network degradation with combined commands	22738	21322
+docker	3	Should apply source/destination IP filters with port filters	12166	10911
+docker	4	Should run with nth packet matching mode	12260	10897
+docker	5	Should handle multiple containers with regex pattern	13711	11181
+docker	6	docker: netem dry-run plans sidecar and direct exec without changing qdiscs	1806	1139
+docker	7	docker: iptables dry-run plans tagged add/delete argv without installing rules	1508	983
+docker	8	docker: dry-run commands are visible at the default log level	870	750
+docker	9	Should handle invalid duration format gracefully	1318	386
+docker	10	Should handle invalid delay time gracefully	1306	329
+docker	11	Should handle invalid rate limit format gracefully	1333	517
+docker	12	Should handle invalid probability value gracefully	1356	363
+docker	13	Should handle non-existent nettools image gracefully	3064	2093
+docker	14	Should handle subcommand typos gracefully	101	85
+docker	15	Should handle inconsistent iptables mode and parameters gracefully	3782	2685
+docker	16	Should fail clearly when container has exited	1344	1350
+docker	17	Should fail when kill command has no container arguments	78	79
+docker	18	Should fail when stop command has no container arguments	104	73
+docker	19	Should fail when rm command has no container arguments	83	71
+docker	20	Should fail when pause command has no duration	1430	337
+docker	21	Should fail when netem delay has no duration	1419	310
+docker	22	Should fail when exec has no containers to target	137	87
+docker	23	Should handle CIDR notation formats	132	111
+docker	24	Should display exec help	91	73
+docker	25	Should execute command in container	1375	406
+docker	26	Should execute custom command in container	1493	403
+docker	27	Should execute command with single argument	1418	443
+docker	28	Should execute command with multiple arguments using repeated flags	1620	368
+docker	29	Should respect limit parameter	2763	663
+docker	30	Should actually execute command in running container	1549	438
+docker	31	Should handle gracefully when targeting non-existent container	352	64
+docker	32	Pumba help with --help flag	79	34
+docker	33	Pumba help with help command	55	44
+docker	34	Pumba version flag	51	26
+docker	35	Should support --label filter parameter	606	360
+docker	36	Should support --random parameter	790	630
+docker	37	Should support --dry-run parameter	1586	437
+docker	38	Should support --interval parameter	4478	3477
+docker	39	Should support --json logging parameter	1411	419
+docker	40	Should support --log-level parameter	1412	524
+docker	41	Should support --skip-error parameter	1341	376
+docker	42	Should reject invalid parameters	74	73
+docker	43	Should display iptables help	121	144
+docker	44	Should display iptables loss help	114	121
+docker	45	Should fail when Duration is unset for iptables loss	123	118
+docker	46	Should handle gracefully when targeting non-existent container	130	119
+docker	47	Should apply packet loss with iptables using external image	11864	10942
+docker	48	Should apply packet loss with source IP filter	11803	10878
+docker	49	Should apply packet loss with destination IP filter	11800	10891
+docker	50	Should apply packet loss with port filters	11917	11283
+docker	51	Should apply packet loss using nth mode	11656	11513
+docker	52	Should clean up sidecar containers after iptables completes	4636	3703
+docker	53	Should kill running container with default signal	1430	377
+docker	54	Should accept additional kill parameters	3382	2408
+docker	55	Should kill container with SIGTERM signal	1351	423
+docker	56	Should respect --limit when killing containers	2646	2636
+docker	57	Should stop multiple containers using regex pattern	19299	16585
+docker	58	Should combine exact names and multiple regex selectors	20644	17136
+docker	59	Should preserve empty regex match-all with an exact selector	13029	11476
+docker	60	Should only affect containers with matching labels	3156	1228
+docker	61	Should randomly select a container when using --random flag	11498	6447
+docker	62	Should run chaos on interval with --interval flag	3481	2467
+docker	63	Should only affect containers matching ALL labels with multiple --label flags	866	819
+docker	64	Should execute expected number of kill cycles with --interval	5657	4565
+docker	65	Should display netem help	193	163
+docker	66	Should display netem delay help	176	145
+docker	67	Should fail when Duration is unset for netem delay	238	138
+docker	68	Should handle gracefully when targeting non-existent container	160	172
+docker	69	Should delay egress traffic from container with external tc image	12040	10954
+docker	70	Should resolve a target container name for netem filtering	8193	6385
+docker	71	Should combine delay and loss in one netem qdisc	7020	5751
+docker	72	Should validate packet loss command syntax	1451	413
+docker	73	Should validate rate limiting command syntax	1404	368
+docker	74	Should apply netem delay with egress port filter	12249	11041
+docker	75	Should apply netem delay with ingress port filter	12241	11239
+docker	76	Should apply netem delay with combined port filters	12841	11001
+docker	77	Should clean up sidecar containers after netem completes	5305	3979
+docker	78	Should verify netem duplicate help	113	110
+docker	79	Should verify netem corrupt help	102	120
+docker	80	Should verify netem loss-state help	114	104
+docker	81	Should verify netem loss-gemodel help	110	116
+docker	82	Should apply packet duplicate with netem	11978	10644
+docker	83	Should apply packet corruption with netem	12095	10961
+docker	84	Should apply packet loss with correlation	12141	11067
+docker	85	Should apply advanced loss models (loss-state)	11873	10932
+docker	86	Should apply loss-gemodel model	11784	11143
+docker	87	Should apply delay with distribution options	33225	32327
+docker	88	Should apply rate limit with cell options	11755	10832
+docker	89	Should support custom interface parameter	12085	10977
+docker	90	Should emit run.start, planned target.result and run.end for dry-run kill	1471	394
+docker	91	Should report pause applied before its terminal result after unpause	3442	2416
+docker	92	Should report netem delay applied and cleaned up	3752	2713
+docker	93	Should keep stdout pure NDJSON with --json debug logs	1727	380
+docker	94	Should end with no_targets and exit 0 when nothing matches	116	96
+docker	95	Should end refused with exit 1 when --max-targets is exceeded	2612	600
+docker	96	Should echo --run-id on every event	1390	366
+docker	97	Should generate one run ID shared by all events	1388	332
+docker	98	Should report usage_error with exit 1 for an invalid --run-id	90	73
+docker	99	Should keep usage text off stdout in ndjson mode	92	100
+docker	100	Should stop an --interval run at --max-duration with timeout and clean up	4335	3506
+docker	101	Should keep text-mode stdout empty and exit codes unchanged	3020	863
+docker	102	Should pause running container and resume after duration	5430	3392
+docker	103	Should respect --limit when pausing containers	2479	2527
+docker	104	Should pause for approximately the specified duration	5418	4387
+docker	105	Should remove running docker container	1355	554
+docker	106	Should remove stopped docker container	11368	397
+docker	107	Should remove stopped container matched by regex	11604	386
+docker	108	Should force-remove running container with --force	1403	332
+docker	109	Should remove container with --volumes flag	395	331
+docker	110	Should respect --limit when removing containers	2686	706
+docker	111	Should start a stopped container from docker directly	10532	571
+docker	112	Pumba restart should skip stopped containers	10500	323
+docker	113	Should restart a running container	1622	1591
+docker	114	Should restart container with timeout	8563	3602
+docker	115	Should respect --limit when restarting containers	4779	1731
+docker	116	Should print a valid pumba.cli/v1 document	69	53
+docker	117	Should describe netem delay with typed flags	52	57
+docker	118	Should print the same document in ndjson output mode	82	83
+docker	119	Should not need a runtime socket	359	124
+docker	120	Should find a tagged iptables rule of a running iptables loss	2535	2139
+docker	121	Should report a netem qdisc as pumba-owned and dirty after kill -9, clean after manual cleanup	2657	2420
+docker	122	Should report dirty for a run's iptables rule left by kill -9, clean after manual cleanup	1880	1923
+docker	123	Should label the stress sidecar with run, target and kind and report it	2839	2876
+docker	124	Should report unknown with exit 1 when status --check selects nothing	114	98
+docker	125	Should reject status --check with --interval	42	30
+docker	126	Should inspect nft leftovers with legacy default tools and fail closed without nft tools	1148	992
+docker	127	Should stop running container	6552	5476
+docker	128	Should stop running container with signal handling	6658	5480
+docker	129	Should stop container with custom timeout	6569	5553
+docker	130	Should stop and restart container with --restart flag	7534	6934
+docker	131	Should stop and restart container with custom grace period	5502	4483
+docker	132	Should respect --limit when stopping containers	2755	731
+docker	133	Should display stress help	61	63
+docker	134	Should handle gracefully when stress targets non-existent container	52	45
+docker	135	Should stress container with CPU stressor	4608	3608
+docker	136	Should run stress in dry-run mode	1362	401
+docker	137	Should POST the same events to --webhook as on stdout in ndjson mode	518	454
+docker	138	Should POST events to --webhook in text mode with stdout empty	155	160
+docker	139	Should keep the outcome and warn once without the URL when --webhook is unreachable	304	278
+docker	140	Should reject a non-http --webhook as a usage error	40	29
+podman-exec	1	Should display exec help via podman runtime	176	163
+podman-exec	2	Should exec default command in container via podman runtime (dry-run)	10800	451
+podman-exec	3	Should exec custom command in container via podman runtime (dry-run)	10686	444
+podman-exec	4	Should exec command with single argument via podman runtime (dry-run)	10657	438
+podman-exec	5	Should exec command with multiple arguments via podman runtime (dry-run)	10763	378
+podman-exec	6	Should respect limit parameter via podman runtime (dry-run)	21112	700
+podman-exec	7	Should actually exec command in running container via podman runtime	10661	566
+podman-exec	8	Should handle gracefully when exec targets non-existent container via podman runtime	188	124

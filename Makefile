@@ -63,21 +63,23 @@ build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Bui
 		-o $(BIN)/$(basename $(MODULE)) ./cmd
 
 .PHONY: release
-# Recipe-side bash loop with `set -euo pipefail`: any per-platform `go build`
-# failure aborts the recipe loudly. The previous `$(foreach $(shell ...))`
-# pattern evaluated at make-parse time and silently swallowed exit codes,
-# leaving missing binaries undetectable until release-time.
+# Build the two OS groups concurrently, with sequential architectures per group.
+# Join every child and propagate any failure before artifacts can be published.
 release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for platforms and architectures
 	@set -euo pipefail; \
+	pids=(); \
 	for goos in $(PLATFORMS); do \
-	  for goarch in $(ARCHITECTURES); do \
+	  ( for goarch in $(ARCHITECTURES); do \
 	    out="$(BIN)/pumba_$${goos}_$${goarch}"; \
 	    echo "  building $${goos}/$${goarch} -> $${out}"; \
 	    GOPROXY=$(GOPROXY) CGO_ENABLED=$(CGO_ENABLED) GOOS=$$goos GOARCH=$$goarch \
 	      $(GO) build -tags release -ldflags "$(LDFLAGS_VERSION)" \
 	      -o "$$out" ./cmd || { echo "::error::build failed: $${goos}/$${goarch}"; exit 1; }; \
-	  done; \
-	done
+	  done ) & pids+=($$!); \
+	done; \
+	status=0; \
+	for pid in "$${pids[@]}"; do wait "$$pid" || status=1; done; \
+	exit $$status
 
 # Tools
 

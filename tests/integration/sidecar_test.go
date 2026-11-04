@@ -77,10 +77,6 @@ func TestSidecar_NoAccumulationMultipleRuns(t *testing.T) {
 	}, 10*time.Second, 500*time.Millisecond, "no sidecars should accumulate after %d sequential runs", 5)
 }
 
-func TestSidecar_HasSkipLabel(t *testing.T) {
-	t.Skip("sidecars are ephemeral; cleanup and no-accumulation tests cover the observable contract")
-}
-
 func TestSidecar_ImagePullFailure(t *testing.T) {
 	t.Parallel()
 	requireNoDinD(t)

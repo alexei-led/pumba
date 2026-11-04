@@ -12,8 +12,8 @@ create_test_container() {
 	local command=${3:-"tail -f /dev/null"}
 	echo "Creating test container: $name (using $image)"
 	# shellcheck disable=SC2086
-	docker run -d --name "$name" "$image" $command
-	sleep 1 # Give container time to start
+	docker run -d --name "$name" "$image" $command || return
+	wait_for_running docker "$name"
 }
 
 # Create containers with labels
@@ -25,9 +25,9 @@ create_labeled_containers() {
 
 	for i in $(seq 1 "$count"); do
 		echo "Creating labeled container: ${name_prefix}_${i} with ${label_key}=${label_value}"
-		docker run -d --name "${name_prefix}_${i}" --label "${label_key}=${label_value}" alpine tail -f /dev/null
+		docker run -d --name "${name_prefix}_${i}" --label "${label_key}=${label_value}" alpine tail -f /dev/null || return
+		wait_for_running docker "${name_prefix}_${i}" || return
 	done
-	sleep 1 # Give containers time to start
 }
 
 # Remove test containers matching a pattern
@@ -101,6 +101,14 @@ wait_for_state() {
 wait_for_running() {
 	local cli=$1 container=$2 timeout=${3:-10}
 	wait_for_state "$cli" "$container" running "$timeout"
+}
+
+# A running PID does not imply its entrypoint has created custom interfaces.
+wait_for_interface() {
+	local cli=$1 container=$2 iface=$3 timeout=${4:-10}
+	wait_for "$timeout" \
+		"$cli exec '$container' ip link show '$iface' >/dev/null 2>&1" \
+		"$container interface=$iface"
 }
 
 # Wait until a container has exited (e.g. after `kill`/`stop`).
@@ -335,12 +343,16 @@ _podman_container_pid() {
 	podman inspect -f '{{.State.Pid}}' "$1"
 }
 
-# Remove a podman container by name/id, tolerating missing containers.
+# Disposable fixtures need no graceful stop; PID 1 may ignore SIGTERM.
 podman_rm_force() {
 	local name
 	for name in "$@"; do
-		podman rm -f "$name" >/dev/null 2>&1 || true
+		podman rm -f --time=0 "$name" >/dev/null 2>&1 || true
 	done
+}
+
+podman_pull_if_missing() {
+	podman image exists "$1" || podman pull "$1" >/dev/null
 }
 
 # Record only containers actually created by this test. Do not remove a

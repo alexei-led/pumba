@@ -116,6 +116,8 @@ func TestInspectNetnsInTargetWithoutIPTablesIsAnError(t *testing.T) {
 }
 
 func TestInspectNetnsIncompleteOutputIsAnError(t *testing.T) {
+	t.Parallel()
+
 	for _, sidecar := range []bool{false, true} {
 		t.Run(map[bool]string{false: "target", true: "sidecar"}[sidecar], func(t *testing.T) {
 			t.Parallel()

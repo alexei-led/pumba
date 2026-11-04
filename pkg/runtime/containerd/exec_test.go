@@ -151,8 +151,18 @@ func TestExecContainerIncompleteOutputDoesNotHideCleanupFailure(t *testing.T) {
 
 func TestExecTaskOutputClosedWaitChannel(t *testing.T) {
 	t.Parallel()
-	for _, canceled := range []bool{false, true} {
-		t.Run(map[bool]string{false: "missing_exit_status", true: "cancellation_closed_wait"}[canceled], func(t *testing.T) {
+	tests := []struct {
+		name     string
+		canceled bool
+		owned    bool
+	}{
+		{name: "missing_exit_status"},
+		{name: "cancellation_closed_wait", canceled: true},
+		{name: "owned_missing_exit_status", owned: true},
+		{name: "owned_cancellation_closed_wait", canceled: true, owned: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -160,7 +170,7 @@ func TestExecTaskOutputClosedWaitChannel(t *testing.T) {
 			proc := NewMockProcess(t)
 			proc.EXPECT().Wait(mock.Anything).Return((<-chan containerd.ExitStatus)(exitCh), nil).Once()
 			proc.EXPECT().Start(mock.Anything).Run(func(context.Context) {
-				if canceled {
+				if tt.canceled {
 					cancel()
 				}
 				close(exitCh)
@@ -170,12 +180,19 @@ func TestExecTaskOutputClosedWaitChannel(t *testing.T) {
 			task := NewMockTask(t)
 			setupExec(task, proc)
 
-			out, errOut, err := execTaskOutput(ctx, task, &specs.Process{}, "exec-id", "inspection")
+			var terminate execTerminator
+			if tt.owned {
+				// Ownership makes the closed-status path deterministic when cancellation is also ready.
+				terminate = func(context.Context, containerd.Process) execCleanupResult {
+					return execCleanupResult{exit: containerd.NewExitStatus(0, time.Time{}, nil)}
+				}
+			}
+			out, errOut, err := runTaskExec(ctx, task, &specs.Process{}, "exec-id", "inspection", terminate)
 
 			require.Error(t, err, "closed wait channel is not evidence of successful exit")
 			assert.Empty(t, out)
 			assert.Empty(t, errOut)
-			if canceled {
+			if tt.canceled {
 				assert.ErrorIs(t, err, context.Canceled)
 			} else {
 				assert.ErrorContains(t, err, "wait channel closed without exit status")
