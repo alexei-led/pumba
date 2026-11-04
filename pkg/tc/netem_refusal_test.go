@@ -36,7 +36,6 @@ func TestStartupSubcommandCannotImpersonateRefusal(t *testing.T) {
 			}
 			t.Run(mode+"/"+step, func(t *testing.T) {
 				dir := t.TempDir()
-				originalPath := os.Getenv("PATH")
 				script := `#!/bin/sh
 case "$TC_FAIL:$*" in
  show:qdisc\ show*|root:qdisc\ add*root*|child:qdisc\ add*parent*|filter:filter\ add*) exit "$REFUSAL_CODE" ;;
@@ -44,7 +43,7 @@ esac
 if [ "$1 $2" = 'qdisc show' ]; then printf 'qdisc noqueue 0: root\n'; fi
 `
 				require.NoError(t, os.WriteFile(filepath.Join(dir, "tc"), []byte(script), 0o755))
-				t.Setenv("PATH", dir+string(os.PathListSeparator)+originalPath)
+				t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 				t.Setenv("TC_FAIL", step)
 				t.Setenv("REFUSAL_CODE", strconv.Itoa(NetemRefusedExitCode))
 				req := &NetemRequest{Interface: "eth0", Command: []string{"delay", "100ms"}, MatchAll: mode == "AND"}
