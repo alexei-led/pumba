@@ -50,6 +50,9 @@ jobs:
         run: |
           docker run --rm --entrypoint tc pumba-nettools:test -V
           docker run --rm --entrypoint iptables pumba-nettools:test --version
+          docker run --rm --entrypoint iptables-nft pumba-nettools:test --version
+          docker run --rm --entrypoint iptables-legacy pumba-nettools:test --version
+          docker run --rm --entrypoint awk pumba-nettools:test 'BEGIN { exit 0 }'
   build-and-push:
     name: Build and Push
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
