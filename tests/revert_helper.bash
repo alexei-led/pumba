@@ -105,14 +105,16 @@ rv_revert() {
 revert_rules_case() {
 	local _
 	# No sidecar exists: discovery must inspect the target, and preserve both
-	# duplicate occurrences rather than deduplicating delete work.
+	# duplicate AND occurrences rather than deduplicating delete work. The
+	# listing normalizes these selectors; recovery must retain all dimensions.
 	for _ in 1 2; do
-		rv_exec iptables -A INPUT -m comment --comment "pumba:${RV_RUN}" -j DROP
+		rv_add_match_all_rule iptables "$RV_RUN"
 	done
-	rv_exec iptables -A INPUT -m comment --comment pumba:another-run -j DROP
+	rv_add_match_all_rule iptables another-run
 	rv_revert --dry-run
 	assert_success
 	assert_events '[.[] | select(.type == "target.result")][0].recovery.rules.revert | length == 2'
+	assert_events 'all(.[] | select(.type == "target.result") | .recovery.rules.revert[]; index("192.0.2.1/32") != null and index("198.51.100.2/32") != null and index("12345") != null and index("443") != null)'
 	run rv_exec iptables -S INPUT
 	assert_output --partial "pumba:${RV_RUN}"
 	rv_revert
@@ -169,7 +171,7 @@ revert_shared_namespace_case() {
 		RV_IDS+=("$second")
 	fi
 	RV_TARGET=$first
-	rv_exec iptables -A INPUT -m comment --comment "pumba:${RV_RUN}" -j DROP
+	rv_add_match_all_rule iptables "$RV_RUN"
 	run --separate-stderr "${RV_PUMBA[@]}" -o ndjson revert --run-id "$RV_RUN" --tc-image "" "$first" "$second"
 	assert_success
 	assert_run_end '.counts.ok == 2 and .status == "ok"'
@@ -177,10 +179,16 @@ revert_shared_namespace_case() {
 	refute_output --partial "pumba:${RV_RUN}"
 }
 
+rv_add_match_all_rule() {
+	rv_exec "$1" -A INPUT -s 192.0.2.1/32 -d 198.51.100.2/32 \
+		-p tcp --sport 12345 --dport 443 -m comment --comment "pumba:$2" \
+		-m statistic --mode random --probability 0.5 -j DROP
+}
+
 revert_backend_case() {
 	# Missing backend tools fail this test rather than silently claiming clean.
-	rv_exec iptables-nft -A INPUT -m comment --comment "pumba:${RV_RUN}" -j DROP
-	rv_exec iptables-legacy -A INPUT -m comment --comment "pumba:${RV_RUN}" -j DROP
+	rv_add_match_all_rule iptables-nft "$RV_RUN"
+	rv_add_match_all_rule iptables-legacy "$RV_RUN"
 	rv_revert --dry-run
 	assert_success
 	assert_events '[.[] | select(.type == "target.result")][0].recovery.rules.revert | map(.[0]) | sort == ["iptables-legacy","iptables-nft"]'
