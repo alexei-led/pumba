@@ -27,6 +27,7 @@ var (
 const (
 	defaultImage  = "alpine:latest"
 	netshootImage = "nicolaka/netshoot:latest"
+	stressImage   = "ghcr.io/alexei-led/stress-ng:0.20.01"
 )
 
 func TestMain(m *testing.M) {
@@ -87,7 +88,7 @@ func findPumba() string {
 }
 
 func pullImages(ctx context.Context) {
-	images := []string{defaultImage, netshootImage}
+	images := []string{"docker.io/library/" + defaultImage, "docker.io/" + netshootImage, stressImage}
 	for _, img := range images {
 		// Check if already present
 		_, _, err := dockerCli.ImageInspectWithRaw(ctx, img)
@@ -95,7 +96,7 @@ func pullImages(ctx context.Context) {
 			continue
 		}
 		fmt.Fprintf(os.Stderr, "Pulling %s...\n", img)
-		rc, err := dockerCli.ImagePull(ctx, "docker.io/"+img, image.PullOptions{})
+		rc, err := dockerCli.ImagePull(ctx, img, image.PullOptions{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: failed to pull %s: %v\n", img, err)
 			continue

@@ -79,7 +79,10 @@ images initially; only repeated per-test pulls were removed.
   requires a successful protected-branch run for the exact release SHA.
 - Nightly/manual Deep Validation supplements PR checks with full Go race tests
   and the existing advanced runtime suite. Native local acceptance passed its
-  39 executable scenarios in 290s. An always-skipped placeholder with no
+  39 executable scenarios in 290s. The suite explicitly uses its preloaded pinned
+  stress image and ensures nettools exists in the containerd namespace, not only
+  Docker storage. Changes to the suite or its workflow also trigger deep PR checks.
+  An always-skipped placeholder with no
   assertions was removed; no executable scenario was removed.
 - Custom fixture interfaces are polled before network assertions; a running PID
   alone is not sufficient entrypoint readiness. Release-build regression tests run
