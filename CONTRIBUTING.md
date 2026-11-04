@@ -40,7 +40,7 @@ DOCKER_BUILDKIT=1 docker build -t pumba -f docker/Dockerfile .
 ### Cross-compile for all platforms
 
 ```sh
-# Builds for darwin/linux/windows × amd64/arm64
+# Builds for darwin/linux × amd64/arm64
 make release
 ```
 
