@@ -56,14 +56,21 @@ engine() {
         rm)
             shift
             for id in "$@"; do
-                [ "$id" = -f ] || remove_fixture "$id"
+                case "$id" in -f | --time=0) continue ;; esac
+                remove_fixture "$id"
             done
             ;;
         *) echo "unexpected engine call: $*" >&2; return 1 ;;
     esac
 }
 docker() { engine "$@"; }
-podman() { engine "$@"; }
+podman() {
+    if [ "$1" = rm ] && { [ "${2:-}" != -f ] || [ "${3:-}" != --time=0 ]; }; then
+        echo 'Podman fixture cleanup must not wait for graceful stop' >&2
+        return 95
+    fi
+    engine "$@"
+}
 
 ctr() {
     shift 2 # namespace

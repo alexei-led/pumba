@@ -31,7 +31,7 @@ setup() {
     fi
     podman_fixture_run -d --name pdm_stress_victim alpine sh -c "apk add --no-cache stress-ng >/dev/null 2>&1 && sleep infinity" >/dev/null
     wait_for 30 "podman exec pdm_stress_victim which stress-ng >/dev/null 2>&1" "stress-ng to be installed"
-    podman pull "${STRESS_IMAGE}" >/dev/null 2>&1 || true
+    podman_pull_if_missing "${STRESS_IMAGE}"
 }
 
 teardown() {

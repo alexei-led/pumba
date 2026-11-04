@@ -25,8 +25,8 @@ setup() {
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — sidecar netem requires rootful mode"
     fi
-    podman pull docker.io/library/alpine:latest >/dev/null 2>&1 || true
-    podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
+    podman_pull_if_missing docker.io/library/alpine:latest
+    podman_pull_if_missing docker.io/nicolaka/netshoot:latest
     podman_fixture_run -d --privileged --name pdm-sidecar-target docker.io/library/alpine:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null
     wait_for_running podman pdm-sidecar-target

@@ -23,8 +23,8 @@ setup() {
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — iptables requires rootful mode"
     fi
-    podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
-    podman pull ghcr.io/alexei-led/pumba-alpine-nettools:latest >/dev/null 2>&1 || true
+    podman_pull_if_missing docker.io/nicolaka/netshoot:latest
+    podman_pull_if_missing ghcr.io/alexei-led/pumba-alpine-nettools:latest
     podman_fixture_run -d --privileged --name pdm-ipt-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null
     wait_for_running podman pdm-ipt-ctr
 }

@@ -25,8 +25,8 @@ setup() {
     if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -qi '^true$'; then
         skip "podman is rootless — status requires rootful mode"
     fi
-    podman pull docker.io/nicolaka/netshoot:latest >/dev/null 2>&1 || true
-    podman pull "${NETTOOLS}" >/dev/null 2>&1 || true
+    podman_pull_if_missing docker.io/nicolaka/netshoot:latest
+    podman_pull_if_missing "${NETTOOLS}"
     podman_fixture_run -d --privileged --name pdm-status-ctr docker.io/nicolaka/netshoot:latest sleep infinity >/dev/null
     wait_for_running podman pdm-status-ctr
 }

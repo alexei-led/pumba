@@ -62,7 +62,8 @@ plan_teardown() {
     # Only sidecars belonging to this recorded target, then the target itself.
     for id in $sidecars "$PLAN_TARGET_ID"; do
         case "$PLAN_RUNTIME" in
-            docker|podman) "$PLAN_RUNTIME" rm -f "$id" >/dev/null 2>&1 || true ;;
+            docker) docker rm -f "$id" >/dev/null 2>&1 || true ;;
+            podman) podman rm -f --time=0 "$id" >/dev/null 2>&1 || true ;;
             containerd)
                 sudo ctr -n "$PLAN_NAMESPACE" t rm -f "$id" >/dev/null 2>&1 || true
                 sudo ctr -n "$PLAN_NAMESPACE" c rm "$id" >/dev/null 2>&1 || true

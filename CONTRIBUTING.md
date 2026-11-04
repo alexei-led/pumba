@@ -101,6 +101,9 @@ colima ssh -- sudo bats tests/containerd_*.bats
 
 > **Note:** Containerd netem/iptables/sidecar tests require `sudo` because pumba needs root to mount overlayfs for sidecar containers. See `tests/README.md` for details.
 
+Fixture timing rules, measured CI improvements, and comparison commands are in
+[CI and test performance](docs/ci-performance.md).
+
 ### Advanced Go integration tests
 
 Go-based integration tests in `tests/integration/` cover crash recovery, network verification, concurrency, sidecar lifecycle, intervals, stress, container lifecycle, and containerd runtime scenarios:

@@ -36,7 +36,8 @@ teardown() {
 @test "Should remove stopped docker container" {
     # Given a container that has been stopped
     create_test_container "rm_victim"
-    docker stop rm_victim
+    # Fixture preparation, not a graceful-stop test.
+    docker stop --time=0 rm_victim
     
     # Verify container is stopped but still exists
     run docker inspect -f {{.State.Status}} rm_victim
@@ -57,7 +58,7 @@ teardown() {
 @test "Should remove stopped container matched by regex" {
     # Given a stopped container
     create_test_container "rm_victim"
-    docker stop rm_victim
+    docker stop --time=0 rm_victim
     
     # Verify container is stopped
     run docker inspect -f {{.State.Status}} rm_victim
@@ -110,7 +111,6 @@ teardown() {
     run pumba rm --limit 1 "re2:rm_victim_.*"
     assert_success
 
-    sleep 2
     local remaining=0
     docker inspect rm_victim_1 &>/dev/null && remaining=$((remaining+1))
     docker inspect rm_victim_2 &>/dev/null && remaining=$((remaining+1))
