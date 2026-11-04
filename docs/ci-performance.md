@@ -1,114 +1,149 @@
 # CI and test performance
 
-## Measured experiment
+## Hosted measurements
 
-Baseline: commit `e1d9d6d`. Candidate changes only CI configuration, test
-fixtures and waits; no production Go code, assertions, chaos durations, test
-selection or runtime/architecture matrix changed.
+Two successful runs on PR #405 compared the fixture fixes alone with the
+parallel, sharded workflow. The source code and six runtime/architecture
+combinations were unchanged. These are individual runs, not confidence intervals.
 
-Local measurements on 2026-11-04 used an eight-vCPU Linux arm64 Colima VM
-(Ubuntu 24.04, kernel 6.8, Bats 1.10). Both Docker runs used the same Pumba
-binary and preloaded images, in sequence on an otherwise empty runtime.
-Each measurement is one before/after pair, not a confidence interval.
+| Build and Test workflow | Wall time | Sum of job durations |
+| --- | ---: | ---: |
+| [Fixture fixes, unsharded](https://github.com/alexei-led/pumba/actions/runs/41790212618) | 10m08s | 39m20s |
+| [Parallel checks and isolated shards](https://github.com/alexei-led/pumba/actions/runs/41792024441) | 4m48s | 41m09s |
 
-| Workload | Before | After | Result |
-| --- | ---: | ---: | --- |
-| Full Docker Bats suite, 140 tests, wall time | 631.48s | 476.88s | 24.5% faster |
-| Podman exec Bats suite, 8 tests, sum of test times | 75.043s | 3.264s | Same 8 tests passed |
-| Podman removal, one disposable fixture | 10.127s | 0.062s | Explicit immediate cleanup |
-| Podman removal, two disposable fixtures | 20.244s | 0.216s | Explicit immediate cleanup |
+Sharding and overlap reduced wall time by 52.6% at a 4.6% increase in summed job
+time. That sum excludes separate lint, security and nettools workflows and is
+not a billing estimate. Earlier PR runs before fixture optimization took about
+18 minutes.
 
-Both full Docker runs and both Podman exec runs passed with **zero skips**.
-[Per-test measurements](ci-performance-results.tsv) retain the same test names
-and counts for comparison. Full-suite wall times include runner overhead and
-therefore differ from sums of Bats test timings.
+The test-name multisets match exactly in both hosted runs:
 
-The Podman experiment used Ubuntu's Podman 4.9.3 in a disposable privileged
-container with VFS storage and disabled cgroups. This reproduces fixture removal
-and exec behavior, not native Podman cgroup or network coverage. A nested
-Podman netem smoke attempt timed out and is not counted as verification.
-An initial all-skipped exec attempt was also discarded.
+| Runtime | Tests per architecture | Skips per architecture |
+| --- | ---: | ---: |
+| Docker | 140 | 0 |
+| containerd | 88 | 0 |
+| Podman | 96 | 1 |
 
-Five warm-image samples compared `podman pull docker.io/library/alpine:latest`
-with `podman image exists docker.io/library/alpine:latest`: median
-**1.618s versus 0.017s**. Registry latency varies; do not extrapolate an exact
-whole-job saving from this microbenchmark.
+The Podman skip is the existing rootless-only scenario on rootful runners.
+No case moved to release-only. Every meaningful PR integration case still runs
+on linux/amd64 and linux/arm64.
 
-## Changes retained
+## Local fixture experiment
 
-- Docker fixture creation polls for running state instead of sleeping one
-  second. Create failures and readiness timeouts propagate. Offline tests cover
-  immediately ready, delayed, failed-create and timeout cases.
-- Disposable Podman fixture removal uses `rm -f --time=0`, including the
-  separate dry-run plan helper. Cleanup still targets only the recorded IDs and
-  their matching sidecars; protected/unrelated-container regressions remain.
-- Podman setup checks for existing images and pulls on a miss. Pull failures
-  propagate. CI's initial image pulls remain, so each job still refreshes images.
-  Local tests reuse installed images; pull explicitly when testing image updates.
-- Four Docker fixture-only stops use `--time=0`. Pumba's graceful-stop,
-  restart-duration and cleanup behavior remains under test.
-- A restart test polls for a changed start timestamp instead of sleeping five
-  seconds. Limit tests inspect final state after synchronous Pumba completion;
-  they retain their exact-count assertions without extra idle sleeps.
-- Build and Release use the same pinned golangci-lint Action and v2.15.0 as the
-  standalone lint workflow, rather than compiling the linter from source.
-  Full-project lint stays inside the required `Lint and Test` job and in the
-  release build. No new-issues-only filtering was enabled.
+Baseline: commit `e1d9d6d`. Linux arm64 Colima used eight vCPUs, Ubuntu 24.04,
+kernel 6.8 and Bats 1.10. The before/after Docker runs used the same binary and
+preloaded images on an otherwise empty runtime.
 
-The linter change has not been timed in a new hosted run. In the
-[inspected PR run](https://github.com/alexei-led/pumba/actions/runs/41692450868),
-source installation took about 54s before 19.6s of linting. Prebuilt installation
-is recommended by the [linter maintainers](https://golangci-lint.run/docs/welcome/install/local/).
-Podman's [4.9 removal contract](https://docs.podman.io/en/v4.9.3/markdown/podman-rm.1.html)
-documents the explicit cleanup timeout.
+| Workload | Before | After |
+| --- | ---: | ---: |
+| Full Docker Bats suite, 140 tests, wall time | 631.48s | 476.88s |
+| Podman exec Bats suite, 8 tests, sum of test times | 75.043s | 3.264s |
+| Podman removal, one disposable fixture | 10.127s | 0.062s |
+| Podman removal, two disposable fixtures | 20.244s | 0.216s |
 
-## Reproduce and compare
+Both Docker runs and both Podman exec runs passed with zero skips.
+[Per-test data](ci-performance-results.tsv) preserve their names and counts.
+Wall time includes runner overhead and differs from sums of Bats timings.
 
-Use an empty disposable runtime: legacy suites have fixed names, broad selectors
+The local Podman experiment used Podman 4.9.3 nested with VFS and disabled
+cgroups. An initial all-skipped exec attempt and a timed-out nested netem
+attempt were discarded. The subsequent hosted baseline verified native Podman
+on both architectures.
+
+Five cached-image samples measured median `podman pull` time of 1.618s versus
+0.017s for `podman image exists`. Registry latency varies. CI still refreshes
+images initially; only repeated per-test pulls were removed.
+
+## Retained changes
+
+- Docker fixture creation polls for running state instead of sleeping one second.
+  Offline tests cover each labeled container, delayed readiness, create failures
+  and timeouts.
+- Disposable Podman cleanup uses `rm -f --time=0`, including the dry-run plan
+  helper. Recorded IDs, sidecar ownership and protected-container checks remain.
+- Fixture-only Docker stops use immediate termination. Production graceful-stop,
+  cancellation and natural-expiry assertions remain.
+- Change classification precedes independent unit/lint and integration jobs.
+  The required `Lint and Test` check now aggregates them and fails on missing,
+  failed, canceled or unexpectedly skipped checks.
+- `.github/integration-shards.tsv` balances Docker and Podman files across
+  separate runners. The selector fails if any file is omitted, duplicated,
+  assigned to the wrong runtime or stale. New integration files must be assigned
+  explicitly. containerd retains one shard per architecture.
+- Prebuilt golangci-lint v2.15.0 replaces source installation. Existing production
+  rules remain. A separate test-correctness config checks assertion correctness
+  and parallel-test conventions without imposing a bulk assertion-style rewrite.
+- Nettools PR jobs have read-only permissions and build/verify tools without
+  publishing. Protected-branch jobs retain registry publishing.
+- Full functional CI also runs on merged `master` commits. Release validation
+  requires a successful protected-branch run for the exact release SHA.
+- Nightly/manual Deep Validation supplements PR checks with full Go race tests
+  and the existing advanced runtime suite. Native local acceptance passed its
+  39 executable scenarios in 290s. An always-skipped placeholder with no
+  assertions was removed; no executable scenario was removed.
+- Closed-wait cancellation now has a deterministic owned-exec test. Existing
+  coverage varied by one line depending on which ready select branch ran;
+  coverage thresholds were not relaxed.
+
+## Release experiments
+
+On a 15-logical-CPU macOS arm64 host, separate Go caches were warmed only for
+linux/amd64 before each four-target build. Module downloads were shared.
+Sequential OS groups took 59s; two parallel groups took 50s. All four binary
+pairs were byte-identical. The retained Makefile joins every child and propagates
+compiler failures; offline tests cover complete artifacts and failure handling.
+
+Release images now package those Linux artifacts. Local source-image build took
+16.75s; first artifact packaging took 13.09s and a cached repeat took 3.66s.
+These are local cache-dependent measurements, not hosted release predictions.
+Same-version CLI schemas matched, and the packaged binary matched its supplied
+artifact byte-for-byte.
+
+Validation and binary compilation run independently; both must pass before
+publishing. Release compilation does not restore cross-run Go build caches.
+Every binary must report the tagged revision and clean VCS metadata before upload. Image jobs compare their extracted payload with the artifact before
+manifest publication. Both GHCR architectures are required. Docker Hub remains
+best-effort, but incomplete digest sets leave its tags unchanged.
+
+In release 1.5.0, BuildKit spent 55.4s exporting a maximal GitHub cache versus
+22.1s compiling on amd64. Packaging removes the duplicate compilation and this
+large SDK cache export. The small certificate/timezone stage uses local BuildKit
+cache within each job. SBOM and provenance remain enabled. The packaging
+Dockerfile retains the existing distro-update policy for certificate/timezone
+packages; Hadolint DL3008 flags their unpinned package versions.
+
+## Discarded or deferred experiments
+
+| Candidate | Decision |
+| --- | --- |
+| Broad test-linter enablement | The displayed 15 findings were capped; 164 diagnostics included bulk style conventions. Retained focused correctness checks instead. No existing production rule was disabled. |
+| Mutable target-container pooling | Rejected. Post-fix Podman exec takes only 3.3s for eight cases; namespace/cgroup/rule reset risks outweigh the remaining setup cost. |
+| Folding small CLI permutations now | Deferred. After fixture fixes, these are cheap. Keep case-level diagnostics until an equivalent unit boundary justifies removal. |
+| Shortening all injections | Rejected. Natural expiry and cancellation are distinct cleanup contracts. |
+| Same-host Bats parallelism | Rejected. Fixed names, broad selectors and cleanup interfere across files. |
+| Shallow build checkouts | Deferred. Git-derived version metadata requires equivalence checks; measured gains already meet the current CI target. |
+| Lazy Makefile discovery | Deferred. Three dry runs averaged about 0.86s; no cache abstraction was justified. |
+| More release compiler fanout | Not adopted. Two OS groups provided a measured gain while bounding concurrent compiler groups. |
+| Registry/maximal SDK cache tuning | Superseded by packaging verified binaries; no SDK compilation/cache export is needed in release image jobs. |
+| Smaller PR suite | Not adopted. Full pre-merge coverage was preserved. |
+
+## Reproduce and maintain
+
+Use empty disposable runtimes. Legacy suites have fixed names, broad selectors
 and teardown commands. Do not run them alongside unrelated containers.
 
-On a Linux host with Docker, Bats, its support/assert libraries and the workflow's
-images installed:
+On Linux with the workflow dependencies and images installed:
 
 ```bash
 make build TARGETARCH="$(dpkg --print-architecture)"
 export PATH="$PWD/.bin/github.com/alexei-led:$PATH"
-shopt -s extglob
-bats --tap --timing --print-output-on-failure tests/!(containerd_*|podman_*).bats
+bash .github/scripts/integration-files.bash docker 1 > /tmp/bats-files
+files=()
+while IFS= read -r file; do files+=("$file"); done < /tmp/bats-files
+bats --tap --timing --print-output-on-failure "${files[@]}"
 ```
 
-On a native rootful Podman host with the binary and images installed:
-
-```bash
-bats --tap --timing --print-output-on-failure tests/podman_exec.bats
-```
-
-Run the same commands against a pristine baseline and the candidate. Hold the
-binary, images, runner and background workload constant; retain TAP output and
-compare counts, skips, failures, individual timings and total wall time. Never
-treat skipped tests as passing performance evidence.
-
-## Other opportunities: not applied
-
-| Candidate | Evidence and reason to defer |
-| --- | --- |
-| Start integration alongside unit/reporting jobs | The inspected PR gate took 171s. A small classification prerequisite could overlap that work without deleting checks, but needs hosted queue/cost measurements. Savings overlap with faster lint installation. |
-| Balance Docker files across separate runners | Preserves cases and architectures, but adds VM setup and runner demand. Measure the new hosted bottleneck before adding shards. Same-host parallelism is unsafe with current selectors and cleanup. |
-| Reduce full-history checkout cost | Checkouts varied from about 2s to 32s. Builds consume Git-derived version metadata, so shallow checkout needs metadata-equivalence checks; no history behavior changed here. |
-| Avoid eager Makefile discovery | Three local dry runs averaged about 0.86s for both `make -n test-shell` and `make -n build`. Too small to justify a caching abstraction in this patch. |
-| Remove target-side stress-ng installation in Podman fixtures | Current stress tests use a sidecar, but changing these fixtures needs a native cgroup-enabled Podman verification run. |
-| Shorten natural-expiry injections | Many Docker network cases deliberately await 10s duration expiry. Preserve expiry-and-revert coverage; do not replace it with cancellation solely for speed. |
-| Move tests to release-only | Not needed for the measured gains. Keep the full PR matrix; do not defer runtime regressions until publication. |
-| Parallelize release binaries | Four serial builds took about 80s in release 1.5.0, but release latency was already about four minutes. Lower priority than integration execution. |
-
-## Limits and remaining checks
-
-These measurements do not establish an end-to-end hosted CI speedup.
-Docker becomes the limiting runtime after the large Podman teardown waits are
-removed; per-job savings cannot simply be added to predict PR wall time.
-
-Native Podman's full suite and linux/amd64 execution still need hosted
-verification. The existing six-way matrix remains unchanged. Repository branch
-protection was read, not modified: `Lint and Test` is required, while integration
-statuses are not required there. Removing its lint merely because another
-workflow also lints would weaken that gate.
+Repeat for Docker/Podman shards 1 and 2, and containerd shard 1. Compare identical
+test-name multisets, skips, failures, wall time and total job time. Rebalance the
+manifest from per-file durations when runner behavior changes. Never count
+skipped tests as successful performance evidence.

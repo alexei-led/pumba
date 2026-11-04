@@ -57,6 +57,11 @@ Validate the merged release candidate before requesting publication approval.
 For local version checks, pass `VERSION=X.Y.Z` explicitly to `make build`;
 otherwise Git-derived metadata can override the `VERSION` file.
 
+The Release workflow requires a successful full `Build and Test` push run for
+that exact `master` commit. Validation and compilation use separate workspaces;
+all binaries must report the tagged revision and clean VCS metadata. Images
+package and byte-compare the verified Linux binaries before manifest publication.
+
 Only after explicit release authorization, tag the intended commit `X.Y.Z`
 (without a `v` prefix). Pushing that tag triggers the owning Release workflow;
 it publishes the exact tag as the title and reads the matching notes file.
@@ -101,8 +106,11 @@ colima ssh -- sudo bats tests/containerd_*.bats
 
 > **Note:** Containerd netem/iptables/sidecar tests require `sudo` because pumba needs root to mount overlayfs for sidecar containers. See `tests/README.md` for details.
 
-Fixture timing rules, measured CI improvements, and comparison commands are in
-[CI and test performance](docs/ci-performance.md).
+The required `Lint and Test` check aggregates unit/lint and the complete
+integration matrix. CI also runs on merged `master` commits. Docker and Podman
+use isolated file shards; assign new Bats files in `.github/integration-shards.tsv`
+or the selector fails closed. Fixture rules, measured improvements and comparison
+commands are in [CI and test performance](docs/ci-performance.md).
 
 ### Advanced Go integration tests
 

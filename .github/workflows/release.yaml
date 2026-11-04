@@ -10,20 +10,25 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  # Build and test Go binaries
-  build:
+  # Validation and cross-compilation run independently; publishing requires both.
+  validate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+      actions: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Verify Protected-branch CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/verify-release-ci.bash
       - name: Set Up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.27"
           cache: true
@@ -32,22 +37,52 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.15.0
+      - name: Check Test Assertions
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
+          args: --config=.golangci-tests.yaml
       - name: Run Test Coverage
         run: make test-coverage
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           cleanup: true
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set Up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: "1.27"
+          cache: false
+          cache-dependency-path: go.sum
       - name: Build Release Binaries
         env:
           GOPROXY: https://proxy.golang.org
           CGO_ENABLED: 0
-        run: make release
+        run: make release VERSION="$GITHUB_REF_NAME" BRANCH="$GITHUB_REF_NAME" COMMIT="$(git rev-parse --short HEAD)"
+      - name: Verify Binary Metadata
+        shell: bash
+        run: |
+          for binary in .bin/pumba_*; do
+            metadata=$(go version -m "$binary")
+            grep -F "vcs.revision=$GITHUB_SHA" <<< "$metadata"
+            grep -F "vcs.modified=false" <<< "$metadata"
+          done
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pumba-binaries
           path: .bin/*
@@ -58,7 +93,8 @@ jobs:
           include-hidden-files: true
   # Build Docker images natively per architecture (no QEMU)
   docker-build:
-    timeout-minutes: 30
+    needs: [validate, build]
+    timeout-minutes: 15
     strategy:
       # Independent platforms — one arch flake must not cancel the other.
       fail-fast: false
@@ -74,26 +110,34 @@ jobs:
       packages: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Get Short SHA
-        id: short_sha
-        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Download Verified Binaries
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: pumba-binaries
+          path: ${{ runner.temp }}/binaries
+      - name: Prepare Image Payload
+        run: |
+          mkdir -p "$RUNNER_TEMP/image"
+          arch=$(dpkg --print-architecture)
+          cp "$RUNNER_TEMP/binaries/pumba_linux_${arch}" "$RUNNER_TEMP/image/pumba"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
         with:
           # buildkit defaults: enable network mode for downloading content
           buildkitd-flags: --debug
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        continue-on-error: true
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
@@ -101,37 +145,33 @@ jobs:
       # (blob upload unknown, 5xx, connection reset).
       - name: Build and push by digest (GHCR)
         id: build-ghcr
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         continue-on-error: true
         with:
-          file: docker/Dockerfile
-          context: .
-          build-args: |
-            BRANCH=${{ github.ref_name }}
-            COMMIT=${{ steps.short_sha.outputs.sha }}
-            SKIP_TESTS=true
+          file: docker/release.Dockerfile
+          context: ${{ runner.temp }}/image
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           provenance: true
           sbom: true
           pull: true
       - name: Retry GHCR push
         id: build-ghcr-retry
         if: steps.build-ghcr.outcome == 'failure'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
-          file: docker/Dockerfile
-          context: .
-          build-args: |
-            BRANCH=${{ github.ref_name }}
-            COMMIT=${{ steps.short_sha.outputs.sha }}
-            SKIP_TESTS=true
+          file: docker/release.Dockerfile
+          context: ${{ runner.temp }}/image
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           provenance: true
           sbom: true
           pull: true
@@ -140,36 +180,34 @@ jobs:
       # export the GHCR digest for the merge job.
       - name: Build and push by digest (Docker Hub)
         id: build-hub
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         continue-on-error: true
         with:
-          file: docker/Dockerfile
-          context: .
-          build-args: |
-            BRANCH=${{ github.ref_name }}
-            COMMIT=${{ steps.short_sha.outputs.sha }}
-            SKIP_TESTS=true
+          file: docker/release.Dockerfile
+          context: ${{ runner.temp }}/image
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=${{ secrets.DOCKER_ORG }}/pumba,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform }}
           provenance: true
           sbom: true
           pull: true
       - name: Retry Docker Hub push
         id: build-hub-retry
         if: steps.build-hub.outcome == 'failure'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         continue-on-error: true
         with:
-          file: docker/Dockerfile
-          context: .
-          build-args: |
-            BRANCH=${{ github.ref_name }}
-            COMMIT=${{ steps.short_sha.outputs.sha }}
-            SKIP_TESTS=true
+          file: docker/release.Dockerfile
+          context: ${{ runner.temp }}/image
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=${{ secrets.DOCKER_ORG }}/pumba,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform }}
           provenance: true
           sbom: true
           pull: true
@@ -197,8 +235,21 @@ jobs:
           else
             echo "::warning::Docker Hub push failed both attempts on ${{ matrix.platform }} — GHCR manifest will still be published, Hub manifest will be skipped"
           fi
+      - name: Verify Image Payload
+        shell: bash
+        env:
+          IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+        run: |
+          digest=$(find /tmp/digests/ghcr -type f -printf '%f\n')
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          image="${IMAGE_REPOSITORY}@sha256:${digest}"
+          cid=$(docker create "$image")
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker cp "$cid:/pumba" "$RUNNER_TEMP/shipped-pumba"
+          cmp "$RUNNER_TEMP/image/pumba" "$RUNNER_TEMP/shipped-pumba"
+          docker run --rm "$image" --version | grep -F "Pumba version $GITHUB_REF_NAME "
       - name: Upload digests
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: digests-${{ matrix.runner }}
           path: /tmp/digests
@@ -213,27 +264,35 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - name: Download digests
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        continue-on-error: true
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_ACCOUNT }}
           password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Check Complete Digest Sets
+        id: digests
+        run: bash .github/scripts/check-release-digests.bash /tmp/digests
       - name: Create and push manifest (GHCR)
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -254,8 +313,9 @@ jobs:
               "${sources[@]}"
       - name: Create and push manifest (Docker Hub)
         id: merge-hub
+        if: steps.digests.outputs.hub_ready == 'true'
         continue-on-error: true
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -275,10 +335,14 @@ jobs:
               -t "${{ secrets.DOCKER_ORG }}/pumba:latest" \
               "${sources[@]}"
       - name: Inspect GHCR image
-        run: docker buildx imagetools inspect "ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+        run: docker buildx imagetools inspect "$IMAGE"
       - name: Inspect Docker Hub image
         if: steps.merge-hub.outcome == 'success'
-        run: docker buildx imagetools inspect "${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}"
+        env:
+          IMAGE: ${{ secrets.DOCKER_ORG }}/pumba:${{ github.ref_name }}
+        run: docker buildx imagetools inspect "$IMAGE"
   # Create GitHub Release.
   # Decoupled from docker-merge: a Docker registry flake (e.g. Docker Hub
   # blob-upload errors) must not block binary publishing. The Docker pipeline
@@ -286,6 +350,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     needs:
+      - validate
       - build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -293,19 +358,19 @@ jobs:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Download Artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: pumba-binaries
           path: ${{ github.workspace }}/.bin/
       - name: List Downloaded Artifacts
         run: ls -la "${{ github.workspace }}/.bin/"
       - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
