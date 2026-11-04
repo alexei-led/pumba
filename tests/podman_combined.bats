@@ -28,6 +28,7 @@ setup() {
     podman_fixture_run -d --privileged --name pdm-combined-ctr docker.io/nicolaka/netshoot:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null
     wait_for_running podman pdm-combined-ctr
+    wait_for_interface podman pdm-combined-ctr dummy0
 }
 
 teardown() {

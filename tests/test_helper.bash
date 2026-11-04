@@ -103,6 +103,14 @@ wait_for_running() {
 	wait_for_state "$cli" "$container" running "$timeout"
 }
 
+# A running PID does not imply its entrypoint has created custom interfaces.
+wait_for_interface() {
+	local cli=$1 container=$2 iface=$3 timeout=${4:-10}
+	wait_for "$timeout" \
+		"$cli exec '$container' ip link show '$iface' >/dev/null 2>&1" \
+		"$container interface=$iface"
+}
+
 # Wait until a container has exited (e.g. after `kill`/`stop`).
 wait_for_exited() {
 	local cli=$1 container=$2 timeout=${3:-10}

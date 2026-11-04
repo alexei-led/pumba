@@ -30,6 +30,7 @@ setup() {
     podman_fixture_run -d --privileged --name pdm-sidecar-target docker.io/library/alpine:latest \
         sh -c "ip link add dummy0 type dummy && ip link set dummy0 up && sleep infinity" >/dev/null
     wait_for_running podman pdm-sidecar-target
+    wait_for_interface podman pdm-sidecar-target dummy0
 }
 
 teardown() {
