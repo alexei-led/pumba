@@ -87,7 +87,9 @@ jobs:
         run: make test-coverage
       - name: Run Offline Shell Tests
         if: needs.changes.outputs.docs_only != 'true'
-        run: make test-shell
+        run: |
+          make test-shell
+          test -s .cover/coverage.xml
       - name: Test govulncheck Gate
         if: needs.changes.outputs.docs_only != 'true'
         run: bash .github/scripts/test_govulncheck.bash

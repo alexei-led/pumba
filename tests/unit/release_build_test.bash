@@ -26,6 +26,9 @@ esac
 STUB
 chmod +x "$TMP/go"
 export CHECK_TMP="$TMP"
+# The real release prerequisite cleans CURDIR/.cover; never run it in the checkout.
+mkdir -p "$TMP/work"
+cd "$TMP/work"
 for FAIL_TARGET in '' linux/arm64; do
     export FAIL_TARGET
     actual=0

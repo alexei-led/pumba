@@ -81,6 +81,9 @@ images initially; only repeated per-test pulls were removed.
   and the existing advanced runtime suite. Native local acceptance passed its
   39 executable scenarios in 290s. An always-skipped placeholder with no
   assertions was removed; no executable scenario was removed.
+- Custom fixture interfaces are polled before network assertions; a running PID
+  alone is not sufficient entrypoint readiness. Release-build regression tests run
+  in temporary workspaces, and CI checks that offline tests preserve coverage XML.
 - Closed-wait cancellation now has a deterministic owned-exec test. Existing
   coverage varied by one line depending on which ready select branch ran;
   coverage thresholds were not relaxed.
