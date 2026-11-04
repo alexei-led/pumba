@@ -11,6 +11,8 @@ awk '
     body { exit }
 ' .github/workflows/build.yaml >"$TMP/step.bash"
 [ -s "$TMP/step.bash" ]
+export RUNNER_TEMP="$TMP"
+printf '%s\n' tests/podman_exec.bats >"$RUNNER_TEMP/bats-files"
 
 sudo() {
     if [ "$1" = env ]; then shift 2; fi
@@ -37,6 +39,7 @@ podman() {
     esac
 }
 bats() {
+    [ "$*" = '--tap --timing --print-output-on-failure tests/podman_exec.bats' ] || return 45
     echo 'stub suite'
     return "$BATS_RC"
 }

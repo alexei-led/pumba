@@ -1,7 +1,6 @@
 package podman
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -211,11 +210,7 @@ func TestParseProc1Cgroup_Errors(t *testing.T) {
 			t.Parallel()
 			_, _, _, _, err := ParseProc1Cgroup(tt.input)
 			require.Error(t, err)
-			assert.True(
-				t,
-				errors.Is(err, tt.wantErr),
-				"got %v, want to wrap %v", err, tt.wantErr,
-			)
+			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }

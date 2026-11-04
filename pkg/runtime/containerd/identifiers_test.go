@@ -19,6 +19,8 @@ import (
 // Exercise the real allocation sites in fresh processes: concurrent calls in
 // one process alone cannot catch identifiers that reset at process startup.
 func TestContainerdIDsAcrossProcesses(t *testing.T) {
+	t.Parallel()
+
 	if os.Getenv("PUMBA_TEST_ID_CHILD") == "1" {
 		collectContainerdIDs(t)
 		return

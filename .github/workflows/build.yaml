@@ -1,25 +1,28 @@
 name: Build and Test
 on:
   pull_request:
+  push:
+    branches: [master]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
 # Cancel superseded runs on the same PR — pushing a new commit invalidates
 # the previous build's signal.
 concurrency:
   group: build-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 jobs:
-  test:
-    name: Lint and Test
+  changes:
+    name: Classify Changes
     outputs:
       docs_only: ${{ steps.changes.outputs.docs_only }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     permissions:
-      checks: write
-      pull-requests: write
       contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -46,29 +49,50 @@ jobs:
             done < "$RUNNER_TEMP/changed-files"
           fi
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+  unit:
+    name: Unit and Lint
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      checks: write
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Setup Go Environment
-        if: steps.changes.outputs.docs_only != 'true'
-        uses: actions/setup-go@v7
+        if: needs.changes.outputs.docs_only != 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.27"
           cache: true
           cache-dependency-path: go.sum
       - name: Run golangci-lint
-        if: steps.changes.outputs.docs_only != 'true'
+        if: needs.changes.outputs.docs_only != 'true'
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.15.0
+      - name: Check Test Assertions
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
+          args: --config=.golangci-tests.yaml
       - name: Run Test Coverage
-        if: steps.changes.outputs.docs_only != 'true'
+        if: needs.changes.outputs.docs_only != 'true'
         run: make test-coverage
       - name: Run Offline Shell Tests
-        if: steps.changes.outputs.docs_only != 'true'
+        if: needs.changes.outputs.docs_only != 'true'
         run: make test-shell
       - name: Test govulncheck Gate
-        if: steps.changes.outputs.docs_only != 'true'
+        if: needs.changes.outputs.docs_only != 'true'
         run: bash .github/scripts/test_govulncheck.bash
       - name: Run govulncheck
-        if: steps.changes.outputs.docs_only != 'true'
+        if: needs.changes.outputs.docs_only != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -78,20 +102,20 @@ jobs:
           bash .github/scripts/govulncheck.bash 2>&1 | tee govulncheck.txt
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always() && steps.changes.outputs.docs_only != 'true'
+        if: always() && needs.changes.outputs.docs_only != 'true'
         with:
           files: .cover/tests.xml
           commit: ${{ github.sha }}
       - name: Upload Coverage to Codecov
-        if: steps.changes.outputs.docs_only != 'true'
+        if: needs.changes.outputs.docs_only != 'true'
         uses: codecov/codecov-action@v7
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
   integration:
-    name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }})
-    needs: test
-    if: needs.test.outputs.docs_only != 'true'
+    name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }}, shard ${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     strategy:
@@ -104,6 +128,10 @@ jobs:
         platform:
           - linux/amd64
           - linux/arm64
+        shard: [1, 2]
+        exclude:
+          - runtime: containerd
+            shard: 2
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
@@ -115,12 +143,12 @@ jobs:
       BATS_LOG: /tmp/bats-${{ matrix.runtime }}.log
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Setup Go Environment
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.27"
           cache: true
@@ -136,6 +164,11 @@ jobs:
           assert-path: /usr/local/lib/bats-assert
           detik-install: false
           file-install: false
+      - name: Select Integration Files
+        env:
+          TEST_RUNTIME: ${{ matrix.runtime }}
+          TEST_SHARD: ${{ matrix.shard }}
+        run: bash .github/scripts/integration-files.bash "$TEST_RUNTIME" "$TEST_SHARD" > "$RUNNER_TEMP/bats-files"
       # ── Docker runtime ────────────────────────────────────────────────────
       - name: Setup Docker Runtime
         if: matrix.runtime == 'docker'
@@ -157,9 +190,10 @@ jobs:
         timeout-minutes: 15
         run: |
           set -o pipefail
-          shopt -s extglob
+          files=()
+          while IFS= read -r file; do files+=("$file"); done < "$RUNNER_TEMP/bats-files"
           sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
-            tests/!(containerd_*|podman_*).bats 2>&1 | tee "$BATS_LOG"
+            "${files[@]}" 2>&1 | tee "$BATS_LOG"
       # ── Containerd runtime ────────────────────────────────────────────────
       - name: Setup Containerd Runtime
         if: matrix.runtime == 'containerd'
@@ -188,8 +222,10 @@ jobs:
         run: |
           set -o pipefail
           test -S /run/containerd/containerd.sock
+          files=()
+          while IFS= read -r file; do files+=("$file"); done < "$RUNNER_TEMP/bats-files"
           sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
-            tests/containerd_*.bats 2>&1 | tee "$BATS_LOG"
+            "${files[@]}" 2>&1 | tee "$BATS_LOG"
       # ── Podman runtime ────────────────────────────────────────────────────
       - name: Setup Podman Runtime
         if: matrix.runtime == 'podman'
@@ -212,9 +248,11 @@ jobs:
           # skip=true also protects user containers, not just Pumba sidecars.
           canary=$(sudo podman run -d --label com.gaiaadm.pumba.skip=true docker.io/library/alpine:latest top)
           trap 'sudo podman rm -f "$canary" >/dev/null 2>&1 || true' EXIT
+          files=()
+          while IFS= read -r file; do files+=("$file"); done < "$RUNNER_TEMP/bats-files"
           suite_status=0
           sudo env "PATH=$PATH" bats --tap --timing --print-output-on-failure \
-            tests/podman_*.bats 2>&1 | tee "$BATS_LOG" || suite_status=$?
+            "${files[@]}" 2>&1 | tee "$BATS_LOG" || suite_status=$?
           canary_status=0
           test "$(sudo podman inspect -f '{{.State.Running}}' "$canary")" = true || canary_status=1
           if [ "$suite_status" -ne 0 ]; then exit "$suite_status"; fi
@@ -244,7 +282,26 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           # Artifact names forbid `/` — use runner tag (already encodes arch).
-          name: integration-${{ matrix.runtime }}-${{ matrix.runner }}-diag
+          name: integration-${{ matrix.runtime }}-${{ matrix.runner }}-${{ matrix.shard }}-diag
           path: /tmp/diag/
           retention-days: 7
           if-no-files-found: ignore
+  gate:
+    name: Lint and Test
+    needs: [changes, unit, integration]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require All Checks
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+        run: bash .github/scripts/ci-gate.bash
