@@ -41,7 +41,7 @@ rv_create() {
 		sudo ctr -n moby run -d --privileged "${labels[@]}" "$RV_IMAGE" "$name" sleep infinity </dev/null || return
 		id=$name
 	else
-		id=$("$RV_RUNTIME" run -d --privileged --name "$name" "${labels[@]}" "$RV_IMAGE" sleep infinity) || return
+		id=$("$RV_RUNTIME" run -d --privileged --name "$name" "${labels[@]}" --entrypoint sleep "$RV_IMAGE" infinity) || return
 	fi
 	[ -n "$id" ] || return 1
 	RV_CREATED=$id
@@ -186,6 +186,16 @@ rv_add_match_all_rule() {
 }
 
 revert_backend_case() {
+	# netshoot no longer includes the legacy binary. Use a target image with
+	# both backends; absence must still fail rather than imply a clean table.
+	RV_IMAGE="ghcr.io/alexei-led/pumba-debian-nettools:latest"
+	if [ "$RV_RUNTIME" = containerd ]; then
+		ctr_pull_image moby "$RV_IMAGE"
+	else
+		"$RV_RUNTIME" pull "$RV_IMAGE" >/dev/null
+	fi
+	rv_create "rv-backends-${RV_TOKEN}" target
+	RV_TARGET=$RV_CREATED
 	# Missing backend tools fail this test rather than silently claiming clean.
 	rv_add_match_all_rule iptables-nft "$RV_RUN"
 	rv_add_match_all_rule iptables-legacy "$RV_RUN"
