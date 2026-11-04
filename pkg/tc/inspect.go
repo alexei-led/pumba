@@ -24,11 +24,6 @@ func QdiscShowCommand() []string {
 	return []string{"tc", "qdisc", "show"}
 }
 
-// IPTablesShowCommand lists the filter table rules as iptables arguments.
-func IPTablesShowCommand() []string {
-	return []string{"iptables", "-S"}
-}
-
 // IPTablesVersionCommand identifies which backend the default iptables uses.
 func IPTablesVersionCommand() []string {
 	return []string{"iptables", "--version"}
