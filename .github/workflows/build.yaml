@@ -86,6 +86,49 @@ jobs:
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+  architecture-profile:
+    name: Pinned Archfit Profile
+    needs: test
+    if: needs.test.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the local entry point on native amd64
+        env:
+          DOCKER_CONTEXT: default
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/archfit-linked" HEAD
+          for layout in checkout linked; do
+            root="$GITHUB_WORKSPACE"
+            if [[ "$layout" == linked ]]; then root="$RUNNER_TEMP/archfit-linked"; fi
+            result=0
+            report="$RUNNER_TEMP/archfit-profile-$layout.json"
+            bash "$root/.github/scripts/archfit-check.bash" --format json > "$report" || result=$?
+            case "$result" in
+              0|2) ;;
+              *) exit "$result" ;;
+            esac
+            jq -e --slurpfile reference "$root/.archfit-baseline.json" '
+              .gate_reference.status == "comparable" and
+              .gate_reference.baseline_present and
+              .decision.hard_gates == "pass" and
+              ((.decision.unevaluated_required_rules // []) | length == 0) and
+              (.comparison.measurement_profile == $reference[0].state.measurement_profile)
+            ' "$report"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: archfit-local-profile
+          path: ${{ runner.temp }}/archfit-profile-*.json
+          if-no-files-found: error
+
   integration:
     name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }})
     needs: test
@@ -128,8 +171,10 @@ jobs:
           make build TARGETARCH="$(dpkg --print-architecture)"
           sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
       - name: Install Bats
-        uses: bats-core/bats-action@4.0.0
+        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # v4.0.0
         with:
+          bats-version: "1.14.0"
+          github-token: ${{ github.token }}
           support-path: /usr/local/lib/bats-support
           assert-path: /usr/local/lib/bats-assert
           detik-install: false
