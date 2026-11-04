@@ -37,15 +37,15 @@ One run ID per process: every `--interval` tick shares it.
 
 Every event has these fields:
 
-| Field    | Meaning                                                   |
-| -------- | --------------------------------------------------------- |
-| `schema` | `pumba.event/v1`                                          |
-| `type`   | `run.start`, `target.applied`, `target.result`, `run.end` |
-| `run_id` | the `--run-id` value or the generated ID                  |
-| `time`   | RFC 3339, UTC                                             |
-| `action` | command path, e.g. `kill`, `netem delay`, `iptables loss` |
+| Field    | Meaning                                                                      |
+| -------- | ---------------------------------------------------------------------------- |
+| `schema` | `pumba.event/v1`                                                             |
+| `type`   | `run.start`, `target.applied`, `target.result`, `artifact.result`, `run.end` |
+| `run_id` | the `--run-id` value or the generated ID                                     |
+| `time`   | RFC 3339, UTC                                                                |
+| `action` | command path, e.g. `kill`, `netem delay`, `iptables loss`                    |
 
-Order: one `run.start`, then per tick and target `target.applied` (fault active) and `target.result` (terminal), then one `run.end`.
+Order: one `run.start`, then per tick the emitted target events (`target.applied` before `target.result` for injected work); recovery emits terminal `target.result` for inventoried targets and `artifact.result` for orphan sidecars, with no `target.applied`; then one `run.end`. Event delivery preserves emission order per sink.
 
 ```json
 {"schema":"pumba.event/v1","type":"run.start","run_id":"demo-1","time":"2026-10-30T06:44:42.077Z","action":"netem delay","pumba_version":"1.5.0","runtime":"docker","dry_run":false,"interval":"0s","selection":{"names":["web-1"],"labels":[],"random":false,"max_targets":2},"params":{"correlation":20,"distribution":"","duration":"3s","egress-port":"","ingress-port":"","interface":"eth0","jitter":10,"limit":0,"pull-image":false,"target":[],"tc-image":"ghcr.io/alexei-led/pumba-alpine-nettools:latest","time":100}}
@@ -70,16 +70,17 @@ The fault is active on the target, so probes can start now. For one-shot actions
 
 Terminal record per target and tick. For faults that are reverted (netem, iptables, pause, stop `--restart`, stress), it comes only after the revert finished. Stress waits for both runtime result channels to close after workload cleanup; output alone is not completion. Duration/SIGTERM request shutdown of the owned workload, with a bounded cleanup wait. Cleanup errors/timeouts remain `cleanup_failed` even during cancellation.
 
-| Field              | Meaning                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `tick`             | interval iteration, starting at 1                                                                                |
-| `target`           | `id` and `name` as the runtime reports them (Docker names start with `/`)                                        |
-| `started`, `ended` | when work on this target started and finished                                                                    |
-| `status`           | `ok`, `failed`, `cleanup_failed`, `planned` (dry-run), `skipped` (serial run stopped by an earlier failure)      |
-| `error`            | `null` or an [error object](#errors)                                                                             |
-| `cleanup`          | `null` when nothing was reverted (one-shot actions, dry-run); else `{"ok":true}` or `{"ok":false,"error":"…"}`   |
-| `plan`             | netem/iptables dry-run only: exact apply/revert argv and execution location, see [Dry-run plans](#dry-run-plans) |
-| `state`            | `status` only: what was found on the target, see [Status](#status-pumba-status---check)                          |
+| Field              | Meaning                                                                                                                                                                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tick`             | interval iteration, starting at 1                                                                                                                                                                   |
+| `target`           | `id` and `name` as the runtime reports them (Docker names start with `/`)                                                                                                                           |
+| `started`, `ended` | when work on this target started and finished                                                                                                                                                       |
+| `status`           | `ok`, `failed`, `cleanup_failed`, `planned` (dry-run), `skipped` (serial run stopped by an earlier failure)                                                                                         |
+| `error`            | `null` or an [error object](#errors)                                                                                                                                                                |
+| `cleanup`          | `null` when nothing was reverted (one-shot actions, dry-run); else `{"ok":true}` or `{"ok":false,"error":"…"}`                                                                                      |
+| `plan`             | netem/iptables dry-run only: exact apply/revert argv and execution location, see [Dry-run plans](#dry-run-plans)                                                                                    |
+| `state`            | `status` only: what was found on the target, see [Status](#status-pumba-status---check)                                                                                                             |
+| `recovery`         | `revert` only: `rules` (nullable typed plan, same `via`/`image`/`apply`/`revert` shape as `plan`), `sidecars` (pinned identities `{id,target_id,run_id,kind}`), and `unresolved` (coverage reasons) |
 
 ### `run.end`
 
@@ -90,18 +91,19 @@ Emitted when the process finishes, also for usage errors that never reached `run
 - `error`: `null` or an [error object](#errors).
 - `events_dropped`: events this sink lost: on stdout, the stdout count; on the webhook, the webhook count (see [Delivery](#delivery)).
 - `coverage`: `status` only, see [Status](#status-pumba-status---check).
+- `artifact_counts`: `revert` only; counts `artifact.result` records by the same `selected`, `ok`, `failed`, `cleanup_failed`, `planned`, `skipped` fields as `counts`. `counts` remains exclusively real `target.result` records.
 
-| `status`                    | When                                                                                | Exit                      |
-| --------------------------- | ----------------------------------------------------------------------------------- | ------------------------- |
-| `ok`                        | every target `ok` or `planned`                                                      | 0                         |
-| `no_targets`                | nothing matched; `error.code` is `no_targets`                                       | 0                         |
-| `failed`                    | an error, and no target succeeded                                                   | 1 (0 with `--skip-error`) |
-| `partial`                   | an error, and some targets succeeded                                                | 1 (0 with `--skip-error`) |
-| `cleanup_failed`            | a revert failed; the fault may still be active                                      | 1 (0 with `--skip-error`) |
-| `refused`                   | `--max-targets` exceeded; nothing was injected                                      | 1                         |
-| `usage_error`               | bad flag, argument or `--run-id`                                                    | 1                         |
-| `aborted`                   | `--max-duration` expired (`timeout`, exit 1) or SIGINT/SIGTERM (`canceled`, exit 0) | see left                  |
-| `clean`, `dirty`, `unknown` | `status --check` only: the verdict                                                  | 0 for `clean`, else 1     |
+| `status`                    | When                                                                                                                           | Exit                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| `ok`                        | every target `ok` or `planned`                                                                                                 | 0                         |
+| `no_targets`                | ordinary chaos selection matched nothing; `error.code` is `no_targets` (a complete empty `revert` inventory instead ends `ok`) | 0                         |
+| `failed`                    | an error, and no target succeeded                                                                                              | 1 (0 with `--skip-error`) |
+| `partial`                   | an error, and some targets succeeded                                                                                           | 1 (0 with `--skip-error`) |
+| `cleanup_failed`            | a revert failed; the fault may still be active                                                                                 | 1 (0 with `--skip-error`) |
+| `refused`                   | `--max-targets` exceeded; nothing was injected                                                                                 | 1                         |
+| `usage_error`               | bad flag, argument or `--run-id`                                                                                               | 1                         |
+| `aborted`                   | `--max-duration` expired (`timeout`, exit 1) or SIGINT/SIGTERM (`canceled`, exit 0)                                            | see left                  |
+| `clean`, `dirty`, `unknown` | `status --check` only: the verdict                                                                                             | 0 for `clean`, else 1     |
 
 For chaos commands, the first matching row wins, top to bottom in this order: `usage_error`, `refused`, `cleanup_failed`, `aborted` (timeout), `failed`/`partial`, `aborted` (canceled), `no_targets`, `ok`. A cleanup failure outranks a timeout because a leftover fault matters more.
 
@@ -264,6 +266,8 @@ Limits:
 `--help` and `--version` are not runs and emit no events. A top-level `pumba --help` still prints to stdout.
 
 ## Run-scoped recovery (`pumba revert`)
+
+Recovery event details: each real target's `target.result.recovery` is an object with `rules` (`null` or a typed plan containing `via`, optional `image`, `apply`, and `revert` argv arrays), `sidecars` (array of pinned `{id,target_id,run_id,kind}` identities), and `unresolved` (array of coverage-reason strings). An orphan sidecar instead produces `artifact.result` with common event header fields and `artifact`, `started`, `ended`, `status`, and `error`; `artifact` has the same four identity fields. `status` uses target statuses (`ok`, `cleanup_failed`, `planned`, or `skipped`); `error` is null or `{code,phase,message}`. Recovery never emits `target.applied`. `run.end.counts` counts only real target results, while `run.end.artifact_counts` counts orphan artifact results separately using the same count fields. A fully covered empty recovery is successful (`ok`), unlike an ordinary empty chaos selection (`no_targets`).
 
 Stop the original Pumba process before recovery; sidecar labels do not prove that
 its writer is dead. `revert --run-id FILTER` requires the original run ID as a

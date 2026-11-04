@@ -50,15 +50,15 @@ Target selection still queries the runtime, and rootless Podman is unsupported.
 
 Pumba needs `tc` (from `iproute2`) and/or `iptables` to be available. Netem also uses a POSIX `sh` to inspect, apply, verify, and roll back its owned qdisc. You have two options:
 
-1. Install a POSIX shell, `iproute2`, and `iptables` inside the target container
-2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `grep`, and `tc`; Docker/Podman also require `which` and `tail`, while containerd requires `sleep`.
+1. Install a POSIX shell, `iproute2`, and `iptables` inside the target container; `awk` is also required there when using netem `--match-all`
+2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `grep`, and `tc`, plus `awk` for `--match-all`; Docker/Podman also require `which` and `tail`, while containerd requires `sleep`.
 
 ### Recommended Images
 
-| Image                                             | Base   | Includes                                         |
-| ------------------------------------------------- | ------ | ------------------------------------------------ |
-| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + grep + which + tail + sleep + tc + iptables |
-| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + grep + which + tail + sleep + tc + iptables |
+| Image                                             | Base   | Includes                                               |
+| ------------------------------------------------- | ------ | ------------------------------------------------------ |
+| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + grep + awk + which + tail + sleep + tc + iptables |
+| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + grep + awk + which + tail + sleep + tc + iptables |
 
 Both images are multi-architecture (`amd64` and `arm64`). Docker automatically pulls the correct image for your platform.
 
