@@ -7,6 +7,13 @@ fail() {
 	exit 2
 }
 
+minutes_to_seconds() (
+	value=$1
+	# Shell arithmetic treats a leading zero as octal.
+	while [ "${value#0}" != "$value" ]; do value=${value#0}; done
+	printf '%s\n' "$((value * 60))"
+)
+
 : "${AUTH_IP:?set AUTH_IP to the dedicated staging auth-server IPv4 address}"
 : "${AUTH_PORTS:?set AUTH_PORTS to comma-separated auth reply ports}"
 : "${TARGET:?set TARGET to one exact staging target name or ID}"
@@ -23,7 +30,7 @@ for port in $AUTH_PORTS; do
 done
 IFS=$old_ifs
 [ -n "$TARGET" ] || fail 'TARGET must not be empty'
-case "$TARGET" in -* | *' '* | *'\n'*) fail 'TARGET must be one exact container name or ID' ;; esac
+case "$TARGET" in -* | re2:* | *[[:space:]]*) fail 'TARGET must be one exact container name or ID' ;; esac
 case "$RUN_ID" in *[!A-Za-z0-9_.-]* | '') fail 'RUN_ID must use 1-48 letters, digits, _, . or -' ;; esac
 [ "${#RUN_ID}" -le 48 ] || fail 'RUN_ID is longer than 48 characters'
 
@@ -36,7 +43,7 @@ case "$duration" in *s | *m | *h) ;; *) fail 'DURATION needs s, m or h suffix' ;
 case "$duration" in *h) fail 'DURATION must not exceed 10m' ;; *m)
 	n=${duration%m}
 	[ "$n" -ge 1 ] 2>/dev/null && [ "$n" -le 10 ] 2>/dev/null || fail 'DURATION must be between 1m and 10m'
-	duration_seconds=$((n * 60))
+	duration_seconds=$(minutes_to_seconds "$n")
 	;;
 *s)
 	n=${duration%s}
@@ -52,7 +59,7 @@ case "$max_duration" in *[!0-9smh]* | '') fail 'MAX_DURATION must be a positive 
 case "$max_duration" in *m)
 	n=${max_duration%m}
 	[ "$n" -ge 1 ] 2>/dev/null && [ "$n" -le 15 ] 2>/dev/null || fail 'MAX_DURATION must be between 1m and 15m'
-	max_duration_seconds=$((n * 60))
+	max_duration_seconds=$(minutes_to_seconds "$n")
 	;;
 *) fail 'MAX_DURATION must use minutes (1m-15m)' ;; esac
 [ "$max_duration_seconds" -gt "$duration_seconds" ] || fail 'MAX_DURATION must exceed DURATION'

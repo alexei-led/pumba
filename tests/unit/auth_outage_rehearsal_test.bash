@@ -68,6 +68,22 @@ if AUTH_IP=192.0.2.7 AUTH_PORTS=1812 TARGET=staging RUN_ID=ok PROTOCOL=sctp "$sc
 	exit 1
 fi
 
+for invalid_target in 're2:.*' $'staging\tother' $'staging\nother' '-flag'; do
+	rm -f "$ARGS_FILE"
+	if TARGET="$invalid_target" "$script" >/dev/null 2>&1; then
+		echo "unsafe target accepted: $invalid_target" >&2
+		exit 1
+	fi
+	[ ! -e "$ARGS_FILE" ] || {
+		echo 'invalid target invoked Pumba' >&2
+		exit 1
+	}
+done
+
+DURATION=08m MAX_DURATION=09m "$script"
+grep -Fx -- 08m "$ARGS_FILE" >/dev/null
+grep -Fx -- 09m "$ARGS_FILE" >/dev/null
+
 set +e
 STUB_EXIT=17 "$script" >/dev/null 2>&1
 rc=$?
