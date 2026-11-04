@@ -18,6 +18,14 @@
   for staging TCP/UDP replies, with AND-scoped address/port selectors and
   dry-run as the default. It demonstrates event-based admission and post-run
   status checks; it does not guarantee fault activation or successful cleanup.
+- Fixed inherited netem cleanup behavior: a proven pre-mutation startup
+  refusal no longer rolls back a sibling's active fault in a shared network
+  namespace. Partial or unknown failures still attempt cleanup; this does not
+  resolve concurrent inspect/add races or add per-run qdisc attribution.
+- The pinned Archfit wrapper now supports fresh clones without worktree
+  registrations. It copies the entire read-only shared Git common directory
+  into private container storage; native-amd64 CI checks fresh and linked
+  worktree layouts.
 - Updated dependency pins: containerd/api 1.12.0, containerd/v2 2.4.2,
   go-connections 0.8.2, and gRPC 1.85.0.
 

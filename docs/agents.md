@@ -267,7 +267,27 @@ Limits:
 
 ## Run-scoped recovery (`pumba revert`)
 
-Recovery event details: each real target's `target.result.recovery` is an object with `rules` (`null` or a typed plan containing `via`, optional `image`, `apply`, and `revert` argv arrays), `sidecars` (array of pinned `{id,target_id,run_id,kind}` identities), and `unresolved` (array of coverage-reason strings). An orphan sidecar instead produces `artifact.result` with common event header fields and `artifact`, `started`, `ended`, `status`, and `error`; `artifact` has the same four identity fields. `status` uses target statuses (`ok`, `cleanup_failed`, `planned`, or `skipped`); `error` is null or `{code,phase,message}`. Recovery never emits `target.applied`. `run.end.counts` counts only real target results, while `run.end.artifact_counts` counts orphan artifact results separately using the same count fields. A fully covered empty recovery is successful (`ok`), unlike an ordinary empty chaos selection (`no_targets`).
+Each real target's optional `target.result.recovery` object contains:
+
+- `rules`: `null` or a typed plan with `via`, optional `image`, and `apply`/`revert` argv arrays. Empty command lists can be `null`.
+- `sidecars`: an array of pinned `{id,target_id,run_id,kind}` identities, or `null` when none were inventoried.
+- `unresolved`: an array of coverage-reason strings, or `null` when no reasons were recorded.
+
+### `artifact.result`
+
+An orphan sidecar produces this event instead of a target result:
+
+| Field              | Meaning                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Common header      | `schema`, `type`, `run_id`, `time`, `action`; the invocation run ID is distinct from the artifact's original run ID |
+| `artifact`         | Pinned identity: `id`, `target_id`, `run_id`, `kind`                                                                |
+| `started`, `ended` | UTC timestamps for this artifact's work                                                                             |
+| `status`           | `ok`, `cleanup_failed`, `planned`, or `skipped`                                                                     |
+| `error`            | `null` or `{code,phase,message}`                                                                                    |
+
+There is no `target`, `tick`, or `target.applied` for orphan work. Recovery never emits `target.applied` for real targets either. `run.end.counts` counts only real target results; `run.end.artifact_counts` counts orphan results separately with the same count fields. The run outcome considers both sets of counts. A fully covered empty recovery is successful (`ok`), unlike an ordinary empty chaos selection (`no_targets`).
+
+### Recovery scope
 
 Stop the original Pumba process before recovery; sidecar labels do not prove that
 its writer is dead. `revert --run-id FILTER` requires the original run ID as a
