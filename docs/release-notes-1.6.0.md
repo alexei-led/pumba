@@ -23,12 +23,21 @@
   namespace, even if helper or exec-metadata removal then fails. Those errors
   remain failures. Partial or unknown apply outcomes still attempt cleanup; this does
   not resolve concurrent inspect/add races or add per-run qdisc attribution.
+  Unclassified failures before exec admission can still trigger rollback; avoid
+  concurrent netem invocations sharing a namespace.
 - The pinned Archfit wrapper now supports fresh clones without worktree
   registrations. It copies the entire read-only shared Git common directory
   into private container storage; native-amd64 CI checks fresh and linked
   worktree layouts.
 - Updated dependency pins: containerd/api 1.12.0, containerd/v2 2.4.2,
   go-connections 0.8.2, and gRPC 1.85.0.
+
+## Upgrade
+
+Custom inspection images and `--tc-image ""` targets must provide the binary
+matching `iptables --version` (`iptables-nft` or `iptables-legacy`), plus the other
+backend when coverage requires it. Install these before using `status` or `revert`;
+missing tools fail closed. The shipped nettools images already provide them.
 
 See [the auth outage rehearsal](auth-outage-rehearsal.md), [user guide](guide.md),
 [network chaos guide](network-chaos.md), and [agent event contract](agents.md)

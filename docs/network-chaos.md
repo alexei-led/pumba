@@ -64,6 +64,12 @@ Both images are multi-architecture (`amd64` and `arm64`). Docker automatically p
 
 Since both images include tc _and_ iptables, you can use the same image for both `--tc-image` and `--iptables-image` flags.
 
+`status` and `revert` inspect through `iptables --version` and the matching named
+binary (`iptables-nft` or `iptables-legacy`), not the mutable default alias. A legacy
+default also needs `iptables-nft`; an nft default needs `iptables-legacy` when it
+reports legacy tables. Custom images and exec-mode targets must provide those
+binaries. Both shipped images include them; incomplete coverage fails closed.
+
 ### Building Network Tools Images
 
 Build locally or push to a registry:

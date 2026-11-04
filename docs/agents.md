@@ -311,6 +311,11 @@ recovery does not emit a fake `target.applied`.
 
 `pumba status [--run-id ID] [--check] [--tc-image IMG] [--pull-image] [containers…]` reports the Pumba faults left on running containers: iptables rules tagged `pumba:<run-id>`, qdiscs under Pumba's root handle `504d:`, and sidecars labeled `com.gaiaadm.pumba.*`. Selection works as for chaos commands; no containers means all running. `--max-targets` applies. `--random` and `--dry-run` are ignored. The status `--run-id` is a **filter** for rules and sidecars; the global `--run-id` only names the status run.
 
+Inspection and recovery require `tc`, `iptables --version`, and its matching
+backend-named binary (`iptables-nft` or `iptables-legacy`). A legacy default also
+requires `iptables-nft`; nft requires `iptables-legacy` when legacy tables are
+reported. Missing tools mean unknown/unresolved coverage, not an empty ruleset.
+
 Each inspected container gets one `target.result` with `state`:
 
 ```json
