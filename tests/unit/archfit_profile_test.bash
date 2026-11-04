@@ -47,20 +47,38 @@ has_arg() {
 for common in "$root/.git" "$tmp/shared git"; do
 	mkdir -p "$common"
 	FIXTURE_COMMON="$common"
-	mkdir -p "$common/worktrees/current"
-	printf 'ref: refs/heads/fixture\n' >"$common/worktrees/current/HEAD"
 	run_check
 	has_arg linux/amd64
 	has_arg ghcr.io/alexei-led/archfit@sha256:bdcfe29bf9def9a4f0ae544923bc3e755fdec2c2cd6c46ec353c01e60642896b
 	has_arg "$root:$root"
-	has_arg "$common:$common:ro"
-	has_arg "$common/worktrees:rw,nosuid,nodev,noexec,mode=1777"
-	tar -xOf "$CAPTURE_TAR" worktrees/current/HEAD | cmp - "$common/worktrees/current/HEAD"
+	has_arg "$common:/run/pumba-git-common:ro"
+	has_arg "$common:rw,nosuid,nodev,noexec,mode=1777"
 	has_arg no-new-privileges
 	has_arg json
 	tar -xOf "$CAPTURE_TAR" .archfit.yaml | cmp - "$root/.archfit.yaml"
 	tar -xOf "$CAPTURE_TAR" .archfit-baseline.json | cmp - "$root/.archfit-baseline.json"
+	[[ ! -e "$common/worktrees" ]]
+
+	# Existing linked-worktree registrations are included in the private copy
+	# from the read-only common-dir mount, not streamed or modified on the host.
+	mkdir -p "$common/worktrees/current"
+	printf 'ref: refs/heads/fixture\n' >"$common/worktrees/current/HEAD"
+	run_check
+	has_arg "$common:/run/pumba-git-common:ro"
+	has_arg "$common:rw,nosuid,nodev,noexec,mode=1777"
+	[[ "$(cat "$common/worktrees/current/HEAD")" == 'ref: refs/heads/fixture' ]]
 done
+
+rm -f "$CAPTURE_ARGS"
+mv "$FIXTURE_COMMON/worktrees" "$FIXTURE_COMMON/worktrees.saved"
+ln -s worktrees.saved "$FIXTURE_COMMON/worktrees"
+if run_check; then
+	printf 'Symlink worktrees registration path was accepted\n' >&2
+	exit 1
+fi
+[[ ! -e "$CAPTURE_ARGS" ]]
+rm "$FIXTURE_COMMON/worktrees"
+mv "$FIXTURE_COMMON/worktrees.saved" "$FIXTURE_COMMON/worktrees"
 
 for rc in 1 2 3; do
 	export FAKE_DOCKER_EXIT="$rc"

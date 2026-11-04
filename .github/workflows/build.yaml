@@ -133,10 +133,15 @@ jobs:
         env:
           DOCKER_CONTEXT: default
         run: |
-          git worktree add --detach "$RUNNER_TEMP/archfit-linked" HEAD
+          # Exercise the fresh-checkout common-dir layout before creating any
+          # linked worktree registration, then verify the linked layout too.
           for layout in checkout linked; do
-            root="$GITHUB_WORKSPACE"
-            if [[ "$layout" == linked ]]; then root="$RUNNER_TEMP/archfit-linked"; fi
+            if [[ "$layout" == linked ]]; then
+              git worktree add --detach "$RUNNER_TEMP/archfit-linked" HEAD
+              root="$RUNNER_TEMP/archfit-linked"
+            else
+              root="$GITHUB_WORKSPACE"
+            fi
             result=0
             report="$RUNNER_TEMP/archfit-profile-$layout.json"
             bash "$root/.github/scripts/archfit-check.bash" --format json > "$report" || result=$?

@@ -35,16 +35,20 @@ esac
 	exit 1
 }
 
-# Git needs temporary registrations even for its policy comparison. Give the
-# container a private copy, never write access to shared worktree registrations.
-[[ -d "$common/worktrees" && ! -L "$common/worktrees" ]] || {
-	printf 'Git worktrees directory must be an existing non-symlink directory\n' >&2
-	exit 1
-}
+# Git needs metadata for its policy comparison. Keep the shared common
+# directory read-only and copy it into private container storage. A fresh clone
+# has no worktrees directory; that's a valid empty registration set. If present,
+# registrations must remain a real directory rather than redirecting the copy.
+if [[ -e "$common/worktrees" || -L "$common/worktrees" ]]; then
+	[[ -d "$common/worktrees" && ! -L "$common/worktrees" ]] || {
+		printf 'Git worktrees path must be a non-symlink directory when present\n' >&2
+		exit 1
+	}
+fi
 
-# Stream inputs and registrations; remote contexts need no host temporary mount.
+# Stream trusted profile inputs; remote contexts need no host temporary mount.
 # Absolute paths preserve linked-worktree .git pointers.
-tar -C "$root" -cf - "${inputs[@]}" -C "$common" worktrees |
+tar -C "$root" -cf - "${inputs[@]}" |
 	docker run --rm -i --platform linux/amd64 \
 		--user "$(id -u):$(id -g)" \
 		--cap-drop ALL --security-opt no-new-privileges \
@@ -52,8 +56,8 @@ tar -C "$root" -cf - "${inputs[@]}" -C "$common" worktrees |
 		--env GIT_CONFIG_COUNT=1 \
 		--env GIT_CONFIG_KEY_0=safe.directory \
 		--env "GIT_CONFIG_VALUE_0=$root" \
-		--volume "$root:$root" --volume "$common:$common:ro" \
-		--tmpfs "$common/worktrees:rw,nosuid,nodev,noexec,mode=1777" \
+		--volume "$root:$root" --volume "$common:/run/pumba-git-common:ro" \
+		--tmpfs "$common:rw,nosuid,nodev,noexec,mode=1777" \
 		--workdir "$root" --entrypoint /bin/sh "$image" -c '
             set -eu
             root=$1
@@ -61,6 +65,6 @@ tar -C "$root" -cf - "${inputs[@]}" -C "$common" worktrees |
             shift 2
             inputs=$(mktemp -d)
             tar -xf - -C "$inputs"
-            cp -R "$inputs/worktrees/." "$common/worktrees/"
+            cp -R /run/pumba-git-common/. "$common/"
             exec /usr/local/bin/archfit check --config "$inputs/.archfit.yaml" --root "$root" --base= "$@"
         ' archfit-check "$root" "$common" "$@"
