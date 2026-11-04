@@ -18,3 +18,11 @@ teardown() {
 @test "AND netem selectors affect only matching traffic on docker and clean grouped filters" {
 	match_all_traffic netem
 }
+
+@test "AND netem cleanup verifies merged port keys on docker" {
+	match_all_merged_cleanup
+}
+
+@test "AND iptables cleans the maximum ruleset within its cleanup budget on docker" {
+	match_all_max_rules_cleanup
+}

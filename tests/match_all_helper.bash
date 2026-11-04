@@ -33,7 +33,7 @@ match_all_setup() {
 	esac
 	# Namespace identity and positional parameters are checked inside the fixture.
 	# shellcheck disable=SC2016
-	local server='[ "$(readlink /proc/self/ns/net)" != "$1" ] || exit 1; ip link set lo up; mkdir -p /tmp/http; printf "match-all-ok\n" >/tmp/http/index.html; httpd -p 8080 -h /tmp/http; httpd -p 8081 -h /tmp/http; exec sleep infinity'
+	local server='[ "$(readlink /proc/self/ns/net)" != "$1" ] || exit 1; ip link set lo up; nc -lk -p 8080 -e /bin/cat & nc -lk -p 8081 -e /bin/cat & wait'
 	if [[ "$MA_RUNTIME" == containerd ]]; then
 		MA_TARGET="$MA_RUN-target"
 		sudo ctr -n moby run -d --privileged docker.io/library/alpine:latest "$MA_TARGET" sh -ec "$server" sh "$(readlink /proc/self/ns/net)" || return
@@ -50,7 +50,7 @@ match_all_setup() {
 	[ "$target_ns" != "$(readlink /proc/self/ns/net)" ] || return 1
 	MA_EVENTS="$BATS_TEST_TMPDIR/events.ndjson"
 	MA_PUMBA+=(--run-id "$MA_RUN" --max-targets 1 --max-duration 30s -o ndjson)
-	wait_for 5 "match_all_request '$MA_PEER_IP' 8080 | grep -q match-all-ok" "HTTP fixture readiness"
+	wait_for 5 "match_all_request '$MA_PEER_IP' 8080 | grep -q match-all-ok" "TCP echo fixture readiness"
 	run match_all_request "$MA_PEER_IP" 8080
 	assert_success
 	assert_output --partial "match-all-ok"
@@ -74,7 +74,7 @@ match_all_exec() {
 match_all_request() {
 	# The positional parameters are expanded by the container shell.
 	# shellcheck disable=SC2016
-	match_all_exec sh -ec 'printf "GET / HTTP/1.0\r\n\r\n" | nc -s "$1" -w 1 "$2" "$3"' sh "$1" "$MA_TARGET_IP" "$2"
+	match_all_exec sh -ec 'printf "match-all-ok\n" | nc -s "$1" -w 1 "$2" "$3"' sh "$1" "$MA_TARGET_IP" "$2"
 }
 
 match_all_stop() {
@@ -87,6 +87,9 @@ match_all_stop() {
 	local result=0
 	wait "$MA_PID" || result=$?
 	MA_PID=""
+	if [ "$result" -ne 0 ]; then
+		cat "$BATS_TEST_TMPDIR/pumba.log" >&2 || true
+	fi
 	return "$result"
 }
 
@@ -118,7 +121,7 @@ match_all_traffic() {
 		;;
 	esac
 	MA_PID=$!
-	wait_for 10 "jq -e 'select(.type == \"target.applied\")' '$MA_EVENTS' >/dev/null 2>&1" "fault application"
+	match_all_wait_applied
 	run match_all_request "$MA_PEER_IP" 8080
 	refute_output --partial "match-all-ok"
 	run match_all_request "$MA_PEER_IP" 8081
@@ -134,4 +137,43 @@ match_all_traffic() {
 	run match_all_request "$MA_PEER_IP" 8080
 	assert_success
 	assert_output --partial "match-all-ok"
+}
+
+match_all_wait_applied() {
+	if ! wait_for 40 "jq -e 'select(.type == \"target.applied\")' '$MA_EVENTS' >/dev/null 2>&1" "fault application"; then
+		cat "$BATS_TEST_TMPDIR/pumba.log" >&2
+		return 1
+	fi
+}
+
+match_all_merged_cleanup() {
+	"${MA_PUMBA[@]}" netem --interface lo --duration 20s --pull-image=false --match-all \
+		--target "$MA_PEER_IP" --egress-port 8080 --ingress-port 12345 \
+		loss --percent 100 "$MA_TARGET" >"$MA_EVENTS" 2>"$BATS_TEST_TMPDIR/pumba.log" 3>&- &
+	MA_PID=$!
+	match_all_wait_applied
+	match_all_stop
+	run "${MA_PUMBA[@]}" status --pull-image=false --check --run-id "$MA_RUN" "$MA_TARGET"
+	assert_success
+	assert_output --partial '"status":"clean"'
+}
+
+match_all_max_rules_cleanup() {
+	local ports="" port rule_limit=256 snapshot started
+	for ((port = 0; port < rule_limit; port++)); do
+		ports="${ports}${ports:+,}$port"
+	done
+	"${MA_PUMBA[@]}" --max-duration 2m iptables --interface lo --duration 1m --pull-image=false --match-all \
+		--protocol tcp --source "$MA_PEER_IP" --dst-port "$ports" \
+		loss --probability 1 "$MA_TARGET" >"$MA_EVENTS" 2>"$BATS_TEST_TMPDIR/pumba.log" 3>&- &
+	MA_PID=$!
+	match_all_wait_applied
+	snapshot=$("${MA_PUMBA[@]}" status --pull-image=false --run-id "$MA_RUN" "$MA_TARGET")
+	[ "$(printf '%s\n' "$snapshot" | jq -s '[.[] | select(.type == "target.result") | .state.rules[]] | length')" -eq "$rule_limit" ]
+	started=$SECONDS
+	match_all_stop
+	[ "$((SECONDS - started))" -le 35 ]
+	run "${MA_PUMBA[@]}" status --pull-image=false --check --run-id "$MA_RUN" "$MA_TARGET"
+	assert_success
+	assert_output --partial '"status":"clean"'
 }
