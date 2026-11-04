@@ -12,15 +12,15 @@ import (
 func TestNewCommandRejectsEachUnsupportedSchedulingOption(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		gp   chaos.GlobalParams
+		gp   *chaos.GlobalParams
 	}{
-		{name: "interval", gp: chaos.GlobalParams{Interval: 1}},
-		{name: "random", gp: chaos.GlobalParams{Random: true}},
-		{name: "skip errors", gp: chaos.GlobalParams{SkipErrors: true}},
+		{name: "interval", gp: &chaos.GlobalParams{Interval: 1}},
+		{name: "random", gp: &chaos.GlobalParams{Random: true}},
+		{name: "skip errors", gp: &chaos.GlobalParams{SkipErrors: true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := container.NewMockClient(t)
-			_, err := NewCommand(client, &tc.gp, Params{RunFilter: "old"})
+			_, err := NewCommand(client, tc.gp, Params{RunFilter: "old"})
 			require.ErrorContains(t, err, "rejects --interval, --random and --skip-error")
 		})
 	}

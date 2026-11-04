@@ -7,10 +7,15 @@ import (
 )
 
 func TestRecoveryDeleteCommandGrammarBoundaries(t *testing.T) {
-	valid := `-A FORWARD -s 10.0.0.1/32 -d 10.0.0.2/32 -i eth0 -o eth1 -p tcp --sport 10:20 --dport 80 -m tcp -m udp -m comment --comment pumba:run_1 -m statistic --mode nth --every 3 --packet 2 --probability 0.50000000000 -j DROP`
+	valid := `-A FORWARD -s 10.0.0.1/32 -d 10.0.0.2/32 -i eth0 -o eth1 -p tcp --sport 10:20 --dport 80 -m tcp -m comment --comment pumba:run_1 -m statistic --mode nth --every 3 --packet 2 -j DROP`
 	got, err := RecoveryDeleteCommand("iptables-legacy", "run_1", "FORWARD", valid)
 	require.NoError(t, err)
-	require.Equal(t, []string{"iptables-legacy", "-t", "filter", "-D", "FORWARD", "-s", "10.0.0.1/32", "-d", "10.0.0.2/32", "-i", "eth0", "-o", "eth1", "-p", "tcp", "--sport", "10:20", "--dport", "80", "-m", "tcp", "-m", "udp", "-m", "comment", "--comment", "pumba:run_1", "-m", "statistic", "--mode", "nth", "--every", "3", "--packet", "2", "--probability", "0.50000000000", "-j", "DROP"}, got)
+	require.Equal(t, []string{"iptables-legacy", "-t", "filter", "-D", "FORWARD", "-s", "10.0.0.1/32", "-d", "10.0.0.2/32", "-i", "eth0", "-o", "eth1", "-p", "tcp", "--sport", "10:20", "--dport", "80", "-m", "tcp", "-m", "comment", "--comment", "pumba:run_1", "-m", "statistic", "--mode", "nth", "--every", "3", "--packet", "2", "-j", "DROP"}, got)
+
+	got, err = RecoveryDeleteCommand("iptables-nft", "run_1", "OUTPUT",
+		`-A OUTPUT -p udp -m udp --dport 53 -m comment --comment pumba:run_1 -m statistic --mode random --probability 0.50000000000 -j DROP`)
+	require.NoError(t, err)
+	require.Equal(t, []string{"iptables-nft", "-t", "filter", "-D", "OUTPUT", "-p", "udp", "-m", "udp", "--dport", "53", "-m", "comment", "--comment", "pumba:run_1", "-m", "statistic", "--mode", "random", "--probability", "0.50000000000", "-j", "DROP"}, got)
 
 	for _, tc := range []struct {
 		name, backend, runID, chain, spec, want string
