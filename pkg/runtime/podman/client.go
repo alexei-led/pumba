@@ -68,6 +68,8 @@ var (
 //     same way the real run would.
 //   - InspectNetns          — same rootless guard; the inspect sidecar needs
 //     NET_ADMIN in the target's netns to read iptables rules.
+//   - PlanRecoveryRules, RecoverRules — same rootless netns guard.
+//     RemoveRecoverySidecar inherits exact-ID/label checks without netns access.
 //   - StressContainer       — diverges in cgroup leaf naming
 //     (libpod-<id>.scope vs Docker's docker-<id>.scope) and in the
 //     `--cgroup-parent` host-config path; see stress.go and cgroup.go.

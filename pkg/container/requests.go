@@ -155,9 +155,11 @@ type PumbaQdisc struct {
 // PumbaRule is an iptables rule carrying the comment "pumba:<RunID>". Spec is
 // the rule as `iptables -S` prints it.
 type PumbaRule struct {
-	RunID string
-	Chain string
-	Spec  string
+	// Backend is the exact binary whose independent filter table contains this rule.
+	Backend string
+	RunID   string
+	Chain   string
+	Spec    string
 }
 
 // FaultState is the Pumba fault state found in one network namespace.

@@ -42,51 +42,51 @@ func TestInspect(t *testing.T) {
 	}{
 		{
 			name:    "clean netns",
-			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables -S": "-P INPUT ACCEPT\n"},
+			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables-nft -S": "-P INPUT ACCEPT\n"},
 			want:    &ctr.FaultState{},
 		},
 		{
 			name:    "qdiscs and tagged rules",
-			outputs: map[string]string{"tc qdisc show": scoped, "iptables -S": rules},
+			outputs: map[string]string{"tc qdisc show": scoped, "iptables-nft -S": rules},
 			want: &ctr.FaultState{
 				Qdiscs: []ctr.PumbaQdisc{
 					{Device: "eth0", Kind: "prio", Ownership: ctr.QdiscPumbaOwned},
 					{Device: "eth1", Kind: "tbf", Ownership: ctr.QdiscSuspicious},
 				},
-				Rules: []ctr.PumbaRule{{RunID: "a", Chain: "INPUT", Spec: "-A INPUT -m comment --comment \"pumba:a\" -j DROP"}},
+				Rules: []ctr.PumbaRule{{Backend: "iptables-nft", RunID: "a", Chain: "INPUT", Spec: "-A INPUT -m comment --comment \"pumba:a\" -j DROP"}},
 			},
 		},
 		{
 			name:    "legacy warning on stderr lists legacy rules too",
-			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables -S": rules, "iptables-legacy -S": "-A FORWARD -m comment --comment \"pumba:b\" -j DROP\n"},
-			stderrs: map[string]string{"iptables -S": legacyWarning},
+			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables-nft -S": rules, "iptables-legacy -S": "-A FORWARD -m comment --comment \"pumba:b\" -j DROP\n"},
+			stderrs: map[string]string{"iptables-nft -S": legacyWarning},
 			want: &ctr.FaultState{Rules: []ctr.PumbaRule{
-				{RunID: "a", Chain: "INPUT", Spec: "-A INPUT -m comment --comment \"pumba:a\" -j DROP"},
-				{RunID: "b", Chain: "FORWARD", Spec: "-A FORWARD -m comment --comment \"pumba:b\" -j DROP"},
+				{Backend: "iptables-nft", RunID: "a", Chain: "INPUT", Spec: "-A INPUT -m comment --comment \"pumba:a\" -j DROP"},
+				{Backend: "iptables-legacy", RunID: "b", Chain: "FORWARD", Spec: "-A FORWARD -m comment --comment \"pumba:b\" -j DROP"},
 			}},
 		},
 		{
 			name:    "legacy warning on stdout lists legacy rules too",
-			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables -S": "-P INPUT ACCEPT\n" + legacyWarning, "iptables-legacy -S": "-A FORWARD -m comment --comment \"pumba:b\" -j DROP\n"},
-			want:    &ctr.FaultState{Rules: []ctr.PumbaRule{{RunID: "b", Chain: "FORWARD", Spec: "-A FORWARD -m comment --comment \"pumba:b\" -j DROP"}}},
+			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables-nft -S": "-P INPUT ACCEPT\n" + legacyWarning, "iptables-legacy -S": "-A FORWARD -m comment --comment \"pumba:b\" -j DROP\n"},
+			want:    &ctr.FaultState{Rules: []ctr.PumbaRule{{Backend: "iptables-legacy", RunID: "b", Chain: "FORWARD", Spec: "-A FORWARD -m comment --comment \"pumba:b\" -j DROP"}}},
 		},
 		{
 			name:     "legacy warning but legacy command fails",
-			outputs:  map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables -S": "-P INPUT ACCEPT\n"},
-			stderrs:  map[string]string{"iptables -S": legacyWarning},
+			outputs:  map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables-nft -S": "-P INPUT ACCEPT\n"},
+			stderrs:  map[string]string{"iptables-nft -S": legacyWarning},
 			failures: map[string]error{"iptables-legacy -S": errors.New("executable file not found")},
 			wantErr:  "iptables-legacy tables present but listing them failed",
 		},
 		{
 			name:    "legacy warning but legacy output unreadable",
-			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables -S": "-P INPUT ACCEPT\n", "iptables-legacy -S": "Permission denied\n"},
-			stderrs: map[string]string{"iptables -S": legacyWarning},
+			outputs: map[string]string{"tc qdisc show": "qdisc noqueue 0: dev eth0 root refcnt 2\n", "iptables-nft -S": "-P INPUT ACCEPT\n", "iptables-legacy -S": "Permission denied\n"},
+			stderrs: map[string]string{"iptables-nft -S": legacyWarning},
 			wantErr: "failed to parse iptables-legacy rules",
 		},
 		{name: "tc fails", failures: map[string]error{"tc qdisc show": errors.New("exit code 1")}, wantErr: "failed to list qdiscs"},
 		{name: "tc output unreadable", outputs: map[string]string{"tc qdisc show": "Error: bad\n"}, wantErr: "failed to parse qdiscs"},
-		{name: "iptables missing", failures: map[string]error{"iptables -S": errors.New("executable file not found")}, wantErr: "failed to list iptables rules"},
-		{name: "iptables output unreadable", outputs: map[string]string{"iptables -S": "Permission denied\n"}, wantErr: "failed to parse iptables rules"},
+		{name: "iptables missing", failures: map[string]error{"iptables-nft -S": errors.New("executable file not found")}, wantErr: "failed to list iptables rules"},
+		{name: "iptables output unreadable", outputs: map[string]string{"iptables-nft -S": "Permission denied\n"}, wantErr: "failed to parse iptables rules"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestInspectBackendCoverage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			outputs := map[string]string{"iptables --version": tt.version, "iptables -S": "-P INPUT ACCEPT\n", "iptables-nft -S": tt.nftOutput}
+			outputs := map[string]string{"iptables --version": tt.version, "iptables-legacy -S": "-P INPUT ACCEPT\n", "iptables-nft -S": tt.nftOutput}
 			var commands []string
 			run := fakeRunner(outputs, nil, tt.failures)
 			got, err := Inspect(func(argv []string) (string, string, error) {
@@ -154,7 +154,7 @@ func TestInspectBackendCoverage(t *testing.T) {
 			}
 			require.NoError(t, err)
 			if tt.nftOutput == nftRule {
-				assert.Equal(t, []ctr.PumbaRule{{RunID: "nft", Chain: "INPUT", Spec: strings.TrimSpace(nftRule)}}, got.Rules)
+				assert.Equal(t, []ctr.PumbaRule{{Backend: "iptables-nft", RunID: "nft", Chain: "INPUT", Spec: strings.TrimSpace(nftRule)}}, got.Rules)
 			} else {
 				assert.Empty(t, got.Rules)
 			}

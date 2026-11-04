@@ -128,7 +128,7 @@ func Inspect(run Runner) (*ctr.FaultState, error) {
 		state.Qdiscs = append(state.Qdiscs, ctr.PumbaQdisc{Device: q.Device, Kind: q.Kind, Ownership: ctr.QdiscOwnership(q.Ownership)})
 	}
 	for _, r := range rules {
-		state.Rules = append(state.Rules, ctr.PumbaRule{RunID: r.RunID, Chain: r.Chain, Spec: r.Spec})
+		state.Rules = append(state.Rules, ctr.PumbaRule{Backend: r.Backend, RunID: r.RunID, Chain: r.Chain, Spec: r.Spec})
 	}
 	return state, nil
 }
@@ -138,14 +138,6 @@ func Inspect(run Runner) (*ctr.FaultState, error) {
 // a legacy default always requires an explicit nft listing. Unknown backends
 // and failed listings are errors, never evidence of a clean namespace.
 func inspectRules(run Runner) ([]tc.TaggedRule, error) {
-	out, stderr, err := run(tc.IPTablesShowCommand())
-	if err != nil {
-		return nil, fmt.Errorf("failed to list iptables rules: %w", err)
-	}
-	parsed, err := tc.ParseTaggedRules(out)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse iptables rules: %w", err)
-	}
 	version, _, err := run(tc.IPTablesVersionCommand())
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify iptables backend: %w", err)
@@ -154,6 +146,21 @@ func inspectRules(run Runner) ([]tc.TaggedRule, error) {
 	if err != nil {
 		return nil, err
 	}
+	backend, show := "iptables-nft", tc.IPTablesNFTShowCommand()
+	if !nft {
+		backend, show = "iptables-legacy", tc.IPTablesLegacyShowCommand()
+	}
+	// Never assign a backend to output obtained through the mutable default
+	// alias: alternatives can change between the listing and version probe.
+	out, stderr, err := run(show)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list iptables rules: %w", err)
+	}
+	parsed, err := tc.ParseTaggedRules(out)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse iptables rules: %w", err)
+	}
+	setBackend(parsed.Rules, backend)
 	if !nft {
 		nftOut, _, err := run(tc.IPTablesNFTShowCommand())
 		if err != nil {
@@ -163,6 +170,7 @@ func inspectRules(run Runner) ([]tc.TaggedRule, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse iptables-nft rules: %w", err)
 		}
+		setBackend(nftRules.Rules, "iptables-nft")
 		return append(parsed.Rules, nftRules.Rules...), nil
 	}
 	if !parsed.LegacyTablesPresent && !tc.LegacyTablesPresent(stderr) {
@@ -176,5 +184,12 @@ func inspectRules(run Runner) ([]tc.TaggedRule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse iptables-legacy rules: %w", err)
 	}
+	setBackend(legacy.Rules, "iptables-legacy")
 	return append(parsed.Rules, legacy.Rules...), nil
+}
+
+func setBackend(rules []tc.TaggedRule, backend string) {
+	for i := range rules {
+		rules[i].Backend = backend
+	}
 }

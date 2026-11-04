@@ -7,6 +7,7 @@ containerd	1	tests/containerd_iptables.bats
 containerd	1	tests/containerd_match_all.bats
 containerd	1	tests/containerd_lifecycle.bats
 containerd	1	tests/containerd_netem.bats
+containerd	1	tests/containerd_revert.bats
 containerd	1	tests/containerd_sidecar.bats
 containerd	1	tests/containerd_status.bats
 containerd	1	tests/containerd_stop_pause_remove.bats
@@ -17,6 +18,7 @@ docker	1	tests/multi_container.bats
 docker	1	tests/netem_extended.bats
 docker	1	tests/remove.bats
 docker	1	tests/restart.bats
+docker	1	tests/revert.bats
 docker	1	tests/status.bats
 docker	1	tests/stop.bats
 docker	1	tests/stress.bats
@@ -45,3 +47,4 @@ podman	2	tests/podman_dry_run_plan.bats
 podman	1	tests/podman_exec.bats
 podman	2	tests/podman_stress.bats
 podman	1	tests/podman_status.bats
+podman	1	tests/podman_revert.bats

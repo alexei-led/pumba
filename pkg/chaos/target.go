@@ -26,6 +26,7 @@ type Target struct {
 	terminated bool
 	state      *TargetState
 	plan       *Plan
+	recovery   *RecoveryPlan
 }
 
 func newTarget(gp *GlobalParams, tick int64, c *container.Container) *Target {
@@ -114,15 +115,16 @@ func (t *Target) terminate(err error) {
 		}
 	}
 	t.gp.Emit(&Event{Type: EventTargetResult, Result: &TargetResult{
-		Tick:    t.tick,
-		Target:  t.ref,
-		Started: t.started,
-		Ended:   time.Now().UTC(),
-		Status:  status,
-		Error:   evErr,
-		Cleanup: cleanup,
-		State:   t.state,
-		Plan:    t.plan,
+		Tick:     t.tick,
+		Target:   t.ref,
+		Started:  t.started,
+		Ended:    time.Now().UTC(),
+		Status:   status,
+		Error:    evErr,
+		Cleanup:  cleanup,
+		State:    t.state,
+		Plan:     t.plan,
+		Recovery: t.recovery,
 	}})
 }
 

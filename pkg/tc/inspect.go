@@ -1,6 +1,7 @@
 package tc
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -84,9 +85,10 @@ type PumbaQdisc struct {
 
 // TaggedRule is an iptables rule whose comment is "pumba:<run-id>".
 type TaggedRule struct {
-	RunID string
-	Chain string
-	Spec  string
+	Backend string
+	RunID   string
+	Chain   string
+	Spec    string
 }
 
 type qdisc struct {
@@ -229,6 +231,15 @@ func ParseTaggedRules(output string) (TaggedRules, error) {
 			continue
 		}
 		if runID, ok := runComment(args); ok {
+			comments := 0
+			for _, arg := range args {
+				if arg == "--comment" {
+					comments++
+				}
+			}
+			if comments != 1 {
+				return TaggedRules{}, errors.New("ambiguous ownership comments in iptables rule")
+			}
 			res.Rules = append(res.Rules, TaggedRule{RunID: runID, Chain: args[1], Spec: line})
 		}
 	}

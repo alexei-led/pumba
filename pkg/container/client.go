@@ -84,5 +84,6 @@ type Client interface {
 	IPTables
 	Stressor
 	Inspector
+	Recovery
 	Close() error
 }
