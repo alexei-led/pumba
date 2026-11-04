@@ -194,6 +194,7 @@ func TestContainerd_NetemWithSidecarCleanup(t *testing.T) {
 
 	name := uniqueName(t, "ctrd")
 	ctrPullImage(t, containerdNamespace, containerdNetshootImage)
+	ctrPullImage(t, containerdNamespace, nettoolsImg)
 
 	// Create container with a dummy network interface for netem testing
 	ctrRunSh(t, containerdNamespace, name, containerdNetshootImage,
