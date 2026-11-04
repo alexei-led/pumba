@@ -44,10 +44,12 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 				resultErr = errors.Join(resultErr, exitErr)
 			}
 		}
+		var cleanupErr error
 		if cleanup.err != nil {
 			out, errOut = "", ""
-			resultErr = errors.Join(resultErr, fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanup.err))
+			cleanupErr = fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanup.err)
 		}
+		resultErr = joinExecCleanup(resultErr, cleanupErr, observedExit, cleanup.exit)
 	}()
 
 	exitCh, err := execProcess.Wait(ctx)
@@ -74,6 +76,28 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 		}
 		return "", "", fmt.Errorf("%s canceled: %w", description, ctx.Err())
 	}
+}
+
+// A Delete bookkeeping failure does not revoke a fully observed exit. Keep
+// contradictory/unknown Delete status mixed with execution so it fails closed.
+func joinExecCleanup(execution, cleanup error, observed bool, status *containerd.ExitStatus) error {
+	if !observed {
+		if cleanup == nil {
+			return execution
+		}
+		return errors.Join(execution, cleanup)
+	}
+	var exited *netns.ExecExitError
+	if status != nil && errors.As(execution, &exited) {
+		code, _, err := status.Result()
+		if err != nil {
+			return errors.Join(execution, cleanup, fmt.Errorf("%w: terminal status unavailable: %w", errExecCleanup, err))
+		}
+		if int(code) != exited.Code {
+			return errors.Join(execution, cleanup, fmt.Errorf("%w: delete exit code %d contradicts observed %d", errExecCleanup, code, exited.Code))
+		}
+	}
+	return netns.JoinExecCleanup(execution, cleanup)
 }
 
 func taskExecResult(ctx context.Context, execProcess containerd.Process, status containerd.ExitStatus, ok bool, description string, argv []string, stdout, stderr *bytes.Buffer, preserveFailure bool) (string, string, error) {

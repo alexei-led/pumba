@@ -15,8 +15,9 @@ import (
 
 func TestNetemStartupRefusalStatus(t *testing.T) {
 	for _, image := range []string{"", "nettools"} {
-		for _, failure := range []string{"refused", "partial", "read", "running", "inspect", "cleanup", "probe"} {
-			if image == "" && failure == "cleanup" || image != "" && failure == "probe" {
+		for _, failure := range []string{"refused", "partial", "read", "running", "inspect", "cleanup", "partial cleanup", "read cleanup", "probe"} {
+			cleanupFailure := failure == "cleanup" || failure == "partial cleanup" || failure == "read cleanup"
+			if image == "" && cleanupFailure || image != "" && failure == "probe" {
 				continue
 			}
 			t.Run(image+"/"+failure, func(t *testing.T) {
@@ -24,13 +25,14 @@ func TestNetemStartupRefusalStatus(t *testing.T) {
 				argv, err := netns.NetemStart(req)
 				require.NoError(t, err)
 				api := NewMockEngine(t)
+				cleanupErr := errors.New("remove failed")
 				id, privileged := "target", true
 				if image != "" {
 					id, privileged = "sidecar", false
 					expectSidecar(api, "target", id, ctr.SidecarLabels("", "target", ctr.SidecarKindNetem))
-					if failure == "cleanup" {
+					if cleanupFailure {
 						api.EXPECT().ContainerRemove(mock.Anything, id, ctypes.RemoveOptions{Force: true}).Unset()
-						api.EXPECT().ContainerRemove(mock.Anything, id, ctypes.RemoveOptions{Force: true}).Return(errors.New("remove failed")).Once()
+						api.EXPECT().ContainerRemove(mock.Anything, id, ctypes.RemoveOptions{Force: true}).Return(cleanupErr).Once()
 					}
 				} else if failure != "probe" {
 					expectExec(api, id, false, execStep{argv: []string{"which", "sh"}})
@@ -38,9 +40,9 @@ func TestNetemStartupRefusalStatus(t *testing.T) {
 				raw := execFrame(2, "refusing to replace a foreign or stale root qdisc")
 				status := ctypes.ExecInspect{ExitCode: tc.NetemRefusedExitCode}
 				switch failure {
-				case "partial":
+				case "partial", "partial cleanup":
 					status.ExitCode = 1
-				case "read":
+				case "read", "read cleanup":
 					raw = raw[:len(raw)-1]
 				case "running":
 					status.Running = true
@@ -55,8 +57,11 @@ func TestNetemStartupRefusalStatus(t *testing.T) {
 				client := dockerClient{containerAPI: api, imageAPI: api}
 				err = client.NetemContainer(context.Background(), req)
 				require.Error(t, err)
-				require.Equal(t, failure == "refused", errors.Is(err, ctr.ErrNetemNotApplied))
-				if failure == "refused" || failure == "partial" {
+				require.Equal(t, failure == "refused" || failure == "cleanup", errors.Is(err, ctr.ErrNetemNotApplied))
+				if cleanupFailure {
+					require.ErrorIs(t, err, cleanupErr, "helper removal failure must remain visible")
+				}
+				if failure == "refused" || failure == "partial" || failure == "cleanup" {
 					var exited *netns.ExecExitError
 					require.ErrorAs(t, err, &exited)
 					require.Equal(t, status.ExitCode, exited.Code)

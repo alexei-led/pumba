@@ -3,6 +3,8 @@
 load test_helper
 load match_all_helper
 
+bats_require_minimum_version 1.5.0
+
 setup() {
 	match_all_setup docker
 }

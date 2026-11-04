@@ -29,8 +29,14 @@ func TestNetemApplyErrorRequiresOnlyObservedStartupRefusal(t *testing.T) {
 		{name: "full script text alone", err: message},
 		{name: "partial failure contains refusal branch", err: &ExecExitError{Code: 1, Argv: argv, Message: message.Error()}},
 		{name: "probe status is not apply status", err: &ExecExitError{Code: tc.NetemRefusedExitCode, Argv: []string{"which", "sh"}, Message: message.Error()}},
-		{name: "cleanup failure", err: errors.Join(refused, errors.New("cleanup failed"))},
+		{name: "undifferentiated cleanup failure", err: errors.Join(refused, errors.New("cleanup failed"))},
+		{name: "contradictory execution status", err: errors.Join(refused, &ExecExitError{Code: 1, Argv: argv, Message: message.Error()})},
+		{name: "unrelated execution status", err: errors.Join(refused, &ExecExitError{Code: tc.NetemRefusedExitCode, Argv: []string{"which", "sh"}, Message: message.Error()})},
 		{name: "read failure", err: errors.Join(refused, errors.New("incomplete output"))},
+		{name: "observed refusal then bookkeeping failure", err: JoinExecCleanup(refused, errors.New("delete failed")), refused: true},
+		{name: "bookkeeping failure after success", err: JoinExecCleanup(nil, errors.New("delete failed"))},
+		{name: "incomplete execution then bookkeeping failure", err: JoinExecCleanup(errors.Join(refused, errors.New("incomplete output")), errors.New("delete failed"))},
+		{name: "bookkeeping plus unknown execution", err: errors.Join(JoinExecCleanup(refused, errors.New("delete failed")), errors.New("unknown execution"))},
 		{name: "wrapped unknown failure", err: fmt.Errorf("command: %w", errors.Join(refused, errors.New("unknown")))},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

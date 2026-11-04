@@ -20,8 +20,9 @@
   status checks; it does not guarantee fault activation or successful cleanup.
 - Fixed inherited netem cleanup behavior: a proven pre-mutation startup
   refusal no longer rolls back a sibling's active fault in a shared network
-  namespace. Partial or unknown failures still attempt cleanup; this does not
-  resolve concurrent inspect/add races or add per-run qdisc attribution.
+  namespace, even if helper or exec-metadata removal then fails. Those errors
+  remain failures. Partial or unknown apply outcomes still attempt cleanup; this does
+  not resolve concurrent inspect/add races or add per-run qdisc attribution.
 - The pinned Archfit wrapper now supports fresh clones without worktree
   registrations. It copies the entire read-only shared Git common directory
   into private container storage; native-amd64 CI checks fresh and linked

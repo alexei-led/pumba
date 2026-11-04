@@ -2,6 +2,8 @@ package docker
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/runtime/netns"
@@ -22,7 +24,19 @@ func (client dockerClient) NetemContainer(ctx context.Context, req *ctr.NetemReq
 	if err != nil {
 		return err
 	}
-	return netns.NetemApplyError(argv, client.runNetemCommand(ctx, req, argv))
+	if req.Sidecar.Image == "" {
+		return netns.NetemApplyError(argv, client.execOnContainer(ctx, req.Container, argv[0], argv[1:], true))
+	}
+	labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindNetem)
+	return client.withSidecar(ctx, req.Container, req.Sidecar, labels, ctr.SidecarKindNetem, func(id string) error {
+		// Classify the apply result before helper removal joins its own error.
+		// A helper leak cannot turn a proven refusal into a namespace mutation.
+		err := client.runSidecarExec(ctx, id, argv[0], argv[1:])
+		if err != nil {
+			err = fmt.Errorf("error running %s command on container: %v: %w", argv[0], strings.Join(argv[1:], " "), err)
+		}
+		return netns.NetemApplyError(argv, err)
+	})
 }
 
 // StopNetemContainer removes only a verified Pumba-owned netem topology.

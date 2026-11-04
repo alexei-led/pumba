@@ -20,7 +20,8 @@ type ExecExitError struct {
 func (e *ExecExitError) Error() string { return e.Message }
 
 // NetemApplyError marks only a proven pre-mutation refusal from this apply
-// script. A failed probe, API call, output read or cleanup retains rollback.
+// script. Call it on the execution result before joining helper-removal errors.
+// Failed probes, output reads, and mixed/unknown execution results retain rollback.
 func NetemApplyError(argv []string, err error) error {
 	if onlyNetemRefusal(argv, err) {
 		return fmt.Errorf("%w: %w", ctr.ErrNetemNotApplied, err)
@@ -29,6 +30,9 @@ func NetemApplyError(argv []string, err error) error {
 }
 
 func onlyNetemRefusal(argv []string, err error) bool {
+	if completed, ok := err.(interface{ ExecutionError() error }); ok {
+		return onlyNetemRefusal(argv, completed.ExecutionError())
+	}
 	// Inspect every joined failure before looking for a process exit: errors.As
 	// alone could find a refusal while hiding a separate cleanup/read failure.
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
