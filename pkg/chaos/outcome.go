@@ -111,12 +111,13 @@ type Recorder struct {
 	next    EventSink
 	version string
 
-	mu      sync.Mutex
-	runID   string
-	action  string
-	counts  Counts
-	skipped error
-	status  *StatusReport
+	mu        sync.Mutex
+	runID     string
+	action    string
+	counts    Counts
+	artifacts Counts
+	skipped   error
+	status    *StatusReport
 }
 
 // skippedErrorRecorder is implemented by event sinks that keep the tick errors
@@ -160,25 +161,28 @@ func (r *Recorder) Emit(ev *Event) {
 		}
 	}
 	if ev.Type == EventTargetResult && ev.Result != nil {
-		r.count(ev.Result.Status)
+		countResult(&r.counts, ev.Result.Status)
+	}
+	if ev.Type == EventArtifactResult && ev.Artifact != nil {
+		countResult(&r.artifacts, ev.Artifact.Status)
 	}
 	r.mu.Unlock()
 	r.next.Emit(ev)
 }
 
-func (r *Recorder) count(s TargetStatus) {
-	r.counts.Selected++
+func countResult(counts *Counts, s TargetStatus) {
+	counts.Selected++
 	switch s {
 	case TargetOK:
-		r.counts.OK++
+		counts.OK++
 	case TargetFailed:
-		r.counts.Failed++
+		counts.Failed++
 	case TargetCleanupFailed:
-		r.counts.CleanupFailed++
+		counts.CleanupFailed++
 	case TargetPlanned:
-		r.counts.Planned++
+		counts.Planned++
 	case TargetSkipped:
-		r.counts.Skipped++
+		counts.Skipped++
 	}
 }
 
@@ -189,7 +193,23 @@ func (r *Recorder) count(s TargetStatus) {
 func (r *Recorder) RunEnd(err error, aborted bool) (Event, Outcome) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	o := NewOutcome(r.counts, err, aborted)
+	combined := r.counts
+	combined.Selected += r.artifacts.Selected
+	combined.OK += r.artifacts.OK
+	combined.Failed += r.artifacts.Failed
+	combined.CleanupFailed += r.artifacts.CleanupFailed
+	combined.Planned += r.artifacts.Planned
+	combined.Skipped += r.artifacts.Skipped
+	o := NewOutcome(combined, err, aborted)
+	// A complete empty recovery inventory is an idempotent success.
+	if r.action == "revert" && combined.Selected == 0 && err == nil && !aborted {
+		o.Status, o.Error = RunOK, nil
+	}
+	var artifactCounts *Counts
+	if r.action == "revert" || r.artifacts.Selected > 0 {
+		copyCounts := r.artifacts
+		artifactCounts = &copyCounts
+	}
 	runErr := err
 	if err == nil && r.skipped != nil {
 		// --skip-error keeps exit 0; the status still reports the failure
@@ -209,7 +229,7 @@ func (r *Recorder) RunEnd(err error, aborted bool) (Event, Outcome) {
 		RunID:  r.runID,
 		Time:   time.Now().UTC(),
 		Action: r.action,
-		End:    &RunEnd{Status: o.Status, Counts: r.counts, Error: o.Error, Coverage: coverage},
+		End:    &RunEnd{ArtifactCounts: artifactCounts, Status: o.Status, Counts: r.counts, Error: o.Error, Coverage: coverage},
 	}, o
 }
 

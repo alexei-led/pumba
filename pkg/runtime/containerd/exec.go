@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexei-led/pumba/pkg/runtime/netns"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -43,10 +44,12 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 				resultErr = errors.Join(resultErr, exitErr)
 			}
 		}
+		var cleanupErr error
 		if cleanup.err != nil {
 			out, errOut = "", ""
-			resultErr = errors.Join(resultErr, fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanup.err))
+			cleanupErr = fmt.Errorf("%s: %w: %w", description, errExecCleanup, cleanup.err)
 		}
+		resultErr = joinExecCleanup(resultErr, cleanupErr, observedExit, cleanup.exit)
 	}()
 
 	exitCh, err := execProcess.Wait(ctx)
@@ -61,13 +64,13 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	select {
 	case status, ok := <-exitCh:
 		observedExit = execStatusKnown(status, ok)
-		return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, terminate != nil)
+		return taskExecResult(ctx, execProcess, status, ok, description, pspec.Args, &stdout, &stderr, terminate != nil)
 	case <-ctx.Done():
 		if terminate != nil {
 			select {
 			case status, ok := <-exitCh:
 				observedExit = execStatusKnown(status, ok)
-				return taskExecResult(ctx, execProcess, status, ok, description, &stdout, &stderr, true)
+				return taskExecResult(ctx, execProcess, status, ok, description, pspec.Args, &stdout, &stderr, true)
 			default:
 			}
 		}
@@ -75,7 +78,29 @@ func runTaskExec(ctx context.Context, task containerd.Task, pspec *specs.Process
 	}
 }
 
-func taskExecResult(ctx context.Context, execProcess containerd.Process, status containerd.ExitStatus, ok bool, description string, stdout, stderr *bytes.Buffer, preserveFailure bool) (string, string, error) {
+// A Delete bookkeeping failure does not revoke a fully observed exit. Keep
+// contradictory/unknown Delete status mixed with execution so it fails closed.
+func joinExecCleanup(execution, cleanup error, observed bool, status *containerd.ExitStatus) error {
+	if !observed {
+		if cleanup == nil {
+			return execution
+		}
+		return errors.Join(execution, cleanup)
+	}
+	var exited *netns.ExecExitError
+	if status != nil && errors.As(execution, &exited) {
+		code, _, err := status.Result()
+		if err != nil {
+			return errors.Join(execution, cleanup, fmt.Errorf("%w: terminal status unavailable: %w", errExecCleanup, err))
+		}
+		if int(code) != exited.Code {
+			return errors.Join(execution, cleanup, fmt.Errorf("%w: delete exit code %d contradicts observed %d", errExecCleanup, code, exited.Code))
+		}
+	}
+	return netns.JoinExecCleanup(execution, cleanup)
+}
+
+func taskExecResult(ctx context.Context, execProcess containerd.Process, status containerd.ExitStatus, ok bool, description string, argv []string, stdout, stderr *bytes.Buffer, preserveFailure bool) (string, string, error) {
 	if !ok {
 		if err := ctx.Err(); err != nil {
 			return "", "", fmt.Errorf("%s canceled: %w", description, err)
@@ -88,13 +113,13 @@ func taskExecResult(ctx context.Context, execProcess containerd.Process, status 
 	}
 	drainErr := waitIO(ctx, execProcess, ioDrainTimeout)
 	if preserveFailure && code != 0 {
-		return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+		return "", "", errors.Join(&netns.ExecExitError{Code: int(code), Argv: argv, Message: fmt.Sprintf("%s exited with code %d: %s", description, code, stderr.String())}, drainErr)
 	}
 	if drainErr != nil && !errors.Is(drainErr, errIncompleteOutput) {
 		return "", "", fmt.Errorf("%s canceled: %w", description, drainErr)
 	}
 	if code != 0 {
-		return "", "", fmt.Errorf("%s exited with code %d: %s", description, code, stderr.String())
+		return "", "", &netns.ExecExitError{Code: int(code), Argv: argv, Message: fmt.Sprintf("%s exited with code %d: %s", description, code, stderr.String())}
 	}
 	if drainErr != nil {
 		return "", "", fmt.Errorf("%s: %w", description, drainErr)

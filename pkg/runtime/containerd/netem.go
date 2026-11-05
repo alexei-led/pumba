@@ -5,6 +5,7 @@ import (
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
 	"github.com/alexei-led/pumba/pkg/runtime/netns"
+	containerd "github.com/containerd/containerd/v2/client"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,7 +15,19 @@ func (c *containerdClient) NetemContainer(ctx context.Context, req *ctr.NetemReq
 	if req.DryRun {
 		return nil
 	}
-	return c.runNetemCommand(ctx, req, netns.NetemStart(req))
+	argv, err := netns.NetemStart(req)
+	if err != nil {
+		return err
+	}
+	if req.Sidecar.Image == "" {
+		return netns.NetemApplyError(argv, c.execFaultInContainer(c.nsCtx(ctx), req.Container.ID(), argv[0], argv[1:]))
+	}
+	labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindNetem)
+	return c.withSidecar(ctx, req.Container, req.Sidecar, labels, func(ctx context.Context, task containerd.Task) error {
+		// Classify execution before withSidecar adds helper-removal failures.
+		_, _, err := c.runSidecarCommand(ctx, task, argv[0], argv[1:], execFaultTaskOutput)
+		return netns.NetemApplyError(argv, err)
+	})
 }
 
 // StopNetemContainer removes only a verified Pumba-owned netem topology.
@@ -23,13 +36,17 @@ func (c *containerdClient) StopNetemContainer(ctx context.Context, req *ctr.Nete
 	if req.DryRun {
 		return nil
 	}
-	return c.runNetemCommand(ctx, req, netns.NetemStop(req))
+	argv, err := netns.NetemStop(req)
+	if err != nil {
+		return err
+	}
+	return c.runNetemCommand(ctx, req, argv)
 }
 
 // PlanNetemContainer returns the argv NetemContainer and StopNetemContainer
 // run for req.
 func (c *containerdClient) PlanNetemContainer(req *ctr.NetemRequest) (*ctr.CommandPlan, error) {
-	return netns.NetemPlan(req), nil
+	return netns.NetemPlan(req)
 }
 
 func (c *containerdClient) runNetemCommand(ctx context.Context, req *ctr.NetemRequest, argv []string) error {

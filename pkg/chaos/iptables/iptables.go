@@ -41,6 +41,11 @@ const cleanupTimeout = 30 * time.Second
 // after a successful install is returned as an error. A dry-run runs nothing:
 // it reports the runtime's plan of the commands to t and returns at once.
 func runIPTables(ctx context.Context, client iptablesClient, addReq, delReq *container.IPTablesRequest, t targetReport) error {
+	if addReq.MatchAll && !addReq.DryRun {
+		if _, err := client.PlanIPTablesContainer(addReq, delReq); err != nil {
+			return fmt.Errorf("planning iptables: %w", err)
+		}
+	}
 	logger := log.WithFields(log.Fields{
 		"id":           addReq.Container.ID(),
 		"name":         addReq.Container.Name(),

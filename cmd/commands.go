@@ -7,6 +7,7 @@ import (
 	ipTablesCmd "github.com/alexei-led/pumba/pkg/chaos/iptables/cmd"
 	"github.com/alexei-led/pumba/pkg/chaos/lifecycle/cmd"
 	netemCmd "github.com/alexei-led/pumba/pkg/chaos/netem/cmd"
+	revertCmd "github.com/alexei-led/pumba/pkg/chaos/revert/cmd"
 	statusCmd "github.com/alexei-led/pumba/pkg/chaos/status/cmd"
 	stressCmd "github.com/alexei-led/pumba/pkg/chaos/stress/cmd"
 	"github.com/urfave/cli"
@@ -23,6 +24,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 		*cmd.NewRemoveCLICommand(topContext, runtime, events),
 		*stressCmd.NewStressCLICommand(topContext, runtime, events),
 		*statusCmd.NewStatusCLICommand(topContext, runtime, events),
+		*revertCmd.NewRevertCLICommand(topContext, runtime, events),
 		{
 			Name: "netem",
 			Flags: []cli.Flag{
@@ -35,6 +37,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 					Usage: "network interface to apply delay on",
 					Value: defaultInterface,
 				},
+				cli.BoolFlag{Name: "match-all", Usage: "require a packet to match every supplied filter dimension"},
 				cli.StringSliceFlag{
 					Name:  "target, t",
 					Usage: "target filter; repeatable IPv4/CIDR or running container name/ID; IPv6 is not supported",
@@ -49,7 +52,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 				},
 				cli.StringFlag{
 					Name:  "tc-image",
-					Usage: "nettools image with sh, grep, which, tail, sleep, tc, and iptables",
+					Usage: "nettools image with sh, grep, awk, which, tail, sleep, tc, and iptables",
 					Value: "ghcr.io/alexei-led/pumba-alpine-nettools:latest",
 				},
 				cli.BoolTFlag{
@@ -93,6 +96,7 @@ func initializeCLICommands(runtime chaos.Runtime, events chaos.EventSink) []cli.
 					Usage: "protocol to apply input rules on (any, udp, tcp or icmp)",
 					Value: "any",
 				},
+				cli.BoolFlag{Name: "match-all", Usage: "require a packet to match every supplied filter dimension"},
 				cli.StringSliceFlag{
 					Name:  "source, src, s",
 					Usage: "source IP filter; supports multiple IPs; supports CIDR notation",

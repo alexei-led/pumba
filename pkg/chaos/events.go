@@ -15,10 +15,11 @@ type EventType string
 
 // Event types of pumba.event/v1.
 const (
-	EventRunStart      EventType = "run.start"
-	EventTargetApplied EventType = "target.applied"
-	EventTargetResult  EventType = "target.result"
-	EventRunEnd        EventType = "run.end"
+	EventRunStart       EventType = "run.start"
+	EventTargetApplied  EventType = "target.applied"
+	EventTargetResult   EventType = "target.result"
+	EventArtifactResult EventType = "artifact.result"
+	EventRunEnd         EventType = "run.end"
 )
 
 // TargetStatus is the terminal status of one target in one tick.
@@ -112,10 +113,11 @@ type Event struct {
 	Time   time.Time `json:"time"`
 	Action string    `json:"action"`
 
-	Start   *RunStart      `json:"-"`
-	Applied *TargetApplied `json:"-"`
-	Result  *TargetResult  `json:"-"`
-	End     *RunEnd        `json:"-"`
+	Start    *RunStart       `json:"-"`
+	Applied  *TargetApplied  `json:"-"`
+	Result   *TargetResult   `json:"-"`
+	Artifact *ArtifactResult `json:"-"`
+	End      *RunEnd         `json:"-"`
 }
 
 // RunStart is the body of run.start: flags parsed, command built.
@@ -167,6 +169,9 @@ type TargetResult struct {
 	// Plan is what a netem or iptables dry-run would run on the target; nil
 	// otherwise.
 	Plan *Plan `json:"plan,omitempty"`
+
+	// Recovery is the typed recovery plan and unresolved coverage for this target.
+	Recovery *RecoveryPlan `json:"recovery,omitempty"`
 }
 
 // Plan is the exact commands a dry-run would run in the target's network
@@ -194,6 +199,10 @@ type RunEnd struct {
 	// Coverage is set by `pumba status`: findings outside every inspected
 	// target, and the verdict.
 	Coverage *StatusCoverage `json:"coverage,omitempty"`
+
+	// ArtifactCounts tallies orphan artifact results separately; Counts always
+	// retains its existing meaning of real target results.
+	ArtifactCounts *Counts `json:"artifact_counts,omitempty"`
 }
 
 // Counts tallies target.result statuses over the whole run.
@@ -236,6 +245,11 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			header
 			*TargetResult
 		}{h, e.Result})
+	case EventArtifactResult:
+		return json.Marshal(struct {
+			header
+			*ArtifactResult
+		}{h, e.Artifact})
 	case EventRunEnd:
 		return json.Marshal(struct {
 			header

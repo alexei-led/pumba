@@ -103,7 +103,7 @@ func mockIPTablesDryRun(t *testing.T) *ctr.MockClient {
 	client.EXPECT().ListContainers(mock.Anything, mock.AnythingOfType("container.FilterFunc"), ctr.ListOpts{}).Return([]*ctr.Container{web}, nil).Once()
 	client.EXPECT().PlanIPTablesContainer(mock.AnythingOfType("*container.IPTablesRequest"), mock.AnythingOfType("*container.IPTablesRequest")).
 		RunAndReturn(func(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
-			return netns.IPTablesPlan(add, del), nil
+			return netns.IPTablesPlan(add, del)
 		}).Once()
 	client.EXPECT().Close().Return(nil).Maybe()
 	return client
@@ -151,7 +151,7 @@ func TestRunNetemDryRunPlans(t *testing.T) {
 			client.EXPECT().PlanNetemContainer(&ctr.NetemRequest{
 				Container: web, Interface: "eth0", Command: []string{"delay", "100ms"}, IPs: []*net.IPNet{},
 				Duration: time.Hour, DryRun: true, RunID: "r1", Sidecar: ctr.SidecarSpec{Pull: true},
-			}).RunAndReturn(func(req *ctr.NetemRequest) (*ctr.CommandPlan, error) { return netns.NetemPlan(req), nil }).Once()
+			}).RunAndReturn(func(req *ctr.NetemRequest) (*ctr.CommandPlan, error) { return netns.NetemPlan(req) }).Once()
 			client.EXPECT().Close().Return(nil).Maybe()
 			code, stdout, _ := runPumba(t, client, "--dry-run", "--run-id", "r1", "-o", mode,
 				"netem", "--duration", "1h", "--tc-image", "", "delay", "--time", "100", "--jitter", "0", "--correlation", "0", "web")

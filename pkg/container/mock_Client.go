@@ -753,6 +753,125 @@ func (_c *MockClient_PlanNetemContainer_Call) RunAndReturn(run func(netemRequest
 	return _c
 }
 
+// PlanRecoveryRules provides a mock function for the type MockClient
+func (_mock *MockClient) PlanRecoveryRules(ruleRecoveryRequest *RuleRecoveryRequest) (*CommandPlan, error) {
+	ret := _mock.Called(ruleRecoveryRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PlanRecoveryRules")
+	}
+
+	var r0 *CommandPlan
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*RuleRecoveryRequest) (*CommandPlan, error)); ok {
+		return returnFunc(ruleRecoveryRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*RuleRecoveryRequest) *CommandPlan); ok {
+		r0 = returnFunc(ruleRecoveryRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*CommandPlan)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*RuleRecoveryRequest) error); ok {
+		r1 = returnFunc(ruleRecoveryRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClient_PlanRecoveryRules_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PlanRecoveryRules'
+type MockClient_PlanRecoveryRules_Call struct {
+	*mock.Call
+}
+
+// PlanRecoveryRules is a helper method to define mock.On call
+//   - ruleRecoveryRequest *RuleRecoveryRequest
+func (_e *MockClient_Expecter) PlanRecoveryRules(ruleRecoveryRequest any) *MockClient_PlanRecoveryRules_Call {
+	return &MockClient_PlanRecoveryRules_Call{Call: _e.mock.On("PlanRecoveryRules", ruleRecoveryRequest)}
+}
+
+func (_c *MockClient_PlanRecoveryRules_Call) Run(run func(ruleRecoveryRequest *RuleRecoveryRequest)) *MockClient_PlanRecoveryRules_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *RuleRecoveryRequest
+		if args[0] != nil {
+			arg0 = args[0].(*RuleRecoveryRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_PlanRecoveryRules_Call) Return(commandPlan *CommandPlan, err error) *MockClient_PlanRecoveryRules_Call {
+	_c.Call.Return(commandPlan, err)
+	return _c
+}
+
+func (_c *MockClient_PlanRecoveryRules_Call) RunAndReturn(run func(ruleRecoveryRequest *RuleRecoveryRequest) (*CommandPlan, error)) *MockClient_PlanRecoveryRules_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RecoverRules provides a mock function for the type MockClient
+func (_mock *MockClient) RecoverRules(context1 context.Context, ruleRecoveryRequest *RuleRecoveryRequest) error {
+	ret := _mock.Called(context1, ruleRecoveryRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RecoverRules")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *RuleRecoveryRequest) error); ok {
+		r0 = returnFunc(context1, ruleRecoveryRequest)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockClient_RecoverRules_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RecoverRules'
+type MockClient_RecoverRules_Call struct {
+	*mock.Call
+}
+
+// RecoverRules is a helper method to define mock.On call
+//   - context1 context.Context
+//   - ruleRecoveryRequest *RuleRecoveryRequest
+func (_e *MockClient_Expecter) RecoverRules(context1 any, ruleRecoveryRequest any) *MockClient_RecoverRules_Call {
+	return &MockClient_RecoverRules_Call{Call: _e.mock.On("RecoverRules", context1, ruleRecoveryRequest)}
+}
+
+func (_c *MockClient_RecoverRules_Call) Run(run func(context1 context.Context, ruleRecoveryRequest *RuleRecoveryRequest)) *MockClient_RecoverRules_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *RuleRecoveryRequest
+		if args[1] != nil {
+			arg1 = args[1].(*RuleRecoveryRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_RecoverRules_Call) Return(err error) *MockClient_RecoverRules_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockClient_RecoverRules_Call) RunAndReturn(run func(context1 context.Context, ruleRecoveryRequest *RuleRecoveryRequest) error) *MockClient_RecoverRules_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RemoveContainer provides a mock function for the type MockClient
 func (_mock *MockClient) RemoveContainer(context1 context.Context, container *Container, removeOpts RemoveOpts) error {
 	ret := _mock.Called(context1, container, removeOpts)
@@ -812,6 +931,63 @@ func (_c *MockClient_RemoveContainer_Call) Return(err error) *MockClient_RemoveC
 }
 
 func (_c *MockClient_RemoveContainer_Call) RunAndReturn(run func(context1 context.Context, container *Container, removeOpts RemoveOpts) error) *MockClient_RemoveContainer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RemoveRecoverySidecar provides a mock function for the type MockClient
+func (_mock *MockClient) RemoveRecoverySidecar(context1 context.Context, sidecarIdentity SidecarIdentity) error {
+	ret := _mock.Called(context1, sidecarIdentity)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveRecoverySidecar")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, SidecarIdentity) error); ok {
+		r0 = returnFunc(context1, sidecarIdentity)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockClient_RemoveRecoverySidecar_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveRecoverySidecar'
+type MockClient_RemoveRecoverySidecar_Call struct {
+	*mock.Call
+}
+
+// RemoveRecoverySidecar is a helper method to define mock.On call
+//   - context1 context.Context
+//   - sidecarIdentity SidecarIdentity
+func (_e *MockClient_Expecter) RemoveRecoverySidecar(context1 any, sidecarIdentity any) *MockClient_RemoveRecoverySidecar_Call {
+	return &MockClient_RemoveRecoverySidecar_Call{Call: _e.mock.On("RemoveRecoverySidecar", context1, sidecarIdentity)}
+}
+
+func (_c *MockClient_RemoveRecoverySidecar_Call) Run(run func(context1 context.Context, sidecarIdentity SidecarIdentity)) *MockClient_RemoveRecoverySidecar_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 SidecarIdentity
+		if args[1] != nil {
+			arg1 = args[1].(SidecarIdentity)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_RemoveRecoverySidecar_Call) Return(err error) *MockClient_RemoveRecoverySidecar_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockClient_RemoveRecoverySidecar_Call) RunAndReturn(run func(context1 context.Context, sidecarIdentity SidecarIdentity) error) *MockClient_RemoveRecoverySidecar_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ctr "github.com/alexei-led/pumba/pkg/container"
+	"github.com/alexei-led/pumba/pkg/runtime/netns"
 	"github.com/docker/docker/api/types"
 	ctypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -140,7 +141,16 @@ func (client dockerClient) runExec(ctx context.Context, containerID string, argv
 	if err := ctx.Err(); err != nil {
 		return "", "", err
 	}
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), faultExecTimeout)
+	return client.runExecContext(context.WithoutCancel(ctx), containerID, argv, privileged)
+}
+
+// runExecContext preserves a supplied operation deadline. Recovery already
+// detaches admitted delete-and-verify work and must not get a fresh two minutes.
+func (client dockerClient) runExecContext(ctx context.Context, containerID string, argv []string, privileged bool) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, faultExecTimeout)
 	defer cancel()
 	created, err := client.containerAPI.ContainerExecCreate(ctx, containerID, ctypes.ExecOptions{
 		AttachStdout: true,
@@ -178,7 +188,7 @@ func (client dockerClient) runExec(ctx context.Context, containerID string, argv
 		return "", "", fmt.Errorf("failed to demultiplex exec %s output: %w", strings.Join(argv, " "), err)
 	}
 	if insp.ExitCode != 0 {
-		return "", "", fmt.Errorf("%s failed with exit code %d: %s", strings.Join(argv, " "), insp.ExitCode, strings.TrimSpace(errBuf.String()))
+		return "", "", &netns.ExecExitError{Code: insp.ExitCode, Argv: argv, Message: fmt.Sprintf("%s failed with exit code %d: %s", strings.Join(argv, " "), insp.ExitCode, strings.TrimSpace(errBuf.String()))}
 	}
 	return outBuf.String(), errBuf.String(), nil
 }

@@ -78,6 +78,7 @@ func ParseRequestBase(c cliflags.Flags, gp *chaos.GlobalParams) (*RequestBase, e
 			DstIPs:   dstIPs,
 			SPorts:   sports,
 			DPorts:   dports,
+			MatchAll: c.Bool("match-all"),
 			Duration: duration,
 			Sidecar:  container.SidecarSpec{Image: c.String("iptables-image"), Pull: c.Bool("pull-image")},
 			DryRun:   gp.DryRun,

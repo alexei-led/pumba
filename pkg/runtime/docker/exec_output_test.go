@@ -116,7 +116,7 @@ func TestInspectNetnsRejectsIncompleteExecEvidence(t *testing.T) {
 				inspect := ctypes.ExecInspect{}
 				if fault == "iptables" || fault == "backend warning" {
 					expectExec(api, id, privileged, execStep{argv: argv, stdout: "qdisc noqueue 0: dev lo root\n"})
-					argv, raw = tcplan.IPTablesShowCommand(), execFrame(1, iptablesShowRule)
+					argv, raw = tcplan.IPTablesVersionCommand(), execFrame(1, iptablesShowRule)
 					if fault == "backend warning" {
 						raw = append(execFrame(1, "-P INPUT ACCEPT\n"), execFrame(2, "# Warning: iptables-legacy tables present\n")...)
 					}

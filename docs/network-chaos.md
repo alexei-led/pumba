@@ -50,19 +50,25 @@ Target selection still queries the runtime, and rootless Podman is unsupported.
 
 Pumba needs `tc` (from `iproute2`) and/or `iptables` to be available. Netem also uses a POSIX `sh` to inspect, apply, verify, and roll back its owned qdisc. You have two options:
 
-1. Install a POSIX shell, `iproute2`, and `iptables` inside the target container
-2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `grep`, and `tc`; Docker/Podman also require `which` and `tail`, while containerd requires `sleep`.
+1. Install a POSIX shell, `iproute2`, and `iptables` inside the target container; `awk` is also required there when using netem `--match-all`
+2. Use the `--tc-image` or `--iptables-image` flags to specify a helper image (recommended). A custom netem helper image must include `sh`, `grep`, and `tc`, plus `awk` for `--match-all`; Docker/Podman also require `which` and `tail`, while containerd requires `sleep`.
 
 ### Recommended Images
 
-| Image                                             | Base   | Includes                   |
-| ------------------------------------------------- | ------ | -------------------------- |
-| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + grep + which + tail + sleep + tc + iptables |
-| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + grep + which + tail + sleep + tc + iptables |
+| Image                                             | Base   | Includes                                               |
+| ------------------------------------------------- | ------ | ------------------------------------------------------ |
+| `ghcr.io/alexei-led/pumba-alpine-nettools:latest` | Alpine | sh + grep + awk + which + tail + sleep + tc + iptables |
+| `ghcr.io/alexei-led/pumba-debian-nettools:latest` | Debian | sh + grep + awk + which + tail + sleep + tc + iptables |
 
 Both images are multi-architecture (`amd64` and `arm64`). Docker automatically pulls the correct image for your platform.
 
 Since both images include tc _and_ iptables, you can use the same image for both `--tc-image` and `--iptables-image` flags.
+
+`status` and `revert` inspect through `iptables --version` and the matching named
+binary (`iptables-nft` or `iptables-legacy`), not the mutable default alias. A legacy
+default also needs `iptables-nft`; an nft default needs `iptables-legacy` when it
+reports legacy tables. Custom images and exec-mode targets must provide those
+binaries. Both shipped images include them; incomplete coverage fails closed.
 
 ### Building Network Tools Images
 
@@ -96,15 +102,17 @@ qdiscs have no comment field, so a qdisc cannot be attributed to a run. `status`
 
 All netem commands require a `--duration` flag and support these common options:
 
-| Flag                            | Description                                            | Default                                           |
-| ------------------------------- | ------------------------------------------------------ | ------------------------------------------------- |
-| `--duration`, `-d`              | Emulation duration (must be shorter than `--interval`) | required                                          |
-| `--interface`, `-i`             | Network interface to apply rules on                    | `eth0`                                            |
-| `--target`, `-t`                | Target filter (repeatable); IPv4, CIDR, or container name/ID | all                                          |
-| `--egress-port`, `egressPort`   | Egress (source) port filter (comma-separated)          | all                                               |
-| `--ingress-port`, `ingressPort` | Ingress (destination) port filter (comma-separated)    | all                                               |
-| `--tc-image`                    | Docker image with `tc` tool                            | `ghcr.io/alexei-led/pumba-alpine-nettools:latest` |
-| `--pull-image`                  | Force pull the tc-image                                | `true`                                            |
+| Flag                            | Description                                                  | Default                                           |
+| ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------- |
+| `--duration`, `-d`              | Emulation duration (must be shorter than `--interval`)       | required                                          |
+| `--interface`, `-i`             | Network interface to apply rules on                          | `eth0`                                            |
+| `--target`, `-t`                | Target filter (repeatable); IPv4, CIDR, or container name/ID | all                                               |
+| `--egress-port`, `egressPort`   | Egress (source) port filter (comma-separated)                | all                                               |
+| `--ingress-port`, `ingressPort` | Ingress (destination) port filter (comma-separated)          | all                                               |
+| `--tc-image`                    | Docker image with `tc` tool                                  | `ghcr.io/alexei-led/pumba-alpine-nettools:latest` |
+| `--pull-image`                  | Force pull the tc-image                                      | `true`                                            |
+
+Use `--match-all` on the `netem` or `iptables` parent command to require all configured selector dimensions (for example, source/destination address and source/destination port) to match. Values within one dimension are alternatives; dimensions are combined with AND. Without this flag, the existing OR behavior is unchanged. Empty dimensions remain unrestricted. The compiler bounds expansion at 256 combinations and each rendered script at 64 KiB; a request over either limit fails before injection (including dry-run).
 
 Run `pumba netem --help` for the full list of options.
 
@@ -245,13 +253,13 @@ pumba netem --duration 10m combine \
 
 Supported switches and option prefixes:
 
-| Switch        | Options                                                                                   |
-| ------------- | ----------------------------------------------------------------------------------------- |
-| `--delay`     | `--delay-time`, `--delay-jitter`, `--delay-correlation`, `--delay-distribution`           |
-| `--loss`      | `--loss-percent`, `--loss-correlation`                                                     |
-| `--corrupt`   | `--corrupt-percent`, `--corrupt-correlation`                                               |
-| `--duplicate` | `--duplicate-percent`, `--duplicate-correlation`                                           |
-| `--rate`      | `--rate-value`, `--rate-packet-overhead`, `--rate-cell-size`, `--rate-cell-overhead`       |
+| Switch        | Options                                                                              |
+| ------------- | ------------------------------------------------------------------------------------ |
+| `--delay`     | `--delay-time`, `--delay-jitter`, `--delay-correlation`, `--delay-distribution`      |
+| `--loss`      | `--loss-percent`, `--loss-correlation`                                               |
+| `--corrupt`   | `--corrupt-percent`, `--corrupt-correlation`                                         |
+| `--duplicate` | `--duplicate-percent`, `--duplicate-correlation`                                     |
+| `--rate`      | `--rate-value`, `--rate-packet-overhead`, `--rate-cell-size`, `--rate-cell-overhead` |
 
 `combine` requires at least two effect switches. Existing single-effect commands
 remain unchanged. Stateful loss models (`loss-state` and `loss-gemodel`) are not

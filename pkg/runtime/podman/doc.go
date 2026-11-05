@@ -23,7 +23,7 @@
 //   - Rootless guards (rootless.go) — rootless Podman cannot grant NET_ADMIN
 //     to a sidecar in the target's netns or write across sibling cgroup
 //     scopes, so netem/iptables (including PlanNetemContainer and
-//     PlanIPTablesContainer), stress and netns inspection (InspectNetns)
+//     PlanIPTablesContainer and PlanRecoveryRules), rule recovery (RecoverRules), stress and netns inspection (InspectNetns)
 //     fail fast at the API boundary with a diagnostic pointing at
 //     `podman machine set --rootful` or the rootful systemd unit.
 //   - cgroup leaf naming (cgroup.go, stress.go) — Podman uses

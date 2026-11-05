@@ -33,6 +33,7 @@ type NetemRequest struct {
 	TargetNames []string
 	SPorts      []string
 	DPorts      []string
+	MatchAll    bool
 	Duration    time.Duration
 	Sidecar     SidecarSpec
 	DryRun      bool
@@ -51,6 +52,7 @@ type IPTablesRequest struct {
 	DstIPs    []*net.IPNet
 	SPorts    []string
 	DPorts    []string
+	MatchAll  bool
 	Duration  time.Duration
 	Sidecar   SidecarSpec
 	DryRun    bool
@@ -153,9 +155,11 @@ type PumbaQdisc struct {
 // PumbaRule is an iptables rule carrying the comment "pumba:<RunID>". Spec is
 // the rule as `iptables -S` prints it.
 type PumbaRule struct {
-	RunID string
-	Chain string
-	Spec  string
+	// Backend is the exact binary whose independent filter table contains this rule.
+	Backend string
+	RunID   string
+	Chain   string
+	Spec    string
 }
 
 // FaultState is the Pumba fault state found in one network namespace.

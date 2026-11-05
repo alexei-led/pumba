@@ -2,9 +2,11 @@ name: Build and Test
 on:
   pull_request:
   push:
-    branches: [master]
+    branches:
+      - master
   merge_group:
-    types: [checks_requested]
+    types:
+      - checks_requested
   workflow_dispatch:
 # Cancel superseded runs on the same PR — pushing a new commit invalidates
 # the previous build's signal.
@@ -114,6 +116,53 @@ jobs:
         with:
           files: .cover/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+  architecture-profile:
+    name: Pinned Archfit Profile
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the local entry point on native amd64
+        env:
+          DOCKER_CONTEXT: default
+        run: |
+          # Exercise the fresh-checkout common-dir layout before creating any
+          # linked worktree registration, then verify the linked layout too.
+          for layout in checkout linked; do
+            if [[ "$layout" == linked ]]; then
+              git worktree add --detach "$RUNNER_TEMP/archfit-linked" HEAD
+              root="$RUNNER_TEMP/archfit-linked"
+            else
+              root="$GITHUB_WORKSPACE"
+            fi
+            result=0
+            report="$RUNNER_TEMP/archfit-profile-$layout.json"
+            bash "$root/.github/scripts/archfit-check.bash" --format json > "$report" || result=$?
+            case "$result" in
+              0|2) ;;
+              *) exit "$result" ;;
+            esac
+            jq -e --slurpfile reference "$root/.archfit-baseline.json" '
+              .gate_reference.status == "comparable" and
+              .gate_reference.baseline_present and
+              .decision.hard_gates == "pass" and
+              ((.decision.unevaluated_required_rules // []) | length == 0) and
+              (.comparison.measurement_profile == $reference[0].state.measurement_profile)
+            ' "$report"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: archfit-local-profile
+          path: ${{ runner.temp }}/archfit-profile-*.json
+          if-no-files-found: error
   integration:
     name: Integration Tests (${{ matrix.runtime }}, ${{ matrix.platform }}, shard ${{ matrix.shard }})
     needs: changes
@@ -130,7 +179,9 @@ jobs:
         platform:
           - linux/amd64
           - linux/arm64
-        shard: [1, 2]
+        shard:
+          - 1
+          - 2
         exclude:
           - runtime: containerd
             shard: 2
@@ -290,7 +341,11 @@ jobs:
           if-no-files-found: ignore
   gate:
     name: Lint and Test
-    needs: [changes, unit, integration]
+    needs:
+      - changes
+      - unit
+      - integration
+      - architecture-profile
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -306,4 +361,5 @@ jobs:
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
           UNIT_RESULT: ${{ needs.unit.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
+          ARCHITECTURE_PROFILE_RESULT: ${{ needs.architecture-profile.result }}
         run: bash .github/scripts/ci-gate.bash

@@ -8,7 +8,6 @@ import (
 
 	"github.com/alexei-led/pumba/pkg/container"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // ContainerAction applies a chaos action to a single target container.
@@ -110,28 +109,9 @@ func runOnContainers(
 		t.finish(err)
 		return err
 	}
-	if !parallel {
-		for i, c := range containers {
-			// Never start a target after cancellation: an action handed a dead
-			// ctx can fail mid-call and trigger a revert on an untouched container.
-			select {
-			case <-ctx.Done():
-				skipTargets(gp, tick, containers[i:])
-				return nil
-			default:
-			}
-			if err := run(c); err != nil {
-				skipTargets(gp, tick, containers[i+1:])
-				return err
-			}
-		}
-		return nil
-	}
-	var eg errgroup.Group
-	for _, c := range containers {
-		eg.Go(func() error { return run(c) })
-	}
-	return eg.Wait()
+	return dispatch(ctx, len(containers), parallel, false,
+		func(i int) error { return run(containers[i]) },
+		func(i int) { skipTargets(gp, tick, containers[i:i+1]) })
 }
 
 // ErrNegativeMaxTargets rejects invalid caps before listing or injecting.
@@ -144,12 +124,19 @@ var ErrMaxTargetsExceeded = errors.New("refusing to run")
 const maxTargetNames = 10
 
 func checkMaxTargets(containers []*container.Container, maxTargets int) error {
-	if maxTargets == 0 || len(containers) <= maxTargets {
-		return nil
-	}
 	names := make([]string, 0, min(len(containers), maxTargetNames))
 	for _, c := range containers[:min(len(containers), maxTargetNames)] {
 		names = append(names, c.Name())
 	}
-	return fmt.Errorf("%w: %d containers selected, --max-targets is %d (first %d: %s)", ErrMaxTargetsExceeded, len(containers), maxTargets, len(names), strings.Join(names, ", "))
+	return checkTargetCount(len(containers), maxTargets, names)
+}
+
+func checkTargetCount(count, maxTargets int, names []string) error {
+	if maxTargets < 0 {
+		return ErrNegativeMaxTargets
+	}
+	if maxTargets == 0 || count <= maxTargets {
+		return nil
+	}
+	return fmt.Errorf("%w: %d containers selected, --max-targets is %d (first %d: %s)", ErrMaxTargetsExceeded, count, maxTargets, len(names), strings.Join(names, ", "))
 }

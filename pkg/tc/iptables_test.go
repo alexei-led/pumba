@@ -53,9 +53,24 @@ func TestIPTablesCommands(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, IPTablesCommands(&tt.req))
+			assert.Equal(t, tt.want, iptablesCommands(t, &tt.req))
 		})
 	}
+}
+
+func TestIPTablesMatchAllBuildsBoundedConjunctions(t *testing.T) {
+	req := IPTablesRequest{CmdPrefix: []string{"-I", "INPUT"}, CmdSuffix: []string{"-j", "DROP"}, SrcIPs: []string{"10.0.0.1/32", "10.0.0.2/32"}, DstIPs: []string{"192.0.2.0/24"}, SPorts: []string{"80", "443"}, MatchAll: true}
+	commands := iptablesCommands(t, &req)
+	require.Len(t, commands, 4)
+	for _, command := range commands {
+		assert.Contains(t, command, "-s")
+		assert.Contains(t, command, "-d")
+		assert.Contains(t, command, "--sport")
+	}
+	req.SPorts = []string{"not-a-port"}
+	commands, err := IPTablesCommands(&req)
+	require.Error(t, err)
+	assert.Nil(t, commands)
 }
 
 func TestIPTablesCommandsAddAndDeleteDifferOnlyInOperation(t *testing.T) {
@@ -63,7 +78,7 @@ func TestIPTablesCommandsAddAndDeleteDifferOnlyInOperation(t *testing.T) {
 	del := add
 	del.CmdPrefix = []string{"-D", "INPUT"}
 
-	addCmds, delCmds := IPTablesCommands(&add), IPTablesCommands(&del)
+	addCmds, delCmds := iptablesCommands(t, &add), iptablesCommands(t, &del)
 
 	require.Len(t, delCmds, len(addCmds))
 	for i := range addCmds {

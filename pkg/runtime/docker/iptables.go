@@ -27,7 +27,7 @@ func (client dockerClient) StopIPTablesContainer(ctx context.Context, req *ctr.I
 // StopIPTablesContainer(del) run. The `which iptables` probe of exec mode is
 // not part of the plan.
 func (client dockerClient) PlanIPTablesContainer(add, del *ctr.IPTablesRequest) (*ctr.CommandPlan, error) {
-	return netns.IPTablesPlan(add, del), nil
+	return netns.IPTablesPlan(add, del)
 }
 
 func logIPTablesRequest(req *ctr.IPTablesRequest) *log.Entry {
@@ -52,7 +52,10 @@ func (client dockerClient) runIPTables(ctx context.Context, req *ctr.IPTablesReq
 	if req.DryRun {
 		return nil
 	}
-	commands := netns.IPTablesCommands(req)
+	commands, err := netns.IPTablesCommands(req)
+	if err != nil {
+		return err
+	}
 	if req.Sidecar.Image != "" {
 		labels := ctr.SidecarLabels(req.RunID, req.Container.ID(), ctr.SidecarKindIPTables)
 		return client.runSidecar(ctx, req.Container, req.Sidecar, labels, ctr.SidecarKindIPTables, commands)

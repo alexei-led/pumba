@@ -111,7 +111,7 @@ func TestInspectNetnsSidecarCleanupFailure(t *testing.T) {
 				task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(nil, operationErr).Once()
 			} else {
 				task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("tc", "qdisc", "show"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
-				task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("iptables", "-S"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
+				task.EXPECT().Exec(mock.Anything, mock.Anything, execArgs("iptables-nft", "-S"), mock.Anything).Return(newSuccessProcess(t), nil).Once()
 			}
 
 			state, err := newTestClient(api).inspectNetns(context.Background(), &ctr.InspectRequest{Container: testContainer("c1"), Sidecar: ctr.SidecarSpec{Image: "nettools"}}, nftVersionExecutor)

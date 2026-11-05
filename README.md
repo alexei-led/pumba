@@ -61,19 +61,19 @@ Pumba targets **Linux containers** — every chaos action depends on Linux primi
 
 ## Features
 
-| Category            | Commands                                  | Description                                                                   |
-| ------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
-| **Container Chaos** | `kill`, `stop`, `pause`, `rm`, `restart`  | Disrupt container lifecycle                                                   |
-| **Execute**         | `exec`                                    | Run commands inside containers                                                |
-| **Network Delay**   | `netem delay`                             | Add latency to egress traffic                                                 |
-| **Packet Loss**     | `netem loss`, `iptables loss`             | Drop packets (egress and ingress)                                             |
-| **Network Effects** | `netem duplicate`, `corrupt`, `rate`      | Duplicate, corrupt, or rate-limit packets                                     |
+| Category             | Commands                                  | Description                                                                   |
+| -------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| **Container Chaos**  | `kill`, `stop`, `pause`, `rm`, `restart`  | Disrupt container lifecycle                                                   |
+| **Execute**          | `exec`                                    | Run commands inside containers                                                |
+| **Network Delay**    | `netem delay`                             | Add latency to egress traffic                                                 |
+| **Packet Loss**      | `netem loss`, `iptables loss`             | Drop packets (egress and ingress)                                             |
+| **Network Effects**  | `netem duplicate`, `corrupt`, `rate`      | Duplicate, corrupt, or rate-limit packets                                     |
 | **Combined Effects** | `netem combine`                           | Apply multiple effects in one owned netem qdisc                               |
-| **Stress Testing**  | `stress`                                  | CPU, memory, I/O stress via stress-ng (child cgroup or same-cgroup injection) |
-| **Targeting**       | names, regex (`re2:`), labels, `--random` | Flexible container selection                                                  |
-| **Scheduling**      | `--interval`                              | Recurring chaos at fixed intervals                                            |
-| **Agents**          | `schema`, `--output ndjson`               | CLI description as JSON; result events on stdout                              |
-| **Leftover check**  | `status [--check]`                        | Find iptables rules, qdiscs and sidecars a run left behind                    |
+| **Stress Testing**   | `stress`                                  | CPU, memory, I/O stress via stress-ng (child cgroup or same-cgroup injection) |
+| **Targeting**        | names, regex (`re2:`), labels, `--random` | Flexible container selection; netem/iptables also offer opt-in `--match-all`  |
+| **Scheduling**       | `--interval`                              | Recurring chaos at fixed intervals                                            |
+| **Agents**           | `schema`, `--output ndjson`               | CLI description as JSON; result events on stdout                              |
+| **Leftover check**   | `status [--check]`, `revert --run-id`     | Inspect faults and recover eligible run-tagged rules/sidecars                 |
 
 ## Quick Start
 
@@ -170,34 +170,34 @@ podman machine ssh sudo pumba --runtime podman netem --duration 10s delay --time
 
 ### Global flags
 
-| Flag | Default | Environment variable | Description |
-| ---- | ------- | -------------------- | ----------- |
-| `--host`, `-H` | `unix:///var/run/docker.sock` | `DOCKER_HOST` | Daemon socket to connect to |
-| `--runtime` | `docker` | — | Container runtime: `docker`, `containerd`, or `podman` |
-| `--containerd-socket` | `/run/containerd/containerd.sock` | — | containerd socket location |
-| `--containerd-namespace` | `k8s.io` | — | containerd namespace |
-| `--podman-socket` | Empty (auto-detected) | — | Podman socket URI; see [Podman Runtime](#podman-runtime) for discovery |
-| `--tls` | `false` | — | Use TLS; implied by `--tlsverify` |
-| `--tlsverify` | `false` | `DOCKER_TLS_VERIFY` | Use TLS and verify the remote |
-| `--tlscacert` | `/etc/ssl/docker/ca.pem` | — | Trust certificates signed only by this CA |
-| `--tlscert` | `/etc/ssl/docker/cert.pem` | — | Client certificate for TLS authentication |
-| `--tlskey` | `/etc/ssl/docker/key.pem` | — | Client key for TLS authentication |
-| `--log-level`, `-l` | `warning` | `LOG_LEVEL` | Log level: `debug`, `info`, `warning`, `error`, `fatal`, `panic` |
-| `--json`, `-j` | `false` | `LOG_JSON` | JSON log output (Logstash/Splunk-friendly) |
-| `--slackhook` | Empty | — | Slack incoming webhook URL for log events |
-| `--slackchannel` | `#pumba` | — | Slack channel for log events |
-| `--interval`, `-i` | `0s` (single run) | — | Recurring interval; accepts `ms`, `s`, `m`, or `h` |
-| `--label` | Empty list | — | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic); unsupported for containerd |
-| `--max-targets` | `unset` | — | Refuse before any injection when targets exceed N after `--limit`/`--random`; `0` disables the cap; applies to dry-run and every interval tick |
-| `--random`, `-r` | `false` | — | Pick one matching container at random |
-| `--dry-run` | `false` | `DRY-RUN` | Preview without chaos or duration waits; netem/iptables print apply/revert commands to stdout |
-| `--skip-error` | `false` | — | Skip chaos command errors and retry on the next interval tick |
-| `--output`, `-o` | `text` | — | `ndjson`: result events (`pumba.event/v1`) on stdout, one per line; logs stay on stderr |
-| `--run-id` | Generated | — | Name this run in result events and tag what it creates (sidecar labels, iptables comments); 1–48 characters from `[A-Za-z0-9_.-]` |
-| `--max-duration` | `0` (unlimited) | — | Time budget for active chaos and `--interval`; on expiry in-flight chaos is cleaned up and the run exits 1 |
-| `--webhook` | Empty | — | POST each result event as JSON to this `http(s)` URL; best effort, in every `--output` mode |
-| `--help`, `-h` | `false` | — | Show help (built-in) |
-| `--version`, `-v` | `false` | — | Print the version (built-in) |
+| Flag                     | Default                           | Environment variable | Description                                                                                                                                    |
+| ------------------------ | --------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--host`, `-H`           | `unix:///var/run/docker.sock`     | `DOCKER_HOST`        | Daemon socket to connect to                                                                                                                    |
+| `--runtime`              | `docker`                          | —                    | Container runtime: `docker`, `containerd`, or `podman`                                                                                         |
+| `--containerd-socket`    | `/run/containerd/containerd.sock` | —                    | containerd socket location                                                                                                                     |
+| `--containerd-namespace` | `k8s.io`                          | —                    | containerd namespace                                                                                                                           |
+| `--podman-socket`        | Empty (auto-detected)             | —                    | Podman socket URI; see [Podman Runtime](#podman-runtime) for discovery                                                                         |
+| `--tls`                  | `false`                           | —                    | Use TLS; implied by `--tlsverify`                                                                                                              |
+| `--tlsverify`            | `false`                           | `DOCKER_TLS_VERIFY`  | Use TLS and verify the remote                                                                                                                  |
+| `--tlscacert`            | `/etc/ssl/docker/ca.pem`          | —                    | Trust certificates signed only by this CA                                                                                                      |
+| `--tlscert`              | `/etc/ssl/docker/cert.pem`        | —                    | Client certificate for TLS authentication                                                                                                      |
+| `--tlskey`               | `/etc/ssl/docker/key.pem`         | —                    | Client key for TLS authentication                                                                                                              |
+| `--log-level`, `-l`      | `warning`                         | `LOG_LEVEL`          | Log level: `debug`, `info`, `warning`, `error`, `fatal`, `panic`                                                                               |
+| `--json`, `-j`           | `false`                           | `LOG_JSON`           | JSON log output (Logstash/Splunk-friendly)                                                                                                     |
+| `--slackhook`            | Empty                             | —                    | Slack incoming webhook URL for log events                                                                                                      |
+| `--slackchannel`         | `#pumba`                          | —                    | Slack channel for log events                                                                                                                   |
+| `--interval`, `-i`       | `0s` (single run)                 | —                    | Recurring interval; accepts `ms`, `s`, `m`, or `h`                                                                                             |
+| `--label`                | Empty list                        | —                    | Filter by labels: `--label k1=v1 --label k2=v2` or `--label k1=v1,k2=v2` (AND logic); unsupported for containerd                               |
+| `--max-targets`          | `unset`                           | —                    | Refuse before any injection when targets exceed N after `--limit`/`--random`; `0` disables the cap; applies to dry-run and every interval tick |
+| `--random`, `-r`         | `false`                           | —                    | Pick one matching container at random                                                                                                          |
+| `--dry-run`              | `false`                           | `DRY-RUN`            | Preview without chaos or duration waits; netem/iptables print apply/revert commands to stdout                                                  |
+| `--skip-error`           | `false`                           | —                    | Skip chaos command errors and retry on the next interval tick                                                                                  |
+| `--output`, `-o`         | `text`                            | —                    | `ndjson`: result events (`pumba.event/v1`) on stdout, one per line; logs stay on stderr                                                        |
+| `--run-id`               | Generated                         | —                    | Name this run in result events and tag what it creates (sidecar labels, iptables comments); 1–48 characters from `[A-Za-z0-9_.-]`              |
+| `--max-duration`         | `0` (unlimited)                   | —                    | Time budget for active chaos and `--interval`; on expiry in-flight chaos is cleaned up and the run exits 1                                     |
+| `--webhook`              | Empty                             | —                    | POST each result event as JSON to this `http(s)` URL; best effort, in every `--output` mode                                                    |
+| `--help`, `-h`           | `false`                           | —                    | Show help (built-in)                                                                                                                           |
+| `--version`, `-v`        | `false`                           | —                    | Print the version (built-in)                                                                                                                   |
 
 TLS certificate defaults use `DOCKER_CERT_PATH` instead of `/etc/ssl/docker` when set.
 `--interval=0` runs once. Use `--skip-error` with intervals to continue after transient failures.
@@ -223,15 +223,16 @@ Images are built natively for **linux/amd64** and **linux/arm64** (no QEMU).
 
 ## Documentation
 
-| Document                                     | Description                                                    |
-| -------------------------------------------- | -------------------------------------------------------------- |
-| **[User Guide](docs/guide.md)**              | Container chaos commands, targeting, scheduling, configuration |
-| **[Network Chaos](docs/network-chaos.md)**   | netem, iptables, advanced scenarios, architecture diagrams     |
-| **[Stress Testing](docs/stress-testing.md)** | CPU/memory/IO stress testing with stress-ng                    |
-| **[Deployment](docs/deployment.md)**         | Docker, Kubernetes DaemonSets, OpenShift                       |
-| **[Agents](docs/agents.md)**                 | NDJSON/webhook events, `pumba schema`, `status --check`, exit codes, run budget |
-| **[Architecture](docs/architecture.md)**     | Module boundaries and the archfit policy that enforces them    |
-| **[Contributing](CONTRIBUTING.md)**          | Build from source, run tests, project structure                |
+| Document                                                   | Description                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **[User Guide](docs/guide.md)**                            | Container chaos commands, targeting, scheduling, configuration                  |
+| **[Network Chaos](docs/network-chaos.md)**                 | netem, iptables, advanced scenarios, architecture diagrams                      |
+| **[Auth Outage Rehearsal](docs/auth-outage-rehearsal.md)** | Bounded staging auth-dependency outage example                                  |
+| **[Stress Testing](docs/stress-testing.md)**               | CPU/memory/IO stress testing with stress-ng                                     |
+| **[Deployment](docs/deployment.md)**                       | Docker, Kubernetes DaemonSets, OpenShift                                        |
+| **[Agents](docs/agents.md)**                               | NDJSON/webhook events, `pumba schema`, `status --check`, exit codes, run budget |
+| **[Architecture](docs/architecture.md)**                   | Module boundaries and the archfit policy that enforces them                     |
+| **[Contributing](CONTRIBUTING.md)**                        | Build from source, run tests, project structure                                 |
 
 ## Demo
 
