@@ -18,7 +18,8 @@ check.
 | `pkg_util`      | `pkg/util/`      | `pkg/util`                                           | core  | low        | Domain-agnostic parsing helpers                                                        |
 
 The public part of a module is what other modules may use. Test files
-(`*_test.go`, `tests/`) and the generated mocks are outside the rules.
+(`*_test.go` files and any `tests/` directory) and the generated mocks are
+outside the rules.
 
 ## Allowed dependencies
 
@@ -43,12 +44,13 @@ flowchart TB
   runtime --> tc
 ```
 
-Two boundaries carry the design:
+Three boundaries carry the design:
 
 - Chaos actions reach a runtime only through `container.Client`. `pkg/chaos`
   never imports `pkg/runtime`, so every action works on Docker, containerd and
   Podman.
 - `pkg/container`, `pkg/tc` and `pkg/util` depend on no other module.
+- Only `cmd` depends on `pkg_runtime`: it is the one place that picks a runtime.
 
 ## Rules
 

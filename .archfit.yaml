@@ -80,7 +80,7 @@ rules:
       from: pkg_chaos
       to: pkg_runtime
     why: Chaos says what to do through the container.Client interface; runtime adapters say how. A direct import bypasses the interface and ties chaos actions to one runtime.
-    instead: Add a method to container.Client in pkg/container/client.go, and implement it in each runtime.
+    instead: Add the method to a container.Client sub-interface in pkg/container/client.go, and implement it in the runtime adapters.
   - id: no-util-to-domain
     deny:
       from: pkg_util
