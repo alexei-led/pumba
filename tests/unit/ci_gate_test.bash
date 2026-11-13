@@ -5,20 +5,18 @@ for docs in true false invalid; do
 	for changes in success failure cancelled skipped; do
 		for unit in success failure cancelled skipped; do
 			for integration in success failure cancelled skipped; do
-				for profile in success failure cancelled skipped; do
-					expected=1
-					if [ "$changes" = success ]; then
-						if [ "$docs" = true ] && [ "$unit" = skipped ] && [ "$integration" = skipped ] && [ "$profile" = skipped ]; then expected=0; fi
-						if [ "$docs" = false ] && [ "$unit" = success ] && [ "$integration" = success ] && [ "$profile" = success ]; then expected=0; fi
-					fi
-					actual=0
-					CHANGES_RESULT="$changes" DOCS_ONLY="$docs" UNIT_RESULT="$unit" INTEGRATION_RESULT="$integration" ARCHITECTURE_PROFILE_RESULT="$profile" \
-						bash .github/scripts/ci-gate.bash >/dev/null 2>&1 || actual=$?
-					if [ "$actual" -ne "$expected" ]; then
-						printf 'Unexpected gate result: docs=%s changes=%s unit=%s integration=%s profile=%s\n' "$docs" "$changes" "$unit" "$integration" "$profile" >&2
-						exit 1
-					fi
-				done
+				expected=1
+				if [ "$changes" = success ]; then
+					if [ "$docs" = true ] && [ "$unit" = skipped ] && [ "$integration" = skipped ]; then expected=0; fi
+					if [ "$docs" = false ] && [ "$unit" = success ] && [ "$integration" = success ]; then expected=0; fi
+				fi
+				actual=0
+				CHANGES_RESULT="$changes" DOCS_ONLY="$docs" UNIT_RESULT="$unit" INTEGRATION_RESULT="$integration" \
+					bash .github/scripts/ci-gate.bash >/dev/null 2>&1 || actual=$?
+				if [ "$actual" -ne "$expected" ]; then
+					printf 'Unexpected gate result: docs=%s changes=%s unit=%s integration=%s\n' "$docs" "$changes" "$unit" "$integration" >&2
+					exit 1
+				fi
 			done
 		done
 	done

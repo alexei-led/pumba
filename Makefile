@@ -227,10 +227,6 @@ help:
 version:
 	@echo $(VERSION)
 
-.PHONY: archfit-check
-archfit-check: ## Check architecture in the pinned CI engine (set DOCKER_CONTEXT explicitly)
-	$Q bash .github/scripts/archfit-check.bash --format agent
-
 .PHONY: debug
 debug:
 	@echo $(LDFLAGS_VERSION)
