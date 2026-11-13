@@ -105,7 +105,7 @@ jobs:
           # Exact daemon advisory applicability and JSON exit contract: docs/security.md.
           bash .github/scripts/govulncheck.bash 2>&1 | tee govulncheck.txt
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2
+        uses: EnricoMi/publish-unit-test-result-action@da5b7be67623cd59bbbd1a0ce4f022050a55605f # v2
         if: always() && needs.changes.outputs.docs_only != 'true'
         with:
           files: .cover/tests.xml
@@ -211,7 +211,7 @@ jobs:
           make build TARGETARCH="$(dpkg --print-architecture)"
           sudo install -m 755 .bin/github.com/alexei-led/pumba /usr/local/bin/pumba
       - name: Install Bats
-        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # 4.0.0
+        uses: bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e # 4.1.0
         with:
           support-path: /usr/local/lib/bats-support
           assert-path: /usr/local/lib/bats-assert
