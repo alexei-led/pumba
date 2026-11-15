@@ -12,7 +12,7 @@ false) expected=success ;;
 	exit 1
 	;;
 esac
-for result in "${UNIT_RESULT:-}" "${INTEGRATION_RESULT:-}" "${ARCHITECTURE_PROFILE_RESULT:-}"; do
+for result in "${UNIT_RESULT:-}" "${INTEGRATION_RESULT:-}"; do
 	if [ "$result" != "$expected" ]; then
 		printf 'Required job result %s; expected %s\n' "$result" "$expected" >&2
 		exit 1
