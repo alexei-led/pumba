@@ -30,11 +30,10 @@ on:
         description: What a dispatched run does. Reports come from pull_request, merge_group and push runs, so a dispatch picks discovery, baseline or reanchor
         type: choice
         options:
-          - report
           - discovery
           - baseline
           - reanchor
-        default: report
+        default: discovery
 
 permissions:
   contents: read
@@ -44,7 +43,7 @@ jobs:
   archfit:
     runs-on: ubuntu-latest
     steps:
-      - uses: alexei-led/archfit-action@2221f4bfece0725a657414fed751cdc090ba1bd4 # v3.1.1
+      - uses: alexei-led/archfit-action@70d7292097b9238f33ee3ca71e923e37592297f4 # v4.0.0
         with:
           endpoint: "https://app.coupling.dev"
           audience: "https://app.coupling.dev"
