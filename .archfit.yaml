@@ -60,6 +60,8 @@ modules:
     volatility: high
     subdomain: core
     layer: core
+    depends_on:
+      - pkg_util  # request #415
   pkg_util:
     paths:
       - pkg/util/**
