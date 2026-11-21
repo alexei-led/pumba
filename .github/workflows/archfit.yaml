@@ -26,7 +26,7 @@ jobs:
   archfit:
     runs-on: ubuntu-latest
     steps:
-      - uses: alexei-led/archfit-action@9669571b7b25e3f37fd7f1d99d7b89741c6c95d6 # v4.0.0
+      - uses: coupling-dev/archfit-action@53e0c49d80627efa4262d7ee78c56dd6054a6e43 # v0.9.0
         with:
           endpoint: "https://app.coupling.dev"
           audience: "https://app.coupling.dev"
