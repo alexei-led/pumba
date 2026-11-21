@@ -1,6 +1,6 @@
 # The Archfit policy, converted by archfit init from the Archfit 3 files and reviewed.
 # docs/architecture.md explains it. Change it with `archfit request`, never by hand.
-version: 3
+version: 1
 owners:
   - alexei-led
 gate: required
